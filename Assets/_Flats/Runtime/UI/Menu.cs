@@ -671,7 +671,7 @@ public partial class Menu : MonoBehaviour
 		{
 			filterMode = FilterMode.Bilinear
 		};
-		byte[] bytes = System.IO.File.ReadAllBytes(Application.persistentDataPath + "/Flats_UserIcon.png");
+		byte[] bytes = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
 		icon.LoadImage(bytes);
 		ExitGames.Client.Photon.Hashtable playerProps = new ExitGames.Client.Photon.Hashtable();
 		playerProps["K"] = myCharacter.kill;
@@ -839,26 +839,26 @@ public partial class Menu : MonoBehaviour
 			myCharacter.attack = 0;
 			myCharacter.defense = 0;
 		}
-		if (!System.IO.File.Exists(Application.persistentDataPath + "/Flats_UserIcon.png"))
+		if (!System.IO.File.Exists((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png"))
 		{
-			if (System.IO.File.Exists(Application.persistentDataPath + "/UserIcon.png"))
+			if (System.IO.File.Exists((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/UserIcon.png"))
 			{
-				System.IO.File.Delete(Application.persistentDataPath + "/UserIcon.png");
+				System.IO.File.Delete((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/UserIcon.png");
 			}
 			byte[] bytes = defaultIcon.EncodeToPNG();
-			System.IO.File.WriteAllBytes(Application.persistentDataPath + "/Flats_UserIcon.png", bytes);
+			System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", bytes);
 		}
 		Texture2D icon = new Texture2D(128, 128)
 		{
 			filterMode = FilterMode.Bilinear
 		};
-		byte[] bytes2 = System.IO.File.ReadAllBytes(Application.persistentDataPath + "/Flats_UserIcon.png");
+		byte[] bytes2 = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
 		icon.LoadImage(bytes2);
 		if (icon.width < 128 || icon.height < 128)
 		{
 			byte[] bytes3 = defaultIcon.EncodeToPNG();
-			System.IO.File.WriteAllBytes(Application.persistentDataPath + "/Flats_UserIcon.png", bytes3);
-			bytes2 = System.IO.File.ReadAllBytes(Application.persistentDataPath + "/Flats_UserIcon.png");
+			System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", bytes3);
+			bytes2 = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
 			icon.LoadImage(bytes2);
 		}
 		mt.GetChild(5).GetChild(0).GetChild(0)
@@ -1925,7 +1925,7 @@ public partial class Menu : MonoBehaviour
         PhotonNetwork.player.NickName = myCharacter.name;
         PhotonNetwork.SetPlayerCustomProperties(new ExitGames.Client.Photon.Hashtable {
             { "K", 0 }, { "D", 0 }, { "TC", myCharacter.color }, { "C", myCharacter.comment },
-            { "I", System.IO.File.ReadAllBytes(Application.persistentDataPath + "/Flats_UserIcon.png") }
+            { "I", System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png") }
         });
         PhotonNetwork.CreateRoom("Flats Local Bots", new RoomOptions {
             MaxPlayers = 1, IsVisible = false,
@@ -2016,7 +2016,7 @@ public partial class Menu : MonoBehaviour
 				current = "Multiplayer";
 				Texture2D texture2D = new Texture2D(128, 128);
 				texture2D.filterMode = FilterMode.Bilinear;
-				byte[] array = System.IO.File.ReadAllBytes(Application.persistentDataPath + "/Flats_UserIcon.png");
+				byte[] array = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
 				texture2D.LoadImage(array);
 				ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
 				hashtable["K"] = myCharacter.kill;
@@ -3178,7 +3178,7 @@ public partial class Menu : MonoBehaviour
 							string text5 = "Windows: bit.ly/1W0SGjR";
 							string desc = ((Application.platform == RuntimePlatform.Android) ? ("#Flats \n" + text3 + "\n" + text4 + "\n" + text5 + "\n\n") : ((Application.platform != RuntimePlatform.IPhonePlayer) ? ("#Flats \n" + text5 + "\n" + text3 + "\n" + text4 + "\n\n") : ("#Flats \n" + text4 + "\n" + text3 + "\n" + text5 + "\n\n")));
 							byte[] data = flatsLogo.texture.EncodeToPNG();
-							string sharePath = System.IO.Path.Combine(Application.persistentDataPath,"Flats-Share.png");
+							string sharePath = System.IO.Path.Combine((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath),"Flats-Share.png");
 							System.IO.File.WriteAllBytes(sharePath,data);
 							GUIUtility.systemCopyBuffer = "Flats - offline desktop edition";
 							ShowConfirm("Share saved", "Text copied to clipboard. Image saved to:\n"+sharePath, null, "OK", null);
@@ -4072,7 +4072,7 @@ public partial class Menu : MonoBehaviour
 					return;
 				}
 				array = texture2D.EncodeToPNG();
-				System.IO.File.WriteAllBytes(Application.persistentDataPath + "/Flats_UserIcon.png", array);
+				System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", array);
 				mt.GetChild(5).GetChild(0).GetChild(0)
 					.GetChild(0)
 					.GetComponent<Image>()

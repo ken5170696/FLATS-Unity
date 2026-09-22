@@ -174,11 +174,11 @@ public class dreamloLeaderBoard : MonoBehaviour
     private LocalTable ReadLocalScores()
     {
         LocalTable table = new LocalTable();
-        string json = PlayerPrefs.GetString(LocalKey, "");
+        string json = FlatsPreferences.GetString(LocalKey, "");
         if (!string.IsNullOrEmpty(json))
         {
             try { table = JsonUtility.FromJson<LocalTable>(json) ?? new LocalTable(); }
-            catch (ArgumentException) { PlayerPrefs.SetString(LocalKey+".CorruptBackup."+DateTime.UtcNow.Ticks,json); PlayerPrefs.Save(); Debug.LogWarning("Local leaderboard could not be read; original JSON retained in a recovery key."); }
+            catch (ArgumentException) { FlatsPreferences.SetString(LocalKey+".CorruptBackup."+DateTime.UtcNow.Ticks,json); FlatsPreferences.Save(); Debug.LogWarning("Local leaderboard could not be read; original JSON retained in a recovery key."); }
         }
         if (table.scores == null) table.scores = new List<Score>();
         highScores = "";
@@ -200,8 +200,8 @@ public class dreamloLeaderBoard : MonoBehaviour
         if (index >= 0) table.scores[index] = score; else table.scores.Add(score);
         table.scores.Sort((a,b) => b.score.CompareTo(a.score));
         if (table.scores.Count > 100) table.scores.RemoveRange(100, table.scores.Count - 100);
-        PlayerPrefs.SetString(LocalKey, JsonUtility.ToJson(table));
-        PlayerPrefs.Save();
+        FlatsPreferences.SetString(LocalKey, JsonUtility.ToJson(table));
+        FlatsPreferences.Save();
         ReadLocalScores();
     }
 
