@@ -830,7 +830,7 @@ public class ETCInput : ETCSingleton<ETCInput>
 
 	private void RegisterAxis(ETCAxis axis)
 	{
-		if (ETCSingleton<ETCInput>.instance.axes.ContainsKey(axis.name))
+		if (axes.ContainsKey(axis.name))
 		{
 			Debug.LogWarning("ETCInput axis : " + axis.name + " already exists");
 		}

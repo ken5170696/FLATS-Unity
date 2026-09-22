@@ -171,7 +171,7 @@ PlayerSettings:
   androidMinAspectRatio: 1
   applicationIdentifier:
     Android: 
-    Standalone: unity.FlatsRecovery.Flats Offline
+    Standalone: unity.FlatsRecovery.Flats-Offline
     WebGL: com.FlatsRecovery.Flats-Offline
     iPhone: com.foliagegames.flats
     tvOS: 

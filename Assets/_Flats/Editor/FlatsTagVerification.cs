@@ -20,6 +20,6 @@ public static class FlatsTagVerification {
     report.checks.Add(new Check{prefab=name,name=t.name,tag=t.tag,expected=expected,pass=t.tag==expected});
    }
   }
-  string rootPath=Path.GetFullPath(Path.Combine(Application.dataPath,"../.."));string ev=FlatsDeveloperPaths.Reports;File.WriteAllText(Path.Combine(ev,"tag-audit.json"),JsonUtility.ToJson(report,true));EditorApplication.Exit(report.checks.TrueForAll(c=>c.pass)?0:1);
+  string ev=FlatsDeveloperPaths.Reports;File.WriteAllText(Path.Combine(ev,"tag-audit.json"),JsonUtility.ToJson(report,true));EditorApplication.Exit(report.checks.TrueForAll(c=>c.pass)?0:1);
  }
 }

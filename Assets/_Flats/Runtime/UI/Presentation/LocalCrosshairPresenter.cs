@@ -13,7 +13,12 @@ namespace Flats.UI
         bool replacing;
         public bool IsCustom { get { return replacing; } }
         public void BindLocalOwner(Object localOwner) { owner = localOwner; }
-        public void SetVisible(bool visible) { gameObject.SetActive(visible); }
+        public void SetVisible(bool visible)
+        {
+            // The controller retains this through an interface. During scene
+            // teardown that managed reference can outlive the native UI object.
+            if(this != null)gameObject.SetActive(visible);
+        }
         void Awake() { original = GetComponentsInChildren<Image>(true); originalEnabled = new bool[original.Length]; }
         void LateUpdate()
         {

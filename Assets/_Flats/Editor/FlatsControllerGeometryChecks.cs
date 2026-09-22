@@ -103,7 +103,7 @@ public static class FlatsControllerGeometryChecks
                 row.status=ok?"PASS":"FAIL"; rows.Add(row);
             } finally { UnityEngine.SceneManagement.SceneManager.SetActiveScene(previous); EditorSceneManager.CloseScene(scene,true); }
         }
-        string root=Path.GetFullPath(Path.Combine(Application.dataPath,"../.."));
+
         var arguments=Environment.GetCommandLineArgs();int outputIndex=Array.IndexOf(arguments,"-visualEvidence");
         string output=outputIndex>=0?arguments[outputIndex+1]:FlatsDeveloperPaths.Reports;
         File.WriteAllText(Path.Combine(output,"controller-engine-fixture.json"),JsonUtility.ToJson(new Report{unity=Application.unityVersion,utc=DateTime.UtcNow.ToString("o"),cases=rows.ToArray()},true));

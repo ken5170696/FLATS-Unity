@@ -42,6 +42,7 @@ public static class FlatsDeveloperValidation
         FlatsMultiplayerRecoveryChecks.Run();
         VerifyCatalogueConfiguration();
         VerifyIsolatedLeaderboard();
+        VerifyCrosshairTeardown();
         Debug.Log("FLATS_DEVELOPER_VALIDATION_PASS");
     }
     static void Inspect(GameObject root,string path,List<string> issues)
@@ -69,6 +70,16 @@ public static class FlatsDeveloperValidation
             Environment.SetEnvironmentVariable(key,"https://catalogue.example.org");
             if(Flats.Modules.OfficialModEndpoint.Url!="https://catalogue.example.org")throw new Exception("Catalogue configuration ignored");
         } finally {Environment.SetEnvironmentVariable(key,old);}
+    }
+    static void VerifyCrosshairTeardown()
+    {
+        var go=new GameObject("Crosshair lifecycle regression",typeof(RectTransform));
+        Flats.UI.ICrosshairVisibility presenter=go.AddComponent<Flats.UI.LocalCrosshairPresenter>();
+        presenter.SetVisible(false);
+        if(go.activeSelf)throw new Exception("Crosshair visibility was not applied");
+        UnityEngine.Object.DestroyImmediate(go);
+        // Scene teardown may destroy the UI before FPSController.OnDisable.
+        presenter.SetVisible(true);
     }
     static void VerifyIsolatedLeaderboard()
     {

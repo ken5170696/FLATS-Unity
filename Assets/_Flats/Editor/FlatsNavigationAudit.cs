@@ -22,7 +22,7 @@ public static class FlatsNavigationAudit {
     if(!p.route){var surfaces=new List<string>();foreach(var c in UnityEngine.Object.FindObjectsOfType<Collider>())if(!c.isTrigger&&c.bounds.SqrDistance(hit.position)<100)surfaces.Add(c.name+" parent="+(c.transform.parent==null?"":c.transform.parent.name)+" bounds="+c.bounds);p.nearbySurfaces=surfaces.ToArray();}
    } instance.Remove();
   }
-  string root=Path.GetFullPath(Path.Combine(Application.dataPath,"../.."));string ev=FlatsDeveloperPaths.Reports;
+  string ev=FlatsDeveloperPaths.Reports;
   File.WriteAllText(Path.Combine(ev,"navigation-audit.json"),JsonUtility.ToJson(report,true));EditorApplication.Exit(0);
  }
 }

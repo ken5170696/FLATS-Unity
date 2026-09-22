@@ -168,7 +168,8 @@ public abstract class ETCBase : MonoBehaviour
 	{
 		if (!isShuttingDown && !Application.isLoadingLevel)
 		{
-			ETCSingleton<ETCInput>.instance.UnRegisterControl(this);
+            var input = ETCSingleton<ETCInput>.ExistingInstance;
+            if (input != null) input.UnRegisterControl(this);
 		}
 	}
 

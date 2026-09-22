@@ -655,14 +655,15 @@ public class Singleplayer : MonoBehaviour
 		int o = ((Menu.currentSurvivalPhase >= 8) ? ((Menu.currentSurvivalPhase < 10) ? 1 : ((Menu.currentSurvivalPhase < 12) ? 2 : ((Menu.currentSurvivalPhase < 17) ? 3 : ((Menu.currentSurvivalPhase < 19) ? 4 : ((Menu.currentSurvivalPhase < 21) ? 3 : ((Menu.currentSurvivalPhase < 25) ? (Menu.currentSurvivalPhase - 19) : ((Menu.currentSurvivalPhase < 28) ? 6 : ((Menu.currentSurvivalPhase < 29) ? 4 : ((Menu.currentSurvivalPhase < 30) ? 2 : 0))))))))) : 0);
 		int r = ((Menu.currentSurvivalPhase >= 11) ? ((Menu.currentSurvivalPhase < 15) ? 1 : ((Menu.currentSurvivalPhase < 19) ? 2 : ((Menu.currentSurvivalPhase < 21) ? 3 : ((Menu.currentSurvivalPhase < 26) ? 4 : ((Menu.currentSurvivalPhase < 28) ? (Menu.currentSurvivalPhase - 21) : ((Menu.currentSurvivalPhase < 29) ? 8 : ((Menu.currentSurvivalPhase >= 30) ? 12 : 10))))))) : 0);
 		int enemyCount = (enemy = p + b + g + y + o + r);
-		int lastPoint = 0;
+		int lastPoint = -1;
 		for (int i = 0; i < enemyCount; i++)
 		{
 			int ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 			if (ram == lastPoint)
 			{
-				ram = ((ram <= spawnPoint.Length) ? (ram + 1) : 0);
+				ram = (ram + 1) % spawnPoint.Length;
 			}
+			lastPoint = ram;
 			int[] statsOfEnemy = new int[2];
 			if (p > 0)
 			{

@@ -318,6 +318,7 @@ MonoBehaviour:
     a: 1
   m_Texture: {fileID: 8400000, guid: 2a161df46329ef14ebec6ff483fc1d14, type: 2}
   m_UVRect:
+    serializedVersion: 2
     x: 0
     y: 0
     width: 1
@@ -404,6 +405,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f04e05110126f95aa235ed68d8504c0e, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  colorCorrectionCurvesShader: {fileID: 4800000, guid: faa2b18717bbbe344b0d3a5daa7230a5, type: 3}
+  simpleColorCorrectionCurvesShader: {fileID: 4800000, guid: c1705c344e72cdc4c8f4931f5235a5df, type: 3}
+  colorCorrectionSelectiveShader: {fileID: 4800000, guid: 4d3d21ea51b63174b8f515d7faba8f48, type: 3}
 --- !u!1001 &100100000
 Prefab:
   serializedVersion: 2

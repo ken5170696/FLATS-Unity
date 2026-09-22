@@ -14,7 +14,7 @@ public static class FlatsGlassMaterialVerification {
   var rt=new RenderTexture(32,32,24,RenderTextureFormat.ARGB32,RenderTextureReadWrite.Linear);camera.targetTexture=rt;camera.Render();RenderTexture.active=rt;
   var pixels=new Texture2D(32,32,TextureFormat.RGBA32,false,true);pixels.ReadPixels(new Rect(0,0,32,32),0,0);pixels.Apply();var actual=pixels.GetPixel(16,16);
   var report=new Report{utc=DateTime.UtcNow.ToString("o"),gpu=SystemInfo.graphicsDeviceName,expected=Color.green.ToString(),actual=actual.ToString(),sharedColorAfter=mat.color.ToString(),pass=actual.g>.9f&&actual.r<.05f&&actual.b<.05f&&mat.color==Color.white};
-  string root=Path.GetFullPath(Path.Combine(Application.dataPath,"../.."));string ev=FlatsDeveloperPaths.Reports;File.WriteAllText(Path.Combine(ev,"glass-material-gpu.json"),JsonUtility.ToJson(report,true));
+  string ev=FlatsDeveloperPaths.Reports;File.WriteAllText(Path.Combine(ev,"glass-material-gpu.json"),JsonUtility.ToJson(report,true));
   camera.targetTexture=null;RenderTexture.active=null;rt.Release();UnityEngine.Object.DestroyImmediate(rt);UnityEngine.Object.DestroyImmediate(pixels);UnityEngine.Object.DestroyImmediate(mat);EditorApplication.Exit(report.pass?0:1);
  }
 }

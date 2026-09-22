@@ -4,6 +4,9 @@ public class ETCSingleton<T> : MonoBehaviour where T : ETCSingleton<T>
 {
 	private static T m_Instance = null;
 
+    // Teardown must not instantiate a new input manager after the old one died.
+    public static T ExistingInstance => m_Instance != null ? m_Instance : UnityEngine.Object.FindObjectOfType<T>();
+
 	public static T instance
 	{
 		get

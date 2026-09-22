@@ -59,6 +59,7 @@ public class FlatsUiVerificationDriver : MonoBehaviour
                     if(found==null)throw new Exception("No matching input field");found.text=command.value;found.onEndEdit.Invoke(found.text);
                 }
                 else if(command.action=="control")FlatsVerificationInput.Dispatch(command.value);
+                else if(command.action=="capture-optics")StartCoroutine(CaptureOptics(command.id));
                 else if(command.action=="protocol-test")
                 {
                     var args=Environment.GetCommandLineArgs();
@@ -79,5 +80,21 @@ public class FlatsUiVerificationDriver : MonoBehaviour
             File.Move(file,archive);
             File.WriteAllText(Path.Combine(directory,receipt.id+"-receipt.json"),JsonUtility.ToJson(receipt));
         }
+    }
+    private IEnumerator CaptureOptics(string id)
+    {
+        yield return new WaitForEndOfFrame();
+        foreach(var camera in FindObjectsOfType<Camera>())
+        {
+            var target=camera.targetTexture;if(target==null)continue;
+            var old=RenderTexture.active;var read=new Texture2D(target.width,target.height,TextureFormat.RGB24,false);
+            try
+            {
+                RenderTexture.active=target;read.ReadPixels(new Rect(0,0,target.width,target.height),0,0);read.Apply();
+                File.WriteAllBytes(Path.Combine(directory,id+"-camera-"+camera.GetInstanceID()+".png"),read.EncodeToPNG());
+            }
+            finally {RenderTexture.active=old;Destroy(read);}
+        }
+        UnityEngine.ScreenCapture.CaptureScreenshot(Path.Combine(directory,id+"-screen.png"));
     }
 }

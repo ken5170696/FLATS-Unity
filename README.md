@@ -9,6 +9,13 @@ A maintained Unity reconstruction of FLATS, the flat-colour first-person shooter
 3. Allow Package Manager restoration and the initial asset import to finish. This needs network access to the public Unity registry. No AI tools, private files, external repository or API key is needed for offline development.
 4. Open `Assets/_Flats/Scenes/MainMenu.unity` and press **Play**. A new local profile receives defaults. Use the main menu to enter singleplayer or training. Stop Play Mode before changing scenes or running validation.
 
+```sh
+git clone https://github.com/ken5170696/FLATS-Unity.git
+cd FLATS-Unity
+```
+
+On the first Player launch, acknowledge the original welcome/update panel with **OK**, then select **Play > Singleplayer**. Training and Tutorial are available there; Survival selects a game map.
+
 Rendering uses the **Built-in Render Pipeline**, Gamma colour space and the **legacy Input Manager** with InControl. Keep the pipeline asset unset. URP, Shader Graph and VFX packages remain dependencies of the existing package/shader compilation; their presence does not make this a URP project. Keep `manifest.json` and `packages-lock.json` together.
 
 Controls: WASD movement, mouse look, left mouse fire, right mouse aim, Space jump, R reload, E change weapon, Q pick up, Escape pause. The standalone switch `-flats-tutorial` enters Tutorial once after normal initialization.
@@ -21,6 +28,11 @@ Close the editor using this project before running batch commands. From the repo
 $unity = '<Unity installation>/6000.3.24f1/Editor/Unity.exe'
 ./tools/unity.ps1 -UnityEditor $unity -Task Import
 ./tools/unity.ps1 -UnityEditor $unity -Task Validate
+./tools/unity.ps1 -UnityEditor $unity -Task PlayMode
+./tools/unity.ps1 -UnityEditor $unity -Task Shaders
+./tools/unity.ps1 -UnityEditor $unity -Task Sights
+./tools/unity.ps1 -UnityEditor $unity -Task Navigation
+./tools/unity.ps1 -UnityEditor $unity -Task NavigationPlay
 ./tools/unity.ps1 -UnityEditor $unity -Task Windows
 ./Builds/Portal/Windows/FLATS.exe
 ```
@@ -28,6 +40,8 @@ $unity = '<Unity installation>/6000.3.24f1/Editor/Unity.exe'
 Editor equivalents: **Flats > Validation > Validate project and run regression tests** and **Flats Recovery > Portal > Build Windows**. The historical menu label is retained for compatibility. Validation checks all enabled build scenes and all prefabs for missing scripts/references, then runs module lifecycle, dependency, storage recovery and configuration regressions. Reports go to ignored `Logs/`; build reports go to `Builds/Portal/`. A nonzero exit or missing success marker fails the command.
 
 Keep the entire `Builds/Portal/Windows` folder, including `FLATS_Data`, `UnityPlayer.dll` and Mono runtime. Other build tasks are `Web`, `Linux`, `Mac`, `Android`, `IOS`. Build availability is not proof of gameplay support: consult [the validation matrix](docs/VALIDATION.md).
+
+`PlayMode` enters/exits MainMenu twice with a fresh isolated profile, checks initialization/console errors and verifies that shared UI material assets remain unchanged. `Shaders` runs GPU shader contracts; use a graphics-capable host. `Sights` checks all five scope cameras and the actual RawImage mesh UVs, including the legacy Rect serialization regression. `Navigation` checks all six maps; `NavigationPlay` traverses all 20 spawn routes on Warehouse and NightLand using the enemy prefab's agent settings. It tests native navigation, not combat decisions. `Audio` checks clip decoding and references.
 
 For an isolated runtime test that does not change your normal profile:
 

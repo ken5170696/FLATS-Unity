@@ -18,3 +18,5 @@
 *.VC.db
 .DS_Store
 Thumbs.db
+/Assets/Resources/PerformanceTestRunInfo.json*
+/Assets/Resources/PerformanceTestRunSettings.json*

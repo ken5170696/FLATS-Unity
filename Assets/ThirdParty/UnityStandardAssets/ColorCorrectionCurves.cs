@@ -55,6 +55,13 @@ public class ColorCorrectionCurves : PostEffectsBase
 
 	public ColorCorrectionCurves()
 	{
+		redChannel = AnimationCurve.Linear(0, 0, 1, 1);
+		greenChannel = AnimationCurve.Linear(0, 0, 1, 1);
+		blueChannel = AnimationCurve.Linear(0, 0, 1, 1);
+		zCurve = AnimationCurve.Linear(0, 0, 1, 1);
+		depthRedChannel = AnimationCurve.Linear(0, 0, 1, 1);
+		depthGreenChannel = AnimationCurve.Linear(0, 0, 1, 1);
+		depthBlueChannel = AnimationCurve.Linear(0, 0, 1, 1);
 		saturation = 1f;
 		selectiveFromColor = Color.white;
 		selectiveToColor = Color.white;

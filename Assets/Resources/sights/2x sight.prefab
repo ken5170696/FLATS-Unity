@@ -318,6 +318,7 @@ MonoBehaviour:
     a: 1
   m_Texture: {fileID: 8400000, guid: 2a161df46329ef14ebec6ff483fc1d14, type: 2}
   m_UVRect:
+    serializedVersion: 2
     x: 0
     y: 0
     width: 1
@@ -404,6 +405,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6e61addbb070088d8e72980caee52227, type: 3}
   m_Name:
   m_EditorClassIdentifier:
+  strengthX: 0.05
+  strengthY: 0.05
+  fishEyeShader: {fileID: 4800000, guid: a6d11468f9f07c948976b8bf4bb5c818, type: 3}
 --- !u!1001 &100100000
 Prefab:
   serializedVersion: 2

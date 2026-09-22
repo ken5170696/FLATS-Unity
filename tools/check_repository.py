@@ -12,12 +12,19 @@ roots = {'Assets', 'Packages', 'ProjectSettings', 'docs', 'tools', '.github'}
 metadata = {'.gitignore', '.gitattributes', 'README.md', 'THIRD_PARTY_NOTICES.md'}
 errors = []
 guids = {}
+checked_parents = set()
 for name in sorted(files):
     path = root / name
     if name.split('/')[0] not in roots and name not in metadata:
         errors.append(f'Outside public allowlist: {name}')
     if path.is_symlink():
         errors.append(f'Symlink: {name}')
+    for parent in path.parents:
+        if parent == root or parent in checked_parents:
+            break
+        checked_parents.add(parent)
+        if parent.is_symlink() or getattr(parent, 'is_junction', lambda: False)():
+            errors.append(f'Linked parent directory: {parent.relative_to(root)}')
     if not path.is_file():
         errors.append(f'Missing tracked file: {name}')
         continue
