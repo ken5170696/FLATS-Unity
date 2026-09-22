@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!213 &21300000
+Sprite:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: Controller_Fire
+  m_Rect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 512
+    height: 512
+  m_Offset: {x: 0, y: 0}
+  m_Border: {x: 0, y: 0, z: 0, w: 0}
+  m_PixelsToUnits: 100
+  m_Extrude: 1
+  m_AtlasName:
+  m_PackingTag:
+  m_RD:
+    texture: {fileID: 2800000, guid: 6aaf371600988b7429d67b9d2fdc6e74, type: 3}
+    vertices:
+    - serializedVersion: 2
+      pos: {x: 0.72, y: 1.33, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.74, y: 1.18, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.74, y: 1.3, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.6, y: 1.18, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.52, y: 1.38, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.39, y: 1.38, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.39, y: 1.22, z: 0}
+    indices: 060005000300040003000500000003000400010003000000020001000000
+    textureRect:
+      serializedVersion: 2
+      x: 295.0761
+      y: 374.05972
+      width: 34.84778
+      height: 19.864166
+    textureRectOffset: {x: 295.076111, y: 374.059723}
+    settingsRaw: 192
+    uvTransform: {x: 100, y: 256, z: 100, w: 256}

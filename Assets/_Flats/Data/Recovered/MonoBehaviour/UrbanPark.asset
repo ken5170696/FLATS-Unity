@@ -1,0 +1,263 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b53337139239806cc9a332a0718a0d7, type: 3}
+  m_Name: UrbanPark
+  m_EditorClassIdentifier:
+  combinedMaterialInfo: []
+  materials:
+  - {fileID: 2100000, guid: c6a0a9e5cfc70bd44b880e1137df07c2, type: 2}
+  - {fileID: 2100000, guid: 1ff6713953fd497428ca1b2ca15c10d7, type: 2}
+  - {fileID: 2100000, guid: 0590135eb61d8184db2535540ed0ab63, type: 2}
+  - {fileID: 2100000, guid: fd70014dc7b6ede46b1c596490ef47a4, type: 2}
+  - {fileID: 2100000, guid: eb7e4183571dbb34da94e48f993dee14, type: 2}
+  - {fileID: 2100000, guid: 612199c43ee06b9479cb7bf40f5cddda, type: 2}
+  - {fileID: 2100000, guid: a70e1168f9e09514d91f2d61f17133a2, type: 2}
+  - {fileID: 2100000, guid: 23d6ac5fb83c10e42ab6c6ed14125584, type: 2}
+  - {fileID: 2100000, guid: 3e7e6e749024a3843a0a1926f35b56cd, type: 2}
+  - {fileID: 2100000, guid: dc06489226ce6ef44b21242439406ba2, type: 2}
+  prefabUVRects: []
+  materialsAndUVRects:
+  - material: {fileID: 2100000, guid: c6a0a9e5cfc70bd44b880e1137df07c2, type: 2}
+    atlasRect:
+      x: 0.625
+      y: 0.125
+      width: 0.0625
+      height: 0.125
+    srcObjName: Cylinder
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: 1ff6713953fd497428ca1b2ca15c10d7, type: 2}
+    atlasRect:
+      x: 0.4375
+      y: 0.5
+      width: 0.0625
+      height: 0.125
+    srcObjName: Cylinder
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: 0590135eb61d8184db2535540ed0ab63, type: 2}
+    atlasRect:
+      x: 0.8125
+      y: 0.125
+      width: 0.0625
+      height: 0.125
+    srcObjName: Color_WetOrange
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: fd70014dc7b6ede46b1c596490ef47a4, type: 2}
+    atlasRect:
+      x: 0.8125
+      y: 0.5
+      width: 0.0625
+      height: 0.125
+    srcObjName: LowSphere_17
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: eb7e4183571dbb34da94e48f993dee14, type: 2}
+    atlasRect:
+      x: 0.625
+      y: 0.5
+      width: 0.0625
+      height: 0.125
+    srcObjName: Building_1_Pink
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: 612199c43ee06b9479cb7bf40f5cddda, type: 2}
+    atlasRect:
+      x: 0.0625
+      y: 0.5
+      width: 0.0625
+      height: 0.125
+    srcObjName: Hut
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: a70e1168f9e09514d91f2d61f17133a2, type: 2}
+    atlasRect:
+      x: 0.0625
+      y: 0.125
+      width: 0.0625
+      height: 0.125
+    srcObjName: Land_Orange
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: 23d6ac5fb83c10e42ab6c6ed14125584, type: 2}
+    atlasRect:
+      x: 0.25
+      y: 0.125
+      width: 0.0625
+      height: 0.125
+    srcObjName: Land_Green
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: 3e7e6e749024a3843a0a1926f35b56cd, type: 2}
+    atlasRect:
+      x: 0.4375
+      y: 0.125
+      width: 0.0625
+      height: 0.125
+    srcObjName: Cube
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: dc06489226ce6ef44b21242439406ba2, type: 2}
+    atlasRect:
+      x: 0.25
+      y: 0.5
+      width: 0.0625
+      height: 0.125
+    srcObjName: Bush
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  resultMaterial: {fileID: 2100000, guid: f9157d5b95d841644b75c9e53d7038ef, type: 2}
+  resultMaterials:
+  - combinedMaterial: {fileID: 2100000, guid: f9157d5b95d841644b75c9e53d7038ef, type: 2}
+    sourceMaterials:
+    - {fileID: 2100000, guid: c6a0a9e5cfc70bd44b880e1137df07c2, type: 2}
+    - {fileID: 2100000, guid: 1ff6713953fd497428ca1b2ca15c10d7, type: 2}
+    - {fileID: 2100000, guid: 0590135eb61d8184db2535540ed0ab63, type: 2}
+    - {fileID: 2100000, guid: fd70014dc7b6ede46b1c596490ef47a4, type: 2}
+    - {fileID: 2100000, guid: eb7e4183571dbb34da94e48f993dee14, type: 2}
+    - {fileID: 2100000, guid: 612199c43ee06b9479cb7bf40f5cddda, type: 2}
+    - {fileID: 2100000, guid: a70e1168f9e09514d91f2d61f17133a2, type: 2}
+    - {fileID: 2100000, guid: 23d6ac5fb83c10e42ab6c6ed14125584, type: 2}
+    - {fileID: 2100000, guid: 3e7e6e749024a3843a0a1926f35b56cd, type: 2}
+    - {fileID: 2100000, guid: dc06489226ce6ef44b21242439406ba2, type: 2}
+  doMultiMaterial: 1
+  fixOutOfBoundsUVs: 0

@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!213 &21300000
+Sprite:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: Check
+  m_Rect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 40
+    height: 40
+  m_Offset: {x: 0, y: 0}
+  m_Border: {x: 0, y: 0, z: 0, w: 0}
+  m_PixelsToUnits: 100
+  m_Extrude: 1
+  m_AtlasName:
+  m_PackingTag:
+  m_RD:
+    texture: {fileID: 2800000, guid: 7052114243dc3a64cb9acac81d44ee98, type: 3}
+    vertices:
+    - serializedVersion: 2
+      pos: {x: 0.15, y: 0.12, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.18, y: 0.04, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.18, y: 0.1, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.05, y: 0.12, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.01, y: -0.13, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.09, y: -0.13, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.15, y: 0.03, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.15, y: -0.03, z: 0}
+    indices: 070006000500030005000600040005000300010004000300000001000300020001000000
+    textureRect:
+      serializedVersion: 2
+      x: 5.0761204
+      y: 7.026751
+      width: 32.887596
+      height: 24.89713
+    textureRectOffset: {x: 5.07612038, y: 7.02675104}
+    settingsRaw: 192
+    uvTransform: {x: 100, y: 20, z: 100, w: 20}

@@ -1,0 +1,13 @@
+namespace BitMiracle.LibJpeg.Classic
+{
+	internal enum ReadResult
+	{
+		JPEG_SUSPENDED,
+		JPEG_HEADER_OK,
+		JPEG_HEADER_TABLES_ONLY,
+		JPEG_REACHED_SOS,
+		JPEG_REACHED_EOI,
+		JPEG_ROW_COMPLETED,
+		JPEG_SCAN_COMPLETED
+	}
+}

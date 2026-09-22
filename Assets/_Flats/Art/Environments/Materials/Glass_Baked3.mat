@@ -1,0 +1,228 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 3
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: Glass_Baked3
+  m_Shader: {fileID: 4800000, guid: 10208d85a829b724ba8919de12a6d341, type: 3}
+  m_ShaderKeywords: []
+  m_CustomRenderQueue: -1
+  m_SavedProperties:
+    serializedVersion: 2
+    m_TexEnvs:
+      data:
+        first:
+          name: _MainTex
+        second:
+          m_Texture: {fileID: 2800000, guid: 10a11e23867a9dc4b9eb75f5cbe01ced, type: 3}
+          m_Scale: {x: 1, y: 1}
+          m_Offset: {x: 0, y: 0}
+    m_Floats:
+      data:
+        first:
+          name: PixelSnap
+        second: 0
+      data:
+        first:
+          name: _BumpAmt
+        second: 128
+      data:
+        first:
+          name: _ColorMask
+        second: 15
+      data:
+        first:
+          name: _Cutoff
+        second: 0.5
+      data:
+        first:
+          name: _EdgeAlpha
+        second: 1
+      data:
+        first:
+          name: _FresnelScale
+        second: 0.75
+      data:
+        first:
+          name: _FrezFalloff
+        second: 4
+      data:
+        first:
+          name: _FrezPow
+        second: 0.85714287
+      data:
+        first:
+          name: _GerstnerIntensity
+        second: 1
+      data:
+        first:
+          name: _Gloss
+        second: 0.66071427
+      data:
+        first:
+          name: _Metalics
+        second: 1
+      data:
+        first:
+          name: _Parallax
+        second: 0.02
+      data:
+        first:
+          name: _ReflDistort
+        second: 0.44
+      data:
+        first:
+          name: _Reflection
+        second: 0.5
+      data:
+        first:
+          name: _RefrDistort
+        second: 0.4
+      data:
+        first:
+          name: _RimPower
+        second: 1
+      data:
+        first:
+          name: _Shininess
+        second: 0.41093266
+      data:
+        first:
+          name: _Size
+        second: 38.500004
+      data:
+        first:
+          name: _Stencil
+        second: 0
+      data:
+        first:
+          name: _StencilComp
+        second: 8
+      data:
+        first:
+          name: _StencilOp
+        second: 0
+      data:
+        first:
+          name: _StencilReadMask
+        second: 255
+      data:
+        first:
+          name: _StencilWriteMask
+        second: 255
+      data:
+        first:
+          name: _WaveScale
+        second: 0.063
+    m_Colors:
+      data:
+        first:
+          name: WaveSpeed
+        second: {r: 19, g: 9, b: -16, a: -7}
+      data:
+        first:
+          name: _AnimationDirection
+        second: {r: 1, g: 1, b: 1, a: 1}
+      data:
+        first:
+          name: _AnimationTiling
+        second: {r: 2.2, g: 2.2, b: -1.1, a: -1.1}
+      data:
+        first:
+          name: _BaseColor
+        second: {r: 0.54, g: 0.95, b: 0.99, a: 0.5}
+      data:
+        first:
+          name: _BumpDirection
+        second: {r: 1, g: 1, b: -1, a: 1}
+      data:
+        first:
+          name: _BumpTiling
+        second: {r: 1, g: 1, b: -2, a: 3}
+      data:
+        first:
+          name: _Color
+        second: {r: 1, g: 0.12156863, b: 0.49803922, a: 0.627451}
+      data:
+        first:
+          name: _DistortParams
+        second: {r: 1, g: 1, b: 2, a: 1.15}
+      data:
+        first:
+          name: _EmisColor
+        second: {r: 0.2, g: 0.2, b: 0.2, a: 0}
+      data:
+        first:
+          name: _Emission
+        second: {r: 0.62352943, g: 0.62352943, b: 0.49803922, a: 0}
+      data:
+        first:
+          name: _GAmplitude
+        second: {r: 0.3, g: 0.35, b: 0.25, a: 0.25}
+      data:
+        first:
+          name: _GDirectionAB
+        second: {r: 0.3, g: 0.85, b: 0.85, a: 0.25}
+      data:
+        first:
+          name: _GDirectionCD
+        second: {r: 0.1, g: 0.9, b: 0.5, a: 0.5}
+      data:
+        first:
+          name: _GFrequency
+        second: {r: 1.3, g: 1.35, b: 1.25, a: 1.25}
+      data:
+        first:
+          name: _GSpeed
+        second: {r: 1.2, g: 1.375, b: 1.1, a: 1.5}
+      data:
+        first:
+          name: _GSteepness
+        second: {r: 1, g: 1, b: 1, a: 1}
+      data:
+        first:
+          name: _HorizonColor
+        second: {r: 0.172, g: 0.463, b: 0.435, a: 1}
+      data:
+        first:
+          name: _InvFadeParemeter
+        second: {r: 0.15, g: 0.15, b: 0.5, a: 1}
+      data:
+        first:
+          name: _LColor
+        second: {r: 0, g: 1, b: 1, a: 1}
+      data:
+        first:
+          name: _ReflectColor
+        second: {r: 1, g: 1, b: 1, a: 0.5}
+      data:
+        first:
+          name: _ReflectionColor
+        second: {r: 0.54, g: 0.95, b: 0.99, a: 0.5}
+      data:
+        first:
+          name: _RefrColor
+        second: {r: 0.34, g: 0.85, b: 0.92, a: 1}
+      data:
+        first:
+          name: _RimColor
+        second: {r: 0.8, g: 0.8, b: 0.8, a: 0.6}
+      data:
+        first:
+          name: _SColor
+        second: {r: 1, g: 1, b: 1, a: 1}
+      data:
+        first:
+          name: _SpecColor
+        second: {r: 1, g: 1, b: 1, a: 0}
+      data:
+        first:
+          name: _SpecularColor
+        second: {r: 0.72, g: 0.72, b: 0.72, a: 1}
+      data:
+        first:
+          name: _WorldLightDir
+        second: {r: 0, g: 0.1, b: -0.5, a: 0}

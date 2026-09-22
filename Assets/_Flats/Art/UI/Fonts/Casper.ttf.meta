@@ -1,0 +1,20 @@
+fileFormatVersion: 2
+guid: 7e97e1fb4f0f2684293e6fd3c05e5d04
+timeCreated: 1789812385
+licenseType: Free
+TrueTypeFontImporter:
+  serializedVersion: 2
+  name:
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 1
+  characterPadding: 0
+  includeFontData: 1
+  use2xBehaviour: 0
+  fontNames:
+  - Casper
+  customCharacters:
+  fontRenderingMode: 0
+  output:
+    hasEmptyFontData: 0
+  userData:

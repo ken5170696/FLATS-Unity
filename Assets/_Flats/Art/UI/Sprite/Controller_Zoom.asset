@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!213 &21300000
+Sprite:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: Controller_Zoom
+  m_Rect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 512
+    height: 512
+  m_Offset: {x: 0, y: 0}
+  m_Border: {x: 0, y: 0, z: 0, w: 0}
+  m_PixelsToUnits: 100
+  m_Extrude: 1
+  m_AtlasName:
+  m_PackingTag:
+  m_RD:
+    texture: {fileID: 2800000, guid: 30efacc768f04e348a7bba2da3d7cecd, type: 3}
+    vertices:
+    - serializedVersion: 2
+      pos: {x: -0.39, y: 1.38, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.4, y: 1.3, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.39, y: 1.31, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.51, y: 1.38, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.69, y: 1.18, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.71, y: 1.33, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.74, y: 1.27, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.74, y: 1.18, z: 0}
+    indices: 070006000400050004000600030004000500010004000300000001000300020001000000
+    textureRect:
+      serializedVersion: 2
+      x: 182.07613
+      y: 374.05972
+      width: 34.847748
+      height: 19.864166
+    textureRectOffset: {x: 182.076126, y: 374.059723}
+    settingsRaw: 192
+    uvTransform: {x: 100, y: 256, z: 100, w: 256}

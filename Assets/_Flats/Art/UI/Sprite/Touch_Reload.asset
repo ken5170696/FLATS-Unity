@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!213 &21300000
+Sprite:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: Touch_Reload
+  m_Rect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 1024
+    height: 512
+  m_Offset: {x: 0, y: 0}
+  m_Border: {x: 0, y: 0, z: 0, w: 0}
+  m_PixelsToUnits: 100
+  m_Extrude: 1
+  m_AtlasName:
+  m_PackingTag:
+  m_RD:
+    texture: {fileID: 2800000, guid: c931aaf57572a6d45b1c2edc832fc848, type: 3}
+    vertices:
+    - serializedVersion: 2
+      pos: {x: 2.23, y: 1.31, z: 0}
+    - serializedVersion: 2
+      pos: {x: 2.25, y: -1.27, z: 0}
+    - serializedVersion: 2
+      pos: {x: 2.25, y: 1.29, z: 0}
+    - serializedVersion: 2
+      pos: {x: 2.23, y: -1.29, z: 0}
+    - serializedVersion: 2
+      pos: {x: -2.32, y: 1.31, z: 0}
+    - serializedVersion: 2
+      pos: {x: -2.32, y: -1.29, z: 0}
+    - serializedVersion: 2
+      pos: {x: -2.34, y: 1.29, z: 0}
+    - serializedVersion: 2
+      pos: {x: -2.34, y: -1.27, z: 0}
+    indices: 070006000500040005000600030005000400000003000400010003000000020001000000
+    textureRect:
+      serializedVersion: 2
+      x: 278.0761
+      y: 127.07612
+      width: 458.84778
+      height: 259.84778
+    textureRectOffset: {x: 278.076111, y: 127.076118}
+    settingsRaw: 192
+    uvTransform: {x: 100, y: 512, z: 100, w: 256}

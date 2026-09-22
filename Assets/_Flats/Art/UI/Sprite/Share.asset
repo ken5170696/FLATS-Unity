@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!213 &21300000
+Sprite:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: Share
+  m_Rect:
+    serializedVersion: 2
+    x: 0
+    y: 0
+    width: 256
+    height: 256
+  m_Offset: {x: 0, y: 0}
+  m_Border: {x: 0, y: 0, z: 0, w: 0}
+  m_PixelsToUnits: 50
+  m_Extrude: 1
+  m_AtlasName:
+  m_PackingTag:
+  m_RD:
+    texture: {fileID: 2800000, guid: 8b427769476e14e4d8d49534e475e6ab, type: 3}
+    vertices:
+    - serializedVersion: 2
+      pos: {x: 0.4, y: 2.36, z: 0}
+    - serializedVersion: 2
+      pos: {x: 2.06, y: -2.36, z: 0}
+    - serializedVersion: 2
+      pos: {x: 2.06, y: 2.36, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.22, y: -2.36, z: 0}
+    - serializedVersion: 2
+      pos: {x: -2.06, y: 1.26, z: 0}
+    - serializedVersion: 2
+      pos: {x: -2.06, y: -1.1, z: 0}
+    indices: 050004000300000003000400010003000000020001000000
+    textureRect:
+      serializedVersion: 2
+      x: 25.02675
+      y: 10.061015
+      width: 205.89713
+      height: 235.86285
+    textureRectOffset: {x: 25.0267506, y: 10.0610151}
+    settingsRaw: 192
+    uvTransform: {x: 50, y: 128, z: 50, w: 128}

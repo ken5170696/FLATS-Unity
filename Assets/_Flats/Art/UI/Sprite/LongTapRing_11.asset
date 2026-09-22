@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!213 &21300000
+Sprite:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: LongTapRing_11
+  m_Rect:
+    serializedVersion: 2
+    x: 762
+    y: 269
+    width: 250
+    height: 250
+  m_Offset: {x: 0, y: 0}
+  m_Border: {x: 0, y: 0, z: 0, w: 0}
+  m_PixelsToUnits: 100
+  m_Extrude: 1
+  m_AtlasName:
+  m_PackingTag:
+  m_RD:
+    texture: {fileID: 2800000, guid: 121087ec6f68f334db82ffae89a30960, type: 3}
+    vertices:
+    - serializedVersion: 2
+      pos: {x: 1.25, y: 0.55, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.97, y: -0.03, z: 0}
+    - serializedVersion: 2
+      pos: {x: 1.25, y: -0.9, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.74, y: 1.22, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.63, y: 1.25, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.59, y: 0.77, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.28, y: 0.93, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.81, y: 1.25, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.77, y: 0.58, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.97, y: 0.03, z: 0}
+    - serializedVersion: 2
+      pos: {x: -1.25, y: 0.54, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.73, y: -0.62, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.6, y: -1.25, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.03, y: -0.97, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.59, y: -0.77, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.92, y: -1.25, z: 0}
+    - serializedVersion: 2
+      pos: {x: -1.25, y: -0.92, z: 0}
+    indices: 10000a000f0009000f000a000e000f0009000c000f000e000d000c000e000b000c000d0002000c000b00010002000b000a0007000900080009000700060008000700040006000700050006000400010005000400030001000400000001000300020001000000
+    textureRect:
+      serializedVersion: 2
+      x: 762
+      y: 269
+      width: 250
+      height: 250
+    textureRectOffset: {x: 0, y: 0}
+    settingsRaw: 192
+    uvTransform: {x: 100, y: 887, z: 100, w: 394}

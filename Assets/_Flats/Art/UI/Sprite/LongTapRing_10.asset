@@ -1,0 +1,57 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!213 &21300000
+Sprite:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: LongTapRing_10
+  m_Rect:
+    serializedVersion: 2
+    x: 509
+    y: 269
+    width: 250
+    height: 250
+  m_Offset: {x: 0, y: 0}
+  m_Border: {x: 0, y: 0, z: 0, w: 0}
+  m_PixelsToUnits: 100
+  m_Extrude: 1
+  m_AtlasName:
+  m_PackingTag:
+  m_RD:
+    texture: {fileID: 2800000, guid: 121087ec6f68f334db82ffae89a30960, type: 3}
+    vertices:
+    - serializedVersion: 2
+      pos: {x: 1.16, y: 0.97, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.98, y: 0, z: 0}
+    - serializedVersion: 2
+      pos: {x: 1.17, y: 0.5, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.66, y: -1.25, z: 0}
+    - serializedVersion: 2
+      pos: {x: 0.48, y: 1.25, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.78, y: 1.25, z: 0}
+    - serializedVersion: 2
+      pos: {x: -0.9, y: -1.25, z: 0}
+    - serializedVersion: 2
+      pos: {x: -1.25, y: 0.91, z: 0}
+    - serializedVersion: 2
+      pos: {x: -1.25, y: -0.86, z: 0}
+    - serializedVersion: 2
+      pos: {x: 1.01, y: 0.01, z: 0}
+    - serializedVersion: 2
+      pos: {x: 1.25, y: -0.91, z: 0}
+    - serializedVersion: 2
+      pos: {x: 1.25, y: 0.04, z: 0}
+    indices: 030001000a0009000a0001000b000a000900080007000600050006000700030006000500040003000500000003000400010003000000020001000000
+    textureRect:
+      serializedVersion: 2
+      x: 509
+      y: 269
+      width: 250
+      height: 250
+    textureRectOffset: {x: 0, y: 0}
+    settingsRaw: 192
+    uvTransform: {x: 100, y: 634, z: 100, w: 394}

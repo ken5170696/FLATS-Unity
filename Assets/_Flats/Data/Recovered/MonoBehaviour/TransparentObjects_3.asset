@@ -1,0 +1,114 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4b53337139239806cc9a332a0718a0d7, type: 3}
+  m_Name: TransparentObjects_3
+  m_EditorClassIdentifier: 
+  combinedMaterialInfo: []
+  materials:
+  - {fileID: 2100000, guid: 0c128482087491b429f3b64acfdde424, type: 2}
+  - {fileID: 2100000, guid: c447695a02a8d734180cd058b554972e, type: 2}
+  - {fileID: 2100000, guid: 0917468abdc687843a375e935e76b8a5, type: 2}
+  - {fileID: 2100000, guid: 73a057442984d76449848569378e1b6b, type: 2}
+  prefabUVRects: []
+  materialsAndUVRects:
+  - material: {fileID: 2100000, guid: 0c128482087491b429f3b64acfdde424, type: 2}
+    atlasRect:
+      x: 0.25585938
+      y: 0.00390625
+      width: 0.25
+      height: 0.5
+    srcObjName: Quad
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: c447695a02a8d734180cd058b554972e, type: 2}
+    atlasRect:
+      x: 0.001953125
+      y: 0.64453125
+      width: 0.03125
+      height: 0.0625
+    srcObjName: Water
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: 0917468abdc687843a375e935e76b8a5, type: 2}
+    atlasRect:
+      x: 0.001953125
+      y: 0.00390625
+      width: 0.25
+      height: 0.5
+    srcObjName: Clock
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  - material: {fileID: 2100000, guid: 73a057442984d76449848569378e1b6b, type: 2}
+    atlasRect:
+      x: 0.001953125
+      y: 0.51171875
+      width: 0.0625
+      height: 0.125
+    srcObjName: BackBuildings
+    samplingRectMatAndUVTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    sourceMaterialTiling:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+    samplingEncapsulatinRect:
+      x: 0
+      y: 0
+      width: 1
+      height: 1
+  resultMaterial: {fileID: 2100000, guid: b2d381dded03c5546b516a653eb2d7b5, type: 2}
+  resultMaterials: []
+  doMultiMaterial: 0
+  fixOutOfBoundsUVs: 0
