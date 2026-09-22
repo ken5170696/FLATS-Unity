@@ -41,7 +41,7 @@ Editor equivalents: **Flats > Validation > Validate project and run regression t
 
 Keep the entire `Builds/Portal/Windows` folder, including `FLATS_Data`, `UnityPlayer.dll` and Mono runtime. Other build tasks are `Web`, `Linux`, `Mac`, `Android`, `IOS`. Build availability is not proof of gameplay support: consult [the validation matrix](docs/VALIDATION.md).
 
-`PlayMode` enters/exits MainMenu twice with a fresh isolated profile, checks initialization/console errors and verifies that shared UI material assets remain unchanged. `Shaders` runs GPU shader contracts; use a graphics-capable host. `Sights` checks all five scope cameras and the actual RawImage mesh UVs, including the legacy Rect serialization regression. `Navigation` checks all six maps; `NavigationPlay` traverses all 20 spawn routes on Warehouse and NightLand using the enemy prefab's agent settings. It tests native navigation, not combat decisions. `Audio` checks clip decoding and references.
+`PlayMode` enters/exits MainMenu twice with a fresh isolated profile, checks initialization/console errors and verifies that shared UI material assets remain unchanged. `Shaders` runs GPU shader contracts; use a graphics-capable host. `Sights` checks all five scope cameras and the actual RawImage mesh UVs, including the legacy Rect serialization regression. `Navigation` checks all six maps and Tutorial; `NavigationPlay` traverses all 21 spawn routes on Warehouse, NightLand and Tutorial using the enemy prefab's agent settings. It tests native navigation, not combat decisions. `Audio` checks clip decoding and references.
 
 For an isolated runtime test that does not change your normal profile:
 

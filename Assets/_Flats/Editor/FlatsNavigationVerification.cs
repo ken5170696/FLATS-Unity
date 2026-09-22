@@ -13,7 +13,7 @@ public static class FlatsNavigationVerification
     public static void Run()
     {
         var report=new Report();
-        foreach(var map in new[]{"FlatCity","UrbanPark","BeachsideTown","DepartmentStore","Warehouse","NightLand"})
+        foreach(var map in new[]{"FlatCity","UrbanPark","BeachsideTown","DepartmentStore","Warehouse","NightLand","Tutorial"})
         {
             EditorSceneManager.OpenScene("Assets/_Flats/Scenes/"+map+".unity");
             NavMesh.RemoveAllNavMeshData();
@@ -25,7 +25,10 @@ public static class FlatsNavigationVerification
                 item.waypoints++;NavMeshHit hit;
                 if(NavMesh.SamplePosition(point.position,out hit,5,NavMesh.AllAreas)){item.sampledWaypoints++;points.Add(hit.position);}
             }
-            foreach(Transform spawn in GameObject.Find("SpawnPoints").transform)
+            var spawns=new List<Transform>();
+            if(map=="Tutorial")spawns.Add(GameObject.Find("SpawnPosition").transform);
+            else foreach(Transform spawn in GameObject.Find("SpawnPoints").transform)spawns.Add(spawn);
+            foreach(Transform spawn in spawns)
             {
                 item.spawnCount++;NavMeshHit hit;
                 if(!NavMesh.SamplePosition(spawn.position,out hit,5,NavMesh.AllAreas))continue;
@@ -33,6 +36,12 @@ public static class FlatsNavigationVerification
                 int before=item.spawnsWithRoute;
                 foreach(var point in points){var path=new NavMeshPath();if(NavMesh.CalculatePath(hit.position,point,NavMesh.AllAreas,path)&&path.status==NavMeshPathStatus.PathComplete){item.spawnsWithRoute++;break;}}
                 if(before==item.spawnsWithRoute)Debug.Log("NAV_ISOLATED "+map+" "+spawn.name+" position="+spawn.position+" sampled="+hit.position);
+            }
+            if(map=="Tutorial")
+            {
+                item.basePath="not applicable";
+                item.pass=item.spawnCount==1 && item.spawnsWithRoute==1 && item.sampledWaypoints==item.waypoints;
+                instance.Remove();continue;
             }
             NavMeshHit red,blue;var between=new NavMeshPath();
             bool bases=NavMesh.SamplePosition(GameObject.Find("RedTeamBase").transform.position,out red,5,NavMesh.AllAreas) && NavMesh.SamplePosition(GameObject.Find("BlueTeamBase").transform.position,out blue,5,NavMesh.AllAreas);

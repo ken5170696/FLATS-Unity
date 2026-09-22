@@ -6,9 +6,11 @@ using UnityEngine.AI;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 public static class FlatsNavigationRepair {
- public static void Run(){
+ public static void Run(){Bake(new[]{"FlatCity","UrbanPark","BeachsideTown","DepartmentStore","Warehouse","NightLand","Tutorial"});}
+ public static void Tutorial(){Bake(new[]{"Tutorial"});}
+ static void Bake(string[] maps){
   Directory.CreateDirectory("Assets/_Flats/Data/Navigation/OfflineNavigation");
-  foreach(var name in new[]{"FlatCity","UrbanPark","BeachsideTown","DepartmentStore","Warehouse","NightLand"}){
+  foreach(var name in maps){
    var scene=EditorSceneManager.OpenScene("Assets/_Flats/Scenes/"+name+".unity");
    var sources=new List<NavMeshBuildSource>();
    UnityEngine.AI.NavMeshBuilder.CollectSources(null,~0,NavMeshCollectGeometry.PhysicsColliders,0,new List<NavMeshBuildMarkup>(),sources);

@@ -21,6 +21,7 @@ public static class FlatsNavigationPlayValidation
     static bool started;
     static double deadline,ready;
     static NavMeshDataInstance mesh;
+    static readonly string[] maps={"Warehouse","NightLand","Tutorial"};
     static FlatsNavigationPlayValidation()
     {
         if(!SessionState.GetBool(Key,false))return;
@@ -32,12 +33,15 @@ public static class FlatsNavigationPlayValidation
         if(string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("FLATS_MOD_TEST_ROOT")))throw new InvalidOperationException("An isolated test profile is required.");
         Directory.CreateDirectory(Environment.GetEnvironmentVariable("FLATS_MOD_TEST_ROOT"));
         var collected=new Cases();
-        foreach(var map in new[]{"Warehouse","NightLand"})
+        foreach(var map in maps)
         {
             EditorSceneManager.OpenScene("Assets/_Flats/Scenes/"+map+".unity");
             NavMesh.RemoveAllNavMeshData();
             var data=NavMesh.AddNavMeshData(AssetDatabase.LoadAssetAtPath<NavMeshData>("Assets/_Flats/Data/Navigation/OfflineNavigation/"+map+".asset"));
-            foreach(Transform spawn in GameObject.Find("SpawnPoints").transform)
+            var spawns=new List<Transform>();
+            if(map=="Tutorial")spawns.Add(GameObject.Find("SpawnPosition").transform);
+            else foreach(Transform spawn in GameObject.Find("SpawnPoints").transform)spawns.Add(spawn);
+            foreach(Transform spawn in spawns)
             {
                 if(!NavMesh.SamplePosition(spawn.position,out var from,5,-1))throw new Exception("Spawn missing navigation");
                 float shortest=float.MaxValue;var end=Vector3.zero;
@@ -60,7 +64,7 @@ public static class FlatsNavigationPlayValidation
     static void StartPlay(){if(EditorApplication.timeSinceStartup<ready||EditorApplication.isUpdating)return;EditorApplication.update-=StartPlay;EditorApplication.isPlaying=true;}
     static void BeginMap()
     {
-        string map=mapIndex==0?"Warehouse":"NightLand";
+        string map=maps[mapIndex];
         mesh=NavMesh.AddNavMeshData(AssetDatabase.LoadAssetAtPath<NavMeshData>("Assets/_Flats/Data/Navigation/OfflineNavigation/"+map+".asset"));
         var template=Resources.Load<GameObject>("Flatman_Enemy").GetComponent<NavMeshAgent>();
         foreach(var item in cases.items.FindAll(c=>c.map==map))
@@ -87,7 +91,7 @@ public static class FlatsNavigationPlayValidation
         if(errors>0||EditorApplication.timeSinceStartup>deadline){Finish(false,"Traversal timeout or console errors: "+errors);return;}
         if(!finished)return;
         foreach(var agent in agents)UnityEngine.Object.Destroy(agent.gameObject);agents.Clear();mesh.Remove();
-        if(++mapIndex<2)BeginMap();else Finish(true,"All 20 spawn routes traversed");
+        if(++mapIndex<maps.Length)BeginMap();else Finish(true,"All "+cases.items.Count+" spawn routes traversed");
     }
     static void Finish(bool pass,string detail)
     {

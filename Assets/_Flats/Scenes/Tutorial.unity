@@ -2241,7 +2241,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f33232f949ca898ae432812baff771b2, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   enable: 0
   enableRemote: 0
@@ -2295,7 +2295,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c4f78fc18eed440cc95f4e99cf54cf83, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
 --- !u!114 &2654
 MonoBehaviour:
@@ -2307,7 +2307,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -2341,7 +2341,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cfabb0440166ab443bba8876756fdfa9, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_EffectColor: {r: 0, g: 0, b: 0, a: 1}
   m_EffectDistance: {x: 0.4, y: -0.4}
@@ -2356,7 +2356,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9dfc59f5a937dbe843331e2e10729239, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   weaponIndex: 10
   currentAmmo: 10
@@ -2394,7 +2394,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dbc57f5a7a2407cb7f003832c688bfd8, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   ownerId: 0
   group: 0
@@ -2420,7 +2420,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -2450,7 +2450,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fe87c0e1cc204ed48ad3b37840f39efc, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -2480,7 +2480,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   m_UiScaleMode: 0
   m_ReferencePixelsPerUnit: 100
@@ -2503,7 +2503,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 150161c4cf3b151d963e45c9682bfff0, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: 
   tutorialText: {fileID: 2654}
   tutorialImage: {fileID: 2807}
@@ -2528,6 +2528,51 @@ MonoBehaviour:
   touch_Pick: {fileID: 21300000, guid: 776d655cec091394f9727f207ca44682, type: 2}
   quit: {fileID: 21300000, guid: 66a27089102139d498b532cf1f10fe78, type: 2}
   changeSE: {fileID: 8300000, guid: fe76dccde021a1343becdcc950f33c4c, type: 3}
+--- !u!1 &787079089
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 787079091}
+  - component: {fileID: 787079090}
+  m_Layer: 0
+  m_Name: Offline Navigation
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &787079090
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 787079089}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69f8c4ccd174e5a4db0bd456c637ee36, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsOfflineNavigation
+  data: {fileID: 23800000, guid: 4407ceec7c7cec14c8136299150c3d41, type: 2}
+--- !u!4 &787079091
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 787079089}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &2072825342
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2742,3 +2787,4 @@ SceneRoots:
   - {fileID: 748}
   - {fileID: 749}
   - {fileID: 2146}
+  - {fileID: 787079091}
