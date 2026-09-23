@@ -15,7 +15,7 @@ public partial class Menu
         {
             if(fliping)return true;
             if(button==0)StartCoroutine(ShowPlay());
-            else { GetComponent<AudioSource>().PlayOneShot(pressSE);GetComponentInParent<ModulePageBinding>().page.Open(); }
+            else { PlayMenuSound(pressSE);GetComponentInParent<ModulePageBinding>().page.Open(); }
             return true;
         }
         if(current!="Play")return false;
@@ -26,14 +26,14 @@ public partial class Menu
     }
     IEnumerator ShowPlay()
     {
-        fliping=true;GetComponent<AudioSource>().PlayOneShot(pressSE);anim.SetBool("Fade",true);
+        fliping=true;PlayMenuSound(pressSE);anim.SetBool("Fade",true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
         current="Play";backButton.SetActive(true);anim.SetBool("Fade",false);fliping=false;
         RefreshPlayTiles();EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);
     }
     IEnumerator LeavePlay(int legacyButton)
     {
-        fliping=true;GetComponent<AudioSource>().PlayOneShot(legacyButton<0?cancelSE:pressSE);anim.SetBool("Fade",true);
+        fliping=true;PlayMenuSound(legacyButton<0?cancelSE:pressSE);anim.SetBool("Fade",true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
         RestorePlayTiles();BackToMainMenu();backButton.SetActive(false);fliping=false;
         if(legacyButton<0) { EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);yield break; }

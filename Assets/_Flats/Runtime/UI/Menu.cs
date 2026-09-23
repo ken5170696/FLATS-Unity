@@ -335,6 +335,11 @@ public partial class Menu : MonoBehaviour
 
 	private void Awake()
 	{
+		// The authored menu clips are quiet and the legacy source was at half
+		// volume. Keep this gain on the UI source, separate from weapon audio.
+		AudioSource menuSound = GetComponent<AudioSource>();
+		menuSound.volume = 1f;
+		menuSound.spatialBlend = 0f;
 		// Keep animated material references on this menu's owned theme instances.
 		if (backgroundRenderer != null) runtimeBackgroundMaterial = backgroundRenderer.material;
         originalMainUI=mainUI; originalSelected=selected;
@@ -345,6 +350,19 @@ public partial class Menu : MonoBehaviour
         Canvas.preWillRenderCanvases += BindThemeMaterials;
         foreach(var input in GetComponentsInChildren<UnityEngine.UI.InputField>(true))
         {
+			// Legacy prefabs lost their InputField text references during import.
+			// Without a textComponent, desktop keyboard editing cannot activate.
+			if (input.textComponent == null)
+			{
+				Transform textChild = input.transform.Find("Text");
+				if (textChild != null) input.textComponent = textChild.GetComponent<Text>();
+			}
+			if (input.placeholder == null)
+			{
+				Transform placeholderChild = input.transform.Find("Placeholder");
+				if (placeholderChild != null) input.placeholder = placeholderChild.GetComponent<Graphic>();
+			}
+			if (input.targetGraphic == null) input.targetGraphic = input.GetComponent<Graphic>();
             if(input.onEndEdit.GetPersistentEventCount()!=0)continue;
             if(input.name=="NameInput")input.onEndEdit.AddListener(NameInput);
             if(input.name=="Comment" && input.transform.parent.name=="Profile")input.onEndEdit.AddListener(CommentInput);
@@ -1876,6 +1894,11 @@ public partial class Menu : MonoBehaviour
 		}
 	}
 
+	public void PlayMenuSound(AudioClip clip)
+	{
+		if (clip != null) GetComponent<AudioSource>().PlayOneShot(clip, 3f);
+	}
+
 	public void Fade(int button)
 	{
         if (HandleModNavigation(button)) return;
@@ -1907,11 +1930,11 @@ public partial class Menu : MonoBehaviour
 		}
 		if (button == -1)
 		{
-			base.GetComponent<AudioSource>().PlayOneShot(cancelSE);
+			PlayMenuSound(cancelSE);
 		}
 		else
 		{
-			base.GetComponent<AudioSource>().PlayOneShot(pressSE);
+			PlayMenuSound(pressSE);
 		}
 	}
 
