@@ -24,6 +24,8 @@ Test two isolated clients against an account you control: connect, create/join r
 
 Local packages, profiles and built-in crosshair settings do not require a catalogue. Optional `FLATS_MOD_CATALOGUE_URL` selects an HTTPS service implementing the protocol in `Runtime/Core/Modules/ModSource.cs` under `Assets/_Flats`. In the Editor, development source settings are stored in `mod-source.json` under the module settings directory; schema 1 contains `url`. Development loopback HTTP is supported by the existing source validator; production transport keeps its HTTPS validation.
 
+Portal builds bundle `FLATS_MOD_CATALOGUE_URL` in a temporary `Resources/FlatsModCatalogue` text asset, then remove it in `finally`. The asset and its metadata are ignored by Git. Set the variable before starting the build process, for both desktop and WebGL; rebuilding without it intentionally produces an offline-only catalogue configuration. Never commit operator-specific endpoints. Browser requests reject redirects, omit credentials, enforce HTTPS/origin boundaries and cap catalogue/images at 2 MiB. Compatible client-only crosshair manifests without package dependencies can be reviewed and copied into Custom Crosshair; other packages remain visibly desktop-only. This copies data and does not install a package or claim its multiplayer identity.
+
 Example development source configuration:
 
 ```json
