@@ -43,7 +43,7 @@ Output: `Builds/Portal/Windows/FLATS.exe`. Keep the complete folder, including `
 | Game assets | `Assets/_Flats/Art`, `Assets/Resources` |
 | Third-party integrations | `Assets/ThirdParty`, `Assets/Plugins` |
 
-Preserve `.meta` files and GUIDs, serialized field names, resource paths, UnityEvent methods and Photon RPC names. Edit shared UI prefabs instead of changing every scene independently. See [development contracts](docs/DEVELOPMENT.md) for persistence, navigation and service configuration.
+Preserve `.meta` files and GUIDs, serialized field names, resource paths, UnityEvent methods and Photon RPC names. Edit shared UI prefabs instead of changing every scene independently. See [development contracts](docs/DEVELOPMENT.md) for persistence, navigation and service configuration, and [asset authoring and import](docs/ASSET_WORKFLOW.md) before changing game assets.
 
 ## Services and troubleshooting
 
