@@ -1,5 +1,12 @@
 namespace Flats.Core
 {
+    public enum PlayerAction { Shoot, Reload, Smash, ChangeWeapons, ThrowGrenade }
+
+    public interface IPlayerActionDispatcher
+    {
+        void Dispatch(PlayerAction action);
+    }
+
     /// <summary>A single desktop gameplay sample. Edge actions are consumed in the frame sampled.</summary>
     public struct PlayerInputSnapshot
     {

@@ -1,0 +1,9 @@
+{
+  "name": "Flats.Modules.Infrastructure",
+  "rootNamespace": "Flats.Modules",
+  "references": [
+    "Flats.Core"
+  ],
+  "noEngineReferences": true,
+  "autoReferenced": true
+}

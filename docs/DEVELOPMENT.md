@@ -1,6 +1,6 @@
 # Development contracts and services
 
-Gameplay and legacy vendor integrations compile into Assembly-CSharp. Small assembly definitions isolate module Core, movement policy and UI presentation. Editor tools stay below Editor directories. Core/presentation assemblies must not reference Assembly-CSharp: connect features through their existing interfaces.
+Gameplay and legacy vendor integrations compile into Assembly-CSharp. Small assembly definitions isolate module Core, module infrastructure, movement policy and UI presentation. Editor tools stay below Editor directories. Core/presentation assemblies must not reference Assembly-CSharp: connect features through their existing interfaces.
 
 The 5.4.2 candidate routes desktop gameplay through `IPlayerInputSource` and the read-only `IGameSessionContext` in Core. Menu binds each controller using its existing scene composition; legacy public state remains a compatibility boundary. `WeaponAmmoPolicy` owns deterministic reload conservation while the controller retains animation and RPC entry points. Do not add test drivers to the runtime source. Other input platforms retain their adapters and share the gameplay pause gate.
 
@@ -25,6 +25,10 @@ The bundled PUN interface is version 1.85 with SDK 4.1.1.14. Set a Photon PUN cl
 Test two isolated clients against an account you control: connect, create/join room, start match, move/fire, score, leave/rejoin and disconnect recovery. Module agreement must be checked on both participants. Never substitute a successful build or local crypto test for this network test.
 
 ## Modules
+
+`Flats.Core` retains module contracts, package/catalogue/profile/download DTOs, dependency planning and deterministic validation rules. `Flats.Modules.Infrastructure` contains HTTP transfer, disk/archive package storage, download queue persistence and module profile storage; its asmdef references Core, while Core has no infrastructure reference. Both assemblies exclude Unity engine references. `IModSource` and `IModJson` stay in Core as ports. Using `InvalidDataException` for validation does not perform disk I/O.
+
+Unity-dependent module settings persistence, host composition and service/UI adapters remain outside these assemblies. Do not add File/Directory/network operations to Core; put implementations behind the existing ports in Infrastructure. The asmdef boundary prevents a Core reference to host infrastructure types, but does not itself prohibit .NET BCL I/O calls. The implementation-type migration and binary limits are documented in [SDK compatibility](MOD_SDK.md#compatibility-and-migration).
 
 Local packages, profiles and built-in crosshair settings do not require a catalogue. Optional `FLATS_MOD_CATALOGUE_URL` selects an HTTPS service implementing the protocol in `Runtime/Core/Modules/ModSource.cs` under `Assets/_Flats`. In the Editor, development source settings are stored in `mod-source.json` under the module settings directory; schema 1 contains `url`. Development loopback HTTP is supported by the existing source validator; production transport keeps its HTTPS validation.
 

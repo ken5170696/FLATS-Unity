@@ -9,6 +9,7 @@ public class FPSController : MonoBehaviour
     private Flats.Core.IGameSessionContext session;
     private Flats.Core.IPlayerInputSource desktopInput = new Flats.Gameplay.UnityDesktopPlayerInput();
     private bool overrideInputDevice;
+    private Flats.Core.IPlayerActionDispatcher actions;
     private int SessionNetworkMode { get { return session != null ? session.NetworkMode : 0; } }
     private bool SessionPlaying { get { return session != null && session.IsPlaying; } }
     private bool GameplayActive { get { return testMode || SessionPlaying; } }
@@ -16,8 +17,13 @@ public class FPSController : MonoBehaviour
     // Composition and private validation runners use the same product input boundary.
     public void ConfigureGameplay(Flats.Core.IGameSessionContext context, Flats.Core.IPlayerInputSource input, bool overrideDevice = true)
     {
+        ConfigureGameplay(context,input,new Flats.Gameplay.PhotonPlayerActionDispatcher(this,context),overrideDevice);
+    }
+    public void ConfigureGameplay(Flats.Core.IGameSessionContext context, Flats.Core.IPlayerInputSource input, Flats.Core.IPlayerActionDispatcher dispatcher, bool overrideDevice = true)
+    {
         session = context ?? throw new ArgumentNullException(nameof(context));
         desktopInput = input ?? throw new ArgumentNullException(nameof(input));
+        actions = dispatcher ?? throw new ArgumentNullException(nameof(dispatcher));
         overrideInputDevice = overrideDevice;
     }
 
@@ -2120,71 +2126,29 @@ public class FPSController : MonoBehaviour
 						{
 							if (hitInfo3.collider.gameObject.layer != base.gameObject.layer)
 							{
-								if (SessionNetworkMode == 0)
-								{
-									StartCoroutine("Smash");
-								}
-								else if (SessionNetworkMode != 1)
-								{
-									base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
-								}
+								actions.Dispatch(Flats.Core.PlayerAction.Smash);
 							}
 						}
 						else if (grabbing)
 						{
-							if (SessionNetworkMode == 0)
-							{
-								StartCoroutine("Smash");
-							}
-							else if (SessionNetworkMode != 1)
-							{
-								base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
-							}
+							actions.Dispatch(Flats.Core.PlayerAction.Smash);
 						}
 						else if (enableFire)
 						{
-							if (SessionNetworkMode == 0)
-							{
-								StartCoroutine("Shoot");
-							}
-							else if (SessionNetworkMode != 1)
-							{
-								base.gameObject.GetPhotonView().RPC("Shoot", PhotonTargets.All);
-							}
+							actions.Dispatch(Flats.Core.PlayerAction.Shoot);
 						}
 					}
 					if ((input.Reload) && enableFire)
 					{
-						if (SessionNetworkMode == 0)
-						{
-							StartCoroutine("Reload");
-						}
-						else if (SessionNetworkMode != 1)
-						{
-							base.gameObject.GetPhotonView().RPC("Reload", PhotonTargets.All);
-						}
+						actions.Dispatch(Flats.Core.PlayerAction.Reload);
 					}
 					if (input.ChangeWeapon && (enableFire || grabbing))
 					{
-						if (SessionNetworkMode == 0)
-						{
-							StartCoroutine("ChangeWeapons");
-						}
-						else if (SessionNetworkMode != 1)
-						{
-							base.gameObject.GetPhotonView().RPC("ChangeWeapons", PhotonTargets.All);
-						}
+						actions.Dispatch(Flats.Core.PlayerAction.ChangeWeapons);
 					}
 					if (input.Grenade && grabbedObject == null && enableFire && !grabbing)
 					{
-						if (SessionNetworkMode == 0)
-						{
-							StartCoroutine("ThrowGrenade");
-						}
-						else if (SessionNetworkMode != 1)
-						{
-							base.gameObject.GetPhotonView().RPC("ThrowGrenade", PhotonTargets.All);
-						}
+						actions.Dispatch(Flats.Core.PlayerAction.ThrowGrenade);
 					}
 					if (input.Jump && !jumping && isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
 					{
