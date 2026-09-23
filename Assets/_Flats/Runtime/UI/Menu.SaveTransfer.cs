@@ -23,17 +23,30 @@ public partial class Menu
         var original = sync.GetComponentInChildren<Text>(true);
         var ui = new ModCenterWidgets(original != null ? original.font : Resources.GetBuiltinResource<Font>("Arial.ttf"),
             () => PlayMenuSound(pressSE));
-        var section = ui.Panel("SaveTransferSection", sync, 0, -188, 475, 86,
-            new Color(.73f, .56f, .64f)).transform;
-        var heading = ui.Text("Heading", section, "SAVE FILES", 0, 25, 435, 24, 14, Color.white);
+        var syncRect = (RectTransform)sync;
+        syncRect.offsetMin = new Vector2(syncRect.offsetMin.x, syncRect.offsetMin.y - 64f);
+        for (int i = 0; i < sync.childCount; i++)
+        {
+            if (sync.GetChild(i) is RectTransform child)
+                child.anchoredPosition += new Vector2(0f, 32f);
+        }
+        var heading = ui.Text("SaveTransferHeading", sync, "Save files", 0, -131, 430, 25, 17, Color.white);
         heading.alignment = TextAnchor.MiddleCenter;
-        ui.Button("ImportOldSave", section, "Import old save", -113, -12, 215, 40,
-            ShowSaveImport, ModCenterWidgets.Accent);
-        ui.Button("ExportSave", section, "Export save", 113, -12, 215, 40,
-            ExportSave, ModCenterWidgets.Accent);
+        var nativeControl = sync.Find("LANSync").GetComponent<Image>();
+        var importButton = ui.Button("ImportOldSave", sync, "Import old save", -105, -168, 190, 34,
+            ShowSaveImport, Color.white);
+        var exportButton = ui.Button("ExportSave", sync, "Export save", 105, -168, 190, 34,
+            ExportSave, Color.white);
+        foreach (var button in new[] { importButton, exportButton })
+        {
+            var image = button.GetComponent<Image>();
+            image.material = nativeControl.material;
+            image.type = nativeControl.type;
+            button.GetComponentInChildren<Text>().color = Color.white;
+        }
 
         Color dialogColor = new Color(.31f, .24f, .29f);
-        saveTransferDialog = ui.Panel("SaveTransferDialog", sync, 0, 0, 475, 260, dialogColor).gameObject;
+        saveTransferDialog = ui.Panel("SaveTransferDialog", sync, 0, 32, 475, 260, dialogColor).gameObject;
         ui.Text("Title", saveTransferDialog.transform, "Import old save", 0, 84, 435, 40, 24, Color.white);
         saveImportPath = ui.Input("SaveImportPath", saveTransferDialog.transform, "Absolute path to .dat or .json save", 0, 32, 435);
         saveImportPath.characterLimit = 4096;
@@ -46,7 +59,7 @@ public partial class Menu
         saveTransferDialog.transform.Find("CancelImport/Label").GetComponent<Text>().color = Color.white;
         saveTransferDialog.SetActive(false);
 
-        saveTransferMessageDialog = ui.Panel("SaveTransferMessage", sync, 0, 0, 475, 245, dialogColor).gameObject;
+        saveTransferMessageDialog = ui.Panel("SaveTransferMessage", sync, 0, 32, 475, 245, dialogColor).gameObject;
         saveTransferMessageTitle = ui.Text("Title", saveTransferMessageDialog.transform, "", 0, 84, 435, 40, 24, Color.white);
         saveTransferMessageScroll = ui.Scroll("MessageScroll", saveTransferMessageDialog.transform,
             0, 8, 435, 125, out saveTransferMessageContent);
