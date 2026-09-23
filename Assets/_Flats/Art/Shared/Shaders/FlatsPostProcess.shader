@@ -13,6 +13,10 @@ Shader "Hidden/FLATS/URPPostProcess"
         TEXTURE2D_X(_FlatsAuxTex);
         TEXTURE2D_X(_FlatsCoCTex);
         TEXTURE2D_X(_MotionVectorTexture);
+        TEXTURE2D_X(_FlatsMotionIds);
+        TEXTURE2D(_FlatsMotionAlpha); SAMPLER(sampler_FlatsMotionAlpha);
+        float _FlatsMotionId, _FlatsMotionCutoff;
+        float4 _FlatsMotionAlphaST;
         TEXTURE2D(_Curves); SAMPLER(sampler_Curves);
         float4 _Focus, _Direction, _Bokeh, _Edge, _Sensitivity, _EdgeBackground, _Motion, _MotionOptions, _Gray, _Fish, _Correction;
         float4 _SelectiveFrom, _SelectiveTo;
@@ -103,12 +107,14 @@ Shader "Hidden/FLATS/URPPostProcess"
             else edge=step(_Edge.w,abs(dot(ColorAt(uv-t).rgb-ColorAt(uv+t).rgb,float3(.299,.587,.114))));
             float4 color=lerp(ColorAt(uv),_EdgeBackground,_Sensitivity.z); color.rgb*=1-saturate(edge);return color;
         }
+        float ObjectIdAt(float2 uv) { return floor(SAMPLE_TEXTURE2D_X_LOD(_FlatsMotionIds,sampler_PointClamp,saturate(uv),0).r*255+.5); }
         float2 MotionRaw(float2 uv)
         {
+            if(ObjectIdAt(uv)>254)return float2(0,0);
             // URP vectors are screen UV deltas; Amplify's recovered vectors are
             // NDC deltas, hence 2. Thresholds and radius retain original units.
             float2 velocityNdc=SAMPLE_TEXTURE2D_X(_MotionVectorTexture,sampler_PointClamp,uv).xy*2;
-            if(abs(_MotionOptions.w-1)>.00001)
+            if(abs(_MotionOptions.w-1)>.00001 && ObjectIdAt(uv)<2)
             {
                 float deviceDepth=SampleSceneDepth(uv);
                 #if !UNITY_REVERSED_Z
@@ -133,13 +139,13 @@ Shader "Hidden/FLATS/URPPostProcess"
             float2 velocity=raw/max(speed,1e-7)*amount*_Motion.z*.001*_MotionOptions.x;
             if(_MotionOptions.z>.5)return float4(raw/max(speed,1e-7)*.5+.5,amount,1);
             float4 center=ColorPointAt(uv); if(length(velocity)<1e-7)return center;
-            float depth=DepthEye(uv);float3 sum=center.rgb;float count=1;
+            float depth=DepthEye(uv);float objectId=ObjectIdAt(uv);float3 sum=center.rgb;float count=1;
             int taps=(int)_MotionOptions.y;
             [loop] for(int k=-taps;k<=taps;k++)
             {
                 if(k==0)continue;
                 float2 pos=uv+velocity*(float(k)/taps);
-                float weight=DepthEye(pos)>depth-_Motion.w?1:0;
+                float weight=(DepthEye(pos)>depth-_Motion.w || (objectId>1 && objectId<254 && ObjectIdAt(pos)==objectId))?1:0;
                 sum+=ColorPointAt(pos).rgb*weight;count+=weight;
             }
             return float4(sum/count,center.a);
@@ -148,7 +154,7 @@ Shader "Hidden/FLATS/URPPostProcess"
         {
             float speed=length(MotionRaw(input.texcoord));
             float amount=max(min(speed,_Motion.z)-_Motion.y,0)/max(_Motion.z-_Motion.y,1e-7);
-            float4 original=ColorAt(input.texcoord);
+            float4 original=ColorPointAt(input.texcoord);
             float3 blurred=SAMPLE_TEXTURE2D_X(_FlatsAuxTex,sampler_PointClamp,input.texcoord).rgb;
             return float4(lerp(original.rgb,blurred,saturate(amount*3)),original.a);
         }
@@ -184,6 +190,20 @@ Shader "Hidden/FLATS/URPPostProcess"
             return (ColorAt(uv+t)+ColorAt(uv-t)+ColorAt(uv+t*float2(1,-1))+ColorAt(uv+t*float2(-1,1)))*.25;
         }
         float4 Copy(Varyings input) : SV_Target { return ColorAt(input.texcoord); }
+        struct IdAttributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+        struct IdVaryings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
+        IdVaryings IdVertex(IdAttributes input)
+        {
+            IdVaryings output; UNITY_SETUP_INSTANCE_ID(input); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
+            output.positionCS=TransformObjectToHClip(input.positionOS.xyz);
+            output.uv=input.uv*_FlatsMotionAlphaST.xy+_FlatsMotionAlphaST.zw;
+            return output;
+        }
+        float4 IdFragment(IdVaryings input) : SV_Target
+        {
+            clip(SAMPLE_TEXTURE2D(_FlatsMotionAlpha,sampler_FlatsMotionAlpha,input.uv).a-_FlatsMotionCutoff);
+            return float4(_FlatsMotionId,0,0,1);
+        }
         ENDHLSL
         Pass {
             HLSLPROGRAM
@@ -267,6 +287,14 @@ Shader "Hidden/FLATS/URPPostProcess"
             HLSLPROGRAM
             #pragma vertex Vert
             #pragma fragment MotionComposite
+            ENDHLSL
+        }
+        Pass {
+            Name "MotionObjectIdentity"
+            Cull Back ZWrite Off ZTest Equal
+            HLSLPROGRAM
+            #pragma vertex IdVertex
+            #pragma fragment IdFragment
             ENDHLSL
         }
     }

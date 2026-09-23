@@ -19,6 +19,8 @@ namespace Flats.Rendering
             public float focusDistance;
             public Texture2D curves;
             public int curveHash;
+            public readonly Dictionary<long, Material> objectMaterials = new Dictionary<long, Material>();
+            public readonly Dictionary<int, Matrix4x4> previousTransforms = new Dictionary<int, Matrix4x4>();
             public Material Get(Shader shader, int key)
             {
                 if (!materials.TryGetValue(key, out var material))
@@ -28,6 +30,7 @@ namespace Flats.Rendering
             public void Dispose()
             {
                 foreach (var material in materials.Values) CoreUtils.Destroy(material);
+                foreach (var material in objectMaterials.Values) CoreUtils.Destroy(material);
                 CoreUtils.Destroy(curves);
             }
         }
@@ -76,9 +79,99 @@ namespace Flats.Rendering
             readonly bool opaque;
             static readonly int AuxId = Shader.PropertyToID("_FlatsAuxTex");
             static readonly int CocId = Shader.PropertyToID("_FlatsCoCTex");
+            static readonly int IdTexture = Shader.PropertyToID("_FlatsMotionIds");
+            static readonly int ObjectId = Shader.PropertyToID("_FlatsMotionId");
+            static readonly int AlphaTexture = Shader.PropertyToID("_FlatsMotionAlpha");
+            static readonly int AlphaST = Shader.PropertyToID("_FlatsMotionAlphaST");
+            static readonly int AlphaCutoff = Shader.PropertyToID("_FlatsMotionCutoff");
+            sealed class IdDraw
+            {
+                public Renderer renderer;
+                public Material material;
+                public int submesh;
+            }
+            sealed class IdPassData
+            {
+                public List<IdDraw> draws;
+            }
+            TextureHandle ObjectIds(RenderGraph graph, UniversalResourceData resources, Camera camera, CameraState state, AmplifyMotionEffectBase motion)
+            {
+                var desc = graph.GetTextureDesc(resources.activeColorTexture);
+                desc.name = "FLATS motion object IDs";
+                desc.colorFormat = UnityEngine.Experimental.Rendering.GraphicsFormat.R8G8B8A8_UNorm;
+                desc.clearBuffer = true; desc.clearColor = Color.clear;
+                var ids = graph.CreateTexture(desc);
+                var draws = new List<IdDraw>();
+                var planes = GeometryUtility.CalculateFrustumPlanes(camera);
+                // Enumerate only while the option is on. Runtime-spawned enemies and
+                // pickups must enter the same frame, so no stale scene-only registry.
+                var renderers = Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+                var liveInstances = new HashSet<int>();
+                foreach (var renderer in renderers) liveInstances.Add(renderer.GetInstanceID());
+                var staleMaterials = new List<long>();
+                foreach (var pair in state.objectMaterials) if (!liveInstances.Contains((int)(pair.Key >> 32))) staleMaterials.Add(pair.Key);
+                foreach (var stale in staleMaterials) { CoreUtils.Destroy(state.objectMaterials[stale]); state.objectMaterials.Remove(stale); }
+                var staleTransforms = new List<int>();
+                foreach (var pair in state.previousTransforms) if (!liveInstances.Contains(pair.Key)) staleTransforms.Add(pair.Key);
+                foreach (var stale in staleTransforms) state.previousTransforms.Remove(stale);
+                int nextId = 2;
+                foreach (var renderer in renderers)
+                {
+                    if (!(renderer is MeshRenderer) && !(renderer is SkinnedMeshRenderer)) continue;
+                    if (!renderer.enabled || renderer.forceRenderingOff || !renderer.isVisible || !renderer.gameObject.activeInHierarchy || renderer.gameObject.isStatic || renderer.isPartOfStaticBatch) continue;
+                    int layer = 1 << renderer.gameObject.layer;
+                    if ((camera.cullingMask & layer) == 0 || !GeometryUtility.TestPlanesAABB(planes, renderer.bounds)) continue;
+                    int instance = renderer.GetInstanceID();
+                    bool included = (motion.CullingMask.value & layer) != 0;
+                    var matrix = renderer.localToWorldMatrix;
+                    bool moved = !state.previousTransforms.TryGetValue(instance, out var previous) || matrix != previous;
+                    state.previousTransforms[instance] = matrix;
+                    if (included && renderer is MeshRenderer && !moved) continue;
+                    // IDs are compared within this frame only, as in Amplify's
+                    // ResetObjectId. Never alias live objects after repeated spawns.
+                    int id = included ? (nextId < 254 ? nextId++ : 254) : 255;
+                    var mesh = renderer is SkinnedMeshRenderer skin ? skin.sharedMesh : renderer.GetComponent<MeshFilter>()?.sharedMesh;
+                    if (mesh == null || mesh.subMeshCount == 0) continue;
+                    var materials = renderer.sharedMaterials;
+                    for (int index = 0; index < materials.Length; index++)
+                    {
+                        var material = materials[index]; if (material == null) continue;
+                        string type = material.GetTag("RenderType", false);
+                        if (type != "Opaque" && type != "TransparentCutout") continue;
+                        string textureName = material.HasProperty("_BaseMap") ? "_BaseMap" : "_MainTex";
+                        Texture alpha = material.HasProperty(textureName) ? material.GetTexture(textureName) : null;
+                        var scale = material.HasProperty(textureName) ? material.GetTextureScale(textureName) : Vector2.one;
+                        var offset = material.HasProperty(textureName) ? material.GetTextureOffset(textureName) : Vector2.zero;
+                        long materialKey = ((long)instance << 32) | (uint)index;
+                        if (!state.objectMaterials.TryGetValue(materialKey, out var idMaterial))
+                            state.objectMaterials[materialKey] = idMaterial = CoreUtils.CreateEngineMaterial(owner.shader);
+                        idMaterial.SetFloat(ObjectId, id / 255f);
+                        idMaterial.SetTexture(AlphaTexture, alpha != null ? alpha : Texture2D.whiteTexture);
+                        idMaterial.SetVector(AlphaST, new Vector4(scale.x, scale.y, offset.x, offset.y));
+                        idMaterial.SetFloat(AlphaCutoff, type == "TransparentCutout" ? (material.HasProperty("_Cutoff") ? material.GetFloat("_Cutoff") : .5f) : -1f);
+                        draws.Add(new IdDraw { renderer = renderer, submesh = Mathf.Min(index, mesh.subMeshCount - 1), material = idMaterial });
+                    }
+                }
+                using (var builder = graph.AddRasterRenderPass<IdPassData>("FLATS motion object identity", out var data))
+                {
+                    data.draws = draws;
+                    builder.SetRenderAttachment(ids, 0, AccessFlags.Write);
+                    builder.SetRenderAttachmentDepth(resources.activeDepthTexture, AccessFlags.Read);
+                    builder.AllowGlobalStateModification(true);
+                    builder.SetRenderFunc((IdPassData pass, RasterGraphContext context) =>
+                    {
+                        foreach (var draw in pass.draws)
+                        {
+                            if (draw.renderer == null) continue;
+                            context.cmd.DrawRenderer(draw.renderer, draw.material, draw.submesh, 14);
+                        }
+                    });
+                }
+                return ids;
+            }
             class PassData
             {
-                public TextureHandle source, aux, coc;
+                public TextureHandle source, aux, coc, ids;
                 public Material material;
                 public int index;
             }
@@ -88,7 +181,7 @@ namespace Flats.Rendering
             }
             TextureHandle Draw(RenderGraph graph, UniversalResourceData resources, TextureHandle source,
                 Material material, int index, string name, int divisor = 1,
-                TextureHandle aux = default, TextureHandle coc = default, TextureHandle output = default)
+                TextureHandle aux = default, TextureHandle coc = default, TextureHandle output = default, TextureHandle ids = default)
             {
                 var desc = graph.GetTextureDesc(source);
                 desc.name = name; desc.clearBuffer = false;
@@ -97,10 +190,11 @@ namespace Flats.Rendering
                 var target = output.IsValid() ? output : graph.CreateTexture(desc);
                 using (var builder = graph.AddRasterRenderPass<PassData>(name, out var data))
                 {
-                    data.source = source; data.aux = aux; data.coc = coc; data.material = material; data.index = index;
+                    data.source = source; data.aux = aux; data.coc = coc; data.ids = ids; data.material = material; data.index = index;
                     builder.UseTexture(source);
                     if (aux.IsValid()) builder.UseTexture(aux);
                     if (coc.IsValid()) builder.UseTexture(coc);
+                    if (ids.IsValid()) builder.UseTexture(ids);
                     if (resources.cameraDepthTexture.IsValid()) builder.UseTexture(resources.cameraDepthTexture);
                     if (resources.cameraNormalsTexture.IsValid()) builder.UseTexture(resources.cameraNormalsTexture);
                     if (resources.motionVectorColor.IsValid()) builder.UseTexture(resources.motionVectorColor);
@@ -111,6 +205,7 @@ namespace Flats.Rendering
                     {
                         if (pass.aux.IsValid()) context.cmd.SetGlobalTexture(AuxId, pass.aux);
                         if (pass.coc.IsValid()) context.cmd.SetGlobalTexture(CocId, pass.coc);
+                        if (pass.ids.IsValid()) context.cmd.SetGlobalTexture(IdTexture, pass.ids);
                         Blitter.BlitTexture(context.cmd, pass.source, new Vector4(1, 1, 0, 0), pass.material, pass.index);
                     });
                 }
@@ -190,6 +285,7 @@ namespace Flats.Rendering
                         else if (component is AmplifyMotionEffectBase motion)
                         {
                             var motionSource = source;
+                            var ids = ObjectIds(graph, resources, camera, state, motion);
                             int steps = Mathf.Clamp(motion.QualitySteps, 1, 8);
                             for (int step = 0; step < steps; step++)
                             {
@@ -199,10 +295,10 @@ namespace Flats.Rendering
                                 material.SetVector("_MotionOptions", new Vector4(1f - (float)step / steps,
                                     motion.QualityLevel == AmplifyMotion.Quality.Mobile ? 1 : (motion.QualityLevel == AmplifyMotion.Quality.Standard_SM3 ? 4 : 2),
                                     motion.DebugMode ? 1 : 0, motion.CameraMotionMult));
-                                source = Draw(graph, resources, source, material, 4, "FLATS camera and object motion " + step);
+                                source = Draw(graph, resources, source, material, 4, "FLATS camera and object motion " + step, ids: ids);
                             }
                             if (motion.QualityLevel == AmplifyMotion.Quality.Mobile && !motion.DebugMode)
-                                source = Draw(graph, resources, motionSource, state.Get(owner.shader, 20), 13, "FLATS mobile motion composite", aux: source);
+                                source = Draw(graph, resources, motionSource, state.Get(owner.shader, 20), 13, "FLATS mobile motion composite", aux: source, ids: ids);
                         }
                         else if (component is CC_Grayscale gray)
                         {
