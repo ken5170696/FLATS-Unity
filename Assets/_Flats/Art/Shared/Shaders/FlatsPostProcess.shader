@@ -186,7 +186,9 @@ Shader "Hidden/FLATS/URPPostProcess"
         }
         float4 Downsample(Varyings input) : SV_Target
         {
-            float2 uv=input.texcoord,t=_BlitTexture_TexelSize.xy;
+            // FxProTap consumes BlitMultiTap's first (-1,-1) UV pair before
+            // adding the four diagonal fragment taps.
+            float2 t=_BlitTexture_TexelSize.xy,uv=input.texcoord-t;
             return (ColorAt(uv+t)+ColorAt(uv-t)+ColorAt(uv+t*float2(1,-1))+ColorAt(uv+t*float2(-1,1)))*.25;
         }
         float4 ConeBlur(Varyings input) : SV_Target
