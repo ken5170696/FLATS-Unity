@@ -13,7 +13,7 @@ CGPROGRAM
 #pragma target 3.0
 #pragma vertex vert_img
 #pragma fragment frag
-float4 frag(v2f_img i):SV_Target{return EncodeFloatRGBA(min(0.999999,Linear01Depth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture,i.uv))));}
+float4 frag(v2f_img i):SV_Target{float depth=SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture,i.uv);return depth==1?float4(1,1,1,1):EncodeFloatRGBA(depth);}
 ENDCG
 }
 }

@@ -14,7 +14,7 @@ CGPROGRAM
 #pragma target 3.0
 #pragma vertex vert_img
 #pragma fragment frag
-float4 frag(v2f_img i):SV_Target{return tex2D(_MainTex,i.uv);}
+float4 frag(v2f_img i):SV_Target{float4 c=tex2D(_MainTex,i.uv);c.a=tex2D(_MotionTex,i.uv).a;return c;}
 ENDCG
 }
 Pass { Blend SrcAlpha OneMinusSrcAlpha
@@ -22,7 +22,7 @@ CGPROGRAM
 #pragma target 3.0
 #pragma vertex vert_img
 #pragma fragment frag
-float4 frag(v2f_img i):SV_Target{float4 c=tex2D(_MainTex,i.uv);float4 v=tex2D(_MotionTex,i.uv);c.a=1-step(0.0001,length(v.xy*2-1)*v.a);return c;}
+float4 frag(v2f_img i):SV_Target{float4 c=tex2D(_MainTex,i.uv);float4 v=tex2D(_MotionTex,i.uv);c.a=1-saturate(v.b*3);return c;}
 ENDCG
 }
 }

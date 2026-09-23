@@ -13,11 +13,22 @@ Properties {
  CGINCLUDE
  #include "UnityCG.cginc"
  sampler2D _MainTex;float4 _MainTex_TexelSize;
+ // Binomial kernels used by the original FxPro quality levels.
  float4 blur(float2 uv,float2 offset){
- float4 c=tex2D(_MainTex,uv)*0.227027;
- c+=(tex2D(_MainTex,uv+offset*1.384615)+tex2D(_MainTex,uv-offset*1.384615))*0.316216;
- c+=(tex2D(_MainTex,uv+offset*3.230769)+tex2D(_MainTex,uv-offset*3.230769))*0.070270;
- return c;
+ #if defined(BLUR_RADIUS_10)
+ const int radius=10;
+ #elif defined(BLUR_RADIUS_5)
+ const int radius=5;
+ #else
+ const int radius=3;
+ #endif
+ float weight=exp2(-2.0*radius);
+ float3 color=0;
+ for(int k=0;k<=2*radius;k++){
+ color+=tex2Dlod(_MainTex,float4(uv+offset*(k-radius),0,0)).rgb*weight;
+ weight*=float(2*radius-k)/float(k+1);
+ }
+ return float4(color,tex2D(_MainTex,uv).a);
 }
  UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);sampler2D _COCTex;
  float _FocalDist,_FocalLength,_BlurIntensity,_OneOverDepthScale,_BokehThreshold,_BokehGain,_BokehBias;float4 _SeparableBlurOffsets;
@@ -27,9 +38,16 @@ Pass { CGPROGRAM
 #pragma vertex vert_img
 #pragma fragment frag
 #pragma target 3.0
+#pragma multi_compile USE_CAMERA_DEPTH_TEXTURE DONT_USE_CAMERA_DEPTH_TEXTURE
 
 float4 frag(v2f_img i):SV_Target{
-float d=Linear01Depth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture,i.uv))*max(_OneOverDepthScale,1);float coc=saturate(abs(d-_FocalDist)/max(_FocalLength,0.0001));return coc.xxxx;
+ #if defined(USE_CAMERA_DEPTH_TEXTURE)
+ float d=Linear01Depth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture,i.uv))*_OneOverDepthScale;
+ #else
+ float d=tex2D(_MainTex,i.uv).a;
+ #endif
+ float coc=saturate(abs(d-_FocalDist)/max(d,1e-7)*_FocalLength/max(saturate(_FocalDist-_FocalLength),1e-7));
+ return float4(coc,d,0,0);
 }
 ENDCG
 }
@@ -37,9 +55,10 @@ Pass { CGPROGRAM
 #pragma vertex vert_img
 #pragma fragment frag
 #pragma target 3.0
+#pragma multi_compile BLUR_RADIUS_3 BLUR_RADIUS_5 BLUR_RADIUS_10
 
 float4 frag(v2f_img i):SV_Target{
-return blur(i.uv,_SeparableBlurOffsets.xy*_MainTex_TexelSize.xy*tex2D(_COCTex,i.uv).r);
+return float4(blur(i.uv,_SeparableBlurOffsets.xy*_MainTex_TexelSize.xy*tex2D(_COCTex,i.uv).r).rgb,0);
 }
 ENDCG
 }
@@ -47,6 +66,7 @@ Pass { CGPROGRAM
 #pragma vertex vert_img
 #pragma fragment frag
 #pragma target 3.0
+#pragma multi_compile BLUR_RADIUS_3 BLUR_RADIUS_5 BLUR_RADIUS_10
 
 float4 frag(v2f_img i):SV_Target{
 return blur(i.uv,_SeparableBlurOffsets.xy*_MainTex_TexelSize.xy);

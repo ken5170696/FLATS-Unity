@@ -6,11 +6,30 @@ Properties {
 	SubShader { Cull Off ZWrite Off ZTest Always
 CGINCLUDE
 #include "UnityCG.cginc"
-sampler2D _MainTex,_MotionTex;float4 _MainTex_TexelSize,_AM_BLUR_STEP,_AM_DEPTH_THRESHOLD;UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
- float4 sampleMotion(float2 uv,int samples,float jitter){float4 motion=tex2D(_MotionTex,uv);float2 velocity=(motion.xy*2-1)*motion.a*_AM_BLUR_STEP.xy;
- if(length(velocity)<0.00001)return tex2D(_MainTex,uv);
- float depth=Linear01Depth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture,uv));float4 color=0;float total=0;
- for(int k=0;k<16;k++){if(k>=samples)break;float2 pos=saturate(uv+velocity*((k+jitter)/max(samples-1,1)-0.5));float d=Linear01Depth(SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture,pos));float w=abs(depth-d)<max(_AM_DEPTH_THRESHOLD.x,0.001)?1:0.1;color+=tex2D(_MainTex,pos)*w;total+=w;}return color/max(total,0.0001);}
+sampler2D _MainTex,_MotionTex,_DepthTex;float4 _MainTex_TexelSize,_AM_BLUR_STEP,_AM_DEPTH_THRESHOLD;
+ UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
+ float4 sampleMotion(float2 uv,int samples,float jitter){
+ float4 motion=tex2D(_MotionTex,uv);
+ float2 velocity=(motion.xy*2-1)*motion.b*_AM_BLUR_STEP.xy;
+ float4 center=tex2D(_MainTex,uv);
+ if(length(velocity)<1e-7)return center;
+ // Mobile uses the packed depth buffer and two symmetric taps. It is the
+ // original player preset; preserve object IDs through repeated blur steps.
+ bool mobile=samples==4;
+ float depth=LinearEyeDepth(mobile?DecodeFloatRGBA(tex2D(_DepthTex,uv)):SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture,uv));
+ float objectId=floor(center.a*255+0.5);
+ float4 sum=float4(center.rgb,1);
+ int taps=mobile?1:(samples==12?4:2);
+ for(int k=-taps;k<=taps;k++){
+ if(k==0)continue;
+ float2 pos=uv+velocity*(float(k)/taps);
+ float sampleDepth=LinearEyeDepth(mobile?DecodeFloatRGBA(tex2D(_DepthTex,pos)):SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture,pos));
+ float4 color=tex2D(_MainTex,pos);
+ float weight=(sampleDepth>depth-_AM_DEPTH_THRESHOLD.x || (objectId>1 && objectId<254 && color.a==center.a))?1:0;
+ sum+=float4(color.rgb,1)*weight;
+ }
+ return float4(sum.rgb/sum.a,center.a);
+ }
 
 ENDCG
 Pass { 
