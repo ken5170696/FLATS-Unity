@@ -43,7 +43,7 @@ struct FlatsVaryings
     float3 normalWS : TEXCOORD1;
     float2 lightmapUV : TEXCOORD2;
 #if defined(FLATS_FOG)
-    float fogIntensity : TEXCOORD6;
+    float fogFactor : TEXCOORD6;
 #endif
 #if defined(FLATS_SOFT_PARTICLES)
     float eyeDepth : TEXCOORD3;
@@ -64,12 +64,8 @@ FlatsVaryings FlatsVertex(FlatsAttributes input)
     output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
     output.uv = TRANSFORM_TEX(input.uv, _MainTex);
 #if defined(FLATS_FOG)
-    // Interpolate the completed vertex fog intensity, as opposed to applying
-    // the exponential after interpolation. No-fog variants retain the color.
-    output.fogIntensity = 1.0;
-#if defined(FOG_LINEAR) || defined(FOG_EXP) || defined(FOG_EXP2)
-    output.fogIntensity = ComputeFogIntensity(ComputeFogFactor(output.positionCS.z));
-#endif
+    // The original fixed-function Vertex/VertexLM passes applied scene fog.
+    output.fogFactor = ComputeFogFactor(output.positionCS.z);
 #endif
     output.normalWS = TransformObjectToWorldNormal(input.normalOS);
 #if defined(FLATS_SHADOW_PASS)
@@ -128,9 +124,9 @@ half4 FlatsFragment(FlatsVaryings input) : SV_Target
 #endif
 #if defined(FLATS_FOG)
 #if defined(FLATS_BLACK_FOG)
-    color.rgb *= saturate(input.fogIntensity);
+    color.rgb = MixFogColor(color.rgb, half3(0, 0, 0), input.fogFactor);
 #else
-    color.rgb = lerp(unity_FogColor.rgb, color.rgb, saturate(input.fogIntensity));
+    color.rgb = MixFog(color.rgb, input.fogFactor);
 #endif
 #endif
     return color;
