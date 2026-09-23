@@ -4,6 +4,7 @@ Properties {
  _Cutoff ("Alpha cutoff", Range(0,1)) = 0.5
 }
 	SubShader { Tags {"Queue"="AlphaTest" "RenderType"="TransparentCutout"} Cull Off
+ UsePass "Legacy Shaders/Transparent/Cutout/VertexLit/SHADOWCASTER"
  Pass { CGPROGRAM
  #pragma vertex vert
  #pragma fragment frag

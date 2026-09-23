@@ -5,6 +5,7 @@ Properties {
 SubShader { 
  LOD 100
  Tags { "RenderType"="Opaque" }
+ UsePass "Legacy Shaders/VertexLit/SHADOWCASTER"
  Pass {
   Tags { "LIGHTMODE"="Vertex" "RenderType"="Opaque" }
   SetTexture [_MainTex] { combine texture }

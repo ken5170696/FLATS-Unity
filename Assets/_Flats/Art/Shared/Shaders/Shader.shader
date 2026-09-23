@@ -2,6 +2,8 @@ Shader "Texture Only" {
  Properties { _MainTex ("Texture", 2D) = "white" {} }
  SubShader {
   Tags { "RenderType"="Opaque" }
+  // Built-in depth textures use ShadowCaster passes in the current renderer.
+  UsePass "Legacy Shaders/VertexLit/SHADOWCASTER"
   Pass {
    CGPROGRAM
    #pragma vertex vert

@@ -6,6 +6,7 @@ Properties {
 SubShader { 
  LOD 100
  Tags { "RenderType"="Opaque" }
+ UsePass "Legacy Shaders/VertexLit/SHADOWCASTER"
  Pass {
   Tags { "RenderType"="Opaque" }
   SetTexture [_MainTex] { ConstantColor [_Color] combine constant * texture }
