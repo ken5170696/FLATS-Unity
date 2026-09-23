@@ -21,6 +21,7 @@ public partial class Menu : MonoBehaviour
         public int NetworkMode { get { return network; } }
     }
     private readonly Flats.Core.IGameSessionContext gameplaySession = new GameplaySession();
+    private readonly Flats.Core.PauseNavigationSession pauseNavigation = new Flats.Core.PauseNavigationSession();
 
     public void BindGameplay(FPSController player)
     {
@@ -340,6 +341,7 @@ public partial class Menu : MonoBehaviour
     }
 	private void OnDestroy()
 	{
+        if (localDiscovery != null) localDiscovery.Stop();
         Canvas.preWillRenderCanvases -= BindThemeMaterials;
 		if (runtimeBackgroundMaterial != null) Destroy(runtimeBackgroundMaterial);
         if (runtimeMainUI != null) Destroy(runtimeMainUI);
@@ -388,6 +390,15 @@ public partial class Menu : MonoBehaviour
 		}
 		mt = base.transform;
 		InitializeSaveTransfer();
+        var syncExplanation = mt.Find("Character/Sync/Explanation");
+        if (syncExplanation != null)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            syncExplanation.GetComponent<Text>().text = "Save files: Export on source; Import old save here.\nPreview before replacing the current save.\n\nBrowsers cannot use UDP LAN Sync.\nUse save files to transfer your progress.\n\nLegacy cloud restoration is unavailable.\nThe ID/Receive entry cannot recover old cloud data.";
+#else
+            syncExplanation.GetComponent<Text>().text = "Save files: Export on source; Import old save here.\nPreview before replacing the current save.\n\nLAN Sync (native builds, same network):\nOpen source first, then receiver; confirm scores.\nOnly ID + scores transfer, not gameplay.\n\nLegacy cloud restoration is unavailable.\nThe ID/Receive entry cannot recover old cloud data.";
+#endif
+        }
 		anim = GetComponent<Animator>();
 		Time.timeScale = 1f;
 		Application.targetFrameRate = 60;
@@ -520,9 +531,9 @@ public partial class Menu : MonoBehaviour
 				version = text;
 				SaveDataController.Save();
 				Debug.Log("This is the first play.");
-				update.transform.GetChild(1).GetComponent<Text>().text = "Flats version 5";
-				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to Flats.\n\nFlats is a simple cross-platform FPS.\nYou can play single & multiplayer mode.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Added new game mode and new system.\n- Added LAN multiplayer mode for Android and iOS devices.\n- Now available on Windows 8.1 or later.\n\nNote for updaters from version 4:Your score is taken over,\nbut singleplayer score is limited to 100000\nalso kill and death are halved and limited to 300.";
+				update.transform.GetChild(1).GetComponent<Text>().text = "FLATS " + text + " preview";
+				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.";
 			}
 			else
 			{
@@ -582,8 +593,8 @@ public partial class Menu : MonoBehaviour
 					SaveDataController.Save();
 				}
 				update.transform.GetChild(1).GetComponent<Text>().text = "Update Version " + text;
-				update.transform.GetChild(2).GetComponent<Text>().text = "Bug fixes and adjustment.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Save import and export have a clearer layout and messages.\n- Android touch controls and game loading fades are improved.";
+				update.transform.GetChild(2).GetComponent<Text>().text = "Core stability, save transfer and module updates.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.";
 			}
 			version = text;
 			FlatsPreferences.SetString("version", version);
@@ -706,7 +717,8 @@ public partial class Menu : MonoBehaviour
 
 	private IEnumerator JoinFromInvitation()
 	{
-        while (!Flats.Modules.BuiltinModules.Instance.Center.Ready) yield return null;
+        yield return StartCoroutine(EnsureMultiplayerConnection());
+        if (!multiplayerReady) { fliping = false; anim.SetBool("Fade", false); yield break; }
 		stayRoom.gameObject.SetActive(true);
 		ipButton.SetActive(false);
 		roomTexts[0].text = ruleTitleText[rule];
@@ -756,26 +768,12 @@ public partial class Menu : MonoBehaviour
 		anim.SetBool("Detail", false);
 		anim.SetTrigger("SkipToMatching");
 		current = "Matching";
-		if (!PhotonNetwork.connected)
-		{
-			Connect();
-		}
-		if (PhotonNetwork.inRoom)
-		{
-			while (PhotonNetwork.inRoom)
-			{
-				yield return new WaitForSeconds(0f);
-			}
-		}
-		while (!PhotonNetwork.connectedAndReady)
-		{
-			yield return new WaitForSeconds(0f);
-		}
 		ExitGames.Client.Photon.Hashtable customProps = new ExitGames.Client.Photon.Hashtable();
 		if (rule != 0)
 		{
 			customProps["R"] = rule;
 		}
+        pendingRoomDeadline = Time.realtimeSinceStartup + 25f;
 		PhotonNetwork.JoinRandomRoom(customProps, 0);
 		preCheckToStayRoom = true;
 	}
@@ -1033,14 +1031,7 @@ public partial class Menu : MonoBehaviour
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = mySettings.sound_bgm.ToString();
-		if (current == "Playing")
-		{
-			AudioListener.volume = (float)mySettings.sound_all / 10f;
-		}
-		else
-		{
-			AudioListener.volume = (float)mySettings.sound_all / 20f;
-		}
+        ApplyListenerVolume();
 		mt.GetChild(6).GetChild(0).GetChild(1)
 			.GetChild(1)
 			.GetComponent<Text>()
@@ -1549,7 +1540,15 @@ public partial class Menu : MonoBehaviour
 
 	private void Update()
 	{
+        TickLocalMatch();
 		InputDevice activeDevice = InputManager.ActiveDevice;
+        if (multiplayerConnecting && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed ||
+            (!customControlEnabled && activeDevice.Action2.WasPressed) ||
+            (customControlEnabled && Input.GetButtonDown(customControl["Pick"]))))
+        {
+            Fade(-1);
+            return;
+        }
 		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || (current != "Main" && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && ((!customControlEnabled && activeDevice.Action2.WasPressed) || (customControlEnabled && Input.GetButtonDown(customControl["Pick"]))))) && canOpen && !confirm.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main"))
 		{
 			Fade(-1);
@@ -1798,11 +1797,18 @@ public partial class Menu : MonoBehaviour
 		current = "Main";
 	}
 
+    private void ApplyListenerVolume()
+    {
+        AudioListener.volume = Flats.Core.PauseNavigationSession.ListenerVolume(mySettings.sound_all / 10f, current == "Playing");
+    }
+
 	public void OpenMenu()
 	{
+        float nextTimeScale;
+        if (!pauseNavigation.TryOpen(current, gameState, Time.timeScale, out nextTimeScale)) return;
 		anim.SetTrigger("OpenMenu");
 		current = "Main";
-		AudioListener.volume /= 2f;
+        ApplyListenerVolume();
 		StartCoroutine("BackgroundColor", "OpenMenu");
 		mt.parent.GetChild(1).GetComponent<Canvas>().enabled = false;
 		mt.parent.GetChild(2).GetComponent<Canvas>().enabled = false;
@@ -1821,8 +1827,8 @@ public partial class Menu : MonoBehaviour
 					grabbedObject.transform.GetChild(2).gameObject.SetActive(false);
 				}
 			}
-			savedTimeScale = Time.timeScale;
-			Time.timeScale = 0f;
+            savedTimeScale = pauseNavigation.SavedTimeScale;
+            Time.timeScale = nextTimeScale;
 		}
 		if ((Application.isMobilePlatform || !Input.mousePresent) && Input.GetJoystickNames().Length == 0)
 		{
@@ -1864,12 +1870,14 @@ public partial class Menu : MonoBehaviour
 
 	public void CloseMenu()
 	{
+        float nextTimeScale;
+        if (!pauseNavigation.TryClose(current, gameState, Time.timeScale, savedTimeScale, out nextTimeScale)) return;
 		anim.SetTrigger("CloseMenu");
 		anim.SetBool("Fade", false);
 		current = "Playing";
-		AudioListener.volume *= 2f;
+        ApplyListenerVolume();
 		StartCoroutine("BackgroundColor", "CloseMenu");
-		Time.timeScale = savedTimeScale;
+        Time.timeScale = nextTimeScale;
 		FPSController.enableCamRotate = true;
 		EventSystem.current.SetSelectedGameObject(null);
 		mt.parent.GetChild(1).GetComponent<Canvas>().enabled = true;
@@ -1915,6 +1923,24 @@ public partial class Menu : MonoBehaviour
 
 	public void Fade(int button)
 	{
+        if (localMatchPanel != null && localMatchPanel.activeSelf)
+        { if (button == -1) CloseLocalMatch(); return; }
+        if (current == "Multiplayer" && button == 2 && !fliping && !multiplayerConnecting)
+        { OpenLocalMatch(); return; }
+        if (multiplayerConnecting)
+        {
+            if (button == -1)
+            {
+                ++multiplayerOperation;
+                multiplayerFailure = "Connection cancelled";
+                multiplayerReady = false;
+                PhotonNetwork.Disconnect();
+                pleaseWait.SetActive(false);
+                fliping = false;
+                anim.SetBool("Fade", false);
+            }
+            return;
+        }
         if (HandleModNavigation(button)) return;
         if (button == -1 && current == "Multiplayer" && anim.GetBool("RoomCreation"))
         {
@@ -1923,8 +1949,6 @@ public partial class Menu : MonoBehaviour
             if (currentDetail != null) currentDetail.SetActive(true);
             backButton.SetActive(true); fliping = false; return;
         }
-        if (button == -1 && multiplayerConnecting)
-        { ++multiplayerOperation; multiplayerFailure = "Connection cancelled"; PhotonNetwork.Disconnect(); }
         Debug.Log("FLATS_MENU_ACTION current=" + current + " button=" + button);
         if (current == "Main" && button == 90 && Array.IndexOf(Environment.GetCommandLineArgs(), "-flats-bot-sandbox") >= 0)
         { rule = 1; objective = 1; botCount = 3; current = "OfflineMatch"; backButton.SetActive(true); RefreshOfflineMatch(); return; }
@@ -2324,7 +2348,7 @@ public partial class Menu : MonoBehaviour
 					}
 					if (button == 2)
 					{
-						ShowConfirm("This function is not available", "Sorry, you can't use this function\non Windows devices.", null, "OK", null);
+						OpenLocalMatch();
 					}
 					if (button == 3)
 					{
@@ -3654,7 +3678,9 @@ public partial class Menu : MonoBehaviour
 		{
             pendingRoomDeadline = 0;
             if (startingOfflineMatch) return;
-            if (!CheckRoomModules()) return;
+            if (RejectCancelledLocalRoom()) return;
+            if (!CheckRoomModules()) { LocalRoomFailed("Room modules do not match. Inspect MOD before retrying."); return; }
+            LocalRoomJoined();
 			Debug.Log("Joined!");
 			if ((int)PhotonNetwork.room.CustomProperties["R"] == -1)
 			{
@@ -3863,6 +3889,7 @@ public partial class Menu : MonoBehaviour
 
 		private void OnPhotonCreateRoomFailed(object[] codeAndMsg)
 		{
+            if (LocalRoomFailed("Room creation failed. Try hosting a new room.")) return;
             pendingRoomDeadline = 0;
 			pleaseWait.SetActive(false);
 			errorMessage.SetActive(true);
@@ -3907,6 +3934,7 @@ public partial class Menu : MonoBehaviour
 
 		private void OnPhotonJoinRoomFailed(object[] codeAndMsg)
 		{
+            if (LocalRoomFailed("Room unavailable. Check host, region, code and free slots.")) return;
             pendingRoomDeadline = 0;
             if (currentDetail == null) return;
             backButton.SetActive(true);
@@ -4083,7 +4111,7 @@ public partial class Menu : MonoBehaviour
 #if UNITY_WEBGL && !UNITY_EDITOR
             news.text = "FLATS Web\nOnline play uses the site's configured Photon service.\nBuilt-in crosshair settings and data presets are supported.\nDownloaded DLL mods require desktop Mono.\nBrowser saves may be cleared by the browser.\n\nOriginal game: © Foliage Games LLC";
 #else
-            news.text = "Windows reconstruction\nScores and settings are saved on this PC.\nOnline multiplayer uses your configured Photon app.\nStore purchase verification is unavailable.\n\nOriginal game: © Foliage Games LLC";
+            news.text = "FLATS reconstruction\nScores and settings are saved on this device.\nOnline multiplayer uses your configured Photon app.\nStore purchase verification is unavailable.\n\nOriginal game: © Foliage Games LLC";
 #endif
             yield break;
         }
@@ -5023,7 +5051,7 @@ public partial class Menu : MonoBehaviour
 				{
 					mySettings.sound_all += num;
 				}
-				AudioListener.volume = (float)mySettings.sound_all / 10f;
+                ApplyListenerVolume();
 				parent.GetChild(1).GetComponent<Text>().text = mySettings.sound_all.ToString();
 			}
 			else if (parent.name == "Anti-Aliasing")
