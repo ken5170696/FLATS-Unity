@@ -3164,23 +3164,8 @@ public partial class Menu : MonoBehaviour
 					switch (button)
 					{
 					case 10:
-						if (!VRmode)
-						{
-							string text3 = "Android: bit.ly/1Dn3fpL";
-							string text4 = "iOS: apple.co/1Ke5yO2";
-							string text5 = "Windows: bit.ly/1W0SGjR";
-							string desc = ((Application.platform == RuntimePlatform.Android) ? ("#Flats \n" + text3 + "\n" + text4 + "\n" + text5 + "\n\n") : ((Application.platform != RuntimePlatform.IPhonePlayer) ? ("#Flats \n" + text5 + "\n" + text3 + "\n" + text4 + "\n\n") : ("#Flats \n" + text4 + "\n" + text3 + "\n" + text5 + "\n\n")));
-							byte[] data = flatsLogo.texture.EncodeToPNG();
-							string sharePath = System.IO.Path.Combine((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath),"Flats-Share.png");
-							System.IO.File.WriteAllBytes(sharePath,data);
-							GUIUtility.systemCopyBuffer = "Flats - offline desktop edition";
-							ShowConfirm("Share saved", "Text copied to clipboard. Image saved to:\n"+sharePath, null, "OK", null);
-						}
-						else
-						{
-							ShowConfirm("This option is unavailable.", "Sorry, currently this option is not supported in VR mode.", null, "OK", null);
-						}
-						break;
+                        ShareGame();
+                        break;
 					case 11:
 					{
 						aboutUs.SetActive(true);
@@ -3540,6 +3525,8 @@ public partial class Menu : MonoBehaviour
             if (readyStarted || !PhotonNetwork.inRoom) yield break;
             readyStarted = true;
             int operation = readyOperation;
+            int scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle;
+            float deadline = Time.realtimeSinceStartup + 60f;
 			MonoBehaviour.print("Start syncing...");
 			roomTexts[4].text = "Syncing... up to a minute.";
 			PhotonNetwork.room.IsOpen = false;
@@ -3568,11 +3555,33 @@ public partial class Menu : MonoBehaviour
 			}
 			syncedPlayer = 0;
 			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(5f));
-            if (operation != readyOperation || !PhotonNetwork.inRoom) yield break;
+            if (operation != readyOperation || !PhotonNetwork.inRoom ||
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle != scene) yield break;
 			base.gameObject.GetPhotonView().RPC("Sync", PhotonTargets.AllBuffered);
 			while (true)
 			{
-                if (operation != readyOperation || !PhotonNetwork.inRoom) yield break;
+                if (operation != readyOperation || !PhotonNetwork.inRoom ||
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle != scene) yield break;
+                if (Time.realtimeSinceStartup >= deadline)
+                {
+                    // Invalidate this attempt before disconnecting so delayed buffered RPCs
+                    // cannot start map voting while the recovery message is visible.
+                    ++readyOperation;
+                    readyStarted = false;
+                    wasInRoom = false;
+                    pendingRoomDeadline = 0;
+                    localHostedRoom = null;
+                    if (localDiscovery != null) localDiscovery.Stop();
+                    PhotonNetwork.Disconnect();
+                    pleaseWait.SetActive(false);
+                    fliping = false;
+                    roomTexts[4].text = "Player synchronization timed out.";
+                    ShowConfirm("Match could not start",
+                        "Not all players completed synchronization within 60 seconds. The room connection was closed. Return to the main menu, then host or join again.",
+                        result => { if (result && this != null && UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle == scene) Reset(true); },
+                        "Return to menu", null);
+                    yield break;
+                }
 				if (PhotonNetwork.isMasterClient && syncedPlayer >= PhotonNetwork.room.PlayerCount)
 				{
 					Debug.Log("I'm the master");
@@ -3591,12 +3600,14 @@ public partial class Menu : MonoBehaviour
 		[PunRPC]
 		private void Sync()
 		{
+            if (!readyStarted || !PhotonNetwork.inRoom) return;
 			syncedPlayer++;
 		}
 
 		[PunRPC]
 		private IEnumerator DecideMap()
 		{
+            if (!readyStarted || !PhotonNetwork.inRoom) yield break;
 			if (current != "Matching")
 			{
 				backButton.SetActive(false);

@@ -74,6 +74,38 @@ mergeInto(LibraryManager.library, {
       else SendMessage(target, 'OnBrowserSaveReply', JSON.stringify({token:token,status:'error',error:String(error.message || error)}));
     }
   },
+  FlatsShareDownload__deps: ['$FlatsSaveDialog'],
+  FlatsShareDownload: function(targetPtr, tokenPtr, namePtr, pngPtr, textPtr) {
+    var target = UTF8ToString(targetPtr), token = UTF8ToString(tokenPtr), state;
+    try {
+      var encoded = UTF8ToString(pngPtr);
+      if (!encoded.length || encoded.length > 22369624) throw new Error('Share image exceeds 16 MiB.');
+      var binary = atob(encoded), bytes = new Uint8Array(binary.length);
+      for(var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      var signature = [137,80,78,71,13,10,26,10];
+      if(bytes.length > 16777216 || !signature.every(function(value,index){return bytes[index] === value;})) throw new Error('Share image is not a valid PNG.');
+      state = FlatsSaveDialog(target, token, 'Share FLATS');
+      var text = document.createElement('textarea'); text.readOnly = true;
+      text.value = UTF8ToString(textPtr); text.setAttribute('aria-label', 'Share text'); text.rows = 3; text.cols = 44;
+      state.dialog.insertBefore(text, state.dialog.lastChild);
+      var notice = document.createElement('p'); notice.textContent = 'Copy the website link, then download the PNG to attach it to your message. Check browser downloads to confirm the saved file.';
+      state.dialog.insertBefore(notice, state.dialog.lastChild);
+      var copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy share text';
+      copy.addEventListener('click', function(){
+        text.focus();text.select();
+        if(!navigator.clipboard || !navigator.clipboard.writeText){notice.textContent = 'Clipboard unavailable. Copy the selected text manually.';return;}
+        navigator.clipboard.writeText(text.value).then(function(){notice.textContent = 'Share text copied.';},function(){notice.textContent = 'Clipboard denied. Copy the selected text manually.';});
+      });
+      state.dialog.insertBefore(copy, state.dialog.lastChild);
+      var link = document.createElement('a'); state.url = URL.createObjectURL(new Blob([bytes], {type:'image/png'}));
+      link.href = state.url; link.download = UTF8ToString(namePtr); link.textContent = 'Download share PNG';
+      link.addEventListener('click', function(){setTimeout(function(){state.finish('download');},0);});
+      state.dialog.insertBefore(link, state.dialog.lastChild);
+    } catch(error) {
+      if(state) state.finish('error',{error:String(error.message || error)});
+      else SendMessage(target,'OnBrowserSaveReply',JSON.stringify({token:token,status:'error',error:String(error.message || error)}));
+    }
+  },
   FlatsSaveFlush__deps: ['$FlatsSaveDialogs'],
   FlatsSaveFlush: function(targetPtr, tokenPtr) {
     var target = UTF8ToString(targetPtr), token = UTF8ToString(tokenPtr);

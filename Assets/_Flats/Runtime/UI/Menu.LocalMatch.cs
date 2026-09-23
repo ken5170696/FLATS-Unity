@@ -143,7 +143,7 @@ public partial class Menu
     {
         if (localHostedRoom != null && !localRequestPending)
         {
-            if (!PhotonNetwork.inRoom || PhotonNetwork.room.Name != localHostedRoom || current != "Matching" || !PhotonNetwork.isMasterClient)
+            if (!PhotonNetwork.inRoom || PhotonNetwork.room.Name != localHostedRoom || current != "Matching" || !PhotonNetwork.isMasterClient || readyStarted || !PhotonNetwork.room.IsOpen)
             { localHostedRoom = null; if (localDiscovery != null) localDiscovery.Stop(); }
             else roomTexts[4].text = "Room: " + localHostedRoom + " / " + LocalRegion.ToUpperInvariant() +
                 "\nInternet required. Waiting for second player." + (localDiscovery.Error == null ? "" : "\n" + localDiscovery.Error);

@@ -9,6 +9,7 @@ public sealed class FlatsBrowserSaveTransfer : MonoBehaviour
     [Serializable] sealed class Reply { public string token, status, name, data, error; }
     [DllImport("__Internal")] static extern void FlatsSaveUpload(string target, string token);
     [DllImport("__Internal")] static extern void FlatsSaveDownload(string target, string token, string name, string json);
+    [DllImport("__Internal")] static extern void FlatsShareDownload(string target, string token, string name, string png, string text);
     [DllImport("__Internal")] static extern void FlatsSaveFlush(string target, string token);
     [DllImport("__Internal")] static extern void FlatsSaveCancel(string target);
     string token;
@@ -43,6 +44,14 @@ public sealed class FlatsBrowserSaveTransfer : MonoBehaviour
     {
         Begin(completion);
         FlatsSaveDownload(gameObject.name, token, filename, json);
+    }
+
+    public void DownloadPng(string filename, byte[] png, string text, Action<string, string> completion)
+    {
+        if(png == null || png.Length == 0 || png.Length > 16 * 1024 * 1024)
+            throw new ArgumentException("Share image must be between 1 byte and 16 MiB.");
+        Begin(completion);
+        FlatsShareDownload(gameObject.name, token, filename, Convert.ToBase64String(png), text);
     }
 
     public void Flush(Action<string, string> completion)
