@@ -39,7 +39,10 @@ public sealed class ModulePageBinding : MonoBehaviour
         {
             surface.gameObject.SetActive(show);if(!show)continue;
             var source=surface.transform.parent.GetComponent<Image>();if(source==null)continue;
-            var color=source.color*source.canvasRenderer.GetColor()*source.material.color;float alpha=color.a;surface.color=new Color(color.r*alpha+.8f*(1-alpha),color.g*alpha+.8f*(1-alpha),color.b*alpha+.8f*(1-alpha),1);
+            // Button animation may have just restored the shared asset. Read the
+            // owned theme before compositing the opaque particle-reading surface.
+            var material=menu.ResolveThemeMaterial(source.material);
+            var color=source.color*source.canvasRenderer.GetColor()*material.color;float alpha=color.a;surface.color=new Color(color.r*alpha+.8f*(1-alpha),color.g*alpha+.8f*(1-alpha),color.b*alpha+.8f*(1-alpha),1);
         }
     }
 }

@@ -306,6 +306,13 @@ public partial class Menu : MonoBehaviour
 
 	public List<string> playerListForCheck;
 
+    internal Material ResolveThemeMaterial(Material material)
+    {
+        if (originalMainUI != null && material == originalMainUI) return runtimeMainUI;
+        if (originalSelected != null && material == originalSelected) return runtimeSelected;
+        return material;
+    }
+
     private void BindThemeMaterials()
     {
         // Button clips assign shared asset references after Awake. Resolve them
@@ -314,10 +321,8 @@ public partial class Menu : MonoBehaviour
         foreach (var graphic in themedGraphics)
         {
             if (graphic == null) continue;
-            if (originalMainUI != null && graphic.material == originalMainUI)
-                graphic.material = runtimeMainUI;
-            else if (originalSelected != null && graphic.material == originalSelected)
-                graphic.material = runtimeSelected;
+            var material = ResolveThemeMaterial(graphic.material);
+            if (graphic.material != material) graphic.material = material;
         }
     }
 	private void OnDestroy()
