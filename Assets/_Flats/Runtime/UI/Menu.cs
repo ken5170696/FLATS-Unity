@@ -3449,6 +3449,7 @@ public partial class Menu : MonoBehaviour
 		[PunRPC]
 		private void StartNow()
 		{
+            if (readyStarted || !PhotonNetwork.inRoom) return;
 			startNowPlayer++;
 			Debug.Log("Current start now player: " + startNowPlayer);
 			int num = playerCount;
@@ -3495,6 +3496,7 @@ public partial class Menu : MonoBehaviour
 		{
 			if (result)
 			{
+                ResetMatchReadiness();
                 bool disconnect = gameState == "Multiplayer";
                 gameState = "Main";
                 wasInRoom = false;
@@ -3516,8 +3518,28 @@ public partial class Menu : MonoBehaviour
 			}
 		}
 
+        private bool readyStarted;
+        private int readyOperation;
+
+        private void ResetMatchReadiness()
+        {
+            ++readyOperation;
+            readyStarted = false;
+            StopCoroutine("Ready");
+        }
+
+        private void OnLeftRoom()
+        {
+            ResetMatchReadiness();
+        }
+
 		private IEnumerator Ready()
 		{
+            // Full-room callbacks and buffered StartNow votes can arrive in one frame.
+            // Each client must send exactly one Sync for this room attempt.
+            if (readyStarted || !PhotonNetwork.inRoom) yield break;
+            readyStarted = true;
+            int operation = readyOperation;
 			MonoBehaviour.print("Start syncing...");
 			roomTexts[4].text = "Syncing... up to a minute.";
 			PhotonNetwork.room.IsOpen = false;
@@ -3546,9 +3568,11 @@ public partial class Menu : MonoBehaviour
 			}
 			syncedPlayer = 0;
 			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(5f));
+            if (operation != readyOperation || !PhotonNetwork.inRoom) yield break;
 			base.gameObject.GetPhotonView().RPC("Sync", PhotonTargets.AllBuffered);
 			while (true)
 			{
+                if (operation != readyOperation || !PhotonNetwork.inRoom) yield break;
 				if (PhotonNetwork.isMasterClient && syncedPlayer >= PhotonNetwork.room.PlayerCount)
 				{
 					Debug.Log("I'm the master");
@@ -3676,6 +3700,7 @@ public partial class Menu : MonoBehaviour
 
 		private void OnJoinedRoom()
 		{
+            ResetMatchReadiness();
             pendingRoomDeadline = 0;
             if (startingOfflineMatch) return;
             if (RejectCancelledLocalRoom()) return;
@@ -3815,7 +3840,7 @@ public partial class Menu : MonoBehaviour
 			}
 			if (PhotonNetwork.room.PlayerCount >= PhotonNetwork.room.MaxPlayers)
 			{
-				PhotonNetwork.SetMasterClient(PhotonNetwork.player);
+                // The existing master alone requests the handoff in OnPhotonPlayerConnected.
 				StartCoroutine("Ready");
 			}
 		}
@@ -3869,7 +3894,7 @@ public partial class Menu : MonoBehaviour
 			}
 			if (PhotonNetwork.room.PlayerCount >= PhotonNetwork.room.MaxPlayers)
 			{
-				PhotonNetwork.SetMasterClient(newPlayer);
+                if (PhotonNetwork.isMasterClient) PhotonNetwork.SetMasterClient(newPlayer);
 				StartCoroutine("Ready");
 			}
 		}
@@ -3962,6 +3987,7 @@ public partial class Menu : MonoBehaviour
 
 		private void OnDisconnectedFromPhoton()
 		{
+            ResetMatchReadiness();
 			if (gettingRoomList)
 			{
 				Debug.Log("I got the room list, disconnected from Photon.");

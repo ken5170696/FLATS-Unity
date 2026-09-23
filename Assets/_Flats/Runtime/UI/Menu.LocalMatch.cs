@@ -134,6 +134,7 @@ public partial class Menu
         if (!localRequestPending || PhotonNetwork.room == null || PhotonNetwork.room.Name != localRequestedRoom) return;
         localRequestPending = false;
         localMatchPanel.SetActive(false);
+        anim.SetTrigger("SkipToMatching");
         if (localHostedRoom != null)
             localDiscovery.Advertise(LanRoomAdvertisement.Encode(localHostedRoom, LocalRegion, version.Substring(0,3)));
     }
