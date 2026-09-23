@@ -116,6 +116,13 @@ public static class FlatsPortalBuild
                     writer.WriteLine(message.type + ": " + message.content);
             if (report.summary.result != BuildResult.Succeeded || report.summary.totalErrors != 0)
                 throw new BuildFailedException("FLATS " + name + " build: " + report.summary.result);
+            if(target==BuildTarget.WebGL)
+            {
+                var index=Path.Combine(root,"index.html");var html=File.ReadAllText(index);
+                const string setting="// config.autoSyncPersistentDataPath = true;";
+                if(!html.Contains(setting))throw new BuildFailedException("Web template must expose autoSyncPersistentDataPath before starting the player.");
+                File.WriteAllText(index,html.Replace(setting,"config.autoSyncPersistentDataPath = true;"));
+            }
             Debug.Log("FLATS_PORTAL_BUILD_SUCCEEDED " + root);
         }
         finally
