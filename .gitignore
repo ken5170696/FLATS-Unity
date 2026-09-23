@@ -21,3 +21,5 @@ Thumbs.db
 /Assets/Resources/PerformanceTestRunInfo.json*
 /Assets/Resources/PerformanceTestRunSettings.json*
 /Assets/Resources/FlatsModCatalogue.txt*
+Assets/Resources/FlatsPhotonClient.txt
+Assets/Resources/FlatsPhotonClient.txt.meta

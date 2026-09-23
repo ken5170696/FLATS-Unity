@@ -70,6 +70,11 @@ public static class FlatsPortalBuild
         Directory.CreateDirectory(root);
         string source = ReadSourceCommit();
         const string catalogueAsset = "Assets/Resources/FlatsModCatalogue.txt";
+        const string photonAsset = "Assets/Resources/FlatsPhotonClient.txt";
+        if (File.Exists(photonAsset)) throw new BuildFailedException("Reserved generated Photon client asset already exists.");
+        string photonClient = Environment.GetEnvironmentVariable("FLATS_PHOTON_APP_ID");
+        if (!string.IsNullOrWhiteSpace(photonClient) && (!Guid.TryParse(photonClient, out var clientId) || clientId == Guid.Empty))
+            throw new BuildFailedException("Invalid release Photon client App ID.");
         if(File.Exists(catalogueAsset)) throw new BuildFailedException("Reserved generated catalogue asset already exists; preserve and move it before building.");
         string catalogue = Flats.Modules.OfficialModEndpoint.Url;
         if(!string.IsNullOrWhiteSpace(catalogue))
@@ -80,6 +85,12 @@ public static class FlatsPortalBuild
         }
         try
         {
+            if (!string.IsNullOrWhiteSpace(photonClient))
+            {
+                Directory.CreateDirectory("Assets/Resources");
+                File.WriteAllText(photonAsset, photonClient.Trim());
+                AssetDatabase.ImportAsset(photonAsset, ImportAssetOptions.ForceSynchronousImport);
+            }
             if(!string.IsNullOrWhiteSpace(catalogue))
             {
                 Directory.CreateDirectory("Assets/Resources");
@@ -89,7 +100,7 @@ public static class FlatsPortalBuild
             if (target == BuildTarget.Android || target == BuildTarget.iOS)
             {
                 PlayerSettings.SetApplicationIdentifier(named, "io.github.ken5170696.flats.preview");
-                PlayerSettings.bundleVersion = "5.3.5";
+                PlayerSettings.bundleVersion = oldVersion;
             }
             PlayerSettings.SetScriptingBackend(named, group == BuildTargetGroup.Standalone ? ScriptingImplementation.Mono2x : ScriptingImplementation.IL2CPP);
             if (target == BuildTarget.WebGL)
@@ -127,6 +138,7 @@ public static class FlatsPortalBuild
         }
         finally
         {
+            if(File.Exists(photonAsset)) AssetDatabase.DeleteAsset(photonAsset);
             if(File.Exists(catalogueAsset)) AssetDatabase.DeleteAsset(catalogueAsset);
             PlayerSettings.SetApplicationIdentifier(named, oldIdentifier);
             PlayerSettings.bundleVersion = oldVersion;

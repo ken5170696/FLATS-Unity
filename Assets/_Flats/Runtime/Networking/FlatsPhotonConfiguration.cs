@@ -30,6 +30,11 @@ public static class FlatsPhotonConfiguration
             string path = Path.Combine(Application.persistentDataPath, "photon-app-id.txt");
             if (string.IsNullOrWhiteSpace(appId) && File.Exists(path)) { appId = File.ReadAllText(path).Trim(); Source = "private-file"; }
 #endif
+            if (string.IsNullOrWhiteSpace(appId))
+            {
+                var configuration = Resources.Load<TextAsset>("FlatsPhotonClient");
+                if (configuration != null) { appId = configuration.text.Trim(); Source = "release-client-configuration"; }
+            }
             Guid parsed;
             if (!Guid.TryParse(appId, out parsed) || parsed == Guid.Empty)
             {
