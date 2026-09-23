@@ -82,6 +82,7 @@ public class FPSController : MonoBehaviour
 	private Transform ct;
 
 	private CharacterController cc;
+	private readonly Flats.Gameplay.FerrisWheelFollower ferrisWheelFollower = new Flats.Gameplay.FerrisWheelFollower();
 
 	private IKController ikc;
 
@@ -2254,6 +2255,7 @@ public class FPSController : MonoBehaviour
 				num = 0f;
 				num2 = 0f;
 			}
+			ferrisWheelFollower.BeforeMove(cc, mt);
 			movedWithGravity = Flats.Gameplay.PlayerMovementMotor.Move(cc, mt, jumping, zombie, num, num2, Time.deltaTime);
 			if (jumping)
 			{
@@ -2425,6 +2427,7 @@ public class FPSController : MonoBehaviour
 		// that controller gravity without importing the clips' planar impulses.
 		if (anim != null && cc != null && MyView(base.gameObject) && !movedWithGravity)
 			cc.SimpleMove(Vector3.zero);
+		if (cc != null && mt != null && MyView(base.gameObject)) ferrisWheelFollower.AfterMove(cc, mt);
 	}
 
 	private void LateUpdate()

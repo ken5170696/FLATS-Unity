@@ -374,6 +374,7 @@ public partial class Menu : MonoBehaviour
 			enabled = false; return;
 		}
 		mt = base.transform;
+		InitializeSaveTransfer();
 		anim = GetComponent<Animator>();
 		Time.timeScale = 1f;
 		Application.targetFrameRate = 60;
