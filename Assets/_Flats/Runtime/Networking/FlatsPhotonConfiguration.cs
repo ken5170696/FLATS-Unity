@@ -56,6 +56,9 @@ public static class FlatsPhotonConfiguration
 #endif
             settings.JoinLobby = true;
             settings.RunInBackground = true;
+            // Photon reads this setting in its static constructor, before Apply.
+            // Update Unity too so a desktop client keeps serving a live match.
+            Application.runInBackground = true;
             Valid = true;
             return true;
         }

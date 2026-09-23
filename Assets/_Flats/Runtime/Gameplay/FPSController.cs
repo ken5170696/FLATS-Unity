@@ -2448,7 +2448,7 @@ public class FPSController : MonoBehaviour
 
 	private void OnApplicationPause(bool pause)
 	{
-		if (Menu.gameState == "Multiplayer" && pause)
+		if (Application.isMobilePlatform && Menu.gameState == "Multiplayer" && pause && MyView(base.gameObject))
 		{
 			if (Menu.network == 0)
 			{

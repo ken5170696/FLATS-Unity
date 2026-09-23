@@ -4019,10 +4019,16 @@ public partial class Menu : MonoBehaviour
 			}
 		}
 
+		private bool multiplayerWasSuspended;
 		private void OnApplicationPause(bool pause)
 		{
-			if (!pause)
+			// Unity also sends an initial false callback to newly loaded behaviours.
+			// It is not a resume and must never disconnect a newly started match.
+			if (!Application.isMobilePlatform) return;
+			if (pause) { multiplayerWasSuspended = true; return; }
+			if (multiplayerWasSuspended)
 			{
+				multiplayerWasSuspended = false;
 				if (gameState == "Multiplayer")
 				{
 					PhotonNetwork.Disconnect();
