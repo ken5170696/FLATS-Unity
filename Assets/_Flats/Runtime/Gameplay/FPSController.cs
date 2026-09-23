@@ -313,7 +313,7 @@ public class FPSController : MonoBehaviour
 			EasyTouch.SetMinPinchLength(20f);
 			EasyTouch.SetDoubleTapTime(0.15f);
 			EasyTouch.SetUICompatibily(false);
-			if (Input.mousePresent || Input.GetJoystickNames().Length > 0 || FlatsVerificationInput.Enabled)
+			if (Input.mousePresent || Input.GetJoystickNames().Length > 0)
 			{
 				touchControl = true;
 			}
@@ -1295,7 +1295,6 @@ public class FPSController : MonoBehaviour
 	[PunRPC]
 	private IEnumerator Shoot()
 	{
-        FlatsVerificationProbe.NetworkObservation("Shoot", gameObject);
 		if (zombie)
 		{
 			anim.SetBool("ZombieAttack", true);
@@ -1444,7 +1443,6 @@ public class FPSController : MonoBehaviour
 	[PunRPC]
 	private IEnumerator Reload()
 	{
-        FlatsVerificationProbe.NetworkObservation("Reload", gameObject);
 		int current = currentGun.currentAmmo;
 		int max = currentGun.maxAmmo;
 		int limit = currentGun.limitAmmo;
@@ -1644,7 +1642,7 @@ public class FPSController : MonoBehaviour
 		movedWithGravity = false;
 		if (MyView(base.gameObject) && enableControl)
 		{
-			if (Input.mousePresent || Input.GetJoystickNames().Length > 0 || FlatsVerificationInput.Enabled)
+			if (Input.mousePresent || Input.GetJoystickNames().Length > 0)
 			{
 				if (touchControl)
 				{
@@ -2085,9 +2083,8 @@ public class FPSController : MonoBehaviour
 				}
 				else
 				{
-					bool verificationInput = FlatsVerificationInput.TrySample(out var verification);
-					num = verificationInput ? verification.forward : Input.GetAxis("Vertical");
-					num2 = verificationInput ? verification.strafe : Input.GetAxis("Horizontal");
+					num = Input.GetAxis("Vertical");
+					num2 = Input.GetAxis("Horizontal");
 					if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && Input.GetKey(KeyCode.LeftShift))
 					{
 						num *= 1.5f;
@@ -2095,9 +2092,9 @@ public class FPSController : MonoBehaviour
 					}
 					if (enableCamRotate)
 					{
-						ApplyLook(Flats.Core.LookInput.Mouse, verificationInput ? verification.lookX : Input.GetAxisRaw("mouse x"), verificationInput ? verification.lookY : Input.GetAxisRaw("mouse y"));
+						ApplyLook(Flats.Core.LookInput.Mouse, Input.GetAxisRaw("mouse x"), Input.GetAxisRaw("mouse y"));
 					}
-					if (verificationInput ? verification.fire : Input.GetMouseButton(0))
+					if (Input.GetMouseButton(0))
 					{
 						RaycastHit hitInfo3 = default(RaycastHit);
 						if (Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo3, 3f, mask))
@@ -2137,7 +2134,7 @@ public class FPSController : MonoBehaviour
 							}
 						}
 					}
-					if ((verificationInput ? verification.reload : Input.GetKeyDown("r")) && enableFire)
+					if ((Input.GetKeyDown("r")) && enableFire)
 					{
 						if (Menu.network == 0)
 						{

@@ -10,9 +10,9 @@ FlatsLocalProfile validates and migrates the legacy character/settings/progress 
 
 Test initialization from an empty profile, save/restart, scene re-entry and repeated Play Mode entry. Keep normal domain reload enabled unless a change explicitly validates the disabled-reload case. No disabled-reload support claim is made.
 
-Scope prefabs use per-instance render targets and masked RawImage surfaces. Keep the UV Rect's `serializedVersion: 2`; omitting it can import a zero-size UV rectangle in Unity 6 and display a single pixel across the lens. Keep each scope's image-effect shader references. Run `Sights`, then test aiming, changing weapons and resetting while aimed in a Player.
+Scope prefabs use per-instance render targets and masked RawImage surfaces. Keep the UV Rect's `serializedVersion: 2`; omitting it can import a zero-size UV rectangle in Unity 6 and display a single pixel across the lens. Keep each scope's image-effect shader references. Check aiming, weapon changes and scene reset in a Player after modifying these assets.
 
-Navigation data is loaded by `FlatsOfflineNavigation`. `FlatsNavigationRepair.Run` rebuilds from static non-trigger collision geometry, preserving asset GUIDs. Warehouse and NightLand generate one-way drop links (maximum vertical drops 5 and 60 world units respectively) so existing raised/roof spawns can reach the map. No jump-across or upward links are generated. After rebaking, run `Navigation` and `NavigationPlay`, then check actual enemy pursuit/combat in those maps.
+Navigation data is loaded by `FlatsOfflineNavigation`. `FlatsNavigationRepair.Run` rebuilds from static non-trigger collision geometry, preserving asset GUIDs. Warehouse and NightLand generate one-way drop links (maximum vertical drops 5 and 60 world units respectively) so existing raised/roof spawns can reach the map. No jump-across or upward links are generated. After rebaking, check spawn routes and actual enemy pursuit/combat in those maps.
 
 ## Multiplayer
 
@@ -32,8 +32,6 @@ Example development source configuration:
 
 This is a protocol example, not a hosted service. Catalogue availability and package installation are separate from offline play. External code packages execute code and must come from a source you trust. Browser builds retain their existing data-preset restrictions and cannot execute desktop DLL modules.
 
-The optional integration fixture driver accepts `FLATS_TEST_FIXTURES` for dependency archives. After importing this project, install a .NET SDK capable of targeting netstandard2.1 and run `python tools/build_module_fixtures.py Logs/module-fixtures`, then set `FLATS_TEST_FIXTURES` to that absolute output directory before launching Unity. These generated test packages must never be placed in a normal player profile. Fixture-dependent UI scenarios are separate from the self-contained default validation command. `FlatsModuleTests` supplies in-memory dependencies and temporary storage for the default regression suite.
-
 ## Repository boundary
 
-Tracked roots are Assets, Packages, ProjectSettings, tools, docs and explicit repository metadata/documents. No parent-directory inputs are needed. Build products, imported caches, local preferences and raw verification evidence are ignored. Use `python tools/check_repository.py` to verify the tracked boundary and GUID coverage. Do not copy the old mixed repository or its Git history into this project.
+Tracked roots are Assets, Packages, ProjectSettings, tools, docs and explicit repository metadata/documents. No parent-directory inputs are needed. Build products, imported caches, local preferences and raw verification evidence are ignored. Do not copy the old mixed repository or its Git history into this project.

@@ -207,7 +207,6 @@ public class DamageReceiver : MonoBehaviour
 			return;
 		}
 		hitPoints -= receivedData[0];
-        FlatsVerificationProbe.NetworkObservation("NetworkDamageApplied", gameObject, receivedData[2]);
 		if (hitPoints <= 0f)
 		{
 			command = "normal";
@@ -389,7 +388,6 @@ public class DamageReceiver : MonoBehaviour
 			return;
 		}
 		died = true;
-        FlatsVerificationProbe.NetworkObservation("Die", base.gameObject, receivedData);
 		GameObject gameObject = new GameObject();
 		gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
 		if (gameObject == null)

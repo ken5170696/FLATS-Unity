@@ -1,11 +1,4 @@
 mergeInto(LibraryManager.library, {
-  FlatsObserveEnabled: function() { return new URLSearchParams(location.search).get('flats-observe') === '1' ? 1 : 0; },
-  FlatsObserve: function(json) {
-    var snapshot = JSON.parse(UTF8ToString(json));
-    // Returns detached JSON; callers cannot mutate the game or retained telemetry.
-    if (!window.flatsObservation) Object.defineProperty(window, 'flatsObservation', {value: function() {return JSON.parse(window.__flatsObservationJson || 'null');}, writable:false});
-    window.__flatsObservationJson = JSON.stringify(snapshot);
-  },
   FlatsGameplayState: function(playing) { window.dispatchEvent(new CustomEvent('flats-gameplay', {detail: {playing: !!playing}})); },
   $FlatsStorageHooks__deps: ['$IDBFS'],
   $FlatsStorageHooks__postset: 'FlatsStorageHooks();',
