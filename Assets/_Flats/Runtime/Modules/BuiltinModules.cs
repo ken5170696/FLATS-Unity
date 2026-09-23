@@ -40,7 +40,7 @@ namespace Flats.Modules
         }
         public void Disable() { }
     }
-    public sealed class BuiltinModules : MonoBehaviour
+    public sealed class BuiltinModules : MonoBehaviour, IModHost
     {
         public static BuiltinModules Instance { get; private set; }
         public ModuleManager Manager { get; private set; }
@@ -56,7 +56,7 @@ namespace Flats.Modules
             get { var entry=document.modules.FirstOrDefault(m=>m.id==CrosshairModule.Id);var value=entry!=null&&!string.IsNullOrEmpty(entry.json)?JsonUtility.FromJson<CrosshairSettings>(entry.json):new CrosshairSettings();value.Validate();return value; }
         }
         public bool Requested(string id) { return Profiles!=null?Profiles.Requested(id):document.modules.Any(m=>m.id==id&&m.requested); }
-        internal void InitializeProfiles(string directory,InstalledPackage[] installed)
+        public void InitializeProfiles(string directory,InstalledPackage[] installed)
         {
             if(store.ReadOnly)throw new InvalidOperationException(store.Notice);
             var legacy=document.modules.Select(m=>new ProfileModule{id=m.id=="flats.crosshair"?CrosshairModule.Id:m.id,version=m.version,json=m.json,requested=m.id!="flats.crosshair"&&m.requested}).ToList();
@@ -101,7 +101,7 @@ namespace Flats.Modules
             });
             LoadSelectedDocument();Notice=Profiles.RestartRequired?"Profile selected. Restart FLATS to apply its mods and settings.":"Running profile selected.";
         }
-        internal void SaveEnablePlan(string[] ids)
+        public void SaveEnablePlan(string[] ids)
         {
             var entries=Profiles.Selected.modules.ToList();
             foreach(var id in ids)
@@ -112,7 +112,7 @@ namespace Flats.Modules
             }
             Profiles.Save(entries.ToArray());LoadSelectedDocument();
         }
-        internal void SaveExternalIntent(string id,bool requested,string version)
+        public void SaveExternalIntent(string id,bool requested,string version)
         {
             var entries=Profiles.Selected.modules.ToList();var entry=entries.FirstOrDefault(m=>m.id==id);
             if(entry==null){entry=new ProfileModule{id=id,json=""};entries.Add(entry);}entry.requested=requested;entry.version=version;
@@ -121,10 +121,12 @@ namespace Flats.Modules
         string[] externalRequested = new string[0];
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)] static void Boot()
         {
+            if(Instance!=null)return;
             var go=new GameObject("First-party modules"); DontDestroyOnLoad(go); go.AddComponent<BuiltinModules>();
         }
         void Awake()
         {
+            if(Instance!=null && Instance!=this){Destroy(gameObject);return;}
             Instance=this; CrosshairPresentation.Appearance=null;
             string directory=Application.persistentDataPath;
 #if UNITY_EDITOR
@@ -140,19 +142,19 @@ namespace Flats.Modules
             if(entry!=null && !string.IsNullOrEmpty(entry.json))
                 try
                 {
-                    if(entry.version!="1.0.0")throw new NotSupportedException("Stored crosshair module version differs");
+                    // Settings schema, not the package release version, governs compatibility.
                     var settings=JsonUtility.FromJson<CrosshairSettings>(entry.json); settings.Validate(); Crosshair.Settings=settings;
                 }
                 catch(Exception) { Notice+="\nCrosshair settings reset to defaults; previous record remains in backup until saved."; }
-            Manager=new ModuleManager(new IFirstPartyModule[0],"1.0.0","5.3.5");
+            Manager=new ModuleManager(new IFirstPartyModule[0],ModRules.ApiVersion,ModRules.GameVersion);
             Manager.Apply(new string[0]);
-            Center=new ModCenterService(this,directory);
+            Center=new ModCenterService(this,directory,new UnityModCenterPlatform());
             _ = Center.Initialize();
         }
-        internal void AttachExternal(IFirstPartyModule[] modules,string[] requested)
+        public void AttachExternal(IFirstPartyModule[] modules,string[] requested)
         {
             Manager.Dispose();externalRequested=requested;
-            Manager=new ModuleManager(modules,"1.0.0","5.3.5",true);
+            Manager=new ModuleManager(modules,ModRules.ApiVersion,ModRules.GameVersion,true);
             Manager.Apply(externalRequested);
             if(!string.IsNullOrEmpty(Manager.LastError))Notice=Manager.LastError;
         }

@@ -13,6 +13,13 @@ version = (ROOT / 'ProjectSettings/ProjectVersion.txt').read_text(encoding='utf-
 if 'm_EditorVersion: 6000.3.24f1' not in version:
     errors.append('Unity editor version differs from documented 6000.3.24f1')
 
+player_settings = (ROOT / 'ProjectSettings/ProjectSettings.asset').read_text(encoding='utf-8')
+package_rules = (ROOT / 'Assets/_Flats/Runtime/Core/Modules/PackageModels.cs').read_text(encoding='utf-8')
+player_version = re.search(r'(?m)^  bundleVersion: (\S+)$', player_settings)
+module_version = re.search(r'GameVersion = "([^"]+)"', package_rules)
+if not player_version or not module_version or player_version[1] != module_version[1]:
+    errors.append('Player bundleVersion and module compatibility GameVersion differ')
+
 manifest = json.loads((ROOT / 'Packages/manifest.json').read_text(encoding='utf-8'))
 lock = json.loads((ROOT / 'Packages/packages-lock.json').read_text(encoding='utf-8'))
 for package, requested in manifest['dependencies'].items():

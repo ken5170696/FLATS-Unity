@@ -115,16 +115,17 @@ public sealed partial class ModuleManagementPage
                 manifest.Validate();string hash;using(var stream=File.OpenRead(reviewedPath))using(var sha=SHA256.Create())hash=BitConverter.ToString(sha.ComputeHash(stream)).Replace("-","").ToLowerInvariant();
                 return new CatalogItem{manifest=manifest,sha256=hash,bytes=file.Length};
             });
+            if(this==null || !isActiveAndEnabled)return;
             var problem=ModRules.Compatibility(importCandidate.manifest);if(problem.Length>0)throw new InvalidDataException(problem);
             HideModal();
             Ask("Import "+importCandidate.manifest.name+" v"+importCandidate.manifest.version+"?\n\n"+(importCandidate.bytes/1024f).ToString("0.0")+" KB · Local package\n"+importCandidate.manifest.scope+"\n"+Service.Problem(importCandidate.manifest)+"\n\nInstallation does not enable a new mod. Restart is required to load it. Packages may run code.",()=>Run(async()=>
             {
                 string stage=Service.Store.BeginStaging();
-                try{using(Service.Store.Reserve(importCandidate.manifest.id))await Task.Run(()=>Service.Store.Install(reviewedPath,stage,importCandidate,"Local import",CancellationToken.None));await Service.RefreshInstalled();Switch("Installed");notice.text="Package imported. Review its status before enabling.";}
+                try{using(Service.Store.Reserve(importCandidate.manifest.id))await Task.Run(()=>Service.Store.Install(reviewedPath,stage,importCandidate,"Local import",CancellationToken.None));await Service.RefreshInstalled();if(this==null || !isActiveAndEnabled)return;Switch("Installed");notice.text="Package imported. Review its status before enabling.";}
                 finally{Service.Store.EndStaging(stage);}
             }));
         }
-        catch(Exception e){importNotice.text="Could not review package. "+e.Message;}
+        catch(Exception e){if(this!=null && isActiveAndEnabled)importNotice.text="Could not review package. "+e.Message;}
         finally{busy=false;}
     }
 }

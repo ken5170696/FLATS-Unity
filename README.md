@@ -4,7 +4,9 @@ A maintained Unity reconstruction of FLATS, the flat-colour first-person shooter
 
 ## Current player releases
 
-The [Windows 5.3.5-parity test ZIP](https://github.com/ken5170696/flats-downloads/releases/tag/v5.3.5-parity.20260923) was built from `36d97d2f73fc35e32d1cbc05e5e94c3a307bf979`. The extracted ZIP passed startup only; gameplay input on that ZIP, multiplayer and full platform acceptance have not been verified. It is unsigned. The [Web single-player preview](https://flats-site.tail2511fc.ts.net/play) uses the older `2fa10e6f6acbdd48794c3dd6305ad8606488ec07` source with bounded public-browser gameplay checks. The newer Web candidate timed out during public loading, so the older preview remains deployed. The [live release manifest](https://flats-site.tail2511fc.ts.net/data/releases.json) identifies each artifact's actual source and validation scope. This repository's `main` is the Built-in pipeline source baseline; development branches may contain unaccepted changes and are not player releases.
+The [5.4.1 player release](https://github.com/ken5170696/flats-downloads/releases/tag/v5.4.1) uses source `4188b7a24806cb4c706e95aa082b6cbed6e8565a`. The [live release manifest](https://flats-site.tail2511fc.ts.net/data/releases.json) identifies each platform's exact source, package and validation scope. Windows, Linux, macOS and Android packages are available; iOS export is not an installable IPA. The current Web release is not yet runtime-verified according to its manifest. This branch develops the 5.4.2 candidate; source changes here do not update player downloads until a release is published.
+
+The [Mod SDK preview](docs/MOD_SDK.md) documents existing API 1.0.0 contracts and a crosshair data package you can author without modifying game code.
 
 ## Open and play
 

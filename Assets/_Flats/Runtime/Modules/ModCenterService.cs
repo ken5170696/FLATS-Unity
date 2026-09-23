@@ -3,19 +3,12 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEngine;
 
 namespace Flats.Modules
 {
-    public sealed class UnityModJson : IModJson
-    {
-        // Unity's plain-field JSON codec is safe on background threads for these non-Unity DTOs.
-        public T Read<T>(string text) { return JsonUtility.FromJson<T>(text); }
-        public string Write<T>(T value) { return JsonUtility.ToJson(value); }
-    }
     [Serializable] public sealed class ModSourceSettings { public int schema=1; public string url=""; }
 
-    public sealed class ModCenterService : IDisposable
+    public sealed class ModCenterService : IModCenter, IDisposable
     {
         public PackageStore Store { get; private set; }
         public DownloadQueue Downloads { get; private set; }
@@ -23,96 +16,113 @@ namespace Flats.Modules
         public InstalledPackage[] Installed { get; private set; } = new InstalledPackage[0];
         public InstalledPackage[] Running { get; private set; } = new InstalledPackage[0];
         public bool Ready { get; private set; }
+        public bool InitializationComplete { get; private set; }
+        public bool CanRetryInitialization { get { return !disposed && InitializationComplete && !Ready && !owner.ReadOnly && !activationStarted; } }
+        bool activationStarted;
         public string Notice { get; private set; } = "Loading local modules...";
         public string SourceUrl { get { return Source?.Identity ?? ""; } }
         readonly string root;
-        readonly IModJson json=new UnityModJson();
+        readonly IModJson json;
+        readonly IModCenterPlatform platform;
         readonly bool development;
-        readonly BuiltinModules owner;
+        readonly IModHost owner;
         bool disposed;
+        readonly CancellationTokenSource lifetime=new CancellationTokenSource();
+        readonly CancellationToken lifetimeToken;
         readonly System.Collections.Generic.List<IDisposable> retiredSources=new System.Collections.Generic.List<IDisposable>();
         public ModCenterService(BuiltinModules modules,string directory)
+            : this(modules,directory,new UnityModCenterPlatform()) { }
+        public ModCenterService(IModHost modules,string directory,IModCenterPlatform platform)
         {
-            owner=modules;root=directory;
-            var args=Environment.GetCommandLineArgs();
-            development=Application.isEditor || (Debug.isDebugBuild && args.Contains("-flats-verify") && args.Contains("-flats-module-settings-dir"));
+            owner=modules ?? throw new ArgumentNullException(nameof(modules));
+            root=directory ?? throw new ArgumentNullException(nameof(directory));
+            this.platform=platform ?? throw new ArgumentNullException(nameof(platform));
+            json=platform.Json;development=platform.Development;lifetimeToken=lifetime.Token;
         }
-        static Task LocalWork(Action action)
+        Task initialization;
+        void EnsureAlive() { if(disposed)throw new ObjectDisposedException(nameof(ModCenterService)); }
+        public Task Initialize()
         {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            action();return Task.CompletedTask;
-#else
-            return Task.Run(action);
-#endif
+            EnsureAlive();return initialization ?? (initialization=InitializeCore());
         }
-        static Task<T> LocalWork<T>(Func<T> action)
+        public Task RetryInitialization()
         {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            return Task.FromResult(action());
-#else
-            return Task.Run(action);
-#endif
+            EnsureAlive();
+            if(!CanRetryInitialization)throw new InvalidOperationException("Restart FLATS after restoring compatible, writable module settings.");
+            initialization=null;return Initialize();
         }
-        public async Task Initialize()
+        void EnsureReady()
         {
-            var bundled = Resources.Load<TextAsset>("FlatsModCatalogue");
-            string officialUrl = string.IsNullOrWhiteSpace(OfficialModEndpoint.Url) ? bundled?.text.Trim() : OfficialModEndpoint.Url;
+            EnsureAlive();if(!Ready)throw new InvalidOperationException(InitializationComplete?Notice:"Local modules are still loading.");
+        }
+        async Task InitializeCore()
+        {
+            InitializationComplete=false;Notice="Loading local modules...";
+            PackageStore preparedStore=null;
+            InstalledPackage[] preparedInstalled=null;
+            IModSource preparedSource=null;
             try
             {
-                await LocalWork(()=>
+                await platform.Work(()=>
                 {
-                    Store=new PackageStore(Path.Combine(root,"mods"),json);Store.Recover();Installed=Store.Scan();
+                    preparedStore=new PackageStore(Path.Combine(root,"mods"),json);preparedStore.Recover();preparedInstalled=preparedStore.Scan();
                     var config=Path.Combine(root,"mod-source.json");
-                    try { if(development && File.Exists(config))
+                    try
                     {
-                        if(new FileInfo(config).Length>4096)throw new InvalidDataException("Source configuration is too large");
-                        var s=json.Read<ModSourceSettings>(File.ReadAllText(config));
-                        if(s==null || s.schema!=1)throw new InvalidDataException("Unsupported source configuration");
-                        if(!string.IsNullOrWhiteSpace(s.url))Source=new HttpModSource(s.url,json,development);
+                        if(development && File.Exists(config))
+                        {
+                            if(new FileInfo(config).Length>4096)throw new InvalidDataException("Source configuration is too large");
+                            var s=json.Read<ModSourceSettings>(File.ReadAllText(config));
+                            if(s==null || s.schema!=1)throw new InvalidDataException("Unsupported source configuration");
+                            if(!string.IsNullOrWhiteSpace(s.url))preparedSource=platform.CreateSource(s.url,true);
+                        }
+                        else if(!string.IsNullOrWhiteSpace(platform.OfficialUrl))preparedSource=platform.CreateSource(platform.OfficialUrl,false);
+                        if(!development && File.Exists(config))preparedStore.Notices.Add("Legacy source preferences are retained for recovery and ignored by this version.");
                     }
-                    else if(!string.IsNullOrWhiteSpace(officialUrl))
-                    {
-#if UNITY_WEBGL && !UNITY_EDITOR
-                        Source=new WebModSource(officialUrl,json);
-#else
-                        Source=new HttpModSource(officialUrl,json);
-#endif
-                    }
-                    if(!development && File.Exists(config))Store.Notices.Add("Legacy source preferences are retained for recovery and ignored by this version.");
-                    } catch(Exception) { Store.Notices.Add("Official mod service unavailable. Installed mods remain available."); }
+                    catch(Exception) { preparedStore.Notices.Add("Official mod service unavailable. Installed mods remain available."); }
                 });
-                if(disposed)return;
+                if(disposed){(preparedSource as IDisposable)?.Dispose();return;}
+                Store=preparedStore;Installed=preparedInstalled;Source=preparedSource;
                 owner.InitializeProfiles(root,Installed);ApplyProfileIntent(Installed);
-                Downloads=new DownloadQueue(Store,Source,
-#if UNITY_WEBGL && !UNITY_EDITOR
-                    runInline:true
-#else
-                    runInline:false
-#endif
-                );Running=Installed;
+                Downloads=new DownloadQueue(Store,Source,runInline:platform.RunInline);Running=Installed;
+                activationStarted=true;
                 owner.AttachExternal(Running.Select(p=>p.manifest.id==CrosshairModule.Id && p.manifest.kind=="crosshair" ? (IFirstPartyModule)owner.Crosshair.Bind(p.manifest) : new ExternalModule(p,Store.ContentPath(p))).ToArray(),Running.Where(p=>p.requested).Select(p=>p.manifest.id).ToArray());
                 Notice=string.Join("\n",Store.Notices.Distinct());
+                Ready=true;
                 if(Source==null)Notice+="\nOfficial mod service is unavailable in this build. Installed mods remain available.";
             }
-            catch(Exception e) { Notice="Module initialization: "+e.Message; Debug.LogWarning("MOD_CENTER_INIT "+e.GetType().Name); }
-            finally { Ready=true; }
-
+            catch(Exception e)
+            {
+                Downloads?.Dispose();Downloads=null;
+                (preparedSource as IDisposable)?.Dispose();Source=null;
+                if(!disposed)
+                {
+                    Notice="Local modules could not start. "+e.Message+"\nCheck storage access and restore compatible settings from a retained backup if needed. No module changes are available until recovery.";
+                    platform.ReportInitializationFailure(e);
+                }
+            }
+            finally { if(!disposed)InitializationComplete=true; }
         }
         public async Task RefreshInstalled()
         {
-            if(Store==null)return;
-            Installed=await LocalWork(()=>Store.Scan());
+            EnsureReady();
+            var scanned=await platform.Work(()=>Store.Scan());
+            EnsureAlive();Installed=scanned;
             ApplyProfileIntent(Installed);
         }
         void ApplyProfileIntent(InstalledPackage[] packages) { if(owner.Profiles!=null)foreach(var p in packages)p.requested=owner.Profiles.Requested(p.manifest.id); }
         public async Task<CatalogItem[]> CheckUpdates(CancellationToken cancel)
         {
+            EnsureReady();
+            using var operation=CancellationTokenSource.CreateLinkedTokenSource(cancel,lifetimeToken);
+            cancel=operation.Token;
             var source=Source;if(source==null)throw new InvalidOperationException("Official mod service is unavailable. Try again later.");
             var items=new System.Collections.Generic.List<CatalogItem>();
             foreach(var p in Installed)
             {
                 cancel.ThrowIfCancellationRequested();
                 var page=await source.Browse(new CatalogQuery{Search=p.manifest.id,Compatible=false},cancel);
+                EnsureAlive();cancel.ThrowIfCancellationRequested();
                 var item=page.items.FirstOrDefault(i=>i.manifest.id==p.manifest.id);
                 if(item!=null)items.Add(item);
             }
@@ -121,12 +131,13 @@ namespace Flats.Modules
         }
         public async Task ConfigureSource(string url)
         {
+            EnsureReady();
             if(!development)throw new InvalidOperationException("The official source is managed by the developer");
             // Construct and validate before replacing the persisted configuration.
-            var next=string.IsNullOrWhiteSpace(url)?null:new HttpModSource(url,json,development);
+            var next=string.IsNullOrWhiteSpace(url)?null:platform.CreateSource(url,development);
             try
             {
-                await LocalWork(()=>
+                await platform.Work(()=>
                 {
                     Directory.CreateDirectory(root);
                     var path=Path.Combine(root,"mod-source.json");var temp=path+".new";
@@ -134,22 +145,26 @@ namespace Flats.Modules
                     if(File.Exists(path))File.Replace(temp,path,path+".previous");else File.Move(temp,path);
                 });
             }
-            catch { next?.Dispose();throw; }
+            catch { (next as IDisposable)?.Dispose();throw; }
+            if(disposed){(next as IDisposable)?.Dispose();EnsureAlive();}
             // Existing queued jobs retain the source they were created with.
             if(Source is IDisposable previous)retiredSources.Add(previous);
             Source=next;Notice=next==null?"Online source removed.":"Source saved.";
         }
         public async Task<DependencyPlan> Plan(PackageManifest manifest,CatalogItem download,CancellationToken cancel)
         {
+            EnsureReady();
+            using var operation=CancellationTokenSource.CreateLinkedTokenSource(cancel,lifetimeToken);
+            cancel=operation.Token;
             var enabled=Installed.Where(p=>p.requested).Select(p=>p.manifest.id);
-            return await new DependencyPlanner(Source,Installed,enabled).Resolve(manifest,download,cancel);
+            var plan=await new DependencyPlanner(Source,Installed,enabled).Resolve(manifest,download,cancel);
+            EnsureAlive();cancel.ThrowIfCancellationRequested();return plan;
         }
         public string PlanState { get { return owner.Profiles.SelectedId+"|"+string.Join(";",Installed.OrderBy(p=>p.manifest.id).Select(p=>p.manifest.id+":"+p.sha256+":"+p.requested))+"|"+owner.Requested(CrosshairModule.Id); } }
         public async Task ApplyPlan(DependencyPlan plan,string state,bool enable)
         {
-#if UNITY_WEBGL && !UNITY_EDITOR
-            foreach(var manifest in plan.Modules)WebModSource.ValidatePackage(manifest);
-#endif
+            EnsureReady();
+            foreach(var manifest in plan.Modules)platform.ValidatePackage(manifest);
             await RefreshInstalled();
             if(state!=PlanState)throw new InvalidOperationException("Mods or profile changed. Review a new plan.");
             if(plan.Downloads.Length>0)
@@ -175,6 +190,7 @@ namespace Flats.Modules
         }
         public async Task Request(string id,bool requested)
         {
+            EnsureReady();
             if(Downloads.IsBusy(id))throw new InvalidOperationException("Wait for this module's download to finish");
             if(!requested)CheckDependents(id);
             if(requested)
@@ -187,11 +203,12 @@ namespace Flats.Modules
         }
         public async Task Remove(string id)
         {
+            EnsureReady();
             if(Downloads.IsBusy(id))throw new InvalidOperationException("Cancel the download before removing this module");
             var profiles=owner.Profiles.Snapshot().Where(p=>p.modules.Any(m=>m.id==id&&m.requested)||p.modules.Where(m=>m.requested).Any(m=>Installed.Any(i=>i.manifest.id==m.id&&(i.manifest.dependencies??new DependencySpec[0]).Any(d=>d.id==id)))).ToArray();
             if(profiles.Length>0)throw new InvalidOperationException("Disable this module and its dependents in these profiles before uninstalling: "+string.Join(", ",profiles.Select(p=>p.name)));
             CheckDependents(id);
-            await LocalWork(()=>Store.Remove(id));await RefreshInstalled();Notice="Removed from next launch. Any running version remains active until FLATS restarts.";
+            await platform.Work(()=>Store.Remove(id));await RefreshInstalled();Notice="Removed from next launch. Any running version remains active until FLATS restarts.";
         }
         void CheckDependents(string id)
         {
@@ -211,12 +228,17 @@ namespace Flats.Modules
         readonly System.Collections.Generic.Dictionary<string,byte[]> artwork=new System.Collections.Generic.Dictionary<string,byte[]>();
         public async Task<byte[]> Artwork(string url,CancellationToken cancel)
         {
+            EnsureReady();
+            using var operation=CancellationTokenSource.CreateLinkedTokenSource(cancel,lifetimeToken);
+            cancel=operation.Token;
             if(string.IsNullOrEmpty(url) || Source==null)return null;
             if(artwork.TryGetValue(url,out var cached))return cached;
             await artworkSlots.WaitAsync(cancel);
             try
             {
+                EnsureAlive();
                 var data=await Source.Image(url,cancel);
+                EnsureAlive();cancel.ThrowIfCancellationRequested();
                 // Decode only bounded PNGs. Check dimensions before the Unity image decoder allocates.
                 if(data.Length<24 || data[0]!=137 || data[1]!=80 || data[2]!=78 || data[3]!=71)throw new InvalidDataException("Artwork must be PNG");
                 long width=((long)data[16]<<24)|((long)data[17]<<16)|((long)data[18]<<8)|data[19];
@@ -233,9 +255,15 @@ namespace Flats.Modules
         }
         public void Dispose()
         {
-            disposed=true;Downloads?.Dispose();
-            // Http cancellation runs through queue tokens; no assembly unload is claimed.
-            (Source as IDisposable)?.Dispose();foreach(var source in retiredSources)source.Dispose();
+            if(disposed)return;disposed=true;Ready=false;
+            try { lifetime.Cancel(); }
+            finally
+            {
+                Downloads?.Dispose();artwork.Clear();
+                // Http cancellation runs through queue tokens; no assembly unload is claimed.
+                (Source as IDisposable)?.Dispose();foreach(var source in retiredSources)source.Dispose();
+                retiredSources.Clear();lifetime.Dispose();
+            }
         }
     }
 }

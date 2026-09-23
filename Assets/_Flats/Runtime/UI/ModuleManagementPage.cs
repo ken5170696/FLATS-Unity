@@ -42,11 +42,36 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
     string pendingFocusName;
     GameObject currentModal;
     readonly List<Selectable> blockedControls=new List<Selectable>();
-    ModCenterService Service { get { return BuiltinModules.Instance.Center; } }
+    GameObject startupPanel;
+    Text startupMessage;
+    Button retryInitialization;
+    readonly List<Selectable> startupBlocked=new List<Selectable>();
+    IModHost Host;
+    IModCenter Service;
+
+    public void Initialize(IModHost host, IModCenter service, Menu navigation)
+    {
+        Bind(host,service,navigation);
+        Initialize();
+    }
+    public void Bind(IModHost host, IModCenter service, Menu navigation)
+    {
+        if(wired)
+        {
+            if(!ReferenceEquals(Host,host) || !ReferenceEquals(Service,service) || menu!=navigation)
+                throw new InvalidOperationException("Module page is already bound to another session");
+            return;
+        }
+        Host=host ?? throw new ArgumentNullException(nameof(host));
+        Service=service ?? throw new ArgumentNullException(nameof(service));
+        menu=navigation ?? throw new ArgumentNullException(nameof(navigation));
+    }
 
     public void Initialize()
     {
-        if(wired)return;wired=true;menu=GetComponentInParent<Menu>();
+        if(wired)return;
+        if(Host==null || Service==null || menu==null)throw new InvalidOperationException("ModulePageBinding must bind the page before use");
+        wired=true;
         var font=menu.buttons[0].transform.parent.GetComponentInChildren<Text>(true).font;
 
         foreach(Transform child in transform) { child.gameObject.SetActive(false);Destroy(child.gameObject); }
@@ -84,6 +109,43 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         notice=ui.Text("Notice",root,"",0,-280,872,42,17,ModCenterWidgets.Muted);
         BuildCrosshair();BuildConfirm();BuildApproved();entry.gameObject.SetActive(false);
         detailPanel.SetActive(false);
+        startupPanel=ui.Panel("ModuleStartup",root,0,-30,860,390,ModCenterWidgets.Paper).gameObject;
+        ui.Text("Title",startupPanel.transform,"Local module storage",0,150,780,44,28);
+        startupMessage=ui.Text("Message",startupPanel.transform,"",0,15,780,206,19,ModCenterWidgets.Muted);
+        retryInitialization=ui.Button("RetryInitialization",startupPanel.transform,"Try again",0,-145,270,46,RetryLocalModules,ModCenterWidgets.Accent);
+        startupPanel.SetActive(false);
+    }
+    bool ShowStartupState()
+    {
+        if(Service.Ready)
+        {
+            if(startupPanel.activeSelf)
+            {
+                startupPanel.SetActive(false);
+                foreach(var control in startupBlocked)if(control!=null)control.interactable=true;
+                startupBlocked.Clear();
+            }
+            return false;
+        }
+        startupPanel.SetActive(true);startupPanel.transform.SetAsLastSibling();
+        foreach(var control in root.GetComponentsInChildren<Selectable>(true))
+            if(control!=back && !control.transform.IsChildOf(startupPanel.transform) && control.interactable)
+            {startupBlocked.Add(control);control.interactable=false;}
+        startupMessage.text=Service.InitializationComplete?Service.Notice+"\nYou can return to the game. Restore storage access or a compatible backup, then retry or restart FLATS.":"Loading local modules and saved profiles...";
+        retryInitialization.gameObject.SetActive(Service.InitializationComplete);
+        retryInitialization.interactable=Service.CanRetryInitialization;
+        retryInitialization.GetComponentInChildren<Text>().text=Service.CanRetryInitialization?"Try again":"Restart after recovery";
+        notice.text=Service.InitializationComplete?"Module changes are blocked until local storage recovers.":"Loading local modules...";
+        return true;
+    }
+    async void RetryLocalModules()
+    {
+        if(!Service.CanRetryInitialization)return;
+        var pending=Service.RetryInitialization();ShowStartupState();
+        try{await pending;}
+        catch(Exception e){if(this!=null)Debug.LogWarning("MOD_CENTER_RETRY "+e.GetType().Name);}
+        if(this==null)return;
+        readyRendered=false;ShowStartupState();if(isActiveAndEnabled)Reload();
     }
     void BuildCrosshair() { BuildDraftSettings(); }
     void BuildConfirm()
@@ -113,7 +175,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
 
         tab="Installed";detailOpen=false;settingsOpen=false;
         notice.text=Service.Installed.Length==0?"No mods installed. Open Explore to download your first mod.":"External mod changes apply after restarting FLATS.";
-        if(!readyRendered){savedScroll=1;restoreScroll=true;}Resize();Reload();Focus(tab=="Installed"?installed:tab=="Explore"?explore:downloads);
+        if(!readyRendered){savedScroll=1;restoreScroll=true;}Resize();Reload();Focus(Service.Ready?(tab=="Installed"?installed:tab=="Explore"?explore:downloads):back);
     }
     public void Close()
     {
@@ -146,6 +208,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         if(!wired)return;Resize();
         var device=InControl.InputManager.ActiveDevice;
         if(Input.GetKeyUp(KeyCode.Escape) || device.Action2.WasPressed || device.CommandWasPressed) { Close();return; }
+        if(ShowStartupState())return;
         if(currentModal==null && !settingsOpen)
         {
             if(Input.GetKeyDown(KeyCode.PageDown))detailScroll.verticalNormalizedPosition-=.25f;
@@ -153,13 +216,13 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         }
         if(debounce>=0 && Time.unscaledTime>=debounce && currentModal==null){debounce=-1;offset=0;savedScroll=1;restoreScroll=true;Reload();}
         if(Time.unscaledTime<refreshAt)return;refreshAt=Time.unscaledTime+.25f;
-        if(!Service.Ready){notice.text="Loading local modules...";return;}
+        if(!Service.Ready)return;
         if(!readyRendered){readyRendered=true;Reload();}
         var queue=Service.Downloads;
-        if(queue!=null && revision!=queue.Revision && currentModal==null && !settingsOpen){revision=queue.Revision;Run(async()=>{await Service.RefreshInstalled();if(tab!="Explore")RenderLocal();else {RefreshCatalogState();ShowDetail();}},false);}
+        if(queue!=null && revision!=queue.Revision && currentModal==null && !settingsOpen){revision=queue.Revision;Run(async()=>{await Service.RefreshInstalled();if(this==null || !isActiveAndEnabled)return;if(tab!="Explore")RenderLocal();else {RefreshCatalogState();ShowDetail();}},false);}
         var active=queue?.Snapshot().Count(j=>j.Busy) ?? 0;
         downloads.GetComponentInChildren<Text>().text="Downloads"+(active>0?" ("+active+")":"");
-        summary.text=(Service.Installed.Length)+" installed  /  "+BuiltinModules.Instance.Manager.Installed.Count(r=>r.Active)+" active";
+        summary.text=(Service.Installed.Length)+" installed  /  "+Host.Manager.Installed.Count(r=>r.Active)+" active";
         if(tab=="Downloads" && currentModal==null) { if(detailOpen)UpdateDownloadDetail();else RefreshDownloadRows(); }
     }
     void Switch(string value)
@@ -181,7 +244,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
     void CycleFilter() { var options=new[]{"All","Enabled","Disabled","Problems","Updates"};localFilter=options[(Array.IndexOf(options,localFilter)+1)%options.Length]; }
     void Reload()
     {
-        if(!Service.Ready) { ClearRows();Empty("Loading local mods...\nYour library will appear shortly.");notice.text="Loading local modules...";return; }
+        if(ShowStartupState())return;
         explore.image.color=tab=="Explore"?ModCenterWidgets.Accent:ModCenterWidgets.PanelColor;
         installed.image.color=tab=="Installed"?ModCenterWidgets.Accent:ModCenterWidgets.PanelColor;
         downloads.image.color=tab=="Downloads"?ModCenterWidgets.Accent:ModCenterWidgets.PanelColor;

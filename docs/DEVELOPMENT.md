@@ -2,6 +2,10 @@
 
 Gameplay and legacy vendor integrations compile into Assembly-CSharp. Small assembly definitions isolate module Core, movement policy and UI presentation. Editor tools stay below Editor directories. Core/presentation assemblies must not reference Assembly-CSharp: connect features through their existing interfaces.
 
+The 5.4.2 candidate routes desktop gameplay through `IPlayerInputSource` and the read-only `IGameSessionContext` in Core. Menu binds each controller using its existing scene composition; legacy public state remains a compatibility boundary. `WeaponAmmoPolicy` owns deterministic reload conservation while the controller retains animation and RPC entry points. Do not add test drivers to the runtime source. Other input platforms retain their adapters and share the gameplay pause gate.
+
+The module page receives `IModHost` and `IModCenter` from `ModulePageBinding`; it no longer fetches a singleton per operation. The service receives platform/source/work policy through `IModCenterPlatform`. Readiness means initialization succeeded; settled failure is separate and must remain visible/recoverable. These host interfaces are internal application boundaries, not additions to the external SDK. See [SDK preview](MOD_SDK.md) for the supported external contracts and an independently packageable data example.
+
 Eight build scenes are tracked, starting with MainMenu, followed by Tutorial and six maps. Shared GameInterface composition and nested UI prefabs keep scene bindings consistent. Resources-loaded assets and serialized events form runtime contracts even when no C# reference exists.
 
 ## Persistence and lifecycle

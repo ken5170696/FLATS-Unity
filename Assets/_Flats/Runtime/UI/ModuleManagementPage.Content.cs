@@ -26,7 +26,7 @@ public sealed partial class ModuleManagementPage
         try
         {
             var page=await source.Browse(new CatalogQuery{Search=search.text,Category=categoryValue,Sort=sortValue,Compatible=compatible,Offset=offset},cancel);
-            if(cancel.IsCancellationRequested || generation!=viewGeneration || !isActiveAndEnabled)return;
+            if(this==null || cancel.IsCancellationRequested || generation!=viewGeneration || !isActiveAndEnabled)return;
             catalog=page.items;categories=page.categories;RefreshFilters();foreach(var item in catalog)known[item.manifest.id]=item;
             ClearRows();int i=0;
             foreach(var item in catalog)AddRow(item.manifest.id,item.manifest.name,(item.manifest.description ?? "No description provided.")+"\n"+CatalogStatus(item),i++);
@@ -38,7 +38,7 @@ public sealed partial class ModuleManagementPage
         catch(OperationCanceledException) { }
         catch(Exception)
         {
-            if(generation!=viewGeneration)return;
+            if(this==null || !isActiveAndEnabled || generation!=viewGeneration)return;
             sourceFailed=true;ClearRows();Empty("Official service offline\nCheck your connection and retry. Your installed mods are still available.");
             detailTitle.text="Official service offline";SetDescription("Your installed mods remain available. Retry when your connection is available.");SetPrimary("Unavailable",false);
 
@@ -94,7 +94,7 @@ public sealed partial class ModuleManagementPage
     string InstalledStatus(InstalledPackage package)
     {
         string id=package.manifest.id;
-        var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==id);
+        var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==id);
         string state=Service.NeedsRestart(id)?(package.requested?"Restart required":record?.Active==true?"Disable on restart":"Disabled"):(record?.Active==true?"Active now":package.requested?"Enabled / not active":"Disabled");
         if(Service.Problem(package.manifest).Length>0||!string.IsNullOrEmpty(record?.Reason))state="Needs attention / "+state;
         if(known.TryGetValue(id,out var item)&&ModRules.Version(item.manifest.version)>ModRules.Version(package.manifest.version))state="Update available / "+state;
@@ -111,8 +111,8 @@ public sealed partial class ModuleManagementPage
     bool MatchesFilter(string id)
     {
         if(id=="storage-report")return localFilter=="All"||localFilter=="Problems";
-        var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);var r=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
-        bool requested=p?.requested ?? BuiltinModules.Instance.Requested(id);
+        var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);var r=Host.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
+        bool requested=p?.requested ?? Host.Requested(id);
         return localFilter=="All" || (localFilter=="Enabled" && requested) || (localFilter=="Disabled" && !requested) ||
             (localFilter=="Problems" && (!string.IsNullOrEmpty(r?.Reason) || (p!=null && Service.Problem(p.manifest).Length>0))) || (localFilter=="Updates" && p!=null && known.TryGetValue(id,out var c) && ModRules.Version(c.manifest.version)>ModRules.Version(p.manifest.version));
     }
@@ -152,7 +152,7 @@ public sealed partial class ModuleManagementPage
         var r=(RectTransform)b.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,1);r.pivot=new Vector2(.5f,1);r.anchoredPosition=new Vector2(0,-rowY);
         var icon=ui.Rect("ModIcon",r,-width/2+34,-height/2,40,40).gameObject.AddComponent<ModTileGraphic>();icon.color=ModCenterWidgets.Accent;icon.raycastTarget=false;
         var title=ui.Text("Name",r,PlayerName(name),-width/2+68+width*.16f,-25,width*.32f,44,18);title.alignment=TextAnchor.MiddleLeft;
-        var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
+        var record=Host.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
         var package=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);
         var version=package?.manifest.version??record?.Manifest.Version.ToString()??"";
         ui.Text("Scope",r,id==CrosshairModule.Id?"Client-only":package?.manifest.scope??"", -width/2+68+width*.16f,-55,width*.32f,24,14,ModCenterWidgets.Muted);
@@ -160,7 +160,7 @@ public sealed partial class ModuleManagementPage
         var state=ui.Text("State",r,subtitle.Split('\n').Last(),width*.14f,-height/2,width*.27f,60,15,ModCenterWidgets.Muted);
         if(tab=="Installed"&&(package!=null||record!=null))
         {
-            bool requested=package?.requested??BuiltinModules.Instance.Requested(id);
+            bool requested=package?.requested??Host.Requested(id);
             var toggle=ui.Button("Toggle-"+id,r,"",width/2-122,-height/2,72,44,()=>ToggleRow(id),Color.clear);
             var track=ui.Panel("Switch",toggle.transform,0,0,58,30,requested?ModCenterWidgets.Accent:new Color(.7f,.68f,.7f));toggle.targetGraphic=track;
             ui.Panel("Thumb",track.transform,requested?14:-14,0,22,22,Color.white).raycastTarget=false;
@@ -187,14 +187,14 @@ public sealed partial class ModuleManagementPage
         crosshairPanel.SetActive(settingsOpen);secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);enable.interactable=false;
         foreach(Transform row in listContent){var b=row.GetComponent<Button>();if(b!=null)b.image.color=row.name=="Mod-"+selectedId?ModCenterWidgets.Accent:ModCenterWidgets.PanelColor;}
         if(tab=="Downloads"){UpdateDownloadDetail();return;}
-        var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
+        var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
         if(selectedId=="storage-report"){detailTitle.text="Storage recovery report";SetDescription(string.Join("\n\n",Service.Store.Notices.Distinct()));SetPrimary("Read only",false);return;}
         if(tab!="Explore" && selectedId==CrosshairModule.Id && Service.Installed.Any(x=>x.manifest.id==selectedId))
         {
             detailTitle.text="Custom Crosshair";
             SetDescription("Choose the shape and size of your aiming reticle.\n\nClient-only · Your screen only\n"+InstalledStatus(Service.Installed.First(x=>x.manifest.id==selectedId))+"\n\nConfigure a draft and preview changes before saving.\n"+(record?.Reason??""));
             secondary.gameObject.SetActive(true);secondary.GetComponentInChildren<Text>().text="Configure";secondary.interactable=true;
-            SetPrimary(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Disable":"Enable",!BuiltinModules.Instance.ReadOnly);remove.gameObject.SetActive(true);remove.interactable=!busy;return;
+            SetPrimary(Host.Requested(CrosshairModule.Id)?"Disable":"Enable",!Host.ReadOnly);remove.gameObject.SetActive(true);remove.interactable=!busy;return;
         }
         var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==selectedId);
         var m=tab=="Explore"?catalog.FirstOrDefault(x=>x.manifest.id==selectedId)?.manifest:p?.manifest ?? Service.Running.FirstOrDefault(x=>x.manifest.id==selectedId)?.manifest;
@@ -308,7 +308,8 @@ public sealed partial class ModuleManagementPage
     {
         if(show){if(busy)return;busy=true;category.interactable=false;ShowDetail();}
         try{await action();if(this!=null && isActiveAndEnabled){if(tab!="Explore")RenderLocal();else ShowDetail();if(show)notice.text=Service.Notice;}}
-        catch(Exception e){if(this!=null){notice.text="Could not complete the action. "+e.Message;}Debug.LogWarning("MOD_CENTER_ACTION "+e.GetType().Name);}
+        catch(OperationCanceledException) { }
+        catch(Exception e){if(this!=null && isActiveAndEnabled){notice.text="Could not complete the action. "+e.Message;}Debug.LogWarning("MOD_CENTER_ACTION "+e.GetType().Name);}
         finally{if(show){busy=false;if(this!=null && isActiveAndEnabled){category.interactable=tab=="Explore" || tab=="Installed"&&Service.Source!=null;ShowDetail();}}}
     }
     async void LoadArtwork(RawImage image,string url,int generation)

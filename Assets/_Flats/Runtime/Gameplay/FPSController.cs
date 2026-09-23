@@ -6,6 +6,21 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 public class FPSController : MonoBehaviour
 {
+    private Flats.Core.IGameSessionContext session;
+    private Flats.Core.IPlayerInputSource desktopInput = new Flats.Gameplay.UnityDesktopPlayerInput();
+    private bool overrideInputDevice;
+    private int SessionNetworkMode { get { return session != null ? session.NetworkMode : 0; } }
+    private bool SessionPlaying { get { return session != null && session.IsPlaying; } }
+    private bool GameplayActive { get { return testMode || SessionPlaying; } }
+
+    // Composition and private validation runners use the same product input boundary.
+    public void ConfigureGameplay(Flats.Core.IGameSessionContext context, Flats.Core.IPlayerInputSource input, bool overrideDevice = true)
+    {
+        session = context ?? throw new ArgumentNullException(nameof(context));
+        desktopInput = input ?? throw new ArgumentNullException(nameof(input));
+        overrideInputDevice = overrideDevice;
+    }
+
 	public bool zombie;
 
 	public bool motherZombie;
@@ -203,6 +218,10 @@ public class FPSController : MonoBehaviour
 		ikc = GetComponent<IKController>();
 		ptv = GetComponent<PhotonTransformView>();
 		ui = GameObject.Find("UICamera").transform;
+        // Reuse the existing scene UI binding, without another global service lookup.
+        var menu = ui.GetComponentInChildren<Menu>(true);
+        if (menu != null) menu.BindGameplay(this);
+        else Debug.LogError("Player requires a Menu gameplay session binding.", this);
 		netPos = mt.position;
 		netRot = mt.rotation;
 		netVelocity = Vector3.zero;
@@ -517,7 +536,7 @@ public class FPSController : MonoBehaviour
 	{
 		var look = Flats.Core.LookRotationPolicy.Evaluate(input, x, y, sensitivity, invertY,
 			isZoom, isZoom ? currentGun.zoom : 1f, headTracking, VRController.device == "cardboard",
-			headRotation.x, headRotation.y, Menu.current == "Playing", testMode,
+			headRotation.x, headRotation.y, SessionPlaying, testMode,
 			mct.localEulerAngles.x, mct.localEulerAngles.y);
 		mt.eulerAngles += new Vector3(0f, look.BodyYaw, 0f);
 		mct.localEulerAngles = new Vector3(look.CameraPitch, look.CameraYaw, 0f);
@@ -1311,7 +1330,7 @@ public class FPSController : MonoBehaviour
 		}
 		else
 		{
-			if ((currentGun.maxAmmo <= 0 && currentGun.currentAmmo <= 0) || !(Menu.current == "Playing"))
+			if ((currentGun.maxAmmo <= 0 && currentGun.currentAmmo <= 0) || !SessionPlaying)
 			{
 				yield break;
 			}
@@ -1464,19 +1483,9 @@ public class FPSController : MonoBehaviour
 			yield return new WaitForSeconds(0.05f);
 		}
 		ikc.leftIK = false;
-		for (int i = 0; i < limit; i++)
-		{
-			if (max == 0)
-			{
-				break;
-			}
-			if (current >= limit)
-			{
-				break;
-			}
-			max--;
-			current++;
-		}
+        var ammunition = Flats.Core.WeaponAmmoPolicy.Reload(current, max, limit);
+        current = ammunition.Magazine;
+        max = ammunition.Reserve;
 		yield return new WaitForSeconds(0.5f + currentGun.reloadTime);
 		if (primarySightIndex != 0)
 		{
@@ -1643,6 +1652,8 @@ public class FPSController : MonoBehaviour
 		movedWithGravity = false;
 		if (MyView(base.gameObject) && enableControl)
 		{
+            // Consume edge actions even while paused; never replay a queued press on resume.
+            var desktopSample = desktopInput.Sample();
 			if ((!Application.isMobilePlatform && Input.mousePresent) || Input.GetJoystickNames().Length > 0)
 			{
 				if (touchControl)
@@ -1723,9 +1734,15 @@ public class FPSController : MonoBehaviour
 			}
 			float num;
 			float num2;
-			if (touchControl)
-			{
-				num = ETCInput.GetAxis("Vertical");
+            if (!GameplayActive)
+            {
+                num = num2 = 0f;
+                jumpPressTime = reloadPressTime = zoomPressTime = pickPressTime = 0f;
+                picking = false;
+            }
+            else if (touchControl && !overrideInputDevice)
+            {
+                num = ETCInput.GetAxis("Vertical");
 				num2 = ETCInput.GetAxis("Horizontal");
 				if (ETCInput.GetButton("Jump"))
 				{
@@ -1867,7 +1884,7 @@ public class FPSController : MonoBehaviour
 				bool padUsed = activeDevice.AnyButtonIsPressed || Mathf.Abs(activeDevice.LeftStickX)>0.1f || Mathf.Abs(activeDevice.LeftStickY)>0.1f || Mathf.Abs(activeDevice.RightStickX)>0.1f || Mathf.Abs(activeDevice.RightStickY)>0.1f || activeDevice.LeftTrigger>0.1f || activeDevice.RightTrigger>0.1f;
 				if (padUsed) preferGamepad = true;
 				else if (Input.anyKey || Mathf.Abs(Input.GetAxisRaw("mouse x"))>0.01f || Mathf.Abs(Input.GetAxisRaw("mouse y"))>0.01f) preferGamepad = false;
-				if (preferGamepad && Input.GetJoystickNames().Length > 0 && activeDevice.Name != "None")
+				if (!overrideInputDevice && preferGamepad && Input.GetJoystickNames().Length > 0 && activeDevice.Name != "None")
 				{
 					num = activeDevice.LeftStickY;
 					num2 = activeDevice.LeftStickX;
@@ -1875,7 +1892,7 @@ public class FPSController : MonoBehaviour
 					{
 						ApplyLook(Flats.Core.LookInput.Gamepad, activeDevice.RightStickX, activeDevice.RightStickY);
 					}
-					if (Menu.current == "Playing")
+					if (SessionPlaying)
 					{
 						if ((num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && !Menu.customControlEnabled && activeDevice.Action1.IsPressed) || (Menu.customControlEnabled && Input.GetButton(Menu.customControl["Jump"])))
 						{
@@ -2084,29 +2101,30 @@ public class FPSController : MonoBehaviour
 				}
 				else
 				{
-					num = Input.GetAxis("Vertical");
-					num2 = Input.GetAxis("Horizontal");
-					if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && Input.GetKey(KeyCode.LeftShift))
+                    var input = desktopSample;
+					num = input.Forward;
+					num2 = input.Right;
+					if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && input.Sprint)
 					{
 						num *= 1.5f;
 						num2 /= 2f;
 					}
 					if (enableCamRotate)
 					{
-						ApplyLook(Flats.Core.LookInput.Mouse, Input.GetAxisRaw("mouse x"), Input.GetAxisRaw("mouse y"));
+						ApplyLook(Flats.Core.LookInput.Mouse, input.LookX, input.LookY);
 					}
-					if (Input.GetMouseButton(0))
+					if (input.Fire)
 					{
 						RaycastHit hitInfo3 = default(RaycastHit);
 						if (Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo3, 3f, mask))
 						{
 							if (hitInfo3.collider.gameObject.layer != base.gameObject.layer)
 							{
-								if (Menu.network == 0)
+								if (SessionNetworkMode == 0)
 								{
 									StartCoroutine("Smash");
 								}
-								else if (Menu.network != 1)
+								else if (SessionNetworkMode != 1)
 								{
 									base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
 								}
@@ -2114,76 +2132,76 @@ public class FPSController : MonoBehaviour
 						}
 						else if (grabbing)
 						{
-							if (Menu.network == 0)
+							if (SessionNetworkMode == 0)
 							{
 								StartCoroutine("Smash");
 							}
-							else if (Menu.network != 1)
+							else if (SessionNetworkMode != 1)
 							{
 								base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
 							}
 						}
 						else if (enableFire)
 						{
-							if (Menu.network == 0)
+							if (SessionNetworkMode == 0)
 							{
 								StartCoroutine("Shoot");
 							}
-							else if (Menu.network != 1)
+							else if (SessionNetworkMode != 1)
 							{
 								base.gameObject.GetPhotonView().RPC("Shoot", PhotonTargets.All);
 							}
 						}
 					}
-					if ((Input.GetKeyDown("r")) && enableFire)
+					if ((input.Reload) && enableFire)
 					{
-						if (Menu.network == 0)
+						if (SessionNetworkMode == 0)
 						{
 							StartCoroutine("Reload");
 						}
-						else if (Menu.network != 1)
+						else if (SessionNetworkMode != 1)
 						{
 							base.gameObject.GetPhotonView().RPC("Reload", PhotonTargets.All);
 						}
 					}
-					if (Input.GetKeyDown("e") && (enableFire || grabbing))
+					if (input.ChangeWeapon && (enableFire || grabbing))
 					{
-						if (Menu.network == 0)
+						if (SessionNetworkMode == 0)
 						{
 							StartCoroutine("ChangeWeapons");
 						}
-						else if (Menu.network != 1)
+						else if (SessionNetworkMode != 1)
 						{
 							base.gameObject.GetPhotonView().RPC("ChangeWeapons", PhotonTargets.All);
 						}
 					}
-					if (Input.GetKeyDown("g") && grabbedObject == null && enableFire && !grabbing)
+					if (input.Grenade && grabbedObject == null && enableFire && !grabbing)
 					{
-						if (Menu.network == 0)
+						if (SessionNetworkMode == 0)
 						{
 							StartCoroutine("ThrowGrenade");
 						}
-						else if (Menu.network != 1)
+						else if (SessionNetworkMode != 1)
 						{
 							base.gameObject.GetPhotonView().RPC("ThrowGrenade", PhotonTargets.All);
 						}
 					}
-					if (Input.GetKeyDown("space") && !jumping && isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
+					if (input.Jump && !jumping && isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
 					{
 						Y = mt.position.y;
 						jumping = true;
 					}
-					if (Input.GetKeyDown("q"))
+					if (input.Interact)
 					{
 						if (grabbedObject != null && enableFire)
 						{
-							if (Menu.network == 0)
+							if (SessionNetworkMode == 0)
 							{
 								int[] array5 = new int[2];
 								int[] receivedData4 = array5;
 								Grab(receivedData4);
 							}
-							else if (Menu.network != 1)
+							else if (SessionNetworkMode != 1)
 							{
 								int[] array6 = new int[2]
 								{
@@ -2195,12 +2213,12 @@ public class FPSController : MonoBehaviour
 						}
 						else if (grabbing && grabbedObject != null)
 						{
-							if (Menu.network == 0)
+							if (SessionNetworkMode == 0)
 							{
 								int[] receivedData5 = new int[2] { 1, 0 };
 								Grab(receivedData5);
 							}
-							else if (Menu.network != 1)
+							else if (SessionNetworkMode != 1)
 							{
 								int[] array7 = new int[2]
 								{
@@ -2215,13 +2233,13 @@ public class FPSController : MonoBehaviour
 							DroppedGun component2 = droppedGun.GetComponent<DroppedGun>();
 							if (component2.ready)
 							{
-								if (Menu.network == 0)
+								if (SessionNetworkMode == 0)
 								{
 									int[] receivedData6 = new int[5] { component2.weaponIndex, component2.currentAmmo, component2.maxAmmo, component2.sight, 0 };
 									StartCoroutine(ExchangeWeapons(receivedData6));
 									UnityEngine.Object.Destroy(droppedGun.gameObject);
 								}
-								else if (Menu.network != 1 && base.gameObject.GetPhotonView().isMine)
+								else if (SessionNetworkMode != 1 && base.gameObject.GetPhotonView().isMine)
 								{
 									int[] array8 = new int[5]
 									{
@@ -2237,7 +2255,7 @@ public class FPSController : MonoBehaviour
 							}
 						}
 					}
-					if (Input.GetKeyDown(KeyCode.Mouse1))
+					if (input.ToggleZoom)
 					{
 						if (isZoom)
 						{
@@ -2250,7 +2268,7 @@ public class FPSController : MonoBehaviour
 					}
 				}
 			}
-			if (Menu.current != "Playing" && !testMode)
+			if (!GameplayActive)
 			{
 				num = 0f;
 				num2 = 0f;

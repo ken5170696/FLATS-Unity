@@ -14,6 +14,19 @@ using UnityEngine.UI;
 
 public partial class Menu : MonoBehaviour
 {
+    // Compatibility boundary while legacy modes still write these public fields.
+    private sealed class GameplaySession : Flats.Core.IGameSessionContext
+    {
+        public bool IsPlaying { get { return current == "Playing"; } }
+        public int NetworkMode { get { return network; } }
+    }
+    private readonly Flats.Core.IGameSessionContext gameplaySession = new GameplaySession();
+
+    public void BindGameplay(FPSController player)
+    {
+        player.ConfigureGameplay(gameplaySession, new Flats.Gameplay.UnityDesktopPlayerInput(), false);
+    }
+
 	public bool resetData;
 
 	public static int network = 0; private static readonly bool offlineNotifications = false;
@@ -393,7 +406,7 @@ public partial class Menu : MonoBehaviour
 			version = "";
 		}
 		Debug.Log("version:" + version);
-		string text = "5.4.1";
+		string text = Flats.Modules.ModRules.GameVersion;
 		if (version != text)
 		{
 			if (version == "" || int.Parse(version.Substring(0, 1)) < 5)
@@ -2987,116 +3000,12 @@ public partial class Menu : MonoBehaviour
 					default:
 						switch (button)
 						{
-						case 18:
-						{
-							if (network == 1 || network == 2 || waitBackground)
-							{
-								ShowConfirm("Quit multiplayer mode or matchmaking!", "You can't use this function while playing multiplayer mode.", null, "OK", null);
-								break;
-							}
-							WWW www = new WWW(string.Concat(str3: currentDetail.transform.GetChild(2).GetComponent<InputField>().text, str0: "http://dreamlo.com/lb/", str1: dl.publicCode, str2: "/pipe-get/user-"));
-							yield return www;
-							if (!www.isDone)
-							{
-								break;
-							}
-							if (!string.IsNullOrEmpty(www.error))
-							{
-								Debug.Log("Sync data does not exist.");
-								break;
-							}
-							string[] array5 = www.text.Split(new char[1] { '|' }, StringSplitOptions.None);
-							dreamloLeaderBoard.Score score = new dreamloLeaderBoard.Score
-							{
-								playerName = array5[0],
-								score = 0,
-								seconds = 0,
-								shortText = "",
-								dateString = ""
-							};
-							if (array5.Length > 1)
-							{
-								score.score = int.Parse(array5[1]);
-							}
-							if (array5.Length > 2)
-							{
-								score.seconds = int.Parse(array5[2]);
-							}
-							if (array5.Length > 3)
-							{
-								score.shortText = array5[3];
-							}
-							if (array5.Length > 4)
-							{
-								score.dateString = array5[4];
-							}
-							if (array5.Length > 3)
-							{
-								string id = score.playerName.Replace("user-", "");
-								myCharacter.id = id;
-								string[] array6 = score.shortText.Split(new string[1] { "$" }, StringSplitOptions.None);
-								if (array6.Length >= 6)
-								{
-									myCharacter.kill = IntParseFast(array6[1]);
-									myCharacter.death = IntParseFast(array6[2]);
-									myCharacter.survivalScore = IntParseFast(array6[3]);
-									myCharacter.assortmentScore = IntParseFast(array6[4]);
-									myCharacter.headshotScore = IntParseFast(array6[5]);
-									SaveDataController.Save();
-									ShowConfirm("Sync succeeded.", "You have to reboot Flats.", Reset, "OK", null);
-								}
-								else
-								{
-									ShowConfirm("Sync failed.", "Something wrong with your data...", null, "OK", null);
-								}
-							}
-							else
-							{
-								ShowConfirm("Sync failed.", "There isn't your data on leaderboard.", null, "OK", null);
-							}
-							break;
-						}
-						case 19:
-						{
-							if (network == 1 || network == 2 || waitBackground)
-							{
-								ShowConfirm("Quit multiplayer mode or matchmaking!", "You can't use this function while playing multiplayer mode.", null, "OK", null);
-								break;
-							}
-							pleaseWait.SetActive(true);
-							LocalNetwork ln = GetComponent<LocalNetwork>();
-							ln.masterIP = "Searching...";
-							ln.StartReceivingDataForSync();
-							float trial = 0f;
-							while (true)
-							{
-								trial += Time.unscaledDeltaTime;
-								if (trial >= 3f || ln.masterIP != "Searching...")
-								{
-									break;
-								}
-								yield return new WaitForSeconds(0f);
-							}
-							ln.StopAllCoroutines();
-							ln.CloseReceiver();
-							pleaseWait.SetActive(false);
-							if (ln.masterIP == "Searching...")
-							{
-								Debug.Log("There is no sender, be a sender.");
-								syncing = true;
-								ln.StartCoroutine("StartSendingDataForSync");
-								ShowConfirm("Sending my data...", "Sending my data (ID:" + myCharacter.id + ")\nand waiting for a receiver...\nYou must close this after syncing.", SyncDataConfirm, "Close", null);
-							}
-							else
-							{
-								syncing = false;
-								syncData = ln.masterIP;
-								string[] array4 = syncData.Split(new string[1] { "$" }, StringSplitOptions.None);
-								string text2 = array4[0];
-								ShowConfirm("Received data!", "Received data from ID:" + text2 + "\nOverwrite your current data\nand reboot Flats.", SyncDataConfirm, "Overwrite", "Cancel");
-							}
-							break;
-						}
+                        case 18:
+                            ShowConfirm("Legacy cloud unavailable", "Original service data cannot be accessed. No cloud data was loaded.\nUse Export save / Import old save files, or LAN Sync between desktop devices.", null, "OK", null);
+                            break;
+                        case 19:
+                            yield return RunLanSync();
+                            break;
 						}
 						break;
 					}
@@ -3412,44 +3321,106 @@ public partial class Menu : MonoBehaviour
 			fliping = false;
 		}
 
-		private void SyncDataConfirm(bool result)
-		{
-			LocalNetwork component = GetComponent<LocalNetwork>();
-			if (result)
-			{
-				if (syncing)
-				{
-					component.StopAllCoroutines();
-					component.CloseSender();
-					syncing = false;
-					syncData = "";
-				}
-				else if (syncData != "" && syncData != "Searching...")
-				{
-					string[] array = syncData.Split(new string[1] { "$" }, StringSplitOptions.None);
-					myCharacter.id = array[0];
-					myCharacter.kill = IntParseFast(array[1]);
-					myCharacter.death = IntParseFast(array[2]);
-					myCharacter.survivalScore = IntParseFast(array[3]);
-					myCharacter.assortmentScore = IntParseFast(array[4]);
-					myCharacter.headshotScore = IntParseFast(array[5]);
-					SaveDataController.Save();
-					LoadOfflineScene(0);
-				}
-				else
-				{
-					Debug.Log("Synced but no data, something wrong!");
-					LoadOfflineScene(0);
-				}
-			}
-			else
-			{
-				component.StopAllCoroutines();
-				component.CloseSender();
-				syncing = false;
-				syncData = "";
-			}
-		}
+        private IEnumerator RunLanSync()
+        {
+            if (network == 1 || network == 2 || waitBackground || gameState != "Main")
+            {
+                ShowConfirm("Return to the main menu", "End your game or matchmaking before syncing saved scores.", null, "OK", null);
+                yield break;
+            }
+            if (!LocalNetwork.Supported)
+            {
+                ShowConfirm("LAN Sync in this browser", "Browsers cannot use UDP LAN sync. Use Export save on the source device, then Import old save here. These controls are below LAN Sync.", null, "OK", null);
+                yield break;
+            }
+            var lan = GetComponent<LocalNetwork>();
+            if (lan == null)
+            {
+                ShowConfirm("LAN Sync unavailable", "The LAN component is missing. Use Export save / Import old save instead.", null, "OK", null);
+                yield break;
+            }
+            syncData = "";
+            syncing = false;
+            pleaseWait.SetActive(true);
+            lan.StartReceivingDataForSync();
+            float end = Time.realtimeSinceStartup + 3f;
+            bool cancelled = false;
+            while (lan.IsReceiving && Time.realtimeSinceStartup < end)
+            {
+                if (gameState != "Main" || current != "Character" || Input.GetKeyDown(KeyCode.Escape) || InputManager.ActiveDevice.CommandWasPressed)
+                { cancelled = true; break; }
+                yield return null;
+            }
+            lan.CloseReceiver();
+            pleaseWait.SetActive(false);
+            if (cancelled) yield break;
+            if (!string.IsNullOrEmpty(lan.Error))
+            {
+                ShowConfirm("LAN Sync failed", lan.Error, null, "OK", null);
+                yield break;
+            }
+            Flats.Core.LanSyncRecord record;
+            if (Flats.Core.LanSyncRecord.TryParse(lan.masterIP, out record))
+            {
+                syncData = lan.masterIP;
+                ShowConfirm("Review received scores", "LAN sender ID: " + record.Id +
+                    "\nKills / deaths: " + record.Kills + " / " + record.Deaths +
+                    "\nSurvival / assortment / headshot: " + record.Survival + " / " + record.Assortment + " / " + record.Headshot +
+                    "\nReplace only your ID and these five scores, then reload? Confirm only a sender you recognize.", SyncDataConfirm, "Replace scores", "Cancel");
+                yield break;
+            }
+            syncing = true;
+            lan.StartCoroutine(lan.StartSendingDataForSync());
+            if (!lan.IsSending)
+            {
+                syncing = false;
+                ShowConfirm("LAN Sync failed", lan.Error, null, "OK", null);
+                yield break;
+            }
+            ShowConfirm("Broadcasting LAN scores", "Sending ID: " + myCharacter.id +
+                "\nOpen LAN Sync on the receiving device now. Delivery is not confirmed here.\nBroadcast stops after 60 seconds, or when you close this dialog.", SyncDataConfirm, "Stop", null);
+            while (syncing && lan.IsSending) yield return null;
+            if (syncing)
+            {
+                syncing = false;
+                ShowConfirm(string.IsNullOrEmpty(lan.Error) ? "LAN broadcast ended" : "LAN Sync failed",
+                    lan.Status, null, "OK", null);
+            }
+        }
+
+        private void SyncDataConfirm(bool result)
+        {
+            var lan = GetComponent<LocalNetwork>();
+            if (lan != null) { lan.StopAllCoroutines(); lan.CloseSender(); lan.CloseReceiver(); }
+            bool wasSending = syncing;
+            syncing = false;
+            string payload = syncData;
+            syncData = "";
+            if (!result || wasSending) return;
+            Flats.Core.LanSyncRecord record;
+            if (!Flats.Core.LanSyncRecord.TryParse(payload, out record) || gameState != "Main")
+            {
+                ShowConfirm("LAN Sync failed", "Received scores are no longer valid. Your scores were not changed.", null, "OK", null);
+                return;
+            }
+            string oldId = myCharacter.id;
+            int[] oldScores = { myCharacter.kill, myCharacter.death, myCharacter.survivalScore, myCharacter.assortmentScore, myCharacter.headshotScore };
+            myCharacter.id = record.Id;
+            myCharacter.kill = record.Kills;
+            myCharacter.death = record.Deaths;
+            myCharacter.survivalScore = record.Survival;
+            myCharacter.assortmentScore = record.Assortment;
+            myCharacter.headshotScore = record.Headshot;
+            SaveDataController.Save();
+            if (FlatsLocalProfile.LastSaveSucceeded) { LoadOfflineScene(0); return; }
+            myCharacter.id = oldId;
+            myCharacter.kill = oldScores[0];
+            myCharacter.death = oldScores[1];
+            myCharacter.survivalScore = oldScores[2];
+            myCharacter.assortmentScore = oldScores[3];
+            myCharacter.headshotScore = oldScores[4];
+            ShowConfirm("Could not confirm save", "Current-session scores were restored. Check the storage error before retrying or restarting.", null, "OK", null);
+        }
 
 		[PunRPC]
 		private void StartNow()
@@ -4063,18 +4034,20 @@ public partial class Menu : MonoBehaviour
 					myCharacter.name = "No Name";
 				}
 				float kd = myCharacter.death == 0 ? myCharacter.kill : (float)myCharacter.kill / myCharacter.death;
-				int average = (myCharacter.survivalScore + myCharacter.assortmentScore + myCharacter.headshotScore) / 3;
-				int num = Mathf.RoundToInt((kd + 1f) * average / 2f);
+				int average = (int)(((long)myCharacter.survivalScore + myCharacter.assortmentScore + myCharacter.headshotScore) / 3);
+				int num = (int)Math.Min(int.MaxValue, Math.Max(0d, Math.Round(((double)kd + 1d) * average / 2d)));
                 totalScore = num.ToString();
                 mt.GetChild(7).GetChild(0).GetChild(3).GetComponent<Text>().text = totalScore;
 				string shortText = myCharacter.name + "$" + myCharacter.kill + "$" + myCharacter.death + "$" + myCharacter.survivalScore + "$" + myCharacter.assortmentScore + "$" + myCharacter.headshotScore;
 				dl.AddScore("user-" + myCharacter.id, num, 0, shortText);
 			}
 			dl.LoadScores();
-			if (!upload)
-			{
-				uploadButton.SetActive(false);
-			}
+            uploadButton.SetActive(true);
+            var uploadLabel = uploadButton.GetComponentInChildren<Text>(true);
+            if (uploadLabel != null) uploadLabel.text = "Upload (unavailable)";
+            foreach (var label in mt.GetChild(7).GetComponentsInChildren<Text>(true))
+                if (label.text == "Leaderboard") label.text = "Leaderboard (local)";
+            if (upload) ShowConfirm("Scores are local only", "No scores were uploaded. The original cloud service is unavailable. This leaderboard shows scores stored on this device. Use save files or LAN Sync to transfer scores.", null, "OK", null);
 			List<dreamloLeaderBoard.Score> playerList = new List<dreamloLeaderBoard.Score>();
 			int maxToDisplay = 20;
 			int count = 0;

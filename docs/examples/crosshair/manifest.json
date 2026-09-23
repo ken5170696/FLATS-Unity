@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "id": "example.author-dot",
+  "version": "1.0.0",
+  "name": "Author Dot",
+  "author": "Your name",
+  "description": "A small local aiming dot. Disable other crosshair providers before enabling.",
+  "category": "HUD",
+  "changelog": "First release.",
+  "gameMinimum": "5.4.1",
+  "gameMaximum": "5.5.0",
+  "apiMinimum": "1.0.0",
+  "apiMaximum": "2.0.0",
+  "scope": "ClientOnly",
+  "kind": "crosshair",
+  "crosshairStyle": 1,
+  "crosshairSize": 8,
+  "dependencies": [],
+  "conflicts": ["official.custom-crosshair", "example.precision-dot", "example.wide-ring"]
+}

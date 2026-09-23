@@ -8,15 +8,22 @@ using UnityEngine;
 // files can be read explicitly, without changing the normal PlayerPrefs store.
 public static class FlatsSaveTransfer
 {
+    public const int MaximumBytes = 1024 * 1024;
     public static FlatsLocalProfile.Profile Read(string path)
     {
         if (string.IsNullOrEmpty(path)) throw new InvalidDataException("Choose a save file.");
         var info = new FileInfo(path);
-        if (!info.Exists || info.Length > 1024 * 1024) throw new InvalidDataException("Save file is missing or too large.");
+        if (!info.Exists || info.Length > MaximumBytes) throw new InvalidDataException("Save file is missing or too large.");
+        return ReadBytes(File.ReadAllBytes(path), info.Name);
+    }
+
+    public static FlatsLocalProfile.Profile ReadBytes(byte[] data, string filename)
+    {
+        if (data == null || data.Length == 0 || data.Length > MaximumBytes)
+            throw new InvalidDataException("Save file is empty or too large (maximum 1 MiB).");
         FlatsLocalProfile.Profile profile;
-        if (string.Equals(info.Extension, ".dat", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(Path.GetExtension(filename), ".dat", StringComparison.OrdinalIgnoreCase))
         {
-            var data = File.ReadAllBytes(path);
             if (data.Length < 8 || BitConverter.ToUInt32(data, 0) != 0xabfa22b1 || BitConverter.ToUInt32(data, 4) != data.Length)
                 throw new InvalidDataException("Unsupported legacy PlayerPrefs file.");
             var fields = new Dictionary<string, string>();
@@ -38,9 +45,25 @@ public static class FlatsSaveTransfer
                 throw new InvalidDataException("Legacy save has no complete game profile.");
             profile = new FlatsLocalProfile.Profile { character = character, settings = settings, current = current };
         }
-        else profile = JsonUtility.FromJson<FlatsLocalProfile.Profile>(File.ReadAllText(path, Encoding.UTF8));
+        else return ReadJson(new UTF8Encoding(false, true).GetString(data).TrimStart('\uFEFF'));
         FlatsLocalProfile.Validate(JsonUtility.ToJson(profile));
         return profile;
+    }
+
+    public static FlatsLocalProfile.Profile ReadJson(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json) || Encoding.UTF8.GetByteCount(json) > MaximumBytes)
+            throw new InvalidDataException("Save JSON is empty or too large (maximum 1 MiB).");
+        FlatsLocalProfile.Validate(json);
+        return JsonUtility.FromJson<FlatsLocalProfile.Profile>(json);
+    }
+
+    public static string ExportJson()
+    {
+        string recovery;
+        string json = FlatsAtomicRecord.Read(FlatsLocalProfile.FilePath, FlatsLocalProfile.Validate, out recovery);
+        if (json == null) throw new InvalidDataException("No saved profile exists yet.");
+        return JsonUtility.ToJson(ReadJson(json), true);
     }
 
     static string ReadString(BinaryReader reader, int total)
@@ -53,17 +76,13 @@ public static class FlatsSaveTransfer
 
     public static string Export()
     {
-        string source = FlatsLocalProfile.FilePath;
-        string recovery;
-        string json = FlatsAtomicRecord.Read(source, FlatsLocalProfile.Validate, out recovery);
-        if (json == null) throw new InvalidDataException("No saved profile exists yet.");
-        var profile = JsonUtility.FromJson<FlatsLocalProfile.Profile>(json);
+        string json = ExportJson();
         string folder = Path.Combine(FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath, "Exports");
         Directory.CreateDirectory(folder);
         string path = Path.Combine(folder, "FLATS-save-" + DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff") + ".json");
         using (var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write))
         using (var writer = new StreamWriter(stream, new UTF8Encoding(false)))
-        { writer.Write(JsonUtility.ToJson(profile, true)); writer.Flush(); stream.Flush(true); }
+        { writer.Write(json); writer.Flush(); stream.Flush(true); }
         return path;
     }
 

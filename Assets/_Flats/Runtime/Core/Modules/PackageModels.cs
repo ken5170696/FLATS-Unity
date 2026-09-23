@@ -63,7 +63,7 @@ namespace Flats.Modules
 
     public static class ModRules
     {
-        public const string GameVersion = "5.3.5", ApiVersion = "1.0.0";
+        public const string GameVersion = "5.4.2", ApiVersion = "1.0.0";
         public const long MaxArchive = 64L * 1024 * 1024, MaxExpanded = 256L * 1024 * 1024;
         public static void Id(string id)
         {

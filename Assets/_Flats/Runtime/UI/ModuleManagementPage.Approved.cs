@@ -23,7 +23,7 @@ public sealed partial class ModuleManagementPage
     RectTransform draftControls;
     Slider sizeSlider;
     Button[] styles;
-    bool Dirty=>draft!=null&&(draft.style!=BuiltinModules.Instance.ConfiguredCrosshair.style||!Mathf.Approximately(draft.size,BuiltinModules.Instance.ConfiguredCrosshair.size));
+    bool Dirty=>draft!=null&&(draft.style!=Host.ConfiguredCrosshair.style||!Mathf.Approximately(draft.size,Host.ConfiguredCrosshair.size));
     void BuildApproved()
     {
         BuildDetailSections();
@@ -66,14 +66,14 @@ public sealed partial class ModuleManagementPage
     }
     void RefreshQuick()
     {
-        var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
+        var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
         var package=Service.Installed.FirstOrDefault(p=>p.manifest.id==selectedId);
         bool configurable=selectedId==CrosshairModule.Id && package!=null;
         quickTitle.text=configurable?"Custom Crosshair":package?.manifest.name??record?.Manifest.DisplayName??"Select a mod";
-        quickInfo.text=configurable?"Client-only  /  "+(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Enabled in selected profile":"Disabled in selected profile")+" / "+(record?.Active==true?"Active now":"Not active now")+"\n\nInstalled version: 1.0.0\n\nAffects: Your screen only":
+        quickInfo.text=configurable?"Client-only  /  "+(Host.Requested(CrosshairModule.Id)?"Enabled in selected profile":"Disabled in selected profile")+" / "+(record?.Active==true?"Active now":"Not active now")+"\n\nInstalled version: 1.0.0\n\nAffects: Your screen only":
             package!=null?package.manifest.scope+"\n\nVersion "+package.manifest.version+"\n\n"+InstalledStatus(package):"Select a row to view its status and actions.";
         quickConfigure.gameObject.SetActive(configurable);quickDetails.interactable=!string.IsNullOrEmpty(selectedId);
-        quickPreview.gameObject.SetActive(configurable);if(configurable)quickPreview.Set(BuiltinModules.Instance.ConfiguredCrosshair.style,54);
+        quickPreview.gameObject.SetActive(configurable);if(configurable)quickPreview.Set(Host.ConfiguredCrosshair.style,54);
         foreach(Transform row in listContent){var b=row.GetComponent<Button>();if(b!=null)b.image.color=row.name=="Mod-"+selectedId?ModCenterWidgets.Tint:ModCenterWidgets.Paper;}
         listHeading.text="";foreach(var b in statusTabs){b.GetComponentInChildren<Text>().color=b.name=="Status"+localFilter?ModCenterWidgets.Accent:ModCenterWidgets.Muted;}
     }
@@ -142,7 +142,7 @@ public sealed partial class ModuleManagementPage
     }
     void OpenSettings()
     {
-        var saved=BuiltinModules.Instance.ConfiguredCrosshair;draft=new CrosshairSettings{style=saved.style,size=saved.size};
+        var saved=Host.ConfiguredCrosshair;draft=new CrosshairSettings{style=saved.style,size=saved.size};
         SaveView();settingsOpen=true;detailOpen=false;draftNotice.text="";ApplyView();RefreshDraft();Focus(styles[(int)draft.style]);
     }
     void RefreshDraft()
@@ -150,18 +150,18 @@ public sealed partial class ModuleManagementPage
         preview.Set(draft.style,draft.size*3);settingsLabel.text="Size: "+draft.size+" HUD units";
         sizeSlider.SetValueWithoutNotify(draft.size);
         for(int i=0;i<styles.Length;i++){styles[i].image.color=i==(int)draft.style?ModCenterWidgets.Tint:ModCenterWidgets.Paper;}
-        draftNotice.text=Dirty?"Unsaved changes":"Saved settings";saveDraft.interactable=!BuiltinModules.Instance.ReadOnly;
+        draftNotice.text=Dirty?"Unsaved changes":"Saved settings";saveDraft.interactable=!Host.ReadOnly;
     }
     bool SaveDraft(bool leave)
     {
-        if(!BuiltinModules.Instance.Configure(draft.style,draft.size)){draftNotice.text=BuiltinModules.Instance.Notice;return false;}
+        if(!Host.Configure(draft.style,draft.size)){draftNotice.text=Host.Notice;return false;}
         if(leave)FinishSettings();else RefreshDraft();return true;
     }
     void FinishSettings() { settingsOpen=false;detailOpen=false;Reload();FocusSelected(); }
     void LeaveSettings()
     {
         if(!Dirty){FinishSettings();return;}
-        Ask("Save your Crosshair changes?\n\nStyle: "+BuiltinModules.Instance.ConfiguredCrosshair.style+" → "+draft.style+"\nSize: "+BuiltinModules.Instance.ConfiguredCrosshair.size+" → "+draft.size+" HUD units\n\nThe draft has not been applied. Saving keeps the mod's enabled state.",()=>SaveDraft(true));
+        Ask("Save your Crosshair changes?\n\nStyle: "+Host.ConfiguredCrosshair.style+" → "+draft.style+"\nSize: "+Host.ConfiguredCrosshair.size+" → "+draft.size+" HUD units\n\nThe draft has not been applied. Saving keeps the mod's enabled state.",()=>SaveDraft(true));
         confirmPanel.transform.Find("ConfirmAction").GetComponentInChildren<Text>().text="Save & leave";
         confirmPanel.transform.Find("CancelAction").GetComponentInChildren<Text>().text="Stay here";
         extraConfirm.gameObject.SetActive(true);extraConfirm.GetComponentInChildren<Text>().text="Discard & leave";extraConfirm.onClick.RemoveAllListeners();extraConfirm.onClick.AddListener(()=>{HideModal();FinishSettings();});

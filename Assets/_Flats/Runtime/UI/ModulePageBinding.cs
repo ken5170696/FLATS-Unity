@@ -8,9 +8,15 @@ public sealed class ModulePageBinding : MonoBehaviour
     Menu menu;
     GameObject icon;
     readonly System.Collections.Generic.List<Image> tileSurfaces=new System.Collections.Generic.List<Image>();
+    void Awake()
+    {
+        menu=GetComponentInChildren<Menu>(true);
+        var host=Flats.Modules.BuiltinModules.Instance;
+        page.Bind(host,host.Center,menu);
+    }
     System.Collections.IEnumerator Start()
     {
-        menu=GetComponentInChildren<Menu>(true);page.Initialize();
+        page.Initialize();
         // Let the legacy Menu cache its original icon/text children before adding decoration.
         yield return null;
         foreach(var label in menu.buttons)

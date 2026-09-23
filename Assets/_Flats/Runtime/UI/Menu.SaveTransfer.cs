@@ -12,8 +12,13 @@ public partial class Menu
     Button saveTransferCopyPath;
     string exportedSavePath;
     InputField saveImportPath;
-    Button saveImportConfirm;
-    Text saveImportConfirmLabel;
+    Button saveImportConfirm, saveImportCancel;
+    Text saveImportConfirmLabel, saveTransferTitle;
+    bool saveImportIsJson, saveExportIsJson;
+#if UNITY_WEBGL && !UNITY_EDITOR
+    FlatsBrowserSaveTransfer browserSaveTransfer;
+    bool browserImportAwaitingSave;
+#endif
     FlatsLocalProfile.Profile pendingSaveImport;
 
     void InitializeSaveTransfer()
@@ -46,16 +51,28 @@ public partial class Menu
         }
 
         Color dialogColor = new Color(.31f, .24f, .29f);
-        saveTransferDialog = ui.Panel("SaveTransferDialog", sync, 0, 32, 475, 260, dialogColor).gameObject;
-        ui.Text("Title", saveTransferDialog.transform, "Import old save", 0, 84, 435, 40, 24, Color.white);
-        saveImportPath = ui.Input("SaveImportPath", saveTransferDialog.transform, "Absolute path to .dat or .json save", 0, 32, 435);
-        saveImportPath.characterLimit = 4096;
+        saveTransferDialog = ui.Panel("SaveTransferDialog", sync, 0, 32, 475, 340, dialogColor).gameObject;
+        saveTransferTitle = ui.Text("Title", saveTransferDialog.transform, "Import old save", 0, 126, 435, 40, 24, Color.white);
+        saveImportPath = ui.Input("SaveImportPath", saveTransferDialog.transform, "Absolute path to .dat or .json save", 0, 40, 435);
+        saveImportPath.characterLimit = FlatsSaveTransfer.MaximumBytes;
+        saveImportPath.lineType = InputField.LineType.MultiLineNewline;
+        ((RectTransform)saveImportPath.transform).sizeDelta = new Vector2(435, 100);
         saveImportPath.gameObject.SetActive(false);
-        saveTransferPreview = ui.Text("Preview", saveTransferDialog.transform, "", 0, -18, 435, 70, 16, Color.white);
-        saveImportConfirm = ui.Button("ConfirmImport", saveTransferDialog.transform, "Replace current save", 113, -96, 215, 42, ConfirmSaveImport, ModCenterWidgets.Accent);
+        saveTransferPreview = ui.Text("Preview", saveTransferDialog.transform, "", 0, -70, 435, 80, 16, Color.white);
+        saveImportConfirm = ui.Button("ConfirmImport", saveTransferDialog.transform, "Replace current save", 113, -126, 215, 42, ConfirmSaveImport, ModCenterWidgets.Accent);
         saveImportConfirmLabel = saveImportConfirm.GetComponentInChildren<Text>();
-        ui.Button("CancelImport", saveTransferDialog.transform, "Cancel", -113, -96, 215, 42, () =>
-        { pendingSaveImport = null; saveTransferDialog.SetActive(false); }, ModCenterWidgets.Muted);
+        saveImportCancel = ui.Button("CancelImport", saveTransferDialog.transform, "Cancel", -113, -126, 215, 42, () =>
+        {
+            pendingSaveImport = null;
+            saveTransferDialog.SetActive(false);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            if (browserImportAwaitingSave)
+            {
+                FlatsStorageNotice.Show("Imported profile is active for this session, but browser persistence was not confirmed. Export a backup and retry saving from the browser storage notice.", false);
+                Application.LoadLevel(0);
+            }
+#endif
+        }, ModCenterWidgets.Muted);
         saveTransferDialog.transform.Find("CancelImport/Label").GetComponent<Text>().color = Color.white;
         saveTransferDialog.SetActive(false);
 
@@ -75,6 +92,9 @@ public partial class Menu
             () => saveTransferMessageDialog.SetActive(false), ModCenterWidgets.Muted);
         saveTransferMessageDialog.transform.Find("Close/Label").GetComponent<Text>().color = Color.white;
         saveTransferMessageDialog.SetActive(false);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        browserSaveTransfer = FlatsBrowserSaveTransfer.Create(transform);
+#endif
     }
 
     void ShowSaveTransferMessage(string title, string message, string path = null)
@@ -94,44 +114,109 @@ public partial class Menu
     void ShowSaveImport()
     {
         if (gameState != "Main") { ShowSaveTransferMessage("Import unavailable", "Return to the main menu before importing a save."); return; }
-#if UNITY_STANDALONE_LINUX && !UNITY_EDITOR
         pendingSaveImport = null;
+        saveExportIsJson = false;
+        saveImportIsJson = false;
+        saveImportPath.readOnly = false;
+        saveImportConfirm.interactable = true;
+        saveTransferTitle.text = "Import old save";
+        saveImportCancel.GetComponentInChildren<Text>().text = "Cancel";
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (browserImportAwaitingSave) { PersistBrowserImport(); return; }
+        browserSaveTransfer.Upload((bytes, filename) =>
+        {
+            try { PreviewSaveProfile(FlatsSaveTransfer.ReadBytes(bytes, filename)); }
+            catch (Exception error) { ShowSaveTransferMessage("Import failed", error.Message); }
+        }, (status, error) =>
+        {
+            if (status == "error") ShowSaveTransferMessage("Import failed", error);
+        });
+#elif UNITY_EDITOR || UNITY_STANDALONE_WIN
+        string path = LocalModFilePicker.ChooseSave();
+        if (!string.IsNullOrEmpty(path)) PreviewSaveImport(path);
+#else
+        saveImportIsJson = Application.isMobilePlatform;
         saveImportPath.gameObject.SetActive(true);
         saveImportPath.text = "";
-        saveTransferPreview.text = "Paste the absolute path to an old playerprefs.dat or an exported FLATS JSON save.";
-        saveImportConfirmLabel.text = "Load file";
+        saveImportPath.placeholder.GetComponent<Text>().text = saveImportIsJson ? "Paste exported FLATS JSON" : "Absolute path to .dat or .json save";
+        saveTransferPreview.text = saveImportIsJson
+            ? "Paste an exported FLATS JSON save. Review the character before replacing your current save."
+            : "Paste the absolute path to an old playerprefs.dat or an exported FLATS JSON save.";
+        saveImportConfirmLabel.text = saveImportIsJson ? "Review JSON" : "Load file";
         saveTransferDialog.SetActive(true);
         saveTransferDialog.transform.SetAsLastSibling();
         saveImportPath.ActivateInputField();
-#else
-        string path = LocalModFilePicker.ChooseSave();
-        if (string.IsNullOrEmpty(path)) return;
-        PreviewSaveImport(path);
 #endif
     }
 
-    void PreviewSaveImport(string path)
+    void PreviewSaveProfile(FlatsLocalProfile.Profile profile)
     {
-        try
-        {
-            pendingSaveImport = FlatsSaveTransfer.Read(path);
-            string name = pendingSaveImport.character.Split('$')[1];
-            saveTransferPreview.text = "Character: " + name + "\n\nThe current save will be backed up. The imported save will load after returning to the main menu.";
-            saveImportPath.gameObject.SetActive(false);
-            saveImportConfirmLabel.text = "Replace current save";
-            saveTransferDialog.SetActive(true);
-            saveTransferDialog.transform.SetAsLastSibling();
-        }
-        catch (Exception e)
+        if (gameState != "Main") throw new InvalidOperationException("Return to the main menu before importing a save.");
+        pendingSaveImport = profile;
+        string name = profile.character.Split('$')[1];
+        saveTransferPreview.text = "Character: " + name + "\n\nThe current save will be backed up before replacement.";
+        saveImportPath.gameObject.SetActive(false);
+        saveImportConfirmLabel.text = "Replace current save";
+        saveTransferDialog.SetActive(true);
+        saveTransferDialog.transform.SetAsLastSibling();
+    }
+
+    void PreviewSaveImport(string text)
+    {
+        try { PreviewSaveProfile(saveImportIsJson ? FlatsSaveTransfer.ReadJson(text) : FlatsSaveTransfer.Read(text)); }
+        catch (Exception error)
         {
             pendingSaveImport = null;
-            if (saveTransferDialog.activeSelf) saveTransferPreview.text = "Import failed: " + e.Message;
-            else ShowSaveTransferMessage("Import failed", e.Message);
+            if (saveTransferDialog.activeSelf) saveTransferPreview.text = "Import failed: " + error.Message;
+            else ShowSaveTransferMessage("Import failed", error.Message);
         }
     }
 
+#if UNITY_WEBGL && !UNITY_EDITOR
+    void PersistBrowserImport()
+    {
+        saveImportConfirm.interactable = false;
+        saveImportCancel.interactable = false;
+        saveTransferDialog.SetActive(true);
+        saveTransferDialog.transform.SetAsLastSibling();
+        saveTransferPreview.text = "Saving imported profile to browser storage...";
+        browserSaveTransfer.Flush((status, error) =>
+        {
+            saveImportConfirm.interactable = true;
+            saveImportCancel.interactable = true;
+            if (status == "saved")
+            {
+                browserImportAwaitingSave = false;
+                saveTransferDialog.SetActive(false);
+                Application.LoadLevel(0);
+            }
+            else
+            {
+                saveTransferPreview.text = "Imported in this session, but browser storage failed. " + error;
+                saveImportConfirmLabel.text = "Retry browser save";
+                saveImportCancel.GetComponentInChildren<Text>().text = "Use this session";
+            }
+        });
+    }
+#endif
+
     void ConfirmSaveImport()
     {
+        if (saveExportIsJson)
+        {
+            try
+            {
+                GUIUtility.systemCopyBuffer = saveImportPath.text;
+                saveTransferPreview.text = GUIUtility.systemCopyBuffer == saveImportPath.text
+                    ? "JSON copied. Paste it into a text file or another device's Import old save field."
+                    : "Clipboard unavailable. Select and copy the JSON above, then save it outside the app.";
+            }
+            catch (Exception) { saveTransferPreview.text = "Clipboard unavailable. Select and copy the JSON above."; }
+            return;
+        }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if (browserImportAwaitingSave) { PersistBrowserImport(); return; }
+#endif
         if (pendingSaveImport == null)
         {
             PreviewSaveImport(saveImportPath.text.Trim());
@@ -139,10 +224,16 @@ public partial class Menu
         }
         try
         {
+            if (gameState != "Main") throw new InvalidOperationException("Return to the main menu before importing a save.");
             FlatsSaveTransfer.Import(pendingSaveImport);
             pendingSaveImport = null;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            browserImportAwaitingSave = true;
+            PersistBrowserImport();
+#else
             saveTransferDialog.SetActive(false);
             Application.LoadLevel(0);
+#endif
         }
         catch (Exception e) { saveTransferPreview.text = "Import failed: " + e.Message; }
     }
@@ -153,8 +244,33 @@ public partial class Menu
         {
             SaveDataController.Save();
             if (!FlatsLocalProfile.LastSaveSucceeded) throw new InvalidOperationException("Current save could not be written.");
-            string path = FlatsSaveTransfer.Export();
-            ShowSaveTransferMessage("Save exported", "Your save was written to:\n" + path, path);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            browserSaveTransfer.Download("FLATS-save-" + DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff") + ".json", FlatsSaveTransfer.ExportJson(), (status, error) =>
+            {
+                if (status == "error") ShowSaveTransferMessage("Export failed", error);
+                else if (status == "download") ShowSaveTransferMessage("Download requested", "Check your browser downloads. Keep the JSON file outside browser storage to retain a backup.");
+            });
+#else
+            if (Application.isMobilePlatform)
+            {
+                saveExportIsJson = true;
+                pendingSaveImport = null;
+                saveTransferTitle.text = "Export save JSON";
+                saveImportPath.gameObject.SetActive(true);
+                saveImportPath.text = FlatsSaveTransfer.ExportJson();
+                saveImportPath.readOnly = true;
+                saveImportConfirmLabel.text = "Copy JSON";
+                saveImportConfirm.interactable = true;
+                saveTransferPreview.text = "Copy this JSON and save it in a text file or paste it into Import old save on another device.";
+                saveTransferDialog.SetActive(true);
+                saveTransferDialog.transform.SetAsLastSibling();
+            }
+            else
+            {
+                string path = FlatsSaveTransfer.Export();
+                ShowSaveTransferMessage("Save exported", "Your save was written to:\n" + path, path);
+            }
+#endif
         }
         catch (Exception e) { ShowSaveTransferMessage("Export failed", e.Message); }
     }

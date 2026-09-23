@@ -10,7 +10,7 @@ public sealed partial class ModuleManagementPage
     GameObject profileNamePanel;
     InputField profileNameInput;
     Action<string> saveProfileName;
-    ModProfiles Profiles=>BuiltinModules.Instance.Profiles;
+    ModProfiles Profiles=>Host.Profiles;
     void BuildProfiles()
     {
         profilesButton=ui.Button("Profiles",root,"Profiles",0,0,150,46,()=>Switch("Profiles"));
@@ -44,7 +44,7 @@ public sealed partial class ModuleManagementPage
             ui.Button("SelectProfile-"+profile.id,card,selected?"Manage selected":"Review & switch",0,-178,width-36,44,()=>
             {
                 if(selected){Switch("Installed");return;}
-                Ask("Select "+profile.name+"?\n\n"+profile.modules.Count(m=>m.requested)+" enabled mods. Dependencies and conflicts will be checked.\n\nRestart FLATS to run this configuration. Installed packages are shared.",()=>Run(async()=>{BuiltinModules.Instance.SelectProfile(profile.id);await Service.RefreshInstalled();RenderProfiles();notice.text=BuiltinModules.Instance.Notice;},false));
+                Ask("Select "+profile.name+"?\n\n"+profile.modules.Count(m=>m.requested)+" enabled mods. Dependencies and conflicts will be checked.\n\nRestart FLATS to run this configuration. Installed packages are shared.",()=>Run(async()=>{Host.SelectProfile(profile.id);await Service.RefreshInstalled();if(this==null || !isActiveAndEnabled)return;RenderProfiles();notice.text=Host.Notice;},false));
             },selected?ModCenterWidgets.Accent:ModCenterWidgets.ControlColor);
             ui.Button("DuplicateProfile-"+profile.id,card,"Duplicate",-width*.24f,-234,width*.43f,40,()=>NameProfile(profile.name+" copy",name=>Profiles.Create(name,profile.id)));
             ui.Button("RenameProfile-"+profile.id,card,"Rename",width*.24f,-234,width*.43f,40,()=>NameProfile(profile.name,name=>Profiles.Rename(profile.id,name)));
