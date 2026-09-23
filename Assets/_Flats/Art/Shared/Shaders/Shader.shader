@@ -3,7 +3,21 @@ Shader "Texture Only" {
  SubShader {
   Tags { "RenderType"="Opaque" }
   // Built-in depth textures use ShadowCaster passes in the current renderer.
-  UsePass "Legacy Shaders/VertexLit/SHADOWCASTER"
+  Pass {
+  Name "SHADOWCASTER"
+  Tags { "LightMode"="ShadowCaster" }
+  ZWrite On ZTest LEqual
+  CGPROGRAM
+  #pragma vertex depthVert
+  #pragma fragment depthFrag
+  #pragma multi_compile_shadowcaster
+  #include "UnityCG.cginc"
+  
+  struct depthV2f { V2F_SHADOW_CASTER;  };
+  depthV2f depthVert(appdata_base v) { depthV2f o;  TRANSFER_SHADOW_CASTER_NORMALOFFSET(o); return o; }
+  float4 depthFrag(depthV2f i):SV_Target {  SHADOW_CASTER_FRAGMENT(i) }
+  ENDCG
+ }
   Pass {
    CGPROGRAM
    #pragma vertex vert
