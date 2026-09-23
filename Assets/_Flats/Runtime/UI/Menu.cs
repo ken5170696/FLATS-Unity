@@ -37,6 +37,8 @@ public partial class Menu : MonoBehaviour
 	public Renderer backgroundRenderer;
 	private Material runtimeBackgroundMaterial;
     private Material runtimeMainUI, runtimeSelected;
+    private Material originalMainUI, originalSelected;
+    private Graphic[] themedGraphics;
 
 	public Material mainUI;
 
@@ -304,8 +306,23 @@ public partial class Menu : MonoBehaviour
 
 	public List<string> playerListForCheck;
 
+    private void BindThemeMaterials()
+    {
+        // Button clips assign shared asset references after Awake. Resolve them
+        // before Canvas rebuild so normal and highlighted states use the theme.
+        if (themedGraphics == null) return;
+        foreach (var graphic in themedGraphics)
+        {
+            if (graphic == null) continue;
+            if (originalMainUI != null && graphic.material == originalMainUI)
+                graphic.material = runtimeMainUI;
+            else if (originalSelected != null && graphic.material == originalSelected)
+                graphic.material = runtimeSelected;
+        }
+    }
 	private void OnDestroy()
 	{
+        Canvas.preWillRenderCanvases -= BindThemeMaterials;
 		if (runtimeBackgroundMaterial != null) Destroy(runtimeBackgroundMaterial);
         if (runtimeMainUI != null) Destroy(runtimeMainUI);
         if (runtimeSelected != null) Destroy(runtimeSelected);
@@ -313,16 +330,14 @@ public partial class Menu : MonoBehaviour
 
 	private void Awake()
 	{
-		// Color animations operate on an owned instance, never the shared UI asset.
+		// Keep animated material references on this menu's owned theme instances.
 		if (backgroundRenderer != null) runtimeBackgroundMaterial = backgroundRenderer.material;
-        var originalMain=mainUI; var originalSelected=selected;
-        if(originalMain!=null)mainUI=runtimeMainUI=new Material(originalMain);
+        originalMainUI=mainUI; originalSelected=selected;
+        if(originalMainUI!=null)mainUI=runtimeMainUI=new Material(originalMainUI);
         if(originalSelected!=null)selected=runtimeSelected=new Material(originalSelected);
-        foreach(var graphic in transform.root.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
-        {
-            if(originalMain!=null && graphic.material==originalMain)graphic.material=mainUI;
-            else if(originalSelected!=null && graphic.material==originalSelected)graphic.material=selected;
-        }
+        themedGraphics=transform.root.GetComponentsInChildren<Graphic>(true);
+        BindThemeMaterials();
+        Canvas.preWillRenderCanvases += BindThemeMaterials;
         foreach(var input in GetComponentsInChildren<UnityEngine.UI.InputField>(true))
         {
             if(input.onEndEdit.GetPersistentEventCount()!=0)continue;
