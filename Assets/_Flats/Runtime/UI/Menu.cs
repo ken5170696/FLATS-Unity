@@ -361,6 +361,11 @@ public partial class Menu : MonoBehaviour
 		Application.targetFrameRate = 60;
 		Screen.sleepTimeout = -1;
 		backWithCancel = false;
+		// Original shared materials retained their theme across scenes. Each new
+        // owned instance must restore it after the saved character is loaded.
+        Color savedTheme = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color).GetComponent<Image>().color;
+        mainUI.color = MainThemeColor(savedTheme);
+        selected.color = savedTheme;
 		if (Application.loadedLevel == 0)
 		{
 			mt.parent.GetChild(1).gameObject.SetActive(false);
@@ -4122,13 +4127,17 @@ public partial class Menu : MonoBehaviour
 			}
 		}
 
+        private Color MainThemeColor(Color color)
+        {
+            return new Color(color.r * .5f + .25f, color.g * .5f + .25f, color.b * .5f + .25f, mainUI.color.a);
+        }
 		public IEnumerator BackgroundColor(string command)
 		{
 			float alpha = 0.2f;
 			Color backgroundThemeColor = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
 				.GetComponent<Image>()
 				.color;
-			Color mainColor = new Color(backgroundThemeColor.r - (backgroundThemeColor.r * 0.5f - 0.25f), backgroundThemeColor.g - (backgroundThemeColor.g * 0.5f - 0.25f), backgroundThemeColor.b - (backgroundThemeColor.b * 0.5f - 0.25f), mainUI.color.a);
+			Color mainColor = MainThemeColor(backgroundThemeColor);
 			selected.color = backgroundThemeColor;
 			switch (command)
 			{
