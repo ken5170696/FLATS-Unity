@@ -393,7 +393,7 @@ public partial class Menu : MonoBehaviour
 			version = "";
 		}
 		Debug.Log("version:" + version);
-		string text = "5.4.0";
+		string text = "5.4.1";
 		if (version != text)
 		{
 			if (version == "" || int.Parse(version.Substring(0, 1)) < 5)
@@ -570,7 +570,7 @@ public partial class Menu : MonoBehaviour
 				}
 				update.transform.GetChild(1).GetComponent<Text>().text = "Update Version " + text;
 				update.transform.GetChild(2).GetComponent<Text>().text = "Bug fixes and adjustment.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Fixed small bugs.\n- Adjusted and fixed zombie.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Save import and export have a clearer layout and messages.\n- Android touch controls and game loading fades are improved.";
 			}
 			version = text;
 			FlatsPreferences.SetString("version", version);
@@ -657,7 +657,7 @@ public partial class Menu : MonoBehaviour
 						notification.transform.GetChild(0).GetChild(1).GetComponent<Text>()
 							.text = ruleTitleText[r] + "\nHold reload button to join";
 					}
-					else if (Input.mousePresent)
+					else if (!Application.isMobilePlatform && Input.mousePresent)
 					{
 						notification.transform.GetChild(0).GetChild(1).GetComponent<Text>()
 							.text = ruleTitleText[r] + "\nPress enter key to join";
@@ -1292,7 +1292,7 @@ public partial class Menu : MonoBehaviour
 			{
 				StartCoroutine("BackgroundColor", "SkippedTitle");
 			}
-			if (Input.mousePresent)
+			if (!Application.isMobilePlatform && Input.mousePresent)
 			{
 				Screen.lockCursor = false;
 				UnityEngine.Cursor.visible = true;
@@ -1302,7 +1302,7 @@ public partial class Menu : MonoBehaviour
 		{
 			current = "Playing";
 			anim.SetBool("Fade", false);
-			if (Input.mousePresent)
+			if (!Application.isMobilePlatform && Input.mousePresent)
 			{
 				Screen.lockCursor = true;
 				UnityEngine.Cursor.visible = false;
@@ -1498,7 +1498,7 @@ public partial class Menu : MonoBehaviour
 				startNow.transform.GetChild(0).GetComponent<Text>().text = "Add bot and Start Now! " + startNowPlayer + "/" + num / 2;
 			}
 		}
-		if (!VRmode && GetComponent<FlatsDesktopSettings>() == null)
+		if (!Application.isMobilePlatform && !VRmode && GetComponent<FlatsDesktopSettings>() == null)
 			gameObject.AddComponent<FlatsDesktopSettings>().Initialize(mt.GetChild(6).GetChild(3));
 		if (gameState == "Main")
 		{
@@ -1811,7 +1811,7 @@ public partial class Menu : MonoBehaviour
 			savedTimeScale = Time.timeScale;
 			Time.timeScale = 0f;
 		}
-		if (!Input.mousePresent && Input.GetJoystickNames().Length == 0)
+		if ((Application.isMobilePlatform || !Input.mousePresent) && Input.GetJoystickNames().Length == 0)
 		{
 			EasyTouch.SetEnabled(false);
 			ETCInput.SetControlActivated("Joystick", false);
@@ -1823,7 +1823,7 @@ public partial class Menu : MonoBehaviour
 		{
 			component.Select();
 		}
-		if (Input.mousePresent)
+		if (!Application.isMobilePlatform && Input.mousePresent)
 		{
 			Screen.lockCursor = false;
 			UnityEngine.Cursor.visible = true;
@@ -1870,12 +1870,12 @@ public partial class Menu : MonoBehaviour
 				grabbedObject.transform.GetChild(2).gameObject.SetActive(true);
 			}
 		}
-		if (Input.mousePresent)
+		if (!Application.isMobilePlatform && Input.mousePresent)
 		{
 			Screen.lockCursor = true;
 			UnityEngine.Cursor.visible = false;
 		}
-		if (!Input.mousePresent && Input.GetJoystickNames().Length == 0)
+		if ((Application.isMobilePlatform || !Input.mousePresent) && Input.GetJoystickNames().Length == 0)
 		{
 			EasyTouch.SetEnabled(true);
 			ETCInput.SetControlActivated("Joystick", true);
@@ -2368,7 +2368,7 @@ public partial class Menu : MonoBehaviour
 				{
 					break;
 				}
-				if (Input.mousePresent || Input.GetJoystickNames().Length > 0)
+				if ((!Application.isMobilePlatform && Input.mousePresent) || Input.GetJoystickNames().Length > 0)
 				{
 					currentDetail.GetComponent<Image>().enabled = true;
 					currentDetail.transform.GetChild(0).gameObject.SetActive(true);
@@ -4179,7 +4179,7 @@ public partial class Menu : MonoBehaviour
 				break;
 			case "FadeOut":
 			case "SkippedTitle":
-				backgroundRenderer.sharedMaterial.color = new Color(backgroundThemeColor.r, backgroundThemeColor.g, backgroundThemeColor.b, 1f);
+				backgroundRenderer.sharedMaterial.color = new Color(0f, 0f, 0f, 1f);
 				break;
 			case "Title":
 				backgroundRenderer.sharedMaterial.color = new Color(0f, 0f, 0f, 1f);
@@ -4251,12 +4251,9 @@ public partial class Menu : MonoBehaviour
 				case "FadeIn":
 				{
 					float maxDelta5 = Time.deltaTime;
-					float r4 = Mathf.MoveTowards(backgroundRenderer.sharedMaterial.color.r, backgroundThemeColor.r, maxDelta5);
-					float g4 = Mathf.MoveTowards(backgroundRenderer.sharedMaterial.color.g, backgroundThemeColor.g, maxDelta5);
-					float b4 = Mathf.MoveTowards(backgroundRenderer.sharedMaterial.color.b, backgroundThemeColor.b, maxDelta5);
 					float a7 = Mathf.MoveTowards(backgroundRenderer.sharedMaterial.color.a, 1f, maxDelta5);
-					backgroundRenderer.sharedMaterial.color = new Color(r4, g4, b4, a7);
-					if (backgroundRenderer.sharedMaterial.color == new Color(backgroundThemeColor.r, backgroundThemeColor.g, backgroundThemeColor.b, 1f))
+					backgroundRenderer.sharedMaterial.color = new Color(0f, 0f, 0f, a7);
+					if (a7 == 1f)
 					{
 						if (current == "Result")
 						{
@@ -4660,7 +4657,7 @@ public partial class Menu : MonoBehaviour
 					}
 				}
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
-				if (Input.mousePresent)
+				if (!Application.isMobilePlatform && Input.mousePresent)
 				{
 					Screen.lockCursor = false;
 					UnityEngine.Cursor.visible = true;
@@ -4724,7 +4721,7 @@ public partial class Menu : MonoBehaviour
 				singleplayerResult.GetChild(1).GetComponent<Text>().text = highscored + "Your level is...\n" + comment;
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
 				StartCoroutine("BackgroundColor", "OpenMenu");
-				if (Input.mousePresent)
+				if (!Application.isMobilePlatform && Input.mousePresent)
 				{
 					Screen.lockCursor = false;
 					UnityEngine.Cursor.visible = true;

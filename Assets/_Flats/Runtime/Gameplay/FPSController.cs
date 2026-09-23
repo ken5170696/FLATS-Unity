@@ -314,7 +314,7 @@ public class FPSController : MonoBehaviour
 			EasyTouch.SetMinPinchLength(20f);
 			EasyTouch.SetDoubleTapTime(0.15f);
 			EasyTouch.SetUICompatibily(false);
-			if (Input.mousePresent || Input.GetJoystickNames().Length > 0)
+			if ((!Application.isMobilePlatform && Input.mousePresent) || Input.GetJoystickNames().Length > 0)
 			{
 				touchControl = true;
 			}
@@ -1643,7 +1643,7 @@ public class FPSController : MonoBehaviour
 		movedWithGravity = false;
 		if (MyView(base.gameObject) && enableControl)
 		{
-			if (Input.mousePresent || Input.GetJoystickNames().Length > 0)
+			if ((!Application.isMobilePlatform && Input.mousePresent) || Input.GetJoystickNames().Length > 0)
 			{
 				if (touchControl)
 				{
