@@ -18,6 +18,9 @@ Shader "Mobile/Particles/Alpha Blended"
             #pragma target 3.5
             #pragma vertex FlatsVertex
             #pragma fragment FlatsFragment
+            #pragma multi_compile_fog
+            #define FLATS_FOG 1
+            #define FLATS_BLACK_FOG 1
             #pragma multi_compile_instancing
 
             #define FLATS_VERTEX_COLOR 1

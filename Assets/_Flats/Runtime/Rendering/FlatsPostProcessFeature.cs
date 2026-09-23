@@ -17,6 +17,7 @@ namespace Flats.Rendering
         {
             public readonly Dictionary<int, Material> materials = new Dictionary<int, Material>();
             public float focusDistance;
+            public int lastMotionFrame = int.MinValue;
             public Texture2D curves;
             public int curveHash;
             public readonly Dictionary<long, Material> objectMaterials = new Dictionary<long, Material>();
@@ -285,12 +286,14 @@ namespace Flats.Rendering
                         else if (component is AmplifyMotionEffectBase motion)
                         {
                             var motionSource = source;
+                            bool motionHistoryValid = state.lastMotionFrame >= Time.frameCount - 1;
+                            state.lastMotionFrame = Time.frameCount;
                             var ids = ObjectIds(graph, resources, camera, state, motion);
                             int steps = Mathf.Clamp(motion.QualitySteps, 1, 8);
                             for (int step = 0; step < steps; step++)
                             {
                                 var material = state.Get(owner.shader, 20 + step);
-                                material.SetVector("_Motion", new Vector4(motion.MotionScale / Mathf.Max(Time.unscaledDeltaTime, .0001f), motion.MinVelocity,
+                                material.SetVector("_Motion", new Vector4(motionHistoryValid ? motion.MotionScale / Mathf.Max(Time.unscaledDeltaTime, .0001f) : 0f, motion.MinVelocity,
                                     motion.MaxVelocity, motion.DepthThreshold));
                                 material.SetVector("_MotionOptions", new Vector4(1f - (float)step / steps,
                                     motion.QualityLevel == AmplifyMotion.Quality.Mobile ? 1 : (motion.QualityLevel == AmplifyMotion.Quality.Standard_SM3 ? 4 : 2),

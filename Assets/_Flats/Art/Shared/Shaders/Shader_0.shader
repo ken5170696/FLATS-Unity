@@ -18,6 +18,8 @@ Shader "Simple Color Texture"
             #pragma target 3.5
             #pragma vertex FlatsVertex
             #pragma fragment FlatsFragment
+            #pragma multi_compile_fog
+            #define FLATS_FOG 1
             #pragma multi_compile_instancing
 
             #define FLATS_TINT 1

@@ -42,6 +42,9 @@ struct FlatsVaryings
     half4 color : COLOR;
     float3 normalWS : TEXCOORD1;
     float2 lightmapUV : TEXCOORD2;
+#if defined(FLATS_FOG)
+    float fogFactor : TEXCOORD6;
+#endif
 #if defined(FLATS_SOFT_PARTICLES)
     float eyeDepth : TEXCOORD3;
 #endif
@@ -60,6 +63,10 @@ FlatsVaryings FlatsVertex(FlatsAttributes input)
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
     output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
     output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+#if defined(FLATS_FOG)
+    // The original fixed-function Vertex/VertexLM passes applied scene fog.
+    output.fogFactor = ComputeFogFactor(output.positionCS.z);
+#endif
     output.normalWS = TransformObjectToWorldNormal(input.normalOS);
 #if defined(FLATS_SHADOW_PASS)
     float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
@@ -114,6 +121,13 @@ half4 FlatsFragment(FlatsVaryings input) : SV_Target
 #endif
 #if defined(FLATS_PREMULTIPLY)
     color.rgb *= color.a;
+#endif
+#if defined(FLATS_FOG)
+#if defined(FLATS_BLACK_FOG)
+    color.rgb = MixFogColor(color.rgb, half3(0, 0, 0), input.fogFactor);
+#else
+    color.rgb = MixFog(color.rgb, input.fogFactor);
+#endif
 #endif
     return color;
 }

@@ -17,6 +17,8 @@ Shader "Mobile/Unlit (Supports Lightmap)"
             #pragma target 3.5
             #pragma vertex FlatsVertex
             #pragma fragment FlatsFragment
+            #pragma multi_compile_fog
+            #define FLATS_FOG 1
             #pragma multi_compile_instancing
             #pragma multi_compile _ LIGHTMAP_ON
             #define FLATS_LIGHTMAP 1
