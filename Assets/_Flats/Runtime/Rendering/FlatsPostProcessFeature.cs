@@ -59,7 +59,7 @@ namespace Flats.Rendering
             var motion = camera.GetComponent<AmplifyMotionEffectBase>();
             var curves = camera.GetComponent<ColorCorrectionCurves>();
             if (Active(fx) || Active(motion) || Active(camera.GetComponent<CC_Grayscale>()) ||
-                Active(camera.GetComponent<FXAA>()) || Active(camera.GetComponent<Fisheye>()) || Active(curves))
+                Active(camera.GetComponent<FXAA>()) || Active(camera.GetComponent<Fisheye>()) || Active(curves) || Active(camera.GetComponent<BlurEffect>()))
             {
                 var input = ScriptableRenderPassInput.None;
                 if (Active(fx) || Active(motion) || (Active(curves) && curves.useDepthCorrection)) input |= ScriptableRenderPassInput.Depth;
@@ -302,6 +302,18 @@ namespace Flats.Rendering
                             }
                             if (motion.QualityLevel == AmplifyMotion.Quality.Mobile && !motion.DebugMode)
                                 source = Draw(graph, resources, motionSource, state.Get(owner.shader, 20), 13, "FLATS mobile motion composite", aux: source, ids: ids);
+                        }
+                        else if (component is BlurEffect blur)
+                        {
+                            var downsample = state.Get(owner.shader, 60);
+                            downsample.SetFloat("_ConeSpread", 1f);
+                            source = Draw(graph, resources, source, downsample, 15, "FLATS death blur quarter downsample", 4);
+                            for (int iteration = 0; iteration < blur.iterations; iteration++)
+                            {
+                                var cone = state.Get(owner.shader, 61 + iteration);
+                                cone.SetFloat("_ConeSpread", .5f + iteration * blur.blurSpread);
+                                source = Draw(graph, resources, source, cone, 15, "FLATS death blur cone " + iteration);
+                            }
                         }
                         else if (component is CC_Grayscale gray)
                         {

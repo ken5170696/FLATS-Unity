@@ -35,6 +35,8 @@ public class BlurEffect : MonoBehaviour
 
 	protected void Start()
 	{
+		// URP renders the same serialized cone-blur settings through its renderer feature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		if (!SystemInfo.supportsImageEffects)
 		{
 			base.enabled = false;

@@ -20,7 +20,7 @@ Shader "Hidden/FLATS/URPPostProcess"
         TEXTURE2D(_Curves); SAMPLER(sampler_Curves);
         float4 _Focus, _Direction, _Bokeh, _Edge, _Sensitivity, _EdgeBackground, _Motion, _MotionOptions, _Gray, _Fish, _Correction;
         float4 _SelectiveFrom, _SelectiveTo;
-        float _Radius, _SCurve;
+        float _Radius, _SCurve, _ConeSpread;
         float4 ColorAt(float2 uv) { return SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_LinearClamp, saturate(uv), 0); }
         float4 ColorPointAt(float2 uv) { return SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, saturate(uv), 0); }
         float Depth01(float2 uv) { return Linear01Depth(SampleSceneDepth(saturate(uv)), _ZBufferParams); }
@@ -189,6 +189,11 @@ Shader "Hidden/FLATS/URPPostProcess"
             float2 uv=input.texcoord,t=_BlitTexture_TexelSize.xy;
             return (ColorAt(uv+t)+ColorAt(uv-t)+ColorAt(uv+t*float2(1,-1))+ColorAt(uv+t*float2(-1,1)))*.25;
         }
+        float4 ConeBlur(Varyings input) : SV_Target
+        {
+            float2 uv=input.texcoord,t=_BlitTexture_TexelSize.xy*_ConeSpread;
+            return (ColorAt(uv+t)+ColorAt(uv-t)+ColorAt(uv+t*float2(1,-1))+ColorAt(uv+t*float2(-1,1)))*.25;
+        }
         float4 Copy(Varyings input) : SV_Target { return ColorAt(input.texcoord); }
         struct IdAttributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
         struct IdVaryings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
@@ -295,6 +300,12 @@ Shader "Hidden/FLATS/URPPostProcess"
             HLSLPROGRAM
             #pragma vertex IdVertex
             #pragma fragment IdFragment
+            ENDHLSL
+        }
+        Pass {
+            HLSLPROGRAM
+            #pragma vertex Vert
+            #pragma fragment ConeBlur
             ENDHLSL
         }
     }

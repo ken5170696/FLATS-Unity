@@ -36,7 +36,7 @@ public static class FlatsCameraStack
         {
             var camera = ordered[i];
             if (camera.targetTexture != null ||
-                camera.clearFlags != CameraClearFlags.Depth) continue;
+                (camera.clearFlags != CameraClearFlags.Depth && camera.clearFlags != CameraClearFlags.Nothing)) continue;
             Camera world = null;
             // A later cinematic base clears the former main camera's output.
             // Never replay that earlier world camera over the cinematic view.
@@ -50,7 +50,9 @@ public static class FlatsCameraStack
             var data = camera.GetUniversalAdditionalCameraData();
             data.renderType = CameraRenderType.Overlay;
             // URP 17.3 clearDepth is read-only; its serialized default is true.
-            // All FLATS overlay cameras use Depth (no no-clear cameras are authored).
+            // All authored overlays use Depth. URP's AdditionalCameraData.Start
+            // changes their Camera.clearFlags to Nothing on the following frame;
+            // continue treating those cameras as overlays instead of yellow-clearing bases.
             world.GetUniversalAdditionalCameraData().cameraStack.Add(camera);
         }
     }
