@@ -43,7 +43,7 @@ struct FlatsVaryings
     float3 normalWS : TEXCOORD1;
     float2 lightmapUV : TEXCOORD2;
 #if defined(FLATS_FOG)
-    float fogFactor : TEXCOORD6;
+    half fogIntensity : TEXCOORD6;
 #endif
 #if defined(FLATS_SOFT_PARTICLES)
     float eyeDepth : TEXCOORD3;
@@ -64,8 +64,20 @@ FlatsVaryings FlatsVertex(FlatsAttributes input)
     output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
     output.uv = TRANSFORM_TEX(input.uv, _MainTex);
 #if defined(FLATS_FOG)
-    // The original fixed-function Vertex/VertexLM passes applied scene fog.
-    output.fogFactor = ComputeFogFactor(output.positionCS.z);
+    // Match Unity's generated fixed-function passes: radial view distance,
+    // with the completed fog intensity interpolated from each vertex.
+    float3 eyePos = mul(UNITY_MATRIX_MV, float4(input.positionOS.xyz, 1)).xyz;
+    float fogDistance = length(eyePos);
+#if defined(FOG_LINEAR)
+    output.fogIntensity = saturate(fogDistance * unity_FogParams.z + unity_FogParams.w);
+#elif defined(FOG_EXP)
+    output.fogIntensity = saturate(exp2(-unity_FogParams.y * fogDistance));
+#elif defined(FOG_EXP2)
+    float fogDensity = unity_FogParams.x * fogDistance;
+    output.fogIntensity = saturate(exp2(-fogDensity * fogDensity));
+#else
+    output.fogIntensity = 1;
+#endif
 #endif
     output.normalWS = TransformObjectToWorldNormal(input.normalOS);
 #if defined(FLATS_SHADOW_PASS)
@@ -124,9 +136,9 @@ half4 FlatsFragment(FlatsVaryings input) : SV_Target
 #endif
 #if defined(FLATS_FOG)
 #if defined(FLATS_BLACK_FOG)
-    color.rgb = MixFogColor(color.rgb, half3(0, 0, 0), input.fogFactor);
+    color.rgb = lerp(half3(0, 0, 0), color.rgb, input.fogIntensity);
 #else
-    color.rgb = MixFog(color.rgb, input.fogFactor);
+    color.rgb = lerp(unity_FogColor.rgb, color.rgb, input.fogIntensity);
 #endif
 #endif
     return color;
