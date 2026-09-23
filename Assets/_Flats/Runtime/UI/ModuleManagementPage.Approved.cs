@@ -68,12 +68,12 @@ public sealed partial class ModuleManagementPage
     {
         var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
         var package=Service.Installed.FirstOrDefault(p=>p.manifest.id==selectedId);
-        bool builtin=selectedId==CrosshairModule.Id;
-        quickTitle.text=builtin?"Custom Crosshair":package?.manifest.name??record?.Manifest.DisplayName??"Select a mod";
-        quickInfo.text=builtin?"Client-only  /  "+(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Enabled in selected profile":"Disabled in selected profile")+" / "+(record.Active?"Active now":"Not active now")+"\n\nInstalled version: 1.0.0\n\nAffects: Your screen only":
+        bool configurable=selectedId==CrosshairModule.Id && package!=null;
+        quickTitle.text=configurable?"Custom Crosshair":package?.manifest.name??record?.Manifest.DisplayName??"Select a mod";
+        quickInfo.text=configurable?"Client-only  /  "+(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Enabled in selected profile":"Disabled in selected profile")+" / "+(record?.Active==true?"Active now":"Not active now")+"\n\nInstalled version: 1.0.0\n\nAffects: Your screen only":
             package!=null?package.manifest.scope+"\n\nVersion "+package.manifest.version+"\n\n"+InstalledStatus(package):"Select a row to view its status and actions.";
-        quickConfigure.gameObject.SetActive(builtin);quickDetails.interactable=!string.IsNullOrEmpty(selectedId);
-        quickPreview.gameObject.SetActive(builtin);if(builtin)quickPreview.Set(BuiltinModules.Instance.ConfiguredCrosshair.style,54);
+        quickConfigure.gameObject.SetActive(configurable);quickDetails.interactable=!string.IsNullOrEmpty(selectedId);
+        quickPreview.gameObject.SetActive(configurable);if(configurable)quickPreview.Set(BuiltinModules.Instance.ConfiguredCrosshair.style,54);
         foreach(Transform row in listContent){var b=row.GetComponent<Button>();if(b!=null)b.image.color=row.name=="Mod-"+selectedId?ModCenterWidgets.Tint:ModCenterWidgets.Paper;}
         listHeading.text="";foreach(var b in statusTabs){b.GetComponentInChildren<Text>().color=b.name=="Status"+localFilter?ModCenterWidgets.Accent:ModCenterWidgets.Muted;}
     }
@@ -85,8 +85,7 @@ public sealed partial class ModuleManagementPage
     void OpenDetail() { detailSection="Overview";SaveView();detailOpen=true;detailScroll.verticalNormalizedPosition=1;ShowDetail();Focus(enable); }
     void ToggleRow(string id)
     {
-        if(id==CrosshairModule.Id){var r=BuiltinModules.Instance.Manager.Installed.First(x=>x.Manifest.Id==id);BuiltinModules.Instance.Request(id,!BuiltinModules.Instance.Requested(id));notice.text=BuiltinModules.Instance.Notice;RenderLocal();}
-        else {var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);if(p!=null){if(p.requested)Run(()=>Service.Request(id,false));else ReviewPlan(p.manifest,null,true);}}
+        var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);if(p!=null){if(p.requested)Run(()=>Service.Request(id,false));else ReviewPlan(p.manifest,null,true);}
     }
     void BuildDraftSettings()
     {

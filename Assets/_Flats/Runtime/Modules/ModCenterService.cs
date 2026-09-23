@@ -37,26 +37,29 @@ namespace Flats.Modules
             var args=Environment.GetCommandLineArgs();
             development=Application.isEditor || (Debug.isDebugBuild && args.Contains("-flats-verify") && args.Contains("-flats-module-settings-dir"));
         }
+        static Task LocalWork(Action action)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            action();return Task.CompletedTask;
+#else
+            return Task.Run(action);
+#endif
+        }
+        static Task<T> LocalWork<T>(Func<T> action)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return Task.FromResult(action());
+#else
+            return Task.Run(action);
+#endif
+        }
         public async Task Initialize()
         {
             var bundled = Resources.Load<TextAsset>("FlatsModCatalogue");
             string officialUrl = string.IsNullOrWhiteSpace(OfficialModEndpoint.Url) ? bundled?.text.Trim() : OfficialModEndpoint.Url;
-#if UNITY_WEBGL && !UNITY_EDITOR
             try
             {
-                owner.InitializeProfiles(root,Installed);
-                // Reapply the selected profile, not only the legacy settings loaded in Awake.
-                owner.AttachExternal(new IFirstPartyModule[0],new string[0]);
-                if(!string.IsNullOrWhiteSpace(officialUrl)) Source=new WebModSource(officialUrl,json);
-                Notice="Explore online crosshair presets or import data. Profiles and built-in settings are saved in this browser. Code packages require desktop FLATS.";
-            }
-            catch(Exception e) { Notice="Browser mod settings could not load: "+e.Message; }
-            finally { Ready=true; }
-            await Task.CompletedTask;
-#else
-            try
-            {
-                await Task.Run(()=>
+                await LocalWork(()=>
                 {
                     Store=new PackageStore(Path.Combine(root,"mods"),json);Store.Recover();Installed=Store.Scan();
                     var config=Path.Combine(root,"mod-source.json");
@@ -67,25 +70,38 @@ namespace Flats.Modules
                         if(s==null || s.schema!=1)throw new InvalidDataException("Unsupported source configuration");
                         if(!string.IsNullOrWhiteSpace(s.url))Source=new HttpModSource(s.url,json,development);
                     }
-                    else if(!string.IsNullOrWhiteSpace(officialUrl))Source=new HttpModSource(officialUrl,json);
+                    else if(!string.IsNullOrWhiteSpace(officialUrl))
+                    {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                        Source=new WebModSource(officialUrl,json);
+#else
+                        Source=new HttpModSource(officialUrl,json);
+#endif
+                    }
                     if(!development && File.Exists(config))Store.Notices.Add("Legacy source preferences are retained for recovery and ignored by this version.");
                     } catch(Exception) { Store.Notices.Add("Official mod service unavailable. Installed mods remain available."); }
                 });
                 if(disposed)return;
                 owner.InitializeProfiles(root,Installed);ApplyProfileIntent(Installed);
-                Downloads=new DownloadQueue(Store,Source);Running=Installed;
-                owner.AttachExternal(Running.Select(p=>(IFirstPartyModule)new ExternalModule(p,Store.ContentPath(p))).ToArray(),Running.Where(p=>p.requested).Select(p=>p.manifest.id).ToArray());
+                Downloads=new DownloadQueue(Store,Source,
+#if UNITY_WEBGL && !UNITY_EDITOR
+                    runInline:true
+#else
+                    runInline:false
+#endif
+                );Running=Installed;
+                owner.AttachExternal(Running.Select(p=>p.manifest.id==CrosshairModule.Id && p.manifest.kind=="crosshair" ? (IFirstPartyModule)owner.Crosshair.Bind(p.manifest) : new ExternalModule(p,Store.ContentPath(p))).ToArray(),Running.Where(p=>p.requested).Select(p=>p.manifest.id).ToArray());
                 Notice=string.Join("\n",Store.Notices.Distinct());
                 if(Source==null)Notice+="\nOfficial mod service is unavailable in this build. Installed mods remain available.";
             }
             catch(Exception e) { Notice="Module initialization: "+e.Message; Debug.LogWarning("MOD_CENTER_INIT "+e.GetType().Name); }
             finally { Ready=true; }
-#endif
+
         }
         public async Task RefreshInstalled()
         {
             if(Store==null)return;
-            Installed=await Task.Run(()=>Store.Scan());
+            Installed=await LocalWork(()=>Store.Scan());
             ApplyProfileIntent(Installed);
         }
         void ApplyProfileIntent(InstalledPackage[] packages) { if(owner.Profiles!=null)foreach(var p in packages)p.requested=owner.Profiles.Requested(p.manifest.id); }
@@ -110,7 +126,7 @@ namespace Flats.Modules
             var next=string.IsNullOrWhiteSpace(url)?null:new HttpModSource(url,json,development);
             try
             {
-                await Task.Run(()=>
+                await LocalWork(()=>
                 {
                     Directory.CreateDirectory(root);
                     var path=Path.Combine(root,"mod-source.json");var temp=path+".new";
@@ -125,12 +141,15 @@ namespace Flats.Modules
         }
         public async Task<DependencyPlan> Plan(PackageManifest manifest,CatalogItem download,CancellationToken cancel)
         {
-            var enabled=Installed.Where(p=>p.requested).Select(p=>p.manifest.id).Concat(owner.Requested(CrosshairModule.Id)?new[]{CrosshairModule.Id}:new string[0]);
+            var enabled=Installed.Where(p=>p.requested).Select(p=>p.manifest.id);
             return await new DependencyPlanner(Source,Installed,enabled).Resolve(manifest,download,cancel);
         }
         public string PlanState { get { return owner.Profiles.SelectedId+"|"+string.Join(";",Installed.OrderBy(p=>p.manifest.id).Select(p=>p.manifest.id+":"+p.sha256+":"+p.requested))+"|"+owner.Requested(CrosshairModule.Id); } }
         public async Task ApplyPlan(DependencyPlan plan,string state,bool enable)
         {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            foreach(var manifest in plan.Modules)WebModSource.ValidatePackage(manifest);
+#endif
             await RefreshInstalled();
             if(state!=PlanState)throw new InvalidOperationException("Mods or profile changed. Review a new plan.");
             if(plan.Downloads.Length>0)
@@ -140,7 +159,7 @@ namespace Flats.Modules
                 foreach(var p in Installed.Where(p=>p.requested))
                 {
                     var next=plan.Modules.FirstOrDefault(m=>m.id==p.manifest.id);
-                    if(next!=null && ModuleDiagnostics.Inspect(next,plan.Modules,Installed.Where(i=>i.requested).Select(i=>i.manifest.id).Concat(owner.Requested(CrosshairModule.Id)?new[]{CrosshairModule.Id}:new string[0])).Length>0)
+                    if(next!=null && ModuleDiagnostics.Inspect(next,plan.Modules,Installed.Where(i=>i.requested).Select(i=>i.manifest.id)).Length>0)
                         throw new InvalidOperationException("Disable "+p.manifest.name+" before changing its requirements. Then install and review Enable again.");
                 }
                 Downloads.Enqueue(plan.Downloads.FirstOrDefault(i=>i.manifest.id==plan.RootId)??plan.Downloads[0],Source,plan.Downloads);
@@ -172,7 +191,7 @@ namespace Flats.Modules
             var profiles=owner.Profiles.Snapshot().Where(p=>p.modules.Any(m=>m.id==id&&m.requested)||p.modules.Where(m=>m.requested).Any(m=>Installed.Any(i=>i.manifest.id==m.id&&(i.manifest.dependencies??new DependencySpec[0]).Any(d=>d.id==id)))).ToArray();
             if(profiles.Length>0)throw new InvalidOperationException("Disable this module and its dependents in these profiles before uninstalling: "+string.Join(", ",profiles.Select(p=>p.name)));
             CheckDependents(id);
-            await Task.Run(()=>Store.Remove(id));await RefreshInstalled();Notice="Removed from next launch. Any running version remains active until FLATS restarts.";
+            await LocalWork(()=>Store.Remove(id));await RefreshInstalled();Notice="Removed from next launch. Any running version remains active until FLATS restarts.";
         }
         void CheckDependents(string id)
         {
@@ -186,7 +205,7 @@ namespace Flats.Modules
         public string Problem(PackageManifest manifest)
         {
             return ModuleDiagnostics.Inspect(manifest,Installed.Select(p=>p.manifest),Installed.Where(p=>p.requested).Select(p=>p.manifest.id)
-                .Concat(owner.Requested(CrosshairModule.Id)?new[]{CrosshairModule.Id}:new string[0]));
+                );
         }
         readonly SemaphoreSlim artworkSlots=new SemaphoreSlim(2);
         readonly System.Collections.Generic.Dictionary<string,byte[]> artwork=new System.Collections.Generic.Dictionary<string,byte[]>();

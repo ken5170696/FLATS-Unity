@@ -14,7 +14,7 @@ public sealed partial class ModuleManagementPage
         sourceFailed=false;ApplyView();var generation=viewGeneration;var source=Service.Source;
         if(source==null){ClearRows();
 #if UNITY_WEBGL && !UNITY_EDITOR
-            Empty("Crosshair data on Web\nUse Import to copy a crosshair manifest into your saved built-in settings.\nBrowse the project website for packages and platform compatibility.");
+            Empty("Official service unavailable\nInstalled data modules remain available. Please try again later.");
             notice.text=Service.Notice;
 #else
             Empty("Official service unavailable\nYour installed mods still work. Please try again later.");notice.text="Official mod service is unavailable in this build.";
@@ -48,15 +48,15 @@ public sealed partial class ModuleManagementPage
     string CatalogStatus(CatalogItem item)
     {
 #if UNITY_WEBGL && !UNITY_EDITOR
-        try { WebCrosshairPreset.Validate(item.manifest); return "v"+item.manifest.version+" / Web preset"; }
+        try { WebModSource.ValidatePackage(item.manifest); }
         catch(Exception) { return "Requires desktop FLATS"; }
-#else
+#endif
         string problem=ModRules.Compatibility(item.manifest);if(problem.Length>0)return "Incompatible: "+problem;
         var local=Service.Installed.FirstOrDefault(p=>p.manifest.id==item.manifest.id);
         if(Service.Downloads?.IsBusy(item.manifest.id)==true)return "Download in progress";
         if(local==null)return "v"+item.manifest.version;
         return ModRules.Version(item.manifest.version)>ModRules.Version(local.manifest.version)?"Update available":"Installed";
-#endif
+
     }
     void RenderLocal()
     {
@@ -71,8 +71,6 @@ public sealed partial class ModuleManagementPage
         else
         {
             if(Service.Store!=null && Service.Store.Notices.Count>0)entries.Add(Tuple.Create("storage-report","Storage recovery report","Select to review local storage notices"));
-            var builtin=BuiltinModules.Instance.Manager.Installed.First(r=>r.Manifest.Id==CrosshairModule.Id);
-            entries.Add(Tuple.Create(builtin.Manifest.Id,builtin.Manifest.DisplayName,"Choose the shape and size of your aiming reticle.\nBuilt-in / "+(builtin.Active?"Active now":"Disabled")));
             foreach(var p in Service.Installed)entries.Add(Tuple.Create(p.manifest.id,p.manifest.name,(p.manifest.description ?? "No description provided.")+"\n"+InstalledStatus(p)));
             foreach(var p in Service.Running.Where(p=>!Service.Installed.Any(i=>i.manifest.id==p.manifest.id)))entries.Add(Tuple.Create(p.manifest.id,p.manifest.name,"Removed / still loaded until restart"));
         }
@@ -191,12 +189,12 @@ public sealed partial class ModuleManagementPage
         if(tab=="Downloads"){UpdateDownloadDetail();return;}
         var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
         if(selectedId=="storage-report"){detailTitle.text="Storage recovery report";SetDescription(string.Join("\n\n",Service.Store.Notices.Distinct()));SetPrimary("Read only",false);return;}
-        if(selectedId==CrosshairModule.Id)
+        if(selectedId==CrosshairModule.Id && Service.Installed.Any(x=>x.manifest.id==selectedId))
         {
             detailTitle.text="Custom Crosshair";
-            SetDescription("Choose the shape and size of your aiming reticle.\n\nClient-only · Your screen only\nInstalled version: 1.0.0\n"+(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Enabled in selected profile":"Disabled in selected profile")+" / "+(record.Active?"Active now":"Not active now")+"\n\nConfigure a draft and preview changes before saving.\n"+record.Reason);
+            SetDescription("Choose the shape and size of your aiming reticle.\n\nClient-only · Your screen only\n"+InstalledStatus(Service.Installed.First(x=>x.manifest.id==selectedId))+"\n\nConfigure a draft and preview changes before saving.\n"+(record?.Reason??""));
             secondary.gameObject.SetActive(true);secondary.GetComponentInChildren<Text>().text="Configure";secondary.interactable=true;
-            SetPrimary(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Disable":"Enable",!BuiltinModules.Instance.ReadOnly);return;
+            SetPrimary(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Disable":"Enable",!BuiltinModules.Instance.ReadOnly);remove.gameObject.SetActive(true);remove.interactable=!busy;return;
         }
         var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==selectedId);
         var m=tab=="Explore"?catalog.FirstOrDefault(x=>x.manifest.id==selectedId)?.manifest:p?.manifest ?? Service.Running.FirstOrDefault(x=>x.manifest.id==selectedId)?.manifest;
@@ -230,10 +228,8 @@ public sealed partial class ModuleManagementPage
         }
         DetailSections(m,p);
 #if UNITY_WEBGL && !UNITY_EDITOR
-        try { WebCrosshairPreset.Validate(m); SetPrimary("Use preset",!BuiltinModules.Instance.ReadOnly); }
+        try { WebModSource.ValidatePackage(m); }
         catch(Exception) { SetPrimary("Desktop required",false); }
-        secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);
-        if(detailSection=="Overview")description.text += "\n\nWeb copies supported shape and size into Custom Crosshair in the selected profile. Enable Custom Crosshair separately. The desktop package is not installed.";
 #endif
     }
     void SetDescription(string text,float height=200)
@@ -278,7 +274,6 @@ public sealed partial class ModuleManagementPage
     void Primary()
     {
         if(tab=="Downloads") { QueueAction(selectedId);return; }
-        if(selectedId==CrosshairModule.Id){var r=BuiltinModules.Instance.Manager.Installed.First(x=>x.Manifest.Id==selectedId);BuiltinModules.Instance.Request(selectedId,!BuiltinModules.Instance.Requested(selectedId));notice.text=BuiltinModules.Instance.Notice;RenderLocal();return;}
         var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==selectedId);
         if(p==null){InstallSelected();return;}
         if(p.requested)Run(()=>Service.Request(p.manifest.id,false));else ReviewPlan(p.manifest,null,true);
@@ -286,11 +281,7 @@ public sealed partial class ModuleManagementPage
     void InstallSelected()
     {
         if(!known.TryGetValue(selectedId,out var item))return;
-#if UNITY_WEBGL && !UNITY_EDITOR
-        ReviewWebPreset(item.manifest);
-#else
         ReviewPlan(item.manifest,item,false);
-#endif
     }
     void ReviewPlan(PackageManifest manifest,CatalogItem item,bool enablePlan)
     {

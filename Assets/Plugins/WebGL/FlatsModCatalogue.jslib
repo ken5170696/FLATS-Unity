@@ -1,7 +1,7 @@
 mergeInto(LibraryManager.library, {
   $FlatsModRequests: {next: 1, requests: {}},
   FlatsModFetch__deps: ['$FlatsModRequests'],
-  FlatsModFetch: function(urlPtr) {
+  FlatsModFetch: function(urlPtr, limit) {
     var id = FlatsModRequests.next++;
     var job = {controller: new AbortController(), status: 0};
     FlatsModRequests.requests[id] = job;
@@ -9,7 +9,6 @@ mergeInto(LibraryManager.library, {
     fetch(UTF8ToString(urlPtr), {signal: job.controller.signal, redirect: 'error', credentials: 'omit', cache: 'no-store'})
       .then(async function(response) {
         if (!response.ok) throw new Error('HTTP ' + response.status);
-        var limit = 2 * 1024 * 1024;
         if (Number(response.headers.get('Content-Length')) > limit) throw new Error('Response too large');
         var reader = response.body.getReader(), parts = [], size = 0;
         while (true) {

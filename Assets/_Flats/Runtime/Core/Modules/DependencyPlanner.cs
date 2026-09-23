@@ -37,12 +37,12 @@ namespace Flats.Modules
             var chosen=new Dictionary<string,Choice>();
             // Preserve already enabled modules: dependencies may update, but only
             // when the whole enabled set still satisfies its version constraints.
-            var required=new HashSet<string>(enabled.Where(id=>id!="flats.crosshair"));required.Add(root.id);
+            var required=new HashSet<string>(enabled);required.Add(root.id);
             chosen[root.id]=new Choice{Manifest=root,Download=download};
             var result=await Search(chosen,required,cancel).ConfigureAwait(false);
             if(result==null)throw new InvalidOperationException(lastError);
             var closure=new HashSet<string>();Action<string> visit=null;
-            visit=id=>{if(!closure.Add(id)||id=="flats.crosshair")return;foreach(var d in result[id].Manifest.dependencies??new DependencySpec[0])visit(d.id);};visit(root.id);
+            visit=id=>{if(!closure.Add(id))return;foreach(var d in result[id].Manifest.dependencies??new DependencySpec[0])visit(d.id);};visit(root.id);
             return new DependencyPlan{RootId=root.id,Modules=result.Values.Select(c=>c.Manifest).ToArray(),
                 Downloads=result.Values.Where(c=>c.Download!=null && !installed.Any(p=>p.manifest.id==c.Manifest.id && p.sha256==c.Download.sha256)).Select(c=>c.Download).ToArray(),Enable=closure.ToArray()};
         }
@@ -58,12 +58,12 @@ namespace Flats.Modules
                 foreach(var dep in choice.Manifest.dependencies??new DependencySpec[0])
                 {
                     allRequired.Add(dep.id);
-                    string version=dep.id=="flats.crosshair"?"1.0.0":chosen.TryGetValue(dep.id,out var target)?target.Manifest.version:null;
+                    string version=chosen.TryGetValue(dep.id,out var target)?target.Manifest.version:null;
                     if(version!=null && !ModRules.Range(dep.minimum,dep.maximum).Contains(ModRules.Version(version)))
                     {lastError="Incompatible dependency: "+dep.id+" required by "+choice.Manifest.id;return null;}
                 }
             }
-            string next=allRequired.OrderBy(id=>id,StringComparer.Ordinal).FirstOrDefault(id=>id!="flats.crosshair"&&!chosen.ContainsKey(id));
+            string next=allRequired.OrderBy(id=>id,StringComparer.Ordinal).FirstOrDefault(id=>!chosen.ContainsKey(id));
             if(next!=null)
             {
                 var existing=installed.FirstOrDefault(p=>p.manifest.id==next);

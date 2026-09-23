@@ -89,9 +89,6 @@ public sealed partial class ModuleManagementPage
             button.GetComponentInChildren<Text>().color=active?Color.white:ModCenterWidgets.Muted;
         }
         importButton.gameObject.SetActive(!settingsOpen);
-#if UNITY_WEBGL && !UNITY_EDITOR
-        downloads.gameObject.SetActive(false);
-#endif
         summary.gameObject.SetActive(!settingsOpen&&!detailOpen);brandIcon.gameObject.SetActive(!settingsOpen);
         subtitle.gameObject.SetActive(!settingsOpen);
         root.Find("Title").GetComponent<Text>().text=settingsOpen?"Custom Crosshair":detailOpen?"MOD / "+tab.ToUpperInvariant():"MOD";

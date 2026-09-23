@@ -159,7 +159,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         if(queue!=null && revision!=queue.Revision && currentModal==null && !settingsOpen){revision=queue.Revision;Run(async()=>{await Service.RefreshInstalled();if(tab!="Explore")RenderLocal();else {RefreshCatalogState();ShowDetail();}},false);}
         var active=queue?.Snapshot().Count(j=>j.Busy) ?? 0;
         downloads.GetComponentInChildren<Text>().text="Downloads"+(active>0?" ("+active+")":"");
-        summary.text=(Service.Installed.Length+1)+" installed  /  "+BuiltinModules.Instance.Manager.Installed.Count(r=>r.Active)+" active";
+        summary.text=(Service.Installed.Length)+" installed  /  "+BuiltinModules.Instance.Manager.Installed.Count(r=>r.Active)+" active";
         if(tab=="Downloads" && currentModal==null) { if(detailOpen)UpdateDownloadDetail();else RefreshDownloadRows(); }
     }
     void Switch(string value)

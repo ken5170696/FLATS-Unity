@@ -22,7 +22,7 @@ namespace Flats.Modules
     }
     public sealed class CrosshairModule : IFirstPartyModule
     {
-        public const string Id="flats.crosshair";
+        public const string Id="official.custom-crosshair";
         public CrosshairSettings Settings = new CrosshairSettings();
         public ModuleManifest Manifest { get; private set; }
         public CrosshairModule()
@@ -31,6 +31,7 @@ namespace Flats.Modules
                 ModuleScope.ClientOnly,new VersionRange("1.0.0","2.0.0"),new VersionRange("5.3.5","5.4.0"));
         }
         public void Initialize(ModuleLifetime lifetime) { Settings.Validate(); }
+        internal CrosshairModule Bind(PackageManifest package) { Manifest=package.Validate();return this; }
         public void Enable(ModuleLifetime lifetime)
         {
             if(CrosshairPresentation.Appearance!=null)throw new InvalidOperationException("Crosshair appearance already registered");
@@ -58,13 +59,20 @@ namespace Flats.Modules
         internal void InitializeProfiles(string directory,InstalledPackage[] installed)
         {
             if(store.ReadOnly)throw new InvalidOperationException(store.Notice);
-            var legacy=document.modules.Select(m=>new ProfileModule{id=m.id,version=m.version,json=m.json,requested=m.requested}).ToList();
+            var legacy=document.modules.Select(m=>new ProfileModule{id=m.id=="flats.crosshair"?CrosshairModule.Id:m.id,version=m.version,json=m.json,requested=m.id!="flats.crosshair"&&m.requested}).ToList();
             var crosshair=legacy.FirstOrDefault(m=>m.id==CrosshairModule.Id);
             // Awake already validated legacy settings and recovered invalid data to
             // defaults. Migrate that validated result; retain the original legacy file.
             if(crosshair!=null){crosshair.json=JsonUtility.ToJson(Crosshair.Settings);crosshair.version="1.0.0";}
             foreach(var p in installed)if(!legacy.Any(m=>m.id==p.manifest.id))legacy.Add(new ProfileModule{id=p.manifest.id,version=p.manifest.version,requested=p.requested,json=""});
             Profiles=new ModProfiles(Path.Combine(directory,"mod-profiles-v1.json"),new UnityModJson(),legacy.ToArray());
+            Profiles.RetireBuiltin("flats.crosshair",CrosshairModule.Id);
+            if(!installed.Any(p=>p.manifest.id==CrosshairModule.Id))
+            {
+                var entries=Profiles.Selected.modules;
+                foreach(var entry in entries.Where(m=>m.id==CrosshairModule.Id))entry.requested=false;
+                Profiles.Save(entries);
+            }
             LoadSelectedDocument();Crosshair.Settings=ConfiguredCrosshair;
         }
         void LoadSelectedDocument()
@@ -85,7 +93,7 @@ namespace Flats.Modules
                 var enabled=profile.modules.Where(m=>m.requested).Select(m=>m.id).ToArray();
                 foreach(var entry in profile.modules)
                 {
-                    if(entry.id==CrosshairModule.Id){if(!string.IsNullOrEmpty(entry.json)){var settings=JsonUtility.FromJson<CrosshairSettings>(entry.json);settings.Validate();}continue;}
+                    if(entry.id==CrosshairModule.Id && !entry.requested){if(!string.IsNullOrEmpty(entry.json)){var settings=JsonUtility.FromJson<CrosshairSettings>(entry.json);settings.Validate();}continue;}
                     if(!entry.requested)continue;
                     var p=Center.Installed.FirstOrDefault(i=>i.manifest.id==entry.id);if(p==null)throw new InvalidOperationException("Missing module: "+entry.id);
                     var issue=ModuleDiagnostics.Inspect(p.manifest,Center.Installed.Select(i=>i.manifest),enabled);if(issue.Length>0)throw new InvalidOperationException(issue);
@@ -100,7 +108,7 @@ namespace Flats.Modules
             {
                 var entry=entries.FirstOrDefault(m=>m.id==id);
                 if(entry==null){entry=new ProfileModule{id=id,json=""};entries.Add(entry);}
-                entry.requested=true;entry.version=id==CrosshairModule.Id?"1.0.0":Center.Installed.Single(p=>p.manifest.id==id).manifest.version;
+                entry.requested=true;entry.version=Center.Installed.Single(p=>p.manifest.id==id).manifest.version;
             }
             Profiles.Save(entries.ToArray());LoadSelectedDocument();
         }
@@ -128,7 +136,7 @@ namespace Flats.Modules
             if(Array.IndexOf(args,"-flats-verify")>=0 && i>=0 && i+1<args.Length)directory=Path.GetFullPath(args[i+1]);
             store=new ModuleSettingsStore(Path.Combine(directory,"modules-v1.json")); document=store.Load(); Notice=store.Notice;
             Crosshair=new CrosshairModule();
-            var entry=document.modules.FirstOrDefault(m=>m.id==CrosshairModule.Id);
+            var entry=document.modules.FirstOrDefault(m=>m.id==CrosshairModule.Id || m.id=="flats.crosshair");
             if(entry!=null && !string.IsNullOrEmpty(entry.json))
                 try
                 {
@@ -136,16 +144,16 @@ namespace Flats.Modules
                     var settings=JsonUtility.FromJson<CrosshairSettings>(entry.json); settings.Validate(); Crosshair.Settings=settings;
                 }
                 catch(Exception) { Notice+="\nCrosshair settings reset to defaults; previous record remains in backup until saved."; }
-            Manager=new ModuleManager(new IFirstPartyModule[]{Crosshair},"1.0.0","5.3.5");
-            Manager.Apply(document.modules.Where(m=>m.requested).Select(m=>m.id));
+            Manager=new ModuleManager(new IFirstPartyModule[0],"1.0.0","5.3.5");
+            Manager.Apply(new string[0]);
             Center=new ModCenterService(this,directory);
             _ = Center.Initialize();
         }
         internal void AttachExternal(IFirstPartyModule[] modules,string[] requested)
         {
             Manager.Dispose();externalRequested=requested;
-            Manager=new ModuleManager(new IFirstPartyModule[]{Crosshair}.Concat(modules),"1.0.0","5.3.5",true);
-            Manager.Apply(document.modules.Where(m=>m.requested && m.id==CrosshairModule.Id).Select(m=>m.id).Concat(externalRequested));
+            Manager=new ModuleManager(modules,"1.0.0","5.3.5",true);
+            Manager.Apply(externalRequested);
             if(!string.IsNullOrEmpty(Manager.LastError))Notice=Manager.LastError;
         }
         ModuleSettingsDocument Candidate(string id, bool? requested, CrosshairSettings settings)
@@ -153,7 +161,7 @@ namespace Flats.Modules
             var copy=JsonUtility.FromJson<ModuleSettingsDocument>(JsonUtility.ToJson(document));
             var entries=copy.modules.ToList(); var entry=entries.FirstOrDefault(m=>m.id==id);
             if(entry==null){entry=new ModuleSetting{id=id};entries.Add(entry);}
-            entry.version=Manager.Installed.First(r=>r.Manifest.Id==id).Manifest.Version.ToString();
+            entry.version=Center.Installed.Single(p=>p.manifest.id==id).manifest.version;
             if(requested.HasValue)entry.requested=requested.Value;
             if(settings!=null)entry.json=JsonUtility.ToJson(settings);
             copy.modules=entries.ToArray();return copy;
@@ -165,7 +173,7 @@ namespace Flats.Modules
                 var next=Candidate(id,enabled,id==CrosshairModule.Id?ConfiguredCrosshair:null);
                 SaveDocument(next);
                 if(Profiles.RestartRequired){Notice="Saved to selected profile. Restart required.";return true;}
-                bool ok=Manager.Apply(document.modules.Where(m=>m.requested && m.id==CrosshairModule.Id).Select(m=>m.id).Concat(externalRequested));
+                bool ok=Manager.Apply(externalRequested);
                 Notice=ok?"Saved":Manager.LastError; return ok;
             }
             catch(Exception e){Notice="Could not save; active state unchanged. "+e.Message;return false;}
