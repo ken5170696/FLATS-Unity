@@ -1013,11 +1013,11 @@ public class AI : MonoBehaviour
 				{
 					if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8)
 					{
-						num = 1f / (float)Singleplayer.enemy;
+						num = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.enemy);
 					}
 					else if (Singleplayer.rule == 1 || Singleplayer.rule == 3)
 					{
-						num = 1f / (float)Singleplayer.respawnEnemy;
+						num = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.respawnEnemy);
 					}
 					if (num < 0.5f)
 					{
@@ -1067,11 +1067,11 @@ public class AI : MonoBehaviour
 			{
 				if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8)
 				{
-					damagePerEnemy = 1f / (float)Singleplayer.enemy;
+					damagePerEnemy = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.enemy);
 				}
 				else if (Singleplayer.rule == 1 || Singleplayer.rule == 3)
 				{
-					damagePerEnemy = 1f / (float)Singleplayer.respawnEnemy;
+					damagePerEnemy = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.respawnEnemy);
 				}
 				if (damagePerEnemy < 0.5f)
 				{
