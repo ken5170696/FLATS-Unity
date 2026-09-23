@@ -74,9 +74,6 @@ public class Multiplayer : MonoBehaviour
 				}
 				else if (Menu.network != 1)
 				{
-					// Reset the server properties too: local cache changes alone can be
-					// overwritten by the previous match's values after joining again.
-					PhotonNetwork.SetPlayerCustomProperties(new ExitGames.Client.Photon.Hashtable { { "K", 0 }, { "D", 0 } });
 					PhotonPlayer[] playerList = PhotonNetwork.playerList;
 					foreach (PhotonPlayer photonPlayer in playerList)
 					{
@@ -195,6 +192,10 @@ public class Multiplayer : MonoBehaviour
 		}
 		Debug.Log("Rule:" + rule + " Detailed Objective:" + detailedObjective);
 		yield return new WaitForSeconds(2f);
+		// All scene components, including PunTeams, must finish Start before
+		// SetPlayerCustomProperties dispatches its synchronous local callbacks.
+		if (rule != 8 && Menu.network != 0 && Menu.network != 1)
+			PhotonNetwork.SetPlayerCustomProperties(new ExitGames.Client.Photon.Hashtable { { "K", 0 }, { "D", 0 } });
 		int myTeam = 0;
 		if (Menu.network == 0)
 		{
