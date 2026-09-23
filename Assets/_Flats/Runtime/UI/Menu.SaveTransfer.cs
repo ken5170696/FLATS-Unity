@@ -5,7 +5,12 @@ using UnityEngine.UI;
 public partial class Menu
 {
     GameObject saveTransferDialog;
-    Text saveTransferNotice, saveTransferPreview;
+    GameObject saveTransferMessageDialog;
+    Text saveTransferPreview, saveTransferMessageTitle, saveTransferMessageBody;
+    ScrollRect saveTransferMessageScroll;
+    RectTransform saveTransferMessageContent;
+    Button saveTransferCopyPath;
+    string exportedSavePath;
     InputField saveImportPath;
     Button saveImportConfirm;
     Text saveImportConfirmLabel;
@@ -18,27 +23,64 @@ public partial class Menu
         var original = sync.GetComponentInChildren<Text>(true);
         var ui = new ModCenterWidgets(original != null ? original.font : Resources.GetBuiltinResource<Font>("Arial.ttf"),
             () => PlayMenuSound(pressSE));
-        ui.Button("ImportOldSave", sync, "Import old save", -125, -175, 215, 40, ShowSaveImport);
-        ui.Button("ExportSave", sync, "Export save", 125, -175, 215, 40, ExportSave);
-        saveTransferNotice = ui.Text("SaveTransferNotice", sync, "", 0, -209, 480, 28, 13);
-        saveTransferNotice.alignment = TextAnchor.MiddleCenter;
+        var section = ui.Panel("SaveTransferSection", sync, 0, -188, 475, 86,
+            new Color(.73f, .56f, .64f)).transform;
+        var heading = ui.Text("Heading", section, "SAVE FILES", 0, 25, 435, 24, 14, Color.white);
+        heading.alignment = TextAnchor.MiddleCenter;
+        ui.Button("ImportOldSave", section, "Import old save", -113, -12, 215, 40,
+            ShowSaveImport, ModCenterWidgets.Accent);
+        ui.Button("ExportSave", section, "Export save", 113, -12, 215, 40,
+            ExportSave, ModCenterWidgets.Accent);
 
-        saveTransferDialog = ui.Panel("SaveTransferDialog", sync, 0, 0, 475, 260, ModCenterWidgets.Paper).gameObject;
-        ui.Text("Title", saveTransferDialog.transform, "Import old save", 0, 84, 435, 40, 24);
+        Color dialogColor = new Color(.31f, .24f, .29f);
+        saveTransferDialog = ui.Panel("SaveTransferDialog", sync, 0, 0, 475, 260, dialogColor).gameObject;
+        ui.Text("Title", saveTransferDialog.transform, "Import old save", 0, 84, 435, 40, 24, Color.white);
         saveImportPath = ui.Input("SaveImportPath", saveTransferDialog.transform, "Absolute path to .dat or .json save", 0, 32, 435);
         saveImportPath.characterLimit = 4096;
         saveImportPath.gameObject.SetActive(false);
-        saveTransferPreview = ui.Text("Preview", saveTransferDialog.transform, "", 0, -18, 435, 70, 16);
+        saveTransferPreview = ui.Text("Preview", saveTransferDialog.transform, "", 0, -18, 435, 70, 16, Color.white);
         saveImportConfirm = ui.Button("ConfirmImport", saveTransferDialog.transform, "Replace current save", 113, -96, 215, 42, ConfirmSaveImport, ModCenterWidgets.Accent);
         saveImportConfirmLabel = saveImportConfirm.GetComponentInChildren<Text>();
         ui.Button("CancelImport", saveTransferDialog.transform, "Cancel", -113, -96, 215, 42, () =>
-        { pendingSaveImport = null; saveTransferDialog.SetActive(false); });
+        { pendingSaveImport = null; saveTransferDialog.SetActive(false); }, ModCenterWidgets.Muted);
+        saveTransferDialog.transform.Find("CancelImport/Label").GetComponent<Text>().color = Color.white;
         saveTransferDialog.SetActive(false);
+
+        saveTransferMessageDialog = ui.Panel("SaveTransferMessage", sync, 0, 0, 475, 245, dialogColor).gameObject;
+        saveTransferMessageTitle = ui.Text("Title", saveTransferMessageDialog.transform, "", 0, 84, 435, 40, 24, Color.white);
+        saveTransferMessageScroll = ui.Scroll("MessageScroll", saveTransferMessageDialog.transform,
+            0, 8, 435, 125, out saveTransferMessageContent);
+        saveTransferMessageBody = ui.Text("Message", saveTransferMessageContent, "", 0, 0, 405, 125, 16, Color.white);
+        var messageRect = saveTransferMessageBody.rectTransform;
+        messageRect.anchorMin = new Vector2(.5f, 1f);
+        messageRect.anchorMax = new Vector2(.5f, 1f);
+        messageRect.pivot = new Vector2(.5f, 1f);
+        saveTransferMessageBody.alignment = TextAnchor.UpperLeft;
+        saveTransferCopyPath = ui.Button("CopyPath", saveTransferMessageDialog.transform, "Copy path", -113, -88, 215, 42,
+            () => GUIUtility.systemCopyBuffer = exportedSavePath, ModCenterWidgets.Accent);
+        ui.Button("Close", saveTransferMessageDialog.transform, "Close", 113, -88, 215, 42,
+            () => saveTransferMessageDialog.SetActive(false), ModCenterWidgets.Muted);
+        saveTransferMessageDialog.transform.Find("Close/Label").GetComponent<Text>().color = Color.white;
+        saveTransferMessageDialog.SetActive(false);
+    }
+
+    void ShowSaveTransferMessage(string title, string message, string path = null)
+    {
+        exportedSavePath = path;
+        saveTransferMessageTitle.text = title;
+        saveTransferMessageBody.text = message;
+        saveTransferCopyPath.gameObject.SetActive(!string.IsNullOrEmpty(path));
+        var bodyHeight = Mathf.Max(125f, saveTransferMessageBody.preferredHeight + 8f);
+        saveTransferMessageBody.rectTransform.sizeDelta = new Vector2(405f, bodyHeight);
+        saveTransferMessageContent.sizeDelta = new Vector2(0f, bodyHeight);
+        saveTransferMessageScroll.verticalNormalizedPosition = 1f;
+        saveTransferMessageDialog.SetActive(true);
+        saveTransferMessageDialog.transform.SetAsLastSibling();
     }
 
     void ShowSaveImport()
     {
-        if (gameState != "Main") { saveTransferNotice.text = "Return to the main menu before importing a save."; return; }
+        if (gameState != "Main") { ShowSaveTransferMessage("Import unavailable", "Return to the main menu before importing a save."); return; }
 #if UNITY_STANDALONE_LINUX && !UNITY_EDITOR
         pendingSaveImport = null;
         saveImportPath.gameObject.SetActive(true);
@@ -71,7 +113,7 @@ public partial class Menu
         {
             pendingSaveImport = null;
             if (saveTransferDialog.activeSelf) saveTransferPreview.text = "Import failed: " + e.Message;
-            else saveTransferNotice.text = "Import failed: " + e.Message;
+            else ShowSaveTransferMessage("Import failed", e.Message);
         }
     }
 
@@ -98,8 +140,9 @@ public partial class Menu
         {
             SaveDataController.Save();
             if (!FlatsLocalProfile.LastSaveSucceeded) throw new InvalidOperationException("Current save could not be written.");
-            saveTransferNotice.text = "Exported to: " + FlatsSaveTransfer.Export();
+            string path = FlatsSaveTransfer.Export();
+            ShowSaveTransferMessage("Save exported", "Your save was written to:\n" + path, path);
         }
-        catch (Exception e) { saveTransferNotice.text = "Export failed: " + e.Message; }
+        catch (Exception e) { ShowSaveTransferMessage("Export failed", e.Message); }
     }
 }
