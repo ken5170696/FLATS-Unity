@@ -393,7 +393,7 @@ public partial class Menu : MonoBehaviour
 			version = "";
 		}
 		Debug.Log("version:" + version);
-		string text = "5.4.0";
+		string text = "5.4.1";
 		if (version != text)
 		{
 			if (version == "" || int.Parse(version.Substring(0, 1)) < 5)
@@ -570,7 +570,7 @@ public partial class Menu : MonoBehaviour
 				}
 				update.transform.GetChild(1).GetComponent<Text>().text = "Update Version " + text;
 				update.transform.GetChild(2).GetComponent<Text>().text = "Bug fixes and adjustment.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Fixed small bugs.\n- Adjusted and fixed zombie.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Linux: Import old save now opens a file path dialog.\n- Exported saves can be imported again.";
 			}
 			version = text;
 			FlatsPreferences.SetString("version", version);
