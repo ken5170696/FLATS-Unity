@@ -361,11 +361,6 @@ public partial class Menu : MonoBehaviour
 		Application.targetFrameRate = 60;
 		Screen.sleepTimeout = -1;
 		backWithCancel = false;
-		// Original shared materials retained their theme across scenes. Each new
-        // owned instance must restore it after the saved character is loaded.
-        Color savedTheme = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color).GetComponent<Image>().color;
-        mainUI.color = MainThemeColor(savedTheme);
-        selected.color = savedTheme;
 		if (Application.loadedLevel == 0)
 		{
 			mt.parent.GetChild(1).gameObject.SetActive(false);
@@ -1252,6 +1247,11 @@ public partial class Menu : MonoBehaviour
 			inControlModule.enabled = false;
 			EventSystem.current.SetSelectedGameObject(null);
 		}
+        // Original shared materials retained their theme across scenes. Restore
+        // owned instances here, after Start has loaded the saved character.
+        Color savedTheme = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color).GetComponent<Image>().color;
+        mainUI.color = MainThemeColor(savedTheme);
+        selected.color = savedTheme;
 		if (Application.loadedLevel == 0)
 		{
 			gameState = "Main";
