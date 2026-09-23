@@ -39,7 +39,7 @@ namespace Flats.Modules
             // when the whole enabled set still satisfies its version constraints.
             var required=new HashSet<string>(enabled);required.Add(root.id);
             chosen[root.id]=new Choice{Manifest=root,Download=download};
-            var result=await Search(chosen,required,cancel).ConfigureAwait(false);
+            var result=await Search(chosen,required,cancel);
             if(result==null)throw new InvalidOperationException(lastError);
             var closure=new HashSet<string>();Action<string> visit=null;
             visit=id=>{if(!closure.Add(id))return;foreach(var d in result[id].Manifest.dependencies??new DependencySpec[0])visit(d.id);};visit(root.id);
@@ -70,12 +70,12 @@ namespace Flats.Modules
                 if(existing!=null)
                 {
                     var branch=new Dictionary<string,Choice>(chosen){[next]=new Choice{Manifest=existing.manifest}};
-                    var answer=await Search(branch,allRequired,cancel).ConfigureAwait(false);if(answer!=null)return answer;
+                    var answer=await Search(branch,allRequired,cancel);if(answer!=null)return answer;
                 }
-                foreach(var candidate in await Candidates(next,cancel).ConfigureAwait(false))
+                foreach(var candidate in await Candidates(next,cancel))
                 {
                     var branch=new Dictionary<string,Choice>(chosen){[next]=candidate};
-                    var answer=await Search(branch,allRequired,cancel).ConfigureAwait(false);if(answer!=null)return answer;
+                    var answer=await Search(branch,allRequired,cancel);if(answer!=null)return answer;
                 }
                 lastError="Cannot resolve "+next+". "+lastError;return null;
             }
@@ -99,7 +99,7 @@ namespace Flats.Modules
                 var items=new List<CatalogItem>();int offset=0;
                 do
                 {
-                    var page=await source.Browse(new CatalogQuery{Id=id,AllVersions=true,Compatible=true,Offset=offset,Limit=24},cancel).ConfigureAwait(false);
+                    var page=await source.Browse(new CatalogQuery{Id=id,AllVersions=true,Compatible=true,Offset=offset,Limit=24},cancel);
                     if(page.total>128 || page.items.Any(i=>i.manifest.id!=id))throw new InvalidDataException("Invalid dependency history");
                     items.AddRange(page.items);offset+=page.items.Length;
                     if(offset>=page.total)break;

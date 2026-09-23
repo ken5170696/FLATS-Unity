@@ -148,7 +148,7 @@ namespace Flats.Modules
             string staging = null; bool entered = false;var final=DownloadState.Failed;string error="";
             try
             {
-                await worker.WaitAsync(j.Cancel.Token).ConfigureAwait(false); entered=true;
+                await worker.WaitAsync(j.Cancel.Token); entered=true;
                 long completed=0;var archives=new List<string>();
                 foreach(var item in j.Items)
                 {
@@ -156,8 +156,8 @@ namespace Flats.Modules
                     for(int attempt=0;;attempt++)
                     {
                         Set(j,DownloadState.Downloading);
-                        try{await j.Source.Download(item,archive,n=>{lock(gate)j.Status.Received=completed+n;},j.Cancel.Token).ConfigureAwait(false);break;}
-                        catch(HttpRequestException)when(attempt<2){await Task.Delay(500*(attempt+1),j.Cancel.Token).ConfigureAwait(false);}
+                        try{await j.Source.Download(item,archive,n=>{lock(gate)j.Status.Received=completed+n;},j.Cancel.Token);break;}
+                        catch(HttpRequestException)when(attempt<2){await Task.Delay(500*(attempt+1),j.Cancel.Token);}
                     }
                     completed+=item.bytes;
                 }

@@ -112,7 +112,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         Menu.current="Modules";gameObject.SetActive(true);
 
         tab="Installed";detailOpen=false;settingsOpen=false;
-        notice.text=Service.Installed.Length==0?"Built-in mods are ready to use. Explore to add more.":"External mod changes apply after restarting FLATS.";
+        notice.text=Service.Installed.Length==0?"No mods installed. Open Explore to download your first mod.":"External mod changes apply after restarting FLATS.";
         if(!readyRendered){savedScroll=1;restoreScroll=true;}Resize();Reload();Focus(tab=="Installed"?installed:tab=="Explore"?explore:downloads);
     }
     public void Close()
