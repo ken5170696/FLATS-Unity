@@ -18,7 +18,8 @@ The clean-clone suite at `bcdfbb484350c5796c0ac7945b73d0e4f07cb081` passed; subs
 | Optional service configuration | PASS | Invalid/unconfigured Photon client ID produces an actionable message; offline Tutorial remains playable. No catalogue configuration leaves local/built-in module controls available |
 | Two-client Photon combat | PASS | Owned test invitation room, real online clients, start, movement, firing, replicated kill/death totals and respawn; tested on NightLand and Warehouse during this extraction |
 | Repository boundary | PASS | `python tools/check_repository.py`; allowlist, metadata/GUIDs, secret/dependency patterns and link checks; separate review of the new Git history |
-| Web build and browser gameplay | NOT RUN | Build entry point retained; needs separate browser, input, storage and networking acceptance |
+| Web build | PASS | Built on 23 September 2026 after the [source synchronization](SYNC_20260923.md); WebGL/IL2CPP, zero build errors |
+| Browser gameplay | NOT RUN | Needs separate browser, input, storage and networking acceptance for this standalone project |
 | Linux/macOS native gameplay | NOT RUN | Build entry points retained; native runtime hosts required |
 | Android device gameplay | NOT RUN | Device, touch, audio and lifecycle acceptance required |
 | iOS build/device gameplay | NOT RUN | macOS/Xcode signing and device acceptance required |

@@ -13,6 +13,8 @@ public sealed class FlatsWebObservation : MonoBehaviour
     [DllImport("__Internal")] static extern void FlatsGameplayState(int playing);
     [DllImport("__Internal")] static extern void FlatsStorageMonitor();
     [Serializable] public class Action { public string name, text, parent; public float x,y; public bool interactable; }
+    [Serializable] public class Optic { public string name, target; public bool enabled, created; public int mask; public float fov, near, depth; public Vector3 position, forward; }
+    [Serializable] public class Surface { public string name, texture; public bool enabled; public Vector3 position; }
     [Serializable] public class Snapshot
     {
         public string scene,menu,game,build,networkState;
@@ -23,6 +25,8 @@ public sealed class FlatsWebObservation : MonoBehaviour
         public int playingAudio;
         public Action[] actions;
         public string[] texts;
+        public Optic[] optics;
+        public Surface[] surfaces;
     }
     bool observe; float next; int lastPlaying=-1,errors;
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -50,13 +54,21 @@ public sealed class FlatsWebObservation : MonoBehaviour
         }
         foreach(var t in FindObjectsByType<Text>(FindObjectsSortMode.None))if(t.isActiveAndEnabled&&!string.IsNullOrEmpty(t.text))texts.Add(t.text);
         foreach(var a in FindObjectsByType<AudioSource>(FindObjectsSortMode.None))if(a.isPlaying)audio++;
+        var optics=new List<Optic>();
+        foreach(var camera in FindObjectsByType<Camera>(FindObjectsSortMode.None))
+            optics.Add(new Optic{name=camera.name,target=camera.targetTexture==null?"screen":camera.targetTexture.name,
+                enabled=camera.enabled,created=camera.targetTexture!=null&&camera.targetTexture.IsCreated(),mask=camera.cullingMask,
+                fov=camera.fieldOfView,near=camera.nearClipPlane,depth=camera.depth,position=camera.transform.position,forward=camera.transform.forward});
+        var surfaces=new List<Surface>();
+        foreach(var raw in FindObjectsByType<RawImage>(FindObjectsSortMode.None))
+            surfaces.Add(new Surface{name=raw.name,texture=raw.texture==null?"none":raw.texture.name,enabled=raw.isActiveAndEnabled,position=raw.transform.position});
         FlatsObserve(JsonUtility.ToJson(new Snapshot {
             scene=UnityEngine.SceneManagement.SceneManager.GetActiveScene().name,menu=Menu.current,game=Menu.gameState,build=Application.buildGUID,
             frame=Time.frameCount,width=Screen.width,height=Screen.height,player=player!=null,position=player==null?Vector3.zero:player.transform.position,
             rotation=Camera.main==null?Vector3.zero:Camera.main.transform.eulerAngles,ammo=gun==null?-1:gun.currentAmmo,zoom=player!=null&&player.isZoom,
             vertical=Input.GetAxis("Vertical"),horizontal=Input.GetAxis("Horizontal"),focused=Application.isFocused,
             volume=Menu.mySettings==null?-1:Menu.mySettings.sound_all,listenerVolume=AudioListener.volume,playingAudio=audio,
-            actions=actions.ToArray(),texts=texts.ToArray(),errors=errors,networkState=PhotonNetwork.connectionStateDetailed.ToString(),inRoom=PhotonNetwork.inRoom,players=PhotonNetwork.playerList.Length
+            actions=actions.ToArray(),texts=texts.ToArray(),optics=optics.ToArray(),surfaces=surfaces.ToArray(),errors=errors,networkState=PhotonNetwork.connectionStateDetailed.ToString(),inRoom=PhotonNetwork.inRoom,players=PhotonNetwork.playerList.Length
         }));
     }
 }
