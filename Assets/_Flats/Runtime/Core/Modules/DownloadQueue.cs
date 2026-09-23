@@ -32,12 +32,13 @@ namespace Flats.Modules
         readonly List<Job> jobs = new List<Job>();
         readonly SemaphoreSlim worker = new SemaphoreSlim(1);
         readonly PackageStore store;
+        readonly bool runInline;
         readonly string directory;
         bool disposed;
         public int Revision { get; private set; }
-        public DownloadQueue(PackageStore storage, IModSource source=null)
+        public DownloadQueue(PackageStore storage, IModSource source=null,bool runInline=false)
         {
-            store=storage;directory=Path.Combine(store.Root,"downloads");
+            this.runInline=runInline;store=storage;directory=Path.Combine(store.Root,"downloads");
             Directory.CreateDirectory(directory);PackageStore.RejectLinks(directory);
             if(source==null)return;
             foreach(var file in Directory.GetFiles(directory,"*.json"))
@@ -119,7 +120,7 @@ namespace Flats.Modules
                 try{Save(job);}catch{job.Reservation.Dispose();throw;}
                 jobs.RemoveAll(j=>j.Status.Id==item.manifest.id);
                 jobs.Add(job); Revision++;
-                _ = Task.Run(() => Run(job));
+                _ = runInline ? Run(job) : Task.Run(() => Run(job));
             }
         }
         public void Pause(string id) { lock(gate){var j=jobs.First(x=>x.Status.Id==id);if(j.Status.State==DownloadState.Queued||j.Status.State==DownloadState.Downloading){j.PauseRequested=true;j.Cancel.Cancel();}} }
@@ -147,7 +148,7 @@ namespace Flats.Modules
             string staging = null; bool entered = false;var final=DownloadState.Failed;string error="";
             try
             {
-                await worker.WaitAsync(j.Cancel.Token).ConfigureAwait(false); entered=true;
+                await worker.WaitAsync(j.Cancel.Token); entered=true;
                 long completed=0;var archives=new List<string>();
                 foreach(var item in j.Items)
                 {
@@ -155,8 +156,8 @@ namespace Flats.Modules
                     for(int attempt=0;;attempt++)
                     {
                         Set(j,DownloadState.Downloading);
-                        try{await j.Source.Download(item,archive,n=>{lock(gate)j.Status.Received=completed+n;},j.Cancel.Token).ConfigureAwait(false);break;}
-                        catch(HttpRequestException)when(attempt<2){await Task.Delay(500*(attempt+1),j.Cancel.Token).ConfigureAwait(false);}
+                        try{await j.Source.Download(item,archive,n=>{lock(gate)j.Status.Received=completed+n;},j.Cancel.Token);break;}
+                        catch(HttpRequestException)when(attempt<2){await Task.Delay(500*(attempt+1),j.Cancel.Token);}
                     }
                     completed+=item.bytes;
                 }

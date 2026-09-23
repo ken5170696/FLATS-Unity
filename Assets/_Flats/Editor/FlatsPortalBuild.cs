@@ -69,12 +69,38 @@ public static class FlatsPortalBuild
         string root = Path.GetFullPath("Builds/Portal/" + name);
         Directory.CreateDirectory(root);
         string source = ReadSourceCommit();
+        const string catalogueAsset = "Assets/Resources/FlatsModCatalogue.txt";
+        const string photonAsset = "Assets/Resources/FlatsPhotonClient.txt";
+        if (File.Exists(photonAsset)) throw new BuildFailedException("Reserved generated Photon client asset already exists.");
+        string photonClient = Environment.GetEnvironmentVariable("FLATS_PHOTON_APP_ID");
+        if (!string.IsNullOrWhiteSpace(photonClient) && (!Guid.TryParse(photonClient, out var clientId) || clientId == Guid.Empty))
+            throw new BuildFailedException("Invalid release Photon client App ID.");
+        if(File.Exists(catalogueAsset)) throw new BuildFailedException("Reserved generated catalogue asset already exists; preserve and move it before building.");
+        string catalogue = Flats.Modules.OfficialModEndpoint.Url;
+        if(!string.IsNullOrWhiteSpace(catalogue))
+        {
+            var uri=Flats.Modules.ModRules.Url(catalogue.TrimEnd('/')+"/",false);
+            if(uri.Query.Length>0 || uri.Fragment.Length>0) throw new BuildFailedException("Catalogue must be an HTTPS base URL without query or fragment.");
+            catalogue=uri.AbsoluteUri;
+        }
         try
         {
+            if (!string.IsNullOrWhiteSpace(photonClient))
+            {
+                Directory.CreateDirectory("Assets/Resources");
+                File.WriteAllText(photonAsset, photonClient.Trim());
+                AssetDatabase.ImportAsset(photonAsset, ImportAssetOptions.ForceSynchronousImport);
+            }
+            if(!string.IsNullOrWhiteSpace(catalogue))
+            {
+                Directory.CreateDirectory("Assets/Resources");
+                File.WriteAllText(catalogueAsset,catalogue);
+                AssetDatabase.ImportAsset(catalogueAsset,ImportAssetOptions.ForceSynchronousImport);
+            }
             if (target == BuildTarget.Android || target == BuildTarget.iOS)
             {
                 PlayerSettings.SetApplicationIdentifier(named, "io.github.ken5170696.flats.preview");
-                PlayerSettings.bundleVersion = "5.3.5";
+                PlayerSettings.bundleVersion = oldVersion;
             }
             PlayerSettings.SetScriptingBackend(named, group == BuildTargetGroup.Standalone ? ScriptingImplementation.Mono2x : ScriptingImplementation.IL2CPP);
             if (target == BuildTarget.WebGL)
@@ -101,10 +127,19 @@ public static class FlatsPortalBuild
                     writer.WriteLine(message.type + ": " + message.content);
             if (report.summary.result != BuildResult.Succeeded || report.summary.totalErrors != 0)
                 throw new BuildFailedException("FLATS " + name + " build: " + report.summary.result);
+            if(target==BuildTarget.WebGL)
+            {
+                var index=Path.Combine(root,"index.html");var html=File.ReadAllText(index);
+                const string setting="// config.autoSyncPersistentDataPath = true;";
+                if(!html.Contains(setting))throw new BuildFailedException("Web template must expose autoSyncPersistentDataPath before starting the player.");
+                File.WriteAllText(index,html.Replace(setting,"config.autoSyncPersistentDataPath = true;"));
+            }
             Debug.Log("FLATS_PORTAL_BUILD_SUCCEEDED " + root);
         }
         finally
         {
+            if(File.Exists(photonAsset)) AssetDatabase.DeleteAsset(photonAsset);
+            if(File.Exists(catalogueAsset)) AssetDatabase.DeleteAsset(catalogueAsset);
             PlayerSettings.SetApplicationIdentifier(named, oldIdentifier);
             PlayerSettings.bundleVersion = oldVersion;
             PlayerSettings.SetScriptingBackend(named, oldBackend);

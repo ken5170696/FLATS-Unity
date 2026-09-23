@@ -118,6 +118,8 @@ public class AmplifyMotionObjectBase : MonoBehaviour
 
 	private void OnEnable()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		bool flag = InitializeType();
 		if (flag)
 		{
@@ -167,6 +169,8 @@ public class AmplifyMotionObjectBase : MonoBehaviour
 
 	private void Start()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		if (AmplifyMotionEffectBase.Instance != null)
 		{
 			TryInitializeStates();
@@ -176,6 +180,8 @@ public class AmplifyMotionObjectBase : MonoBehaviour
 
 	private void Update()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		if (AmplifyMotionEffectBase.Instance != null)
 		{
 			TryInitializeStates();

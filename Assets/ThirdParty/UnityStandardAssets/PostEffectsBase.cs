@@ -88,6 +88,8 @@ public class PostEffectsBase : MonoBehaviour
 
 	public virtual void Start()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		CheckResources();
 	}
 

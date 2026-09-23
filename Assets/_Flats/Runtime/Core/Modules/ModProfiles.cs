@@ -81,6 +81,20 @@ namespace Flats.Modules
         {
             var next=Copy(document);next.profiles.Single(p=>p.id==next.selected).modules=codec.Read<ModProfile>(codec.Write(new ModProfile{modules=modules})).modules;Write(next);
         }
+        public void RetireBuiltin(string oldId,string packageId)
+        {
+            var next=Copy(document);bool changed=false;
+            foreach(var profile in next.profiles)
+            {
+                var old=profile.modules.FirstOrDefault(m=>m.id==oldId);if(old==null)continue;
+                if(!profile.modules.Any(m=>m.id==packageId))
+                {
+                    profile.modules=profile.modules.Concat(new[]{new ProfileModule{id=packageId,version=old.version,json=old.json,requested=false}}).ToArray();changed=true;
+                }
+                if(old.requested){old.requested=false;changed=true;}
+            }
+            if(changed)Write(next);
+        }
         public bool Requested(string id) { return document.profiles.Single(p=>p.id==SelectedId).modules.Any(m=>m.id==id&&m.requested); }
     }
 }

@@ -11,7 +11,7 @@ public class Sight : MonoBehaviour
 
 	private void Update()
 	{
-		rtc.Render();
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline == null) rtc.Render();
 	}
 
 	public Sight()

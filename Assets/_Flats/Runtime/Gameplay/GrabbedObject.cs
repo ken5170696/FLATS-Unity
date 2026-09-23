@@ -35,6 +35,7 @@ public class GrabbedObject : MonoBehaviour
 	private GameObject blueBase;
 
 	private GameObject gi;
+	private Mesh runtimeFlagMesh;
 
 	private bool MyView(GameObject go)
 	{
@@ -66,7 +67,14 @@ public class GrabbedObject : MonoBehaviour
         {
             var flag = mt.GetChild(1).gameObject;
             var skin = flag.AddComponent<SkinnedMeshRenderer>();
-            skin.sharedMesh = Resources.GetBuiltinResource<Mesh>("Plane.fbx");
+            // Unity 6's built-in plane is one unit across; the old cloth plane
+            // was ten. Preserve the authored flag transform and cloth pinning.
+            runtimeFlagMesh = UnityEngine.Object.Instantiate(Resources.GetBuiltinResource<Mesh>("Plane.fbx"));
+            var scaledVertices = runtimeFlagMesh.vertices;
+            for (int i = 0; i < scaledVertices.Length; i++) scaledVertices[i] *= 10f;
+            runtimeFlagMesh.vertices = scaledVertices;
+            runtimeFlagMesh.RecalculateBounds();
+            skin.sharedMesh = runtimeFlagMesh;
             skin.sharedMaterial = redMaterial;
             var cloth = flag.AddComponent<Cloth>();
             var coefficients = new ClothSkinningCoefficient[skin.sharedMesh.vertexCount];
@@ -501,6 +509,7 @@ public class GrabbedObject : MonoBehaviour
 
 	private void OnDestroy()
 	{
+		if (runtimeFlagMesh != null) UnityEngine.Object.Destroy(runtimeFlagMesh);
 		if (gi != null)
 		{
 			UnityEngine.Object.Destroy(gi);

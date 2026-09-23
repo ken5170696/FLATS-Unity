@@ -28,6 +28,8 @@ public class CC_Base : MonoBehaviour
 
 	protected virtual void Start()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		if (!SystemInfo.supportsImageEffects)
 		{
 			base.enabled = false;

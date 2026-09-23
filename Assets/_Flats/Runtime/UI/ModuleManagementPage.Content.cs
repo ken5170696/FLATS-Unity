@@ -14,7 +14,7 @@ public sealed partial class ModuleManagementPage
         sourceFailed=false;ApplyView();var generation=viewGeneration;var source=Service.Source;
         if(source==null){ClearRows();
 #if UNITY_WEBGL && !UNITY_EDITOR
-            Empty("Crosshair data on Web\nUse Import to copy a crosshair manifest into your saved built-in settings.\nBrowse the project website for packages and platform compatibility.");
+            Empty("Official service unavailable\nInstalled data modules remain available. Please try again later.");
             notice.text=Service.Notice;
 #else
             Empty("Official service unavailable\nYour installed mods still work. Please try again later.");notice.text="Official mod service is unavailable in this build.";
@@ -47,11 +47,16 @@ public sealed partial class ModuleManagementPage
     }
     string CatalogStatus(CatalogItem item)
     {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        try { WebModSource.ValidatePackage(item.manifest); }
+        catch(Exception) { return "Requires desktop FLATS"; }
+#endif
         string problem=ModRules.Compatibility(item.manifest);if(problem.Length>0)return "Incompatible: "+problem;
         var local=Service.Installed.FirstOrDefault(p=>p.manifest.id==item.manifest.id);
         if(Service.Downloads?.IsBusy(item.manifest.id)==true)return "Download in progress";
         if(local==null)return "v"+item.manifest.version;
         return ModRules.Version(item.manifest.version)>ModRules.Version(local.manifest.version)?"Update available":"Installed";
+
     }
     void RenderLocal()
     {
@@ -66,8 +71,6 @@ public sealed partial class ModuleManagementPage
         else
         {
             if(Service.Store!=null && Service.Store.Notices.Count>0)entries.Add(Tuple.Create("storage-report","Storage recovery report","Select to review local storage notices"));
-            var builtin=BuiltinModules.Instance.Manager.Installed.First(r=>r.Manifest.Id==CrosshairModule.Id);
-            entries.Add(Tuple.Create(builtin.Manifest.Id,builtin.Manifest.DisplayName,"Choose the shape and size of your aiming reticle.\nBuilt-in / "+(builtin.Active?"Active now":"Disabled")));
             foreach(var p in Service.Installed)entries.Add(Tuple.Create(p.manifest.id,p.manifest.name,(p.manifest.description ?? "No description provided.")+"\n"+InstalledStatus(p)));
             foreach(var p in Service.Running.Where(p=>!Service.Installed.Any(i=>i.manifest.id==p.manifest.id)))entries.Add(Tuple.Create(p.manifest.id,p.manifest.name,"Removed / still loaded until restart"));
         }
@@ -84,7 +87,7 @@ public sealed partial class ModuleManagementPage
             ((RectTransform)browse.transform).anchorMin=((RectTransform)browse.transform).anchorMax=new Vector2(.5f,1);
             listContent.sizeDelta=new Vector2(0,Mathf.Max(listScroll.viewport.rect.height,rowY+150));
         }
-        if(entries.Count==0)Empty(tab=="Downloads"?(search.text.Length>0?"No matching downloads\nClear your search to see the queue.":"No downloads\nYour queue will appear here."):"No matching mods\nTry another search or filter.");
+        if(entries.Count==0)Empty(tab=="Installed"&&Service.Installed.Length==0&&search.text.Length==0&&localFilter=="All"?"No mods installed\nOpen Explore to download your first mod.":tab=="Downloads"?(search.text.Length>0?"No matching downloads\nClear your search to see the queue.":"No downloads\nYour queue will appear here."):"No matching mods\nTry another search or filter.");
         if(!entries.Any(e=>e.Item1==selectedId))selectedId=entries.FirstOrDefault()?.Item1??"";
         Page(entries.Count);restoreScroll=false;RefreshQuick();ShowDetail();
     }
@@ -122,13 +125,13 @@ public sealed partial class ModuleManagementPage
     }
     void Empty(string message)
     {
-        float h=Mathf.Max(300,listScroll.viewport.rect.height);
+        float h=Mathf.Max(180,listScroll.viewport.rect.height);bool compact=h<280;
         var panel=ui.Panel("EmptyPanel",listContent,0,-h/2,ListWidth-16,h,ModCenterWidgets.Paper);
         panel.rectTransform.anchorMin=panel.rectTransform.anchorMax=new Vector2(.5f,1);
-        var icon=ui.Rect("ModIcon",panel.transform,0,80,64,64).gameObject.AddComponent<ModTileGraphic>();icon.color=ModCenterWidgets.Accent;icon.raycastTarget=false;
+        var icon=ui.Rect("ModIcon",panel.transform,0,80,64,64).gameObject.AddComponent<ModTileGraphic>();icon.color=ModCenterWidgets.Accent;icon.raycastTarget=false;icon.gameObject.SetActive(!compact);
         var parts=message.Split(new[]{'\n'},2);
-        var title=ui.Text("EmptyTitle",panel.transform,parts[0],0,-4,Mathf.Min(760,ListWidth-80),48,30);title.alignment=TextAnchor.MiddleCenter;
-        var t=ui.Text("EmptyState",panel.transform,parts.Length>1?parts[1]:"",0,-60,Mathf.Min(760,ListWidth-80),64,18,ModCenterWidgets.Muted);t.alignment=TextAnchor.MiddleCenter;
+        var title=ui.Text("EmptyTitle",panel.transform,parts[0],0,compact?h/2-32:-4,Mathf.Min(760,ListWidth-80),42,compact?24:30);title.alignment=TextAnchor.MiddleCenter;
+        var t=ui.Text("EmptyState",panel.transform,parts.Length>1?parts[1]:"",0,compact?h/2-78:-60,Mathf.Min(760,ListWidth-80),48,18,ModCenterWidgets.Muted);t.alignment=TextAnchor.MiddleCenter;
         if(message.StartsWith("Loading")){Page(0);return;}
         bool query=search.text.Length>0||localFilter!="All"||categoryValue.Length>0;
         string label;Action action;
@@ -136,8 +139,8 @@ public sealed partial class ModuleManagementPage
         else if(query){label="Clear filters";action=()=>{localFilter="All";categoryValue="";compatible=true;offset=0;Reload();};}
         else if(tab=="Explore"){label="Try again";action=Reload;}
         else {label="Explore mods";action=()=>Switch("Explore");}
-        ui.Button("EmptyAction",panel.transform,label,-145,-142,260,46,action,ModCenterWidgets.Accent);
-        ui.Button("EmptySecondary",panel.transform,query?"Clear search":"Go to installed",155,-142,260,46,()=>{if(query){search.text="";Reload();}else Switch("Installed");});
+        ui.Button("EmptyAction",panel.transform,label,-145,-h/2+28,260,46,action,ModCenterWidgets.Accent);
+        ui.Button("EmptySecondary",panel.transform,query?"Clear search":"Go to installed",155,-h/2+28,260,46,()=>{if(query){search.text="";Reload();}else Switch("Installed");});
         Page(0);
     }
     static string PlayerName(string value) { return string.Join(" ",(value ?? "Unnamed mod").Split(new[]{' ' ,'\n','\r','\t'},StringSplitOptions.RemoveEmptyEntries)); }
@@ -186,12 +189,12 @@ public sealed partial class ModuleManagementPage
         if(tab=="Downloads"){UpdateDownloadDetail();return;}
         var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
         if(selectedId=="storage-report"){detailTitle.text="Storage recovery report";SetDescription(string.Join("\n\n",Service.Store.Notices.Distinct()));SetPrimary("Read only",false);return;}
-        if(selectedId==CrosshairModule.Id)
+        if(tab!="Explore" && selectedId==CrosshairModule.Id && Service.Installed.Any(x=>x.manifest.id==selectedId))
         {
             detailTitle.text="Custom Crosshair";
-            SetDescription("Choose the shape and size of your aiming reticle.\n\nClient-only · Your screen only\nInstalled version: 1.0.0\n"+(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Enabled in selected profile":"Disabled in selected profile")+" / "+(record.Active?"Active now":"Not active now")+"\n\nConfigure a draft and preview changes before saving.\n"+record.Reason);
+            SetDescription("Choose the shape and size of your aiming reticle.\n\nClient-only · Your screen only\n"+InstalledStatus(Service.Installed.First(x=>x.manifest.id==selectedId))+"\n\nConfigure a draft and preview changes before saving.\n"+(record?.Reason??""));
             secondary.gameObject.SetActive(true);secondary.GetComponentInChildren<Text>().text="Configure";secondary.interactable=true;
-            SetPrimary(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Disable":"Enable",!BuiltinModules.Instance.ReadOnly);return;
+            SetPrimary(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Disable":"Enable",!BuiltinModules.Instance.ReadOnly);remove.gameObject.SetActive(true);remove.interactable=!busy;return;
         }
         var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==selectedId);
         var m=tab=="Explore"?catalog.FirstOrDefault(x=>x.manifest.id==selectedId)?.manifest:p?.manifest ?? Service.Running.FirstOrDefault(x=>x.manifest.id==selectedId)?.manifest;
@@ -224,6 +227,10 @@ public sealed partial class ModuleManagementPage
             remove.gameObject.SetActive(true);remove.interactable=!busy&&!downloading;
         }
         DetailSections(m,p);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        try { WebModSource.ValidatePackage(m); }
+        catch(Exception) { SetPrimary("Desktop required",false); }
+#endif
     }
     void SetDescription(string text,float height=200)
     {
@@ -267,7 +274,6 @@ public sealed partial class ModuleManagementPage
     void Primary()
     {
         if(tab=="Downloads") { QueueAction(selectedId);return; }
-        if(selectedId==CrosshairModule.Id){var r=BuiltinModules.Instance.Manager.Installed.First(x=>x.Manifest.Id==selectedId);BuiltinModules.Instance.Request(selectedId,!BuiltinModules.Instance.Requested(selectedId));notice.text=BuiltinModules.Instance.Notice;RenderLocal();return;}
         var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==selectedId);
         if(p==null){InstallSelected();return;}
         if(p.requested)Run(()=>Service.Request(p.manifest.id,false));else ReviewPlan(p.manifest,null,true);
@@ -293,7 +299,7 @@ public sealed partial class ModuleManagementPage
 
     void UpdateSelected()
     {
-        if(selectedId==CrosshairModule.Id){OpenSettings();return;}
+        if(selectedId==CrosshairModule.Id && tab!="Explore"){OpenSettings();return;}
         var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==selectedId);
         if(p!=null && known.TryGetValue(selectedId,out var item) && ModRules.Version(item.manifest.version)>ModRules.Version(p.manifest.version)){InstallSelected();return;}
         Run(async()=>{foreach(var update in await Service.CheckUpdates(CancellationToken.None))known[update.manifest.id]=update;});

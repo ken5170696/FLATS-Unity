@@ -16,12 +16,6 @@ namespace Flats.Modules
                 if(!visiting.Add(m.id))return "Cyclic dependency: "+m.id;
                 foreach(var d in m.dependencies ?? new DependencySpec[0])
                 {
-                    if(d.id=="flats.crosshair")
-                    {
-                        if(!ModRules.Range(d.minimum,d.maximum).Contains(ModRules.Version("1.0.0")))return "Incompatible dependency: flats.crosshair";
-                        if(!enabled.Contains(d.id))return "Enable dependency first: "+d.id;
-                        continue;
-                    }
                     var matches=all.Where(p=>p.id==d.id).ToArray();
                     if(matches.Length!=1)return "Missing or duplicate dependency: "+d.id;
                     if(!ModRules.Range(d.minimum,d.maximum).Contains(ModRules.Version(matches[0].version)))return "Incompatible dependency: "+d.id;
@@ -33,7 +27,6 @@ namespace Flats.Modules
             try
             {
                 string issue=visit(selected);if(issue.Length>0)return issue;
-                if(selected.kind=="crosshair" && enabled.Contains("flats.crosshair"))return "Disable Custom Crosshair before enabling this preset";
                 foreach(var other in all.Where(m=>m.id!=selected.id && enabled.Contains(m.id)))
                     if((selected.conflicts ?? new string[0]).Contains(other.id) || (other.conflicts ?? new string[0]).Contains(selected.id) || (selected.kind=="crosshair" && other.kind=="crosshair"))
                         return "Conflict: "+other.id;

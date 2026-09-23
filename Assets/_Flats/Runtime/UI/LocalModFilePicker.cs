@@ -10,17 +10,31 @@ internal static class LocalModFilePicker
 #if UNITY_EDITOR
         return UnityEditor.EditorUtility.OpenFilePanel("Import a FLATS mod", "", "zip");
 #elif UNITY_STANDALONE_WIN
-        var dialog=new OpenFileName();dialog.size=Marshal.SizeOf(dialog);
-        dialog.filter="FLATS mod packages (*.zip)\0*.zip\0\0";
-        dialog.file=Marshal.AllocHGlobal(32768*2);dialog.maxFile=32768;Marshal.WriteInt16(dialog.file,0);dialog.owner=GetActiveWindow();
-        dialog.title="Import a FLATS mod";dialog.flags=0x80000|0x1000|0x800|0x8;
-        try { return GetOpenFileName(dialog)?Marshal.PtrToStringUni(dialog.file):""; }
-        finally { Marshal.FreeHGlobal(dialog.file); }
+        return Open("Import a FLATS mod", "FLATS mod packages (*.zip)\0*.zip\0\0");
+#else
+        return "";
+#endif
+    }
+    internal static string ChooseSave()
+    {
+#if UNITY_EDITOR
+        return UnityEditor.EditorUtility.OpenFilePanel("Import FLATS save", "", "");
+#elif UNITY_STANDALONE_WIN
+        return Open("Import FLATS save", "FLATS saves (*.dat;*.json)\0*.dat;*.json\0All files (*.*)\0*.*\0\0");
 #else
         return "";
 #endif
     }
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
+    static string Open(string title,string filter)
+    {
+        var dialog=new OpenFileName();dialog.size=Marshal.SizeOf(dialog);
+        dialog.filter=filter;
+        dialog.file=Marshal.AllocHGlobal(32768*2);dialog.maxFile=32768;Marshal.WriteInt16(dialog.file,0);dialog.owner=GetActiveWindow();
+        dialog.title=title;dialog.flags=0x80000|0x1000|0x800|0x8;
+        try { return GetOpenFileName(dialog)?Marshal.PtrToStringUni(dialog.file):""; }
+        finally { Marshal.FreeHGlobal(dialog.file); }
+    }
     [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)]
     sealed class OpenFileName
     {

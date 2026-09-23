@@ -192,6 +192,10 @@ public class Multiplayer : MonoBehaviour
 		}
 		Debug.Log("Rule:" + rule + " Detailed Objective:" + detailedObjective);
 		yield return new WaitForSeconds(2f);
+		// All scene components, including PunTeams, must finish Start before
+		// SetPlayerCustomProperties dispatches its synchronous local callbacks.
+		if (rule != 8 && Menu.network != 0 && Menu.network != 1)
+			PhotonNetwork.SetPlayerCustomProperties(new ExitGames.Client.Photon.Hashtable { { "K", 0 }, { "D", 0 } });
 		int myTeam = 0;
 		if (Menu.network == 0)
 		{
@@ -420,12 +424,21 @@ public class Multiplayer : MonoBehaviour
 			{
 				score.text = "Red:" + redTeamScore + " Blue:" + blueTeamScore + " Time:" + limit;
 			}
-			if (limit > 0 && rule != 8)
+			if (limit > 0 && rule != 8 && Menu.isMaster())
 			{
 				limit--;
+				if (Menu.network != 0 && Menu.network != 1)
+					gameObject.GetPhotonView().RPC("SyncMatchClock", PhotonTargets.Others, limit);
 			}
 			yield return new WaitForSeconds(1f);
 		}
+	}
+
+	[PunRPC]
+	private void SyncMatchClock(int remaining, PhotonMessageInfo info)
+	{
+		if (info.sender != null && info.sender.IsMasterClient)
+			limit = remaining;
 	}
 
 	[PunRPC]

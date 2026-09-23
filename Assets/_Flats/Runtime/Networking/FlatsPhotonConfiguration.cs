@@ -30,6 +30,11 @@ public static class FlatsPhotonConfiguration
             string path = Path.Combine(Application.persistentDataPath, "photon-app-id.txt");
             if (string.IsNullOrWhiteSpace(appId) && File.Exists(path)) { appId = File.ReadAllText(path).Trim(); Source = "private-file"; }
 #endif
+            if (string.IsNullOrWhiteSpace(appId))
+            {
+                var configuration = Resources.Load<TextAsset>("FlatsPhotonClient");
+                if (configuration != null) { appId = configuration.text.Trim(); Source = "release-client-configuration"; }
+            }
             Guid parsed;
             if (!Guid.TryParse(appId, out parsed) || parsed == Guid.Empty)
             {
@@ -51,6 +56,9 @@ public static class FlatsPhotonConfiguration
 #endif
             settings.JoinLobby = true;
             settings.RunInBackground = true;
+            // Photon reads this setting in its static constructor, before Apply.
+            // Update Unity too so a desktop client keeps serving a live match.
+            Application.runInBackground = true;
             Valid = true;
             return true;
         }

@@ -1,48 +1,92 @@
-Shader "Mobile/Unlit (Supports Lightmap)" {
-Properties {
+Shader "Mobile/Unlit (Supports Lightmap)"
+{
+    Properties {
  _MainTex ("Base (RGB)", 2D) = "white" {}
 }
-SubShader {
- LOD 100
- Tags { "RenderType"="Opaque" }
- Pass {
-  Name "SHADOWCASTER"
-  Tags { "LightMode"="ShadowCaster" }
-  ZWrite On ZTest LEqual
-  CGPROGRAM
-  #pragma vertex depthVert
-  #pragma fragment depthFrag
-  #pragma multi_compile_shadowcaster
-  #include "UnityCG.cginc"
+    SubShader
+    {
+        Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Opaque" "Queue"="Geometry" }
+        Cull Back
+        ZWrite On
+        Pass
+        {
+            Name "ForwardUnlit"
+            Tags { "LightMode"="UniversalForward" }
 
-  struct depthV2f { V2F_SHADOW_CASTER;  };
-  depthV2f depthVert(appdata_base v) { depthV2f o;  TRANSFER_SHADOW_CASTER_NORMALOFFSET(o); return o; }
-  float4 depthFrag(depthV2f i):SV_Target {  SHADOW_CASTER_FRAGMENT(i) }
-  ENDCG
- }
- Pass {
-  Tags { "LIGHTMODE"="Vertex" "RenderType"="Opaque" }
-  SetTexture [_MainTex] { combine texture }
- }
- Pass {
-  Tags { "LIGHTMODE"="VertexLM" "RenderType"="Opaque" }
-  BindChannels {
-   Bind "vertex", Vertex
-   Bind "texcoord1", TexCoord0
-   Bind "texcoord", TexCoord1
-  }
-  SetTexture [unity_Lightmap] { Matrix [unity_LightmapMatrix] combine texture }
-  SetTexture [_MainTex] { combine texture * previous double, texture alpha * primary alpha }
- }
- Pass {
-  Tags { "LIGHTMODE"="VertexLMRGBM" "RenderType"="Opaque" }
-  BindChannels {
-   Bind "vertex", Vertex
-   Bind "texcoord1", TexCoord0
-   Bind "texcoord", TexCoord1
-  }
-  SetTexture [unity_Lightmap] { Matrix [unity_LightmapMatrix] combine texture * texture alpha double }
-  SetTexture [_MainTex] { combine texture * previous quad, texture alpha * primary alpha }
- }
-}
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex FlatsVertex
+            #pragma fragment FlatsFragment
+            #pragma multi_compile_fog
+            #define FLATS_FOG 1
+            #pragma multi_compile_instancing
+            #pragma multi_compile _ LIGHTMAP_ON
+            #define FLATS_LIGHTMAP 1
+            #include "FlatsUrpSurface.hlsl"
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "ShadowCaster"
+            Tags { "LightMode"="ShadowCaster" }
+            ColorMask 0
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex FlatsVertex
+            #pragma fragment FlatsDepthFragment
+            #pragma multi_compile_instancing
+            #pragma multi_compile_vertex _ _CASTING_PUNCTUAL_LIGHT_SHADOW
+            #define FLATS_SHADOW_PASS 1
+
+            #define FLATS_LIGHTMAP 1
+            #include "FlatsUrpSurface.hlsl"
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "DepthOnly"
+            Tags { "LightMode"="DepthOnly" }
+            ColorMask R
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex FlatsVertex
+            #pragma fragment FlatsDepthFragment
+            #pragma multi_compile_instancing
+
+            #define FLATS_LIGHTMAP 1
+            #include "FlatsUrpSurface.hlsl"
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "DepthNormalsOnly"
+            Tags { "LightMode"="DepthNormalsOnly" }
+
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex FlatsVertex
+            #pragma fragment FlatsNormalsFragment
+            #pragma multi_compile_instancing
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+            #define FLATS_LIGHTMAP 1
+            #include "FlatsUrpSurface.hlsl"
+            ENDHLSL
+        }
+        Pass
+        {
+            Name "MotionVectors"
+            Tags { "LightMode"="MotionVectors" }
+            ColorMask RG
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex FlatsVertex
+            #pragma fragment FlatsMotionFragment
+            #pragma multi_compile_instancing
+            #define FLATS_MOTION_PASS 1
+            #define FLATS_LIGHTMAP 1
+            #include "FlatsUrpSurface.hlsl"
+            ENDHLSL
+        }
+    }
+    FallBack "Hidden/Universal Render Pipeline/FallbackError"
 }

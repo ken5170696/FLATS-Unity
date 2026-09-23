@@ -24,6 +24,15 @@ public class WatchCamera : MonoBehaviour
 
 	private OVRHead ht;
 
+	private static GameObject[] LivingPlayers()
+	{
+		var players = new List<GameObject>();
+		foreach (var player in GameObject.FindGameObjectsWithTag("Player"))
+			if (player.GetComponent<FPSController>() != null)
+				players.Add(player);
+		return players.ToArray();
+	}
+
 	private IEnumerator Start()
 	{
 		mt = base.transform;
@@ -37,7 +46,7 @@ public class WatchCamera : MonoBehaviour
 			base.gameObject.AddComponent<OVRHead>();
 			ht = GetComponent<OVRHead>();
 		}
-		GameObject[] others = GameObject.FindGameObjectsWithTag("Player");
+		GameObject[] others = LivingPlayers();
 		if (others.Length > 0)
 		{
 			ui.enabled = false;
@@ -67,7 +76,7 @@ public class WatchCamera : MonoBehaviour
 		yield return new WaitForSeconds(15f);
 		while (true)
 		{
-			others = GameObject.FindGameObjectsWithTag("Player");
+			others = LivingPlayers();
 			if (others.Length <= 0 && !Multiplayer.end)
 			{
 				mt.position = new Vector3(0f, 30f, 0f);
@@ -113,6 +122,10 @@ public class WatchCamera : MonoBehaviour
 	{
 		if (Multiplayer.end)
 		{
+			// Keep the spectator camera as the result backdrop, but remove its
+			// controls and waiting message once the survival round has ended.
+			foreach (var canvas in GetComponentsInChildren<Canvas>())
+				canvas.enabled = false;
 			return;
 		}
 		if (Menu.currentSurvivalPhase != currentPhase)
@@ -168,7 +181,7 @@ public class WatchCamera : MonoBehaviour
 		}
 		else
 		{
-			GameObject[] array = GameObject.FindGameObjectsWithTag("Player");
+			GameObject[] array = LivingPlayers();
 			otherPlayers = new List<GameObject>();
 			for (int i = 0; i < array.Length; i++)
 			{
@@ -204,7 +217,7 @@ public class WatchCamera : MonoBehaviour
 	private IEnumerator OnPhotonPlayerDisconnected(PhotonPlayer otherPlayer)
 	{
 		yield return new WaitForSeconds(3f);
-		GameObject[] others = GameObject.FindGameObjectsWithTag("Player");
+		GameObject[] others = LivingPlayers();
 		if (others.Length <= 0 && !Multiplayer.end)
 		{
 			int[] array = new int[2] { 2, 0 };

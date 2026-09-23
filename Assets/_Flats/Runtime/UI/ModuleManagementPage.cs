@@ -51,7 +51,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
 
         foreach(Transform child in transform) { child.gameObject.SetActive(false);Destroy(child.gameObject); }
         var bg=GetComponent<Image>();if(bg!=null)bg.enabled=false;
-        ui=new ModCenterWidgets(font,()=>menu.GetComponent<AudioSource>().PlayOneShot(menu.pressSE));
+        ui=new ModCenterWidgets(font,()=>menu.PlayMenuSound(menu.pressSE));
         root=ui.Panel("ModCenter",transform,0,0,960,600,ModCenterWidgets.Paper).rectTransform;
         back=ui.Button("ModulesBack",root,"",-436,253,56,56,Close,ModCenterWidgets.Accent);
         var nativeBack=menu.backButton.GetComponentsInChildren<Image>(true).FirstOrDefault(i=>i.sprite!=null);
@@ -112,7 +112,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         Menu.current="Modules";gameObject.SetActive(true);
 
         tab="Installed";detailOpen=false;settingsOpen=false;
-        notice.text=Service.Installed.Length==0?"Built-in mods are ready to use. Explore to add more.":"External mod changes apply after restarting FLATS.";
+        notice.text=Service.Installed.Length==0?"No mods installed. Open Explore to download your first mod.":"External mod changes apply after restarting FLATS.";
         if(!readyRendered){savedScroll=1;restoreScroll=true;}Resize();Reload();Focus(tab=="Installed"?installed:tab=="Explore"?explore:downloads);
     }
     public void Close()
@@ -124,7 +124,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         if(tab=="Profiles"){Switch("Installed");return;}
         SaveView();
         browsing?.Cancel();gameObject.SetActive(false);mainScreen.SetActive(true);mainOptions.SetActive(optionsWereActive);Menu.current="Main";
-        menu.GetComponent<AudioSource>().PlayOneShot(menu.cancelSE);Focus(menu.buttons[1].transform.parent.GetComponent<Button>());
+        menu.PlayMenuSound(menu.cancelSE);Focus(menu.buttons[1].transform.parent.GetComponent<Button>());
     }
     void Resize()
     {
@@ -159,7 +159,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         if(queue!=null && revision!=queue.Revision && currentModal==null && !settingsOpen){revision=queue.Revision;Run(async()=>{await Service.RefreshInstalled();if(tab!="Explore")RenderLocal();else {RefreshCatalogState();ShowDetail();}},false);}
         var active=queue?.Snapshot().Count(j=>j.Busy) ?? 0;
         downloads.GetComponentInChildren<Text>().text="Downloads"+(active>0?" ("+active+")":"");
-        summary.text=(Service.Installed.Length+1)+" installed  /  "+BuiltinModules.Instance.Manager.Installed.Count(r=>r.Active)+" active";
+        summary.text=(Service.Installed.Length)+" installed  /  "+BuiltinModules.Instance.Manager.Installed.Count(r=>r.Active)+" active";
         if(tab=="Downloads" && currentModal==null) { if(detailOpen)UpdateDownloadDetail();else RefreshDownloadRows(); }
     }
     void Switch(string value)
