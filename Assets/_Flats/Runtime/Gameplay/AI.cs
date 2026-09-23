@@ -521,9 +521,10 @@ public class AI : MonoBehaviour
 	{
 		while (true)
 		{
+			targets.RemoveAll(target => target == null || !target.gameObject.activeInHierarchy);
 			if (Menu.isMaster())
 			{
-				if (targets == null)
+				if (targets.Count > 0)
 				{
 					Transform transform = null;
 					foreach (Transform target in targets)
@@ -840,7 +841,7 @@ public class AI : MonoBehaviour
 		{
 			if (Menu.isMaster())
 			{
-				if (canShoot && enableFire && targets.Count > 0 && targets[0].gameObject.activeSelf)
+				if (canShoot && enableFire && targets.Count > 0 && targets[0] != null && targets[0].gameObject.activeSelf)
 				{
 					if (Menu.network == 0)
 					{
@@ -860,10 +861,11 @@ public class AI : MonoBehaviour
 	[PunRPC]
 	private IEnumerator Search()
 	{
+		targets.RemoveAll(target => target == null || !target.gameObject.activeInHierarchy);
 		tt = trailTime;
 		canShoot = false;
 		inSight = false;
-		if (agent.isActiveAndEnabled && Menu.isMaster())
+		if (agent.isActiveAndEnabled && Menu.isMaster() && targets.Count > 0)
 		{
 			StartCoroutine("SetDestination", targets[0].position);
 		}
@@ -871,7 +873,7 @@ public class AI : MonoBehaviour
 		{
 			if (Menu.isMaster())
 			{
-				if (targets.Count <= 0 || (CanSeeTarget(targets[0]) && IsInRangeOf(targets[0])))
+				if (targets.Count <= 0 || targets[0] == null || (CanSeeTarget(targets[0]) && IsInRangeOf(targets[0])))
 				{
 					break;
 				}
@@ -1290,12 +1292,14 @@ public class AI : MonoBehaviour
 
 	private bool IsInRangeOf(Transform target)
 	{
+		if (target == null) return false;
 		float num = Vector3.Distance(mt.position, target.position);
 		return num < attackRange;
 	}
 
 	private bool CanSeeTarget(Transform target)
 	{
+		if (target == null) return false;
 		if (!Physics.Linecast(mt.position + new Vector3(0f, 3f, 0f), target.position + new Vector3(0f, 6f, 0f), mask.value))
 		{
 			return true;
