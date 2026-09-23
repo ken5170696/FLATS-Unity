@@ -1,23 +1,29 @@
-Shader "Mobile/Particles/Alpha Blended" {
-Properties {
+Shader "Mobile/Particles/Alpha Blended"
+{
+    Properties {
  _MainTex ("Particle Texture", 2D) = "white" {}
 }
-SubShader { 
- Tags { "QUEUE"="Transparent" "IGNOREPROJECTOR"="true" "RenderType"="Transparent" }
- Pass {
-  Tags { "QUEUE"="Transparent" "IGNOREPROJECTOR"="true" "RenderType"="Transparent" }
-  BindChannels {
-   Bind "vertex", Vertex
-   Bind "color", Color
-   Bind "texcoord", TexCoord
-  }
-  ZWrite Off
-  Cull Off
-  Fog {
-   Color (0,0,0,0)
-  }
-  Blend SrcAlpha OneMinusSrcAlpha
-  SetTexture [_MainTex] { combine texture * primary }
- }
-}
+    SubShader
+    {
+        Tags { "RenderPipeline"="UniversalPipeline" "RenderType"="Transparent" "Queue"="Transparent" }
+        Cull Off
+        ZWrite Off
+        Blend SrcAlpha OneMinusSrcAlpha
+        Pass
+        {
+            Name "ForwardUnlit"
+            Tags { "LightMode"="UniversalForward" }
+
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma vertex FlatsVertex
+            #pragma fragment FlatsFragment
+            #pragma multi_compile_instancing
+
+            #define FLATS_VERTEX_COLOR 1
+            #include "FlatsUrpSurface.hlsl"
+            ENDHLSL
+        }
+    }
+    FallBack "Hidden/Universal Render Pipeline/FallbackError"
 }

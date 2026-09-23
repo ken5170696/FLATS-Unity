@@ -117,6 +117,8 @@ public class FxPro : MonoBehaviour
 
 	public void Start()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		_filmGrainTextures = new List<Texture2D>();
 		for (int i = 1; i <= 4; i++)
 		{
@@ -135,6 +137,8 @@ public class FxPro : MonoBehaviour
 
 	public void Init(bool searchForNonDepthmapAlphaObjects)
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		if (!CheckEffectSupport()) return;
 		Mat.SetFloat("_DirtIntensity", Mathf.Exp(LensDirtIntensity) - 1f);
 		if (null == LensDirtTexture || LensDirtIntensity <= 0f)
@@ -263,6 +267,8 @@ public class FxPro : MonoBehaviour
 
 	public void OnDisable()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		if (null != _mat)
 		{
 			UnityEngine.Object.DestroyImmediate(_mat);

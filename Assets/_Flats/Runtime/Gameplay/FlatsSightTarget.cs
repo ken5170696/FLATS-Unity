@@ -23,6 +23,10 @@ public sealed class FlatsSightTarget : MonoBehaviour
         target=new RenderTexture(template.descriptor) { name="Flats runtime sight", hideFlags=HideFlags.DontSave };
         target.Create();
         sightCamera.targetTexture=target;
+        // URP completes an entire screen stack before moving to the next base.
+        // Render the scope first so every consumer sees this frame's image.
+        if(UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
+            sightCamera.depth=-100;
         foreach(var display in displays)if(display.texture==template)display.texture=target;
     }
     void OnDestroy()

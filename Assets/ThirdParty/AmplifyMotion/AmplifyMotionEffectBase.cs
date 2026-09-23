@@ -479,6 +479,8 @@ public class AmplifyMotionEffectBase : MonoBehaviour
 
 	private void OnEnable()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		m_camera = GetComponent<Camera>();
 		if (!CheckSupport())
 		{
@@ -526,6 +528,8 @@ public class AmplifyMotionEffectBase : MonoBehaviour
 
 	private void Start()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		UpdatePostProcess();
 	}
 
@@ -863,6 +867,8 @@ public class AmplifyMotionEffectBase : MonoBehaviour
 
 	private void LateUpdate()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		if (m_baseCamera.AutoStep)
 		{
 			float num = (Application.isPlaying ? Time.unscaledDeltaTime : Time.fixedDeltaTime);
@@ -925,6 +931,8 @@ public class AmplifyMotionEffectBase : MonoBehaviour
 
 	private void FixedUpdate()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		if (!m_camera.enabled)
 		{
 			return;
@@ -944,6 +952,8 @@ public class AmplifyMotionEffectBase : MonoBehaviour
 
 	private void OnPreRender()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		if (!m_camera.enabled || (Time.frameCount != 1 && !(Mathf.Abs(Time.unscaledDeltaTime) > float.Epsilon)))
 		{
 			return;
@@ -963,6 +973,8 @@ public class AmplifyMotionEffectBase : MonoBehaviour
 
 	private void OnPostRender()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		bool qualityChanged = QualityLevel != m_qualityLevel;
 		m_qualityLevel = QualityLevel;
 		UpdateRenderTextures(qualityChanged);

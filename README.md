@@ -17,7 +17,7 @@ On first launch, acknowledge the welcome/update panel with **OK**, then select *
 
 Controls: WASD movement, mouse look, left mouse fire, right mouse aim, Space jump, R reload, E change weapon, Q pick up, Escape pause.
 
-The project uses the **Built-in Render Pipeline**, Gamma colour space and the legacy Input Manager with InControl. Keep the render pipeline asset unset. Existing package dependencies do not make this a URP project; preserve `Packages/manifest.json` and `packages-lock.json` together.
+This branch migrates rendering to **Universal Render Pipeline 17.3.0**, retaining Gamma colour space and the legacy Input Manager with InControl. Use the FLATS pipeline and renderer in `Assets/_Flats/Settings/Rendering`; every quality level must reference that pipeline. Preserve `Packages/manifest.json` and `packages-lock.json` together. See [rendering](docs/RENDERING.md) for architecture and migration limitations.
 
 ## Build
 
@@ -50,7 +50,7 @@ Preserve `.meta` files and GUIDs, serialized field names, resource paths, UnityE
 - **Photon:** set `FLATS_PHOTON_APP_ID` to your own Photon PUN client App ID before launching Unity, or use `photon-app-id.txt` in `Application.persistentDataPath`. Offline play works without it.
 - **Module catalogue:** optionally set `FLATS_MOD_CATALOGUE_URL` to a compatible public HTTPS catalogue. Local modules remain available without one.
 - **Compiler/import errors:** verify the Unity version and registry access, then inspect the Console. Do not copy another checkout's Library folder.
-- **Pink materials:** confirm Built-in/Gamma settings and shader import completion.
+- **Pink materials:** confirm the FLATS URP pipeline/renderer references, Gamma settings and shader import completion; inspect shader compiler errors before replacing materials.
 - **Save data:** keep normal player profiles out of Git. Corrupt or newer-format records are preserved with a recovery notice.
 
 ## Attribution and terms

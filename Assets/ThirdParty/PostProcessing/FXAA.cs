@@ -19,6 +19,8 @@ public class FXAA : FXAAPostEffectsBase
 
 	private void Start()
 	{
+		// URP executes this serialized control through FlatsPostProcessFeature.
+		if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null) return;
 		shader = Shader.Find("Hidden/FXAA3");
 		CreateMaterials();
 		CheckSupport(false);
