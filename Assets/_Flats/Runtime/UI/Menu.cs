@@ -393,7 +393,7 @@ public partial class Menu : MonoBehaviour
 			version = "";
 		}
 		Debug.Log("version:" + version);
-		string text = "5.3.5";
+		string text = "5.4.0";
 		if (version != text)
 		{
 			if (version == "" || int.Parse(version.Substring(0, 1)) < 5)
