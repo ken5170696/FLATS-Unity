@@ -2,6 +2,10 @@
 
 A maintained Unity reconstruction of FLATS, the flat-colour first-person shooter originally developed and published by **Foliage Games LLC**. This independent project preserves offline play, tutorial, training, combat modes, Photon multiplayer, controller input and the module system. It is not an official Foliage Games release.
 
+## Current player releases
+
+The [Windows 5.3.5-parity test ZIP](https://github.com/ken5170696/flats-downloads/releases/tag/v5.3.5-parity.20260923) was built from `36d97d2f73fc35e32d1cbc05e5e94c3a307bf979`. The extracted ZIP passed startup only; gameplay input on that ZIP, multiplayer and full platform acceptance have not been verified. It is unsigned. The [Web single-player preview](https://flats-site.tail2511fc.ts.net/play) uses the older `2fa10e6f6acbdd48794c3dd6305ad8606488ec07` source with bounded public-browser gameplay checks. The newer Web candidate timed out during public loading, so the older preview remains deployed. The [live release manifest](https://flats-site.tail2511fc.ts.net/data/releases.json) identifies each artifact's actual source and validation scope. This repository's `main` is the Built-in pipeline source baseline; development branches may contain unaccepted changes and are not player releases.
+
 ## Open and play
 
 1. Clone this repository and add its root to Unity Hub. Git LFS and submodules are not required.
