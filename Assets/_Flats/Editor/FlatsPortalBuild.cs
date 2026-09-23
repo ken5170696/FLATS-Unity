@@ -69,8 +69,23 @@ public static class FlatsPortalBuild
         string root = Path.GetFullPath("Builds/Portal/" + name);
         Directory.CreateDirectory(root);
         string source = ReadSourceCommit();
+        const string catalogueAsset = "Assets/Resources/FlatsModCatalogue.txt";
+        if(File.Exists(catalogueAsset)) throw new BuildFailedException("Reserved generated catalogue asset already exists; preserve and move it before building.");
+        string catalogue = Flats.Modules.OfficialModEndpoint.Url;
+        if(!string.IsNullOrWhiteSpace(catalogue))
+        {
+            var uri=Flats.Modules.ModRules.Url(catalogue.TrimEnd('/')+"/",false);
+            if(uri.Query.Length>0 || uri.Fragment.Length>0) throw new BuildFailedException("Catalogue must be an HTTPS base URL without query or fragment.");
+            catalogue=uri.AbsoluteUri;
+        }
         try
         {
+            if(!string.IsNullOrWhiteSpace(catalogue))
+            {
+                Directory.CreateDirectory("Assets/Resources");
+                File.WriteAllText(catalogueAsset,catalogue);
+                AssetDatabase.ImportAsset(catalogueAsset,ImportAssetOptions.ForceSynchronousImport);
+            }
             if (target == BuildTarget.Android || target == BuildTarget.iOS)
             {
                 PlayerSettings.SetApplicationIdentifier(named, "io.github.ken5170696.flats.preview");
@@ -105,6 +120,7 @@ public static class FlatsPortalBuild
         }
         finally
         {
+            if(File.Exists(catalogueAsset)) AssetDatabase.DeleteAsset(catalogueAsset);
             PlayerSettings.SetApplicationIdentifier(named, oldIdentifier);
             PlayerSettings.bundleVersion = oldVersion;
             PlayerSettings.SetScriptingBackend(named, oldBackend);

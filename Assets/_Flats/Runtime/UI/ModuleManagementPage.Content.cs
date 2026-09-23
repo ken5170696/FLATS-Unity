@@ -47,11 +47,16 @@ public sealed partial class ModuleManagementPage
     }
     string CatalogStatus(CatalogItem item)
     {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        try { WebCrosshairPreset.Validate(item.manifest); return "v"+item.manifest.version+" / Web preset"; }
+        catch(Exception) { return "Requires desktop FLATS"; }
+#else
         string problem=ModRules.Compatibility(item.manifest);if(problem.Length>0)return "Incompatible: "+problem;
         var local=Service.Installed.FirstOrDefault(p=>p.manifest.id==item.manifest.id);
         if(Service.Downloads?.IsBusy(item.manifest.id)==true)return "Download in progress";
         if(local==null)return "v"+item.manifest.version;
         return ModRules.Version(item.manifest.version)>ModRules.Version(local.manifest.version)?"Update available":"Installed";
+#endif
     }
     void RenderLocal()
     {
@@ -224,6 +229,12 @@ public sealed partial class ModuleManagementPage
             remove.gameObject.SetActive(true);remove.interactable=!busy&&!downloading;
         }
         DetailSections(m,p);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        try { WebCrosshairPreset.Validate(m); SetPrimary("Use preset",!BuiltinModules.Instance.ReadOnly); }
+        catch(Exception) { SetPrimary("Desktop required",false); }
+        secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);
+        if(detailSection=="Overview")description.text += "\n\nWeb copies supported shape and size into Custom Crosshair in the selected profile. Enable Custom Crosshair separately. The desktop package is not installed.";
+#endif
     }
     void SetDescription(string text,float height=200)
     {
@@ -275,7 +286,11 @@ public sealed partial class ModuleManagementPage
     void InstallSelected()
     {
         if(!known.TryGetValue(selectedId,out var item))return;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        ReviewWebPreset(item.manifest);
+#else
         ReviewPlan(item.manifest,item,false);
+#endif
     }
     void ReviewPlan(PackageManifest manifest,CatalogItem item,bool enablePlan)
     {

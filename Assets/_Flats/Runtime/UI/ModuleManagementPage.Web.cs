@@ -34,6 +34,15 @@ public sealed partial class ModuleManagementPage
                 throw new InvalidDataException("Manifest exceeds 96 KB");
             var manifest = WebCrosshairPreset.Validate(JsonUtility.FromJson<PackageManifest>(webImportJson.text));
             HideModal();
+            ReviewWebPreset(manifest);
+        }
+        catch(Exception e) { webImportNotice.text = "Could not import: "+e.Message; }
+    }
+    void ReviewWebPreset(PackageManifest candidate)
+    {
+        try
+        {
+            var manifest=WebCrosshairPreset.Validate(candidate);
             Ask("Copy "+manifest.name+" preset?\n\nShape: "+((Flats.UI.CrosshairStyle)manifest.crosshairStyle)+"\nSize: "+manifest.crosshairSize+"\n\nThis replaces Custom Crosshair settings in the selected profile. Enable Custom Crosshair separately to display it. The package itself is not installed.",()=>
             {
                 var owner = BuiltinModules.Instance;
@@ -42,7 +51,7 @@ public sealed partial class ModuleManagementPage
                 Switch("Installed");
             });
         }
-        catch(Exception e) { webImportNotice.text = "Could not import: "+e.Message; }
+        catch(Exception e) { notice.text = "Could not apply preset: "+e.Message; }
     }
 }
 #endif

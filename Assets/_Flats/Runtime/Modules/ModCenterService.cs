@@ -39,13 +39,16 @@ namespace Flats.Modules
         }
         public async Task Initialize()
         {
+            var bundled = Resources.Load<TextAsset>("FlatsModCatalogue");
+            string officialUrl = string.IsNullOrWhiteSpace(OfficialModEndpoint.Url) ? bundled?.text.Trim() : OfficialModEndpoint.Url;
 #if UNITY_WEBGL && !UNITY_EDITOR
             try
             {
                 owner.InitializeProfiles(root,Installed);
                 // Reapply the selected profile, not only the legacy settings loaded in Awake.
                 owner.AttachExternal(new IFirstPartyModule[0],new string[0]);
-                Notice="Web supports saved built-in settings and crosshair data presets. Desktop DLL packages cannot run in this browser.";
+                if(!string.IsNullOrWhiteSpace(officialUrl)) Source=new WebModSource(officialUrl,json);
+                Notice="Explore online crosshair presets or import data. Profiles and built-in settings are saved in this browser. Code packages require desktop FLATS.";
             }
             catch(Exception e) { Notice="Browser mod settings could not load: "+e.Message; }
             finally { Ready=true; }
@@ -64,7 +67,7 @@ namespace Flats.Modules
                         if(s==null || s.schema!=1)throw new InvalidDataException("Unsupported source configuration");
                         if(!string.IsNullOrWhiteSpace(s.url))Source=new HttpModSource(s.url,json,development);
                     }
-                    else if(!string.IsNullOrWhiteSpace(OfficialModEndpoint.Url))Source=new HttpModSource(OfficialModEndpoint.Url,json);
+                    else if(!string.IsNullOrWhiteSpace(officialUrl))Source=new HttpModSource(officialUrl,json);
                     if(!development && File.Exists(config))Store.Notices.Add("Legacy source preferences are retained for recovery and ignored by this version.");
                     } catch(Exception) { Store.Notices.Add("Official mod service unavailable. Installed mods remain available."); }
                 });
