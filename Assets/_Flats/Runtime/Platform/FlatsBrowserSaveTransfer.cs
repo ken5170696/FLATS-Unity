@@ -12,6 +12,7 @@ public sealed class FlatsBrowserSaveTransfer : MonoBehaviour
     [DllImport("__Internal")] static extern void FlatsSaveFlush(string target, string token);
     [DllImport("__Internal")] static extern void FlatsSaveCancel(string target);
     string token;
+    public bool IsFlushing { get; private set; }
     Action<byte[], string> imported;
     Action<string, string> completed;
 
@@ -24,6 +25,7 @@ public sealed class FlatsBrowserSaveTransfer : MonoBehaviour
 
     void Begin(Action<string, string> completion)
     {
+        if(IsFlushing)throw new InvalidOperationException("Browser save is still pending. Wait for completion before starting another transfer.");
         FlatsSaveCancel(gameObject.name);
         token = Guid.NewGuid().ToString("N");
         imported = null;
@@ -46,7 +48,9 @@ public sealed class FlatsBrowserSaveTransfer : MonoBehaviour
     public void Flush(Action<string, string> completion)
     {
         Begin(completion);
-        FlatsSaveFlush(gameObject.name, token);
+        IsFlushing=true;
+        try { FlatsSaveFlush(gameObject.name, token); }
+        catch { IsFlushing=false;token=null;completed=null;throw; }
     }
 
     [UnityEngine.Scripting.Preserve]
@@ -58,7 +62,7 @@ public sealed class FlatsBrowserSaveTransfer : MonoBehaviour
         if (reply == null || reply.token != token) return;
         var receive = imported;
         var completion = completed;
-        token = null; imported = null; completed = null;
+        token = null; imported = null; completed = null;IsFlushing=false;
         if (reply.status == "file")
         {
             try
@@ -74,7 +78,7 @@ public sealed class FlatsBrowserSaveTransfer : MonoBehaviour
 
     void OnDestroy()
     {
-        token = null; imported = null; completed = null;
+        token = null; imported = null; completed = null;IsFlushing=false;
         FlatsSaveCancel(gameObject.name);
     }
 }

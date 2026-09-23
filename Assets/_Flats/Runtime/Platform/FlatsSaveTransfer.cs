@@ -88,12 +88,18 @@ public static class FlatsSaveTransfer
 
     public static void Import(FlatsLocalProfile.Profile profile)
     {
+        if(profile==null)throw new ArgumentNullException(nameof(profile));
+        FlatsLocalProfile.Validate(JsonUtility.ToJson(profile));
         string source = FlatsLocalProfile.FilePath;
-        if (File.Exists(source))
+        var previous=FlatsLocalProfile.ReadAuthoritative();
+        if (previous!=null)
         {
             string folder = Path.Combine(Path.GetDirectoryName(source), "Backups");
             Directory.CreateDirectory(folder);
-            File.Copy(source, Path.Combine(folder, "before-import-" + DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff") + ".json"));
+            string backup=Path.Combine(folder,"before-import-"+DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff")+"-"+Guid.NewGuid().ToString("N")+".json");
+            // Preserve the existing atomic-envelope backup format, but capture the
+            // authoritative generation rather than an obsolete/missing base file.
+            FlatsAtomicRecord.Write(backup,JsonUtility.ToJson(previous),FlatsLocalProfile.Validate);
         }
         if (!FlatsLocalProfile.Commit(profile.character, profile.settings, profile.current))
             throw new IOException("The save could not be imported. Current data was retained.");

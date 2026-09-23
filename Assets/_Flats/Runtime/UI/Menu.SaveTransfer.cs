@@ -13,6 +13,7 @@ public partial class Menu
     string exportedSavePath;
     InputField saveImportPath;
     Button saveImportConfirm, saveImportCancel;
+    Button saveTransferImportButton,saveTransferExportButton;
     Text saveImportConfirmLabel, saveTransferTitle;
     bool saveImportIsJson, saveExportIsJson;
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -38,9 +39,9 @@ public partial class Menu
         var heading = ui.Text("SaveTransferHeading", sync, "Save files", 0, -131, 430, 25, 17, Color.white);
         heading.alignment = TextAnchor.MiddleCenter;
         var nativeControl = sync.Find("LANSync").GetComponent<Image>();
-        var importButton = ui.Button("ImportOldSave", sync, "Import old save", -105, -168, 190, 34,
+        var importButton = saveTransferImportButton = ui.Button("ImportOldSave", sync, "Import old save", -105, -168, 190, 34,
             ShowSaveImport, Color.white);
-        var exportButton = ui.Button("ExportSave", sync, "Export save", 105, -168, 190, 34,
+        var exportButton = saveTransferExportButton = ui.Button("ExportSave", sync, "Export save", 105, -168, 190, 34,
             ExportSave, Color.white);
         foreach (var button in new[] { importButton, exportButton })
         {
@@ -114,6 +115,9 @@ public partial class Menu
     void ShowSaveImport()
     {
         if (gameState != "Main") { ShowSaveTransferMessage("Import unavailable", "Return to the main menu before importing a save."); return; }
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if(browserImportAwaitingSave){PersistBrowserImport();return;}
+#endif
         pendingSaveImport = null;
         saveExportIsJson = false;
         saveImportIsJson = false;
@@ -122,7 +126,6 @@ public partial class Menu
         saveTransferTitle.text = "Import old save";
         saveImportCancel.GetComponentInChildren<Text>().text = "Cancel";
 #if UNITY_WEBGL && !UNITY_EDITOR
-        if (browserImportAwaitingSave) { PersistBrowserImport(); return; }
         browserSaveTransfer.Upload((bytes, filename) =>
         {
             try { PreviewSaveProfile(FlatsSaveTransfer.ReadBytes(bytes, filename)); }
@@ -175,12 +178,15 @@ public partial class Menu
 #if UNITY_WEBGL && !UNITY_EDITOR
     void PersistBrowserImport()
     {
+        if(browserSaveTransfer.IsFlushing)return;
+        saveTransferImportButton.interactable=false;
+        saveTransferExportButton.interactable=false;
         saveImportConfirm.interactable = false;
         saveImportCancel.interactable = false;
         saveTransferDialog.SetActive(true);
         saveTransferDialog.transform.SetAsLastSibling();
         saveTransferPreview.text = "Saving imported profile to browser storage...";
-        browserSaveTransfer.Flush((status, error) =>
+        Action<string,string> completion=(status, error) =>
         {
             saveImportConfirm.interactable = true;
             saveImportCancel.interactable = true;
@@ -196,7 +202,9 @@ public partial class Menu
                 saveImportConfirmLabel.text = "Retry browser save";
                 saveImportCancel.GetComponentInChildren<Text>().text = "Use this session";
             }
-        });
+        };
+        try { browserSaveTransfer.Flush(completion); }
+        catch(Exception error) { completion("error",error.Message); }
     }
 #endif
 
@@ -225,7 +233,15 @@ public partial class Menu
         try
         {
             if (gameState != "Main") throw new InvalidOperationException("Return to the main menu before importing a save.");
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Parse before committing, then publish the complete imported session
+            // synchronously so ordinary Menu saves cannot write the old snapshot.
+            var importedSnapshot=Flats.Profiles.LegacyProfileCodec.Decode(new Flats.Profiles.ProfilePayload(pendingSaveImport.character,pendingSaveImport.settings,pendingSaveImport.current));
+#endif
             FlatsSaveTransfer.Import(pendingSaveImport);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            myCharacter=importedSnapshot.Character;mySettings=importedSnapshot.Settings;myCurrent=importedSnapshot.Current;
+#endif
             pendingSaveImport = null;
 #if UNITY_WEBGL && !UNITY_EDITOR
             browserImportAwaitingSave = true;
@@ -240,6 +256,9 @@ public partial class Menu
 
     void ExportSave()
     {
+#if UNITY_WEBGL && !UNITY_EDITOR
+        if(browserImportAwaitingSave){PersistBrowserImport();return;}
+#endif
         try
         {
             SaveDataController.Save();
