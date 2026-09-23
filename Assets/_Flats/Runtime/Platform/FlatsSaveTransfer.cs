@@ -54,7 +54,10 @@ public static class FlatsSaveTransfer
     public static string Export()
     {
         string source = FlatsLocalProfile.FilePath;
-        var profile = Read(source);
+        string recovery;
+        string json = FlatsAtomicRecord.Read(source, FlatsLocalProfile.Validate, out recovery);
+        if (json == null) throw new InvalidDataException("No saved profile exists yet.");
+        var profile = JsonUtility.FromJson<FlatsLocalProfile.Profile>(json);
         string folder = Path.Combine(FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath, "Exports");
         Directory.CreateDirectory(folder);
         string path = Path.Combine(folder, "FLATS-save-" + DateTime.UtcNow.ToString("yyyyMMddTHHmmssfff") + ".json");

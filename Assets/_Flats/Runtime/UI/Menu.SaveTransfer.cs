@@ -15,9 +15,9 @@ public partial class Menu
         var original = sync.GetComponentInChildren<Text>(true);
         var ui = new ModCenterWidgets(original != null ? original.font : Resources.GetBuiltinResource<Font>("Arial.ttf"),
             () => PlayMenuSound(pressSE));
-        ui.Button("ImportOldSave", sync, "Import old save", -125, -155, 215, 40, ShowSaveImport);
-        ui.Button("ExportSave", sync, "Export save", 125, -155, 215, 40, ExportSave);
-        saveTransferNotice = ui.Text("SaveTransferNotice", sync, "", 0, -188, 480, 28, 13);
+        ui.Button("ImportOldSave", sync, "Import old save", -125, -175, 215, 40, ShowSaveImport);
+        ui.Button("ExportSave", sync, "Export save", 125, -175, 215, 40, ExportSave);
+        saveTransferNotice = ui.Text("SaveTransferNotice", sync, "", 0, -209, 480, 28, 13);
         saveTransferNotice.alignment = TextAnchor.MiddleCenter;
 
         saveTransferDialog = ui.Panel("SaveTransferDialog", sync, 0, 0, 475, 230, ModCenterWidgets.Paper).gameObject;
