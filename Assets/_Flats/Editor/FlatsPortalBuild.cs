@@ -17,7 +17,7 @@ public static class FlatsPortalBuild
     {
         public string sourceCommit, unityVersion, target, builtUtc, result;
         public string sourceFingerprint;
-        public bool sourceDirty;
+        public bool sourceDirty, development;
         public ulong bytes;
         public int errors, warnings;
         public bool publicDistributionApproved = false;
@@ -147,11 +147,14 @@ public static class FlatsPortalBuild
                 throw new BuildFailedException("Expected tracked build scenes with MainMenu first.");
             foreach (string scene in scenes) if (!File.Exists(scene)) throw new FileNotFoundException(scene);
             File.WriteAllText(Path.Combine(root, "source-snapshot.json"), JsonUtility.ToJson(source, true));
-            var report = BuildPipeline.BuildPlayer(scenes, Path.Combine(root, file), target, BuildOptions.DetailedBuildReport);
+            // FLATS_DEVELOPMENT_BUILD=1 produces a Development player for local verification.
+            bool development = Environment.GetEnvironmentVariable("FLATS_DEVELOPMENT_BUILD") == "1";
+            var options = BuildOptions.DetailedBuildReport | (development ? BuildOptions.Development : BuildOptions.None);
+            var report = BuildPipeline.BuildPlayer(scenes, Path.Combine(root, file), target, options);
             // Some failed export postprocessors remove their destination folder.
             Directory.CreateDirectory(root);
             var evidence = new Provenance { sourceCommit=source.commit, sourceFingerprint=source.fingerprint,
-                sourceDirty=source.dirty, unityVersion=Application.unityVersion,
+                sourceDirty=source.dirty, development=development, unityVersion=Application.unityVersion,
                 target=target.ToString(), builtUtc=DateTime.UtcNow.ToString("o"), result=report.summary.result.ToString(),
                 bytes=report.summary.totalSize, errors=report.summary.totalErrors, warnings=report.summary.totalWarnings };
             File.WriteAllText(Path.Combine(root,"build-provenance.json"), JsonUtility.ToJson(evidence,true));
