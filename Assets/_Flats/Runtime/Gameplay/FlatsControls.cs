@@ -51,7 +51,13 @@ public static class FlatsControls
     }
     public static string Label(string action, bool pad)
     {
-        if (!pad) return Keyboard(action).ToString().Replace("Mouse0", "Mouse 1").Replace("Mouse1", "Mouse 2").Replace("Mouse2", "Mouse 3");
+        if (!pad)
+        {
+            var key = Keyboard(action);
+            if (key >= KeyCode.Mouse0 && key <= KeyCode.Mouse6) return "Mouse " + ((int)key - (int)KeyCode.Mouse0 + 1);
+            return key.ToString().Replace("LeftShift", "Left Shift").Replace("RightShift", "Right Shift")
+                .Replace("LeftControl", "Left Ctrl").Replace("RightControl", "Right Ctrl");
+        }
         string legacy = action == "Grenade" ? "Pick" : action == "Aim" ? "Zoom" : action;
         if (!FlatsPreferences.HasKey(Key(action, true)) && Menu.customControlEnabled && Menu.customControl.TryGetValue(legacy, out string binding)) return binding;
         string label = PadLabel(Pad(action));

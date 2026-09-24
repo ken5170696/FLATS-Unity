@@ -620,3 +620,5 @@ Walk to the black cube.	走到黑色方塊旁。
 Need to reload?	需要換彈嗎？
 Aim and shoot them.	瞄準並射擊敵人。
 Pick the sniper rifle on the floor.	拾取地上的狙擊步槍。
+Move left	向左移動
+Move right	向右移動

@@ -10,6 +10,7 @@ public partial class Menu
     GameObject bindingsPanel;
     readonly List<GameObject> controlOptions = new List<GameObject>();
     readonly List<Button> bindingRows = new List<Button>();
+    readonly List<Button> controlTabs = new List<Button>();
     Text bindingStatus;
     bool bindingPad;
     string captureAction;
@@ -30,13 +31,13 @@ public partial class Menu
         foreach (Transform child in control) controlOptions.Add(child.gameObject);
         var ui = new ModCenterWidgets(FlatsLocalizedText.GetSourceFont(bt[0]), () => PlayMenuSound(pressSE));
         bindingsPanel = ui.Panel("Bindings", control, 0, -18, 680, 350, new Color(.31f, .24f, .29f)).gameObject;
-        ui.Button("GeneralControls", control, "General", -225, 180, 200, 34, () => ShowBindings(false, false));
-        ui.Button("KeyboardControls", control, "Keyboard / Mouse", 0, 180, 220, 34, () => ShowBindings(true, false));
-        ui.Button("GamepadControls", control, "Controller", 225, 180, 200, 34, () => ShowBindings(true, true));
+        controlTabs.Add(ui.Button("GeneralControls", control, "General", -225, 180, 200, 34, () => ShowBindings(false, false)));
+        controlTabs.Add(ui.Button("KeyboardControls", control, "Keyboard / Mouse", 0, 180, 220, 34, () => ShowBindings(true, false)));
+        controlTabs.Add(ui.Button("GamepadControls", control, "Controller", 225, 180, 200, 34, () => ShowBindings(true, true)));
         for (int i = 0; i < FlatsControls.KeyboardActions.Length; i++)
         {
             int row = i;
-            var button = ui.Button("Binding" + i, bindingsPanel.transform, "", i < 6 ? -168 : 168, 125 - (i % 6) * 38, 320, 38,
+            var button = ui.Button("Binding" + i, bindingsPanel.transform, "", i < 6 ? -168 : 168, 125 - (i % 6) * 38, 320, 34,
                 () => BeginBinding(row), ModCenterWidgets.ControlColor);
             button.GetComponentInChildren<Text>().fontSize = 16;
             bindingRows.Add(button);
@@ -54,6 +55,12 @@ public partial class Menu
         bindingPad = pad;
         foreach (var child in controlOptions) child.SetActive(!show);
         bindingsPanel.SetActive(show);
+        int selectedTab = !show ? 0 : pad ? 2 : 1;
+        for (int i = 0; i < controlTabs.Count; i++)
+        {
+            controlTabs[i].GetComponent<Image>().color = i == selectedTab ? ModCenterWidgets.Accent : Color.white;
+            controlTabs[i].GetComponentInChildren<Text>().color = i == selectedTab ? Color.white : ModCenterWidgets.Ink;
+        }
         if (show) RefreshBindings();
     }
 
@@ -64,6 +71,8 @@ public partial class Menu
         if (action == "Jump" && pad) return "Jump / hold to sprint";
         if (action == "Scope") return "Toggle aim";
         if (action == "Interact") return "Pick up / exchange";
+        if (action == "Left") return "Move left";
+        if (action == "Right") return "Move right";
         return action;
     }
     void RefreshBindings()
@@ -76,6 +85,8 @@ public partial class Menu
             if (i < count)
             {
                 string action = BindingAction(i);
+                int half = count / 2;
+                ((RectTransform)bindingRows[i].transform).anchoredPosition = new Vector2(i < half ? -168 : 168, 125 - (i % half) * (bindingPad ? 55 : 38));
                 bindingRows[i].GetComponentInChildren<Text>().text = FlatsLocalization.Translate(ActionName(action, bindingPad)) + "   ·   " + FlatsControls.Label(action, bindingPad);
             }
         }
@@ -84,7 +95,7 @@ public partial class Menu
     void BeginBinding(int index)
     {
         if (captureAction != null) return;
-        if (bindingPad && InputManager.ActiveDevice.Name == "None")
+        if (bindingPad && InputManager.Devices.Count == 0)
         { bindingStatus.text = "Connect a controller to bind its buttons."; return; }
         captureAction = BindingAction(index);
         captureButton = bindingRows[index];
@@ -121,7 +132,7 @@ public partial class Menu
         }
         if (bindingsPanel != null && bindingsPanel.activeInHierarchy && bindingLanguage != FlatsLocalization.Language) RefreshBindings();
         if (captureAction == null) return Time.frameCount <= suppressControlFrame;
-        if (!bindingsPanel.activeInHierarchy || (bindingPad && captureDevice != InputManager.ActiveDevice) || !Application.isFocused || Input.GetKeyDown(KeyCode.Escape) || InputManager.ActiveDevice.CommandWasPressed || Time.unscaledTime - captureStarted > 10)
+        if (!bindingsPanel.activeInHierarchy || (bindingPad && captureDevice != InputDevice.Null && !captureDevice.IsAttached) || !Application.isFocused || Input.GetKeyDown(KeyCode.Escape) || InputManager.ActiveDevice.CommandWasPressed || Time.unscaledTime - captureStarted > 10)
         { FinishBinding("Binding cancelled. Previous binding kept."); return true; }
         if (!captureReady)
         {

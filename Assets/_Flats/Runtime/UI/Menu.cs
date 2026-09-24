@@ -1507,7 +1507,7 @@ public partial class Menu : MonoBehaviour
 		mt.parent.GetChild(1).GetComponent<Canvas>().enabled = true;
 		Debug.Log("Player Spawn!");
 		StartCoroutine("BackgroundColor", "FadeOut");
-	
+
 
     }
 
@@ -1534,7 +1534,7 @@ public partial class Menu : MonoBehaviour
 		{
 			anim.enabled = true;
 		}
-		
+
 		if (mySettings != null && (mySettings.graphics_aa != 0 || mySettings.graphics_dof != 0 || mySettings.graphics_motionBlur != 0 || mySettings.graphics_saturationFilter != 0 || mySettings.graphics_edgeRendering != 0))
 		{
 			deltaTime += (Time.deltaTime - deltaTime) * 0.1f;
@@ -2986,7 +2986,7 @@ public partial class Menu : MonoBehaviour
 					}
 					InputDevice inputDevice = InputManager.ActiveDevice;
 					if (mt.GetChild(5).GetChild(3).GetChild(3)
-						.gameObject.activeSelf && (Input.GetKeyUp(KeyCode.Escape) || inputDevice.CommandWasPressed || (!customControlEnabled && inputDevice.Action2.WasPressed) || (customControlEnabled && Input.GetButtonDown(customControl["Pick"]))))
+						.gameObject.activeSelf && (Input.GetKeyUp(KeyCode.Escape) || inputDevice.CommandWasPressed || inputDevice.Action2.WasPressed))
 					{
 						mt.GetChild(5).GetChild(3).GetChild(3)
 							.gameObject.SetActive(false);
