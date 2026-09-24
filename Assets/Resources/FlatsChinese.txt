@@ -908,3 +908,5 @@ Profiles unavailable	無法使用設定組合
 Restore Crosshair defaults?	要還原準心的預設值嗎？
 This changes only this mod's draft. Save changes to apply it. Other mods and game settings are not affected.	這只會變更此模組的草稿，儲存後才會套用，不影響其他模組與遊戲設定。
 T shape	T 字形
+Changes enemy health, damage and speed for everyone in the room.	變更房間內所有人的敵人生命、傷害與速度。
+Data package for the game feature {0}. It contains no code.	遊戲功能 {0} 的資料套件，不含程式碼。
