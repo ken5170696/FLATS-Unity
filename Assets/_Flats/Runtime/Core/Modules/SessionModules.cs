@@ -32,6 +32,16 @@ namespace Flats.Modules
             if(required.Count>64 || text.Length>16000)throw new InvalidDataException("Too many required room modules");
             return text;
         }
+        public sealed class Requirement { public string Id, Version, Sha256; }
+        // The exact packages a room requires, from its FM1 agreement. Throws on malformed input.
+        public static Requirement[] Requirements(string agreement)
+        {
+            return Parse(agreement ?? "").OrderBy(p => p.Key, StringComparer.Ordinal).Select(p =>
+            {
+                var parts = p.Value.Split('|');
+                return new Requirement { Id = p.Key, Version = parts[0], Sha256 = parts[1] };
+            }).ToArray();
+        }
         public static string Compare(string room, string local)
         {
             try

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Flats.Modules;
@@ -73,6 +74,20 @@ public partial class Menu
         expected[SessionModules.DigestProperty]=SessionModules.Digest(BuiltinModules.Instance.Center.Agreement());
     }
     static string pendingModuleRejection;
+    // First room-required module this client lacks in the exact version and content.
+    // "Open Mod" goes straight to it in Explore, where the normal review installs it.
+    static string roomRequirement;
+    static string FirstMissingRequirement(object agreement)
+    {
+        try
+        {
+            var installed=BuiltinModules.Instance.Center.Installed;
+            foreach(var r in SessionModules.Requirements(agreement as string))
+                if(!installed.Any(p=>p.manifest.id==r.Id && p.manifest.version==r.Version && p.sha256==r.Sha256))return r.Id;
+        }
+        catch(System.Exception){}
+        return null;
+    }
     readonly RoomModuleCoordinator roomModules=new RoomModuleCoordinator();
     bool CheckPeerModules(PhotonPlayer player)
     {
@@ -92,6 +107,7 @@ public partial class Menu
     }
     void RejectRoomModules(string error)
     {
+        roomRequirement=PhotonNetwork.room!=null?FirstMissingRequirement(PhotonNetwork.room.CustomProperties[SessionModules.Property]):null;
         if(gameState=="Multiplayer" && UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex!=0)
         {
             // Use the normal scene-exit cleanup. A room rejection during a round
@@ -122,6 +138,8 @@ public partial class Menu
         while(PhotonNetwork.inRoom)yield return null;
         if(currentDetail!=null){currentDetail.SetActive(false);currentDetail=null;}
         anim.SetBool("Detail",false);SetRoomCreationVisible(false);BackToMainMenu();backButton.SetActive(false);
-        GetComponentInParent<ModulePageBinding>().page.Open();
+        var page=GetComponentInParent<ModulePageBinding>().page;
+        if(!string.IsNullOrEmpty(roomRequirement))page.OpenRoomRequirement(roomRequirement);else page.Open();
+        roomRequirement=null;
     }
 }

@@ -136,6 +136,14 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         notice.text=Service.Installed.Length==0?"No mods installed. Open Explore to download your first mod.":"External mod changes apply after restarting FLATS.";
         if(!readyRendered){savedScroll=1;restoreScroll=true;}Resize();Reload();Focus(Service.Ready?(tab=="Installed"?installed:tab=="Explore"?explore:downloads):back);
     }
+    // Opens Explore searching for a module a multiplayer room requires, so the normal
+    // review, download and enable flow installs the exact version.
+    public void OpenRoomRequirement(string moduleId)
+    {
+        Open();
+        if(Menu.current!="Modules")return;
+        Switch("Explore");search.SetTextWithoutNotify(moduleId);offset=0;Reload();
+    }
     public void Close()
     {
         if(currentModal!=null){if(!busy)HideModal();return;}
