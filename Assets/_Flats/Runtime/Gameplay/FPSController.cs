@@ -350,7 +350,7 @@ public class FPSController : MonoBehaviour
 			}
 			reticle.SetVisible(true);
 			sight.SetActive(false);
-			mt.GetChild(0).gameObject.layer = 13;
+			SetBodyRenderLayer(13);
 			savedFOV = 0f;
 			enableCamRotate = true;
 			enableControl = true;
@@ -492,6 +492,22 @@ public class FPSController : MonoBehaviour
 				mask = 1 << LayerMask.NameToLayer("RedTeam");
 			}
 		}
+		if (MyView(base.gameObject) && !zombie && !grabbing) SetBodyRenderLayer(13);
+	}
+
+	// LOD changes must not make the local body reappear in world/scope views.
+	// Only mesh renderer objects change layer; team colliders keep their masks.
+	private void SetBodyRenderLayer(int layer)
+	{
+		var group = GetComponent<LODGroup>();
+		if (group == null)
+		{
+			mt.GetChild(0).gameObject.layer = layer;
+			return;
+		}
+		foreach (var lod in group.GetLODs())
+			foreach (var renderer in lod.renderers)
+				if (renderer != null) renderer.gameObject.layer = layer;
 	}
 
 	private void OnEnable()
@@ -766,7 +782,7 @@ public class FPSController : MonoBehaviour
 				anim.SetBool("Flag", true);
 				if (Menu.network == 0)
 				{
-					mt.GetChild(0).gameObject.layer = 8;
+					SetBodyRenderLayer(8);
 				}
 				else
 				{
@@ -781,11 +797,11 @@ public class FPSController : MonoBehaviour
 						multiplayer.GetPhotonView().RPC("Log", PhotonTargets.All, text);
 						if (base.gameObject.GetPhotonView().owner.GetTeam() == PunTeams.Team.red)
 						{
-							mt.GetChild(0).gameObject.layer = 8;
+							SetBodyRenderLayer(8);
 						}
 						else
 						{
-							mt.GetChild(0).gameObject.layer = 9;
+							SetBodyRenderLayer(9);
 						}
 					}
 					Multiplayer.limit += 15;
@@ -815,17 +831,17 @@ public class FPSController : MonoBehaviour
 					anim.SetBool("Bomb", true);
 					if (Menu.network == 0)
 					{
-						mt.GetChild(0).gameObject.layer = 8;
+						SetBodyRenderLayer(8);
 					}
 					else if (Menu.network != 1 && base.gameObject.GetPhotonView().isMine)
 					{
 						if (base.gameObject.GetPhotonView().owner.GetTeam() == PunTeams.Team.red)
 						{
-							mt.GetChild(0).gameObject.layer = 8;
+							SetBodyRenderLayer(8);
 						}
 						else
 						{
-							mt.GetChild(0).gameObject.layer = 9;
+							SetBodyRenderLayer(9);
 						}
 					}
 				}
@@ -848,11 +864,11 @@ public class FPSController : MonoBehaviour
 		{
 			if (Menu.network == 0)
 			{
-				mt.GetChild(0).gameObject.layer = 13;
+				SetBodyRenderLayer(13);
 			}
 			else if (Menu.network != 1 && base.gameObject.GetPhotonView().isMine)
 			{
-				mt.GetChild(0).gameObject.layer = 13;
+				SetBodyRenderLayer(13);
 			}
 			transform.GetComponent<Collider>().enabled = true;
 			transform.SetParent(null);
