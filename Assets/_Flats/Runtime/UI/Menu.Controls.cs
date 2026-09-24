@@ -11,6 +11,12 @@ public partial class Menu
     readonly List<GameObject> controlOptions = new List<GameObject>();
     readonly List<Button> bindingRows = new List<Button>();
     readonly List<Button> controlTabs = new List<Button>();
+    readonly List<Text> bindingLabels = new List<Text>();
+    readonly List<Text> bindingDetails = new List<Text>();
+    readonly List<GameObject> controlTabMarkers = new List<GameObject>();
+    Button bindingPrevious, bindingNext;
+    Text bindingPageLabel;
+    int bindingPage;
     Text bindingStatus;
     bool bindingPad;
     string captureAction;
@@ -29,37 +35,95 @@ public partial class Menu
         if (bindingsPanel != null) return;
         var control = mt.GetChild(6).GetChild(2);
         foreach (Transform child in control) controlOptions.Add(child.gameObject);
-        var ui = new ModCenterWidgets(FlatsLocalizedText.GetSourceFont(bt[0]), () => PlayMenuSound(pressSE));
-        bindingsPanel = ui.Panel("Bindings", control, 0, -18, 680, 350, new Color(.31f, .24f, .29f)).gameObject;
-        controlTabs.Add(ui.Button("GeneralControls", control, "General", -225, 180, 200, 34, () => ShowBindings(false, false)));
-        controlTabs.Add(ui.Button("KeyboardControls", control, "Keyboard / Mouse", 0, 180, 220, 34, () => ShowBindings(true, false)));
-        controlTabs.Add(ui.Button("GamepadControls", control, "Controller", 225, 180, 200, 34, () => ShowBindings(true, true)));
+        // Keep the authored Settings panel. New controls borrow its typography,
+        // animated button states and live theme materials instead of a second UI skin.
+        var buttonStyle = control.GetChild(0).Find("Plus").GetComponent<Button>();
+        var textStyle = control.GetChild(0).GetChild(0).GetComponent<Text>();
+        bindingsPanel = ControlRect("Bindings", control, 0, 0, 600, 340).gameObject;
+        string[] tabNames = { "GeneralControls", "KeyboardControls", "GamepadControls" };
+        string[] tabLabels = { "General", "Keyboard / Mouse", "Controller" };
+        for (int i = 0; i < tabNames.Length; i++)
+        {
+            int tab = i;
+            var button = ControlButton(tabNames[i], control, tabLabels[i], (i - 1) * 205, 205, 190, 42,
+                buttonStyle, textStyle, () => ShowBindings(tab != 0, tab == 2));
+            controlTabs.Add(button);
+            var marker = ControlRect("ActiveTab", button.transform, 0, -21, 190, 2).gameObject.AddComponent<Image>();
+            marker.color = Color.white; marker.raycastTarget = false;
+            controlTabMarkers.Add(marker.gameObject);
+        }
         for (int i = 0; i < FlatsControls.KeyboardActions.Length; i++)
         {
             int row = i;
-            var button = ui.Button("Binding" + i, bindingsPanel.transform, "", i < 6 ? -168 : 168, 125 - (i % 6) * 38, 320, 34,
-                () => BeginBinding(row), ModCenterWidgets.ControlColor);
-            button.GetComponentInChildren<Text>().fontSize = 16;
+            var button = ControlButton("Binding" + i, bindingsPanel.transform, "", 110, 0, 240, 40,
+                buttonStyle, textStyle, () => BeginBinding(row));
             bindingRows.Add(button);
+            bindingLabels.Add(ControlText("Action", button.transform, "", -240, 0, 240, 40, textStyle, 20, TextAnchor.MiddleLeft));
+            bindingDetails.Add(ControlText("Detail", button.transform, "", -240, -17, 240, 20, textStyle, 13, TextAnchor.MiddleLeft));
         }
-        bindingStatus = ui.Text("Status", bindingsPanel.transform, "", 0, -148, 650, 40, 15, Color.white);
-        ui.Button("ResetBindings", bindingsPanel.transform, "Restore defaults", 185, -103, 280, 32, () =>
-        { FlatsControls.ResetBindings(bindingPad); RefreshBindings(); bindingStatus.text = "Default bindings restored."; });
-        ui.Text("FixedMenuKeys", control, "Menu: Esc / Start   |   Confirm: Enter / A   |   Back: Esc / B", 0, -218, 680, 26, 14, Color.white);
-        ShowBindings(true, false);
+        bindingStatus = ControlText("Status", bindingsPanel.transform, "", 0, -149, 520, 30, textStyle, 14, TextAnchor.MiddleLeft);
+        bindingPrevious = ControlButton("PreviousPage", bindingsPanel.transform, "<", -265, -205, 50, 42,
+            buttonStyle, textStyle, () => ChangeBindingPage(-1));
+        bindingPageLabel = ControlText("Page", bindingsPanel.transform, "", -180, -205, 100, 42, textStyle, 20, TextAnchor.MiddleCenter);
+        bindingNext = ControlButton("NextPage", bindingsPanel.transform, ">", -95, -205, 50, 42,
+            buttonStyle, textStyle, () => ChangeBindingPage(1));
+        ControlButton("ResetBindings", bindingsPanel.transform, "Restore defaults", 190, -205, 220, 42,
+            buttonStyle, textStyle, () =>
+            { FlatsControls.ResetBindings(bindingPad); RefreshBindings(); bindingStatus.text = "Default bindings restored."; });
+        // Include the new button animators in the same shared-material resolver.
+        themedGraphics = transform.root.GetComponentsInChildren<Graphic>(true);
+        ShowBindings(!Application.isMobilePlatform, false);
+    }
+
+    static RectTransform ControlRect(string name, Transform parent, float x, float y, float width, float height)
+    {
+        var rect = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
+        rect.gameObject.layer = parent.gameObject.layer;
+        rect.SetParent(parent, false);
+        rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
+        rect.anchoredPosition = new Vector2(x, y); rect.sizeDelta = new Vector2(width, height);
+        return rect;
+    }
+    static Text ControlText(string name, Transform parent, string value, float x, float y, float width, float height,
+        Text style, int size, TextAnchor alignment)
+    {
+        var text = ControlRect(name, parent, x, y, width, height).gameObject.AddComponent<FlatsLocalizedText>();
+        text.font = FlatsLocalizedText.GetSourceFont(style);
+        text.fontSize = size; text.fontStyle = style.fontStyle;
+        text.color = Color.white; text.alignment = alignment;
+        text.raycastTarget = false; text.supportRichText = false;
+        text.text = value;
+        return text;
+    }
+    Button ControlButton(string name, Transform parent, string value, float x, float y, float width, float height,
+        Button style, Text textStyle, Action action)
+    {
+        var rect = ControlRect(name, parent, x, y, width, height);
+        var image = rect.gameObject.AddComponent<Image>();
+        image.sprite = style.image.sprite; image.type = style.image.type;
+        image.material = ResolveThemeMaterial(style.image.material); image.color = Color.white;
+        var button = rect.gameObject.AddComponent<Button>();
+        button.targetGraphic = image; button.transition = style.transition;
+        button.colors = style.colors; button.animationTriggers = style.animationTriggers;
+        var animator = rect.gameObject.AddComponent<Animator>();
+        animator.runtimeAnimatorController = style.GetComponent<Animator>().runtimeAnimatorController;
+        animator.updateMode = AnimatorUpdateMode.UnscaledTime;
+        ControlText("Label", rect, value, 0, 0, width - 16, height, textStyle, 20, TextAnchor.MiddleCenter);
+        button.onClick.AddListener(() => { PlayMenuSound(pressSE); action(); });
+        return button;
     }
 
     void ShowBindings(bool show, bool pad)
     {
         if (FlatsControls.Capturing) return;
         bindingPad = pad;
+        bindingPage = 0;
         foreach (var child in controlOptions) child.SetActive(!show);
         bindingsPanel.SetActive(show);
         int selectedTab = !show ? 0 : pad ? 2 : 1;
         for (int i = 0; i < controlTabs.Count; i++)
         {
-            controlTabs[i].GetComponent<Image>().color = i == selectedTab ? ModCenterWidgets.Accent : Color.white;
-            controlTabs[i].GetComponentInChildren<Text>().color = i == selectedTab ? Color.white : ModCenterWidgets.Ink;
+            controlTabMarkers[i].SetActive(i == selectedTab);
         }
         if (show) RefreshBindings();
     }
@@ -79,18 +143,31 @@ public partial class Menu
     {
         bindingLanguage = FlatsLocalization.Language;
         int count = (bindingPad ? FlatsControls.PadActions : FlatsControls.KeyboardActions).Length;
+        int perPage = bindingPad ? 4 : 6;
+        int first = bindingPage * perPage;
         for (int i = 0; i < bindingRows.Count; i++)
         {
-            bindingRows[i].gameObject.SetActive(i < count);
-            if (i < count)
+            bool visible = i >= first && i < first + perPage && i < count;
+            bindingRows[i].gameObject.SetActive(visible);
+            if (visible)
             {
                 string action = BindingAction(i);
-                int half = count / 2;
-                ((RectTransform)bindingRows[i].transform).anchoredPosition = new Vector2(i < half ? -168 : 168, 125 - (i % half) * (bindingPad ? 55 : 38));
-                bindingRows[i].GetComponentInChildren<Text>().text = FlatsLocalization.Translate(ActionName(action, bindingPad)) + "   ·   " + FlatsControls.Label(action, bindingPad);
+                ((RectTransform)bindingRows[i].transform).anchoredPosition = new Vector2(110, (bindingPad ? 115 : 125) - (i - first) * (bindingPad ? 70 : 45));
+                bindingRows[i].transform.Find("Label").GetComponent<Text>().text = FlatsControls.Label(action, bindingPad);
+                bindingLabels[i].text = ActionName(action, false);
+                string detail = bindingPad && action == "Jump" ? "Hold to sprint" : bindingPad && action == "Change" ? "Hold to pick up" : "";
+                bindingDetails[i].text = detail;
+                bindingLabels[i].rectTransform.anchoredPosition = new Vector2(-240, detail.Length == 0 ? 0 : 7);
             }
         }
-        bindingStatus.text = bindingPad ? "Select an action, then press a controller button.\nLeft stick: move. Right stick: look. Start: menu." : "Select an action, then press a key or mouse button.\nEsc cancels. Duplicate bindings are rejected.";
+        bindingPageLabel.text = (bindingPage + 1) + " / 2";
+        bindingStatus.text = "Select a binding to change it.";
+    }
+    void ChangeBindingPage(int direction)
+    {
+        if (FlatsControls.Capturing || releasePending) return;
+        bindingPage = (bindingPage + direction + 2) % 2;
+        RefreshBindings();
     }
     void BeginBinding(int index)
     {
@@ -106,7 +183,8 @@ public partial class Menu
         restoreStandalone = standaloneModule.enabled;
         restoreInControl = inControlModule.enabled;
         standaloneModule.enabled = inControlModule.enabled = false;
-        bindingStatus.text = "Release all buttons, then press the new binding.\nEsc / Start cancels. Timeout: 10 seconds.";
+        captureButton.transform.Find("Label").GetComponent<Text>().text = "Press a button...";
+        bindingStatus.text = "Release, then press a new binding. Esc / Start cancels.";
     }
     void FinishBinding(string message)
     {

@@ -626,3 +626,8 @@ Grab flag: {control:Interact}.	奪取旗幟：{control:Interact}。
 Reset bomb: {control:Interact}.	重設炸彈：{control:Interact}。
 Pick up bomb: {control:Interact}.	拾取炸彈：{control:Interact}。
 Join: {control:Join}.	加入：{control:Join}。
+Select a binding to change it.	選擇按鍵以變更綁定。
+Hold to sprint	按住以衝刺
+Hold to pick up	按住以拾取
+Press a button...	請按下按鍵…
+Release, then press a new binding. Esc / Start cancels.	放開後按下新按鍵。Esc／Start 取消。
