@@ -6,7 +6,12 @@ namespace Flats.UI {
 public sealed partial class ConfirmationPresenter {
  private readonly GameObject confirm;
  private readonly Color[] originalTextColors;
- public ConfirmationPresenter(GameObject panel) { confirm = panel;originalTextColors=System.Array.ConvertAll(panel.GetComponentsInChildren<Text>(true),t=>t.color);CaptureOriginalAppearance(); }
+ private readonly System.Func<GameObject,Text,Text> createBodyText;
+ public ConfirmationPresenter(GameObject panel, System.Func<GameObject,Text,Text> textFactory = null) {
+     confirm = panel;
+     createBodyText = textFactory ?? ((target, source) => { var label=target.AddComponent<Text>();label.font=source.font;return label; });
+     originalTextColors=System.Array.ConvertAll(panel.GetComponentsInChildren<Text>(true),t=>t.color);CaptureOriginalAppearance();
+ }
 		public void ShowConfirm(Color theme, string title, string message, UnityAction<bool> action, string positiveBtnText, string negativeBtnText)
 		{
 			RestoreAppearance();

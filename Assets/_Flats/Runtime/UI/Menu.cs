@@ -4826,7 +4826,11 @@ public partial class Menu : MonoBehaviour
         private Flats.UI.ConfirmationPresenter confirmationPresenter;
         private Flats.UI.ConfirmationPresenter Confirmation
         {
-            get { return confirmationPresenter ?? (confirmationPresenter = new Flats.UI.ConfirmationPresenter(confirm)); }
+            get { return confirmationPresenter ?? (confirmationPresenter = new Flats.UI.ConfirmationPresenter(confirm, (target, source) => {
+                var label = target.AddComponent<FlatsLocalizedText>();
+                label.font = FlatsLocalizedText.GetSourceFont(source);
+                return label;
+            })); }
         }
         // Retained public entry points for persistent UnityEvents and existing callers.
         public void ShowConfirm(string title, string message, UnityAction<bool> action, string positiveBtnText, string negativeBtnText)
