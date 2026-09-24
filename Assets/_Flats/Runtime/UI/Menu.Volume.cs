@@ -22,8 +22,8 @@ public partial class Menu
         // Keep the authored label and +/- controls, including their navigation,
         // animation and localization. Append children to preserve legacy indices.
         var readout = row.GetChild(1).GetComponent<Text>();
-        readout.rectTransform.anchoredPosition = new Vector2(190, 0);
-        readout.rectTransform.sizeDelta = new Vector2(70, 50);
+        readout.rectTransform.anchoredPosition = new Vector2(165, 0);
+        readout.rectTransform.sizeDelta = new Vector2(60, 50);
         readout.raycastTarget = false;
 
         var root = VolumeRect("VolumeSlider", row, new Vector2(174, 50));
@@ -43,7 +43,8 @@ public partial class Menu
         VolumeImage(fill, Color.white);
         slider.fillRect = fill;
 
-        var handleArea = VolumeRect("HandleArea", root, new Vector2(154, 50));
+        // Slider stretches the handle vertically across this container.
+        var handleArea = VolumeRect("HandleArea", root, new Vector2(154, 0));
         var handle = VolumeRect("Handle", handleArea, new Vector2(18, 24));
         var handleImage = VolumeImage(handle, Color.white);
         slider.handleRect = handle;
