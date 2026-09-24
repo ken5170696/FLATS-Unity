@@ -6,10 +6,13 @@ using UnityEngine.UI;
 
 public partial class Menu
 {
-    GameObject localMatchPanel;
-    Text localMatchStatus;
-    InputField localRoomCode;
-    Button[] localRoomButtons;
+    [SerializeField] GameObject localMatchPanel;
+    [SerializeField] Text localMatchStatus;
+    [SerializeField] Text localRoomsEmpty;
+    [SerializeField] InputField localRoomCode;
+    [SerializeField] Button[] localRoomButtons;
+    [SerializeField] Button localJoin, localHost, localRefresh, localClose;
+    bool localMatchBound;
     FlatsLanDiscovery localDiscovery;
     string localRequestedRoom, localHostedRoom, localFeedback, cancelledLocalRoom;
     bool localRequestPending;
@@ -21,32 +24,18 @@ public partial class Menu
 
     void OpenLocalMatch()
     {
-        if (localMatchPanel == null)
+        if (!localMatchBound)
         {
             localDiscovery = gameObject.AddComponent<FlatsLanDiscovery>();
-            var ui = new ModCenterWidgets(FlatsLocalizedText.GetSourceFont(bt[0]), () => PlayMenuSound(pressSE));
-            localMatchPanel = ui.Panel("LocalMatchOnline", mt, 0, 0, 540, 410, new Color(.31f, .24f, .29f)).gameObject;
-            ui.Text("Title", localMatchPanel.transform, "Local Match - online rooms", 0, 176, 500, 35, 24, Color.white);
-            ui.Text("Explanation", localMatchPanel.transform,
-                "Internet required. Same Photon app, region and version.\nLAN discovery only; gameplay uses Photon online.\nHost: Deathmatch / 3 kills / 2 players. Both joining starts map voting.",
-                0, 117, 505, 70f, 16, Color.white);
-            localRoomCode = ui.Input("RoomCode", localMatchPanel.transform, "Host room code: lan-...", -65, 57, 360);
-            localRoomCode.characterLimit = 20;
-            ui.Button("JoinCode", localMatchPanel.transform, "Join code", 197, 57, 110, 36,
-                () => RequestLocalRoom(false, localRoomCode.text.Trim().ToLowerInvariant()), ModCenterWidgets.Accent);
-            ui.Button("Host", localMatchPanel.transform, "Host room", -130, 11, 240, 36,
-                () => RequestLocalRoom(true, "lan-" + Guid.NewGuid().ToString("N").Substring(0,16)), ModCenterWidgets.Accent);
-            ui.Button("Refresh", localMatchPanel.transform, "Refresh LAN", 130, 11, 240, 36,
-                () => { if (!localRequestPending && !multiplayerConnecting) { localFeedback = null; localDiscovery.Listen(); } }, ModCenterWidgets.Muted);
-            localRoomButtons = new Button[3];
-            for (int i = 0; i < localRoomButtons.Length; i++)
-                localRoomButtons[i] = ui.Button("DiscoveredRoom" + i, localMatchPanel.transform, "", 0, -36-i*38, 500, 34, () => {}, ModCenterWidgets.Muted);
-            localMatchStatus = ui.Text("Status", localMatchPanel.transform, "", 0, -158, 500, 55, 15, Color.white);
-            ui.Button("Close", localMatchPanel.transform, "Back", 221, 178, 62, 30, CloseLocalMatch, ModCenterWidgets.Muted);
+            localJoin.onClick.AddListener(() => { PlayMenuSound(pressSE); RequestLocalRoom(false, localRoomCode.text.Trim().ToLowerInvariant()); });
+            localHost.onClick.AddListener(() => { PlayMenuSound(pressSE); RequestLocalRoom(true, "lan-" + Guid.NewGuid().ToString("N").Substring(0,16)); });
+            localRefresh.onClick.AddListener(() => { PlayMenuSound(pressSE); if (!localRequestPending && !multiplayerConnecting) { localFeedback = null; localDiscovery.Listen(); } });
+            localClose.onClick.AddListener(() => { PlayMenuSound(cancelSE); CloseLocalMatch(); });
+            localMatchBound = true;
         }
         localMatchPanel.SetActive(true);
         localMatchPanel.transform.SetAsLastSibling();
-        backButton.SetActive(true);
+        backButton.SetActive(false);
         localFeedback = null;
         localDiscovery.Listen();
         RefreshLocalMatch();
@@ -68,6 +57,7 @@ public partial class Menu
         }
         if (localDiscovery != null) localDiscovery.Stop();
         if (localMatchPanel != null) localMatchPanel.SetActive(false);
+        backButton.SetActive(true);
         fliping = false;
         anim.SetBool("Fade", false);
     }
@@ -181,6 +171,7 @@ public partial class Menu
                 if (fresh != null) RequestLocalRoom(false, record.Room);
             });
         }
+        localRoomsEmpty.gameObject.SetActive(row == 0 && !localRequestPending);
         while (row < localRoomButtons.Length) localRoomButtons[row++].gameObject.SetActive(false);
     }
 }

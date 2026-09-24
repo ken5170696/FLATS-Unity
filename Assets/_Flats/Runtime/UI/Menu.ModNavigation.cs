@@ -28,7 +28,7 @@ public partial class Menu
     {
         fliping=true;PlayMenuSound(pressSE);anim.SetBool("Fade",true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-        current="Play";backButton.SetActive(true);anim.SetBool("Fade",false);fliping=false;
+        current="Play";quitButton.SetActive(false);backButton.SetActive(true);anim.SetBool("Fade",false);fliping=false;
         RefreshPlayTiles();EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);
     }
     IEnumerator LeavePlay(int legacyButton)
@@ -36,7 +36,7 @@ public partial class Menu
         fliping=true;PlayMenuSound(legacyButton<0?cancelSE:pressSE);anim.SetBool("Fade",true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
         RestorePlayTiles();BackToMainMenu();backButton.SetActive(false);fliping=false;
-        if(legacyButton<0) { EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);yield break; }
+        if(legacyButton<0) { quitButton.SetActive(true);EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);yield break; }
         enteringLegacyMode=true;Fade(legacyButton);enteringLegacyMode=false;
     }
     internal void RefreshPlayTiles()

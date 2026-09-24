@@ -8,6 +8,8 @@ $project=Split-Path $PSScriptRoot -Parent
 $version=Get-Content (Join-Path $project 'ProjectSettings/ProjectVersion.txt') -Raw
 if($version -notmatch 'm_EditorVersion: 6000.3.24f1') { throw 'Unexpected project version' }
 if(-not (Test-Path -LiteralPath $UnityEditor -PathType Leaf)){throw 'Unity Editor executable not found'}
+& python (Join-Path $PSScriptRoot 'check_source.py')
+if($LASTEXITCODE -ne 0){throw 'Source integrity failed; Unity was not started'}
 $logDirectory=Join-Path $project 'Logs'
 New-Item -ItemType Directory -Force $logDirectory | Out-Null
 $log=Join-Path $logDirectory ($Task+'-'+[DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfff')+'.log')

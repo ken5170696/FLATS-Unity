@@ -1,10 +1,14 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 // Batch entry points deliberately produce local candidates, never publish artifacts.
 public static class FlatsPortalBuild
@@ -12,9 +16,34 @@ public static class FlatsPortalBuild
     [Serializable] sealed class Provenance
     {
         public string sourceCommit, unityVersion, target, builtUtc, result;
+        public string sourceFingerprint;
+        public bool sourceDirty;
         public ulong bytes;
         public int errors, warnings;
         public bool publicDistributionApproved = false;
+    }
+
+    [Serializable] sealed class SourceFile
+    {
+        public string path, sha256;
+    }
+
+    [Serializable] sealed class SourceSnapshot
+    {
+        public string commit, fingerprint;
+        public bool dirty;
+        public SourceFile[] files;
+    }
+
+    [Serializable] sealed class PackedItem
+    {
+        public string container, source;
+        public ulong bytes;
+    }
+
+    [Serializable] sealed class SizeReport
+    {
+        public PackedItem[] assets;
     }
 
     [MenuItem("Flats Recovery/Portal/Build Windows")]
@@ -27,6 +56,7 @@ public static class FlatsPortalBuild
     public static void Mac() { Build(BuildTarget.StandaloneOSX, "macOS", "FLATS.app"); }
     public static void Android()
     {
+        RequireSavedAuthoringState();
         var previous = PlayerSettings.Android.targetArchitectures;
         var previousCode = PlayerSettings.Android.bundleVersionCode;
         var previousApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.Android);
@@ -54,6 +84,7 @@ public static class FlatsPortalBuild
 
     static void Build(BuildTarget target, string name, string file)
     {
+        RequireSavedAuthoringState();
         var group = BuildPipeline.GetBuildTargetGroup(target);
         if (!BuildPipeline.IsBuildTargetSupported(group, target))
             throw new BuildFailedException("Install Unity " + Application.unityVersion + " support module for " + target);
@@ -68,14 +99,14 @@ public static class FlatsPortalBuild
         var oldSymbols = PlayerSettings.WebGL.debugSymbolMode;
         string root = Path.GetFullPath("Builds/Portal/" + name);
         Directory.CreateDirectory(root);
-        string source = ReadSourceCommit();
+        var source = CaptureSource();
         const string catalogueAsset = "Assets/Resources/FlatsModCatalogue.txt";
         const string photonAsset = "Assets/Resources/FlatsPhotonClient.txt";
-        if (File.Exists(photonAsset)) throw new BuildFailedException("Reserved generated Photon client asset already exists.");
+        if (File.Exists(photonAsset) || File.Exists(photonAsset + ".meta")) throw new BuildFailedException("Reserved generated Photon client asset or metadata already exists.");
         string photonClient = Environment.GetEnvironmentVariable("FLATS_PHOTON_APP_ID");
         if (!string.IsNullOrWhiteSpace(photonClient) && (!Guid.TryParse(photonClient, out var clientId) || clientId == Guid.Empty))
             throw new BuildFailedException("Invalid release Photon client App ID.");
-        if(File.Exists(catalogueAsset)) throw new BuildFailedException("Reserved generated catalogue asset already exists; preserve and move it before building.");
+        if(File.Exists(catalogueAsset) || File.Exists(catalogueAsset + ".meta")) throw new BuildFailedException("Reserved generated catalogue asset or metadata already exists; preserve and move it before building.");
         string catalogue = Flats.Modules.OfficialModEndpoint.Url;
         if(!string.IsNullOrWhiteSpace(catalogue))
         {
@@ -115,13 +146,19 @@ public static class FlatsPortalBuild
             if (scenes.Length == 0 || !scenes[0].EndsWith("/MainMenu.unity"))
                 throw new BuildFailedException("Expected tracked build scenes with MainMenu first.");
             foreach (string scene in scenes) if (!File.Exists(scene)) throw new FileNotFoundException(scene);
-            var report = BuildPipeline.BuildPlayer(scenes, Path.Combine(root, file), target, BuildOptions.None);
+            File.WriteAllText(Path.Combine(root, "source-snapshot.json"), JsonUtility.ToJson(source, true));
+            var report = BuildPipeline.BuildPlayer(scenes, Path.Combine(root, file), target, BuildOptions.DetailedBuildReport);
             // Some failed export postprocessors remove their destination folder.
             Directory.CreateDirectory(root);
-            var evidence = new Provenance { sourceCommit=source, unityVersion=Application.unityVersion,
+            var evidence = new Provenance { sourceCommit=source.commit, sourceFingerprint=source.fingerprint,
+                sourceDirty=source.dirty, unityVersion=Application.unityVersion,
                 target=target.ToString(), builtUtc=DateTime.UtcNow.ToString("o"), result=report.summary.result.ToString(),
                 bytes=report.summary.totalSize, errors=report.summary.totalErrors, warnings=report.summary.totalWarnings };
             File.WriteAllText(Path.Combine(root,"build-provenance.json"), JsonUtility.ToJson(evidence,true));
+            var sizes = new SizeReport { assets = report.packedAssets.SelectMany(pack => pack.contents.Select(item =>
+                new PackedItem { container = pack.shortPath, source = item.sourceAssetPath, bytes = item.packedSize }))
+                .OrderByDescending(item => item.bytes).ToArray() };
+            File.WriteAllText(Path.Combine(root, "packed-assets.json"), JsonUtility.ToJson(sizes, true));
             using (var writer = new StreamWriter("Builds/Portal/" + name + "-messages.txt"))
                 foreach (var step in report.steps) foreach (var message in step.messages)
                     writer.WriteLine(message.type + ": " + message.content);
@@ -152,17 +189,50 @@ public static class FlatsPortalBuild
         }
     }
 
-    static string ReadSourceCommit()
+    static void RequireSavedAuthoringState()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+            throw new BuildFailedException("Stop Play Mode before building.");
+        for (int i = 0; i < SceneManager.sceneCount; i++)
+        {
+            var scene = SceneManager.GetSceneAt(i);
+            if (scene.isDirty)
+                throw new BuildFailedException("Save or discard scene changes explicitly before building: " + scene.name);
+        }
+        var stage = PrefabStageUtility.GetCurrentPrefabStage();
+        if (stage != null && stage.scene.isDirty)
+            throw new BuildFailedException("Save or discard Prefab Mode changes explicitly before building: " + stage.assetPath);
+    }
+
+    static string Hash(byte[] bytes)
+    {
+        using (var sha = SHA256.Create())
+            return BitConverter.ToString(sha.ComputeHash(bytes)).Replace("-", "").ToLowerInvariant();
+    }
+
+    static SourceSnapshot CaptureSource()
+    {
+        var files = Git("ls-files -z --cached --others --exclude-standard").Split('\0')
+            .Where(path => path.Length > 0).Distinct().OrderBy(path => path, StringComparer.Ordinal)
+            .Select(path => new SourceFile { path = path,
+                sha256 = File.Exists(path) ? Hash(File.ReadAllBytes(path)) : "deleted" }).ToArray();
+        return new SourceSnapshot {
+            commit = Git("rev-parse HEAD").Trim(), dirty = Git("status --porcelain").Length > 0, files = files,
+            fingerprint = Hash(Encoding.UTF8.GetBytes(string.Concat(files.Select(item => item.path + "\0" + item.sha256 + "\n"))))
+        };
+    }
+
+    static string Git(string arguments)
     {
         string git = Environment.GetEnvironmentVariable("FLATS_GIT_EXECUTABLE") ?? "git";
         string windowsGit = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Git/cmd/git.exe");
         if (git == "git" && File.Exists(windowsGit)) git = windowsGit;
-        var start = new System.Diagnostics.ProcessStartInfo(git, "rev-parse HEAD") {
+        var start = new System.Diagnostics.ProcessStartInfo(git, arguments) {
             WorkingDirectory=Path.GetFullPath("."), UseShellExecute=false, CreateNoWindow=true, RedirectStandardOutput=true };
         using (var process = System.Diagnostics.Process.Start(start))
         {
-            string value=process.StandardOutput.ReadToEnd().Trim(); process.WaitForExit();
-            if (process.ExitCode != 0 || value.Length != 40) throw new BuildFailedException("Cannot resolve source commit.");
+            string value=process.StandardOutput.ReadToEnd(); process.WaitForExit();
+            if (process.ExitCode != 0) throw new BuildFailedException("Cannot capture Git source identity.");
             return value;
         }
     }

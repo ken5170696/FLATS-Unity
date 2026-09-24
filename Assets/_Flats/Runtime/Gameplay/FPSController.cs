@@ -68,6 +68,7 @@ public class FPSController : MonoBehaviour
 	private Gun currentGun;
 
 	private bool startZooming;
+	private Vector3 aimEyeLocalPosition;
 
 	private Transform ui;
 
@@ -701,6 +702,8 @@ public class FPSController : MonoBehaviour
 				reticle.SetVisible(false);
 			}
 			startZooming = true;
+			aimEyeLocalPosition = mt.InverseTransformPoint(ct.position);
+			camAnim.enabled = false;
 		}
 		else if (isZoom && !zoom)
 		{
@@ -886,7 +889,6 @@ public class FPSController : MonoBehaviour
 			reticle.SetVisible(false);
 		}
 		int[] gunInfo = new int[5];
-		new GameObject();
 		if (Menu.network == 0)
 		{
 			gunInfo[0] = receivedData[0];
@@ -917,7 +919,6 @@ public class FPSController : MonoBehaviour
 		{
 			UnityEngine.Object.Destroy(primaryWeapon.GetChild(2).GetChild(0).gameObject);
 		}
-		new GameObject();
 		if (Menu.network == 0)
 		{
 			GameObject newGun = UnityEngine.Object.Instantiate(Resources.Load("Weapons/Weapon" + primaryWeaponIndex), mt.position + Vector3.up * 3f, Quaternion.identity) as GameObject;
@@ -1346,7 +1347,6 @@ public class FPSController : MonoBehaviour
 				yield return new WaitForSeconds(0.2f);
 			}
 			InputDevice inputDevice = InputManager.ActiveDevice;
-			Transform firePosition = primaryWeapon.GetChild(1);
 			int currentBurstCount = currentGun.burstCount;
 			if (currentGun.currentAmmo <= 0)
 			{
@@ -1362,7 +1362,7 @@ public class FPSController : MonoBehaviour
 			}
 			if (currentGun.oneShot)
 			{
-				GameObject mf = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, firePosition.position, mt.rotation) as GameObject;
+				GameObject mf = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 				base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
 				for (int i = 0; i < currentGun.burstCount; i++)
@@ -1414,7 +1414,7 @@ public class FPSController : MonoBehaviour
 			}
 			while (true)
 			{
-				GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, firePosition.position, mt.rotation) as GameObject;
+				GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 				base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
 				float ram1 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
@@ -2354,39 +2354,64 @@ public class FPSController : MonoBehaviour
 		}
 	}
 
-	private void FixedUpdate()
+	public Vector3 GetBulletTrailOrigin()
 	{
-		if (!MyView(base.gameObject))
+		Vector3 muzzle = primaryWeapon.GetChild(1).position;
+		if (!MyView(base.gameObject) || gunCam == null || !gunCam.enabled) return muzzle;
+		// Weapons and world tracers use different cameras during ADS. Reproject
+		// only the visible muzzle; projectile physics keeps the world aim ray.
+		Camera worldCamera = ct.GetComponent<Camera>();
+		Vector3 viewport = gunCam.WorldToViewportPoint(muzzle);
+		if (worldCamera == null || !worldCamera.enabled || viewport.z <= 0f) return muzzle;
+		return worldCamera.ViewportToWorldPoint(viewport);
+	}
+
+	private void UpdateAimPresentation()
+	{
+		if (!MyView(base.gameObject) || gunCam == null)
 		{
 			return;
 		}
+		// The world camera is also the projectile origin. Only the weapon-view
+		// camera approaches the authored sight pose; ADS must not steer that ray.
+		// Keep it owned by the camera rig when weapons are disabled or destroyed.
+		Transform view = gunCam.transform;
+		// Weapon/body clips can animate the eye's parent as well (notably
+		// handguns). Preserve eye position relative to the moving player, while
+		// input continues to own camera rotation and the authored weapon pose.
+		if (startZooming || isZoom) ct.position = mt.TransformPoint(aimEyeLocalPosition);
+		else if (!camAnim.enabled)
+			ct.localPosition = Vector3.MoveTowards(ct.localPosition, Vector3.zero, Time.deltaTime * 20f);
 		if (startZooming)
 		{
 			enableCamRotate = false;
-			ct.position = Vector3.MoveTowards(ct.position, primaryWeapon.GetChild(2).position, Time.deltaTime * 20f);
-			ct.eulerAngles = Vector3.MoveTowards(ct.eulerAngles, primaryWeapon.GetChild(2).eulerAngles, Time.deltaTime * 20f);
-			if (Vector3.Distance(ct.transform.position, primaryWeapon.GetChild(2).position) < 0.05f)
+			Transform anchor = primaryWeapon.GetChild(2);
+			view.position = Vector3.MoveTowards(view.position, anchor.position, Time.deltaTime * 20f);
+			view.rotation = Quaternion.RotateTowards(view.rotation, anchor.rotation, Time.deltaTime * 20f);
+			if (Vector3.Distance(view.position, anchor.position) < 0.05f)
 			{
 				isZoom = true;
 				startZooming = false;
-				ct.SetParent(primaryWeapon.GetChild(2));
-				ct.localEulerAngles = new Vector3(0f, 0f, 0f);
-				ct.localPosition = new Vector3(0f, 0f, 0f);
-				camAnim.enabled = false;
+				view.SetPositionAndRotation(anchor.position, anchor.rotation);
 				enableCamRotate = true;
 				fp.DOFParams.DOFBlurSize = 2f;
 			}
 		}
-		else if (!isZoom && ct.parent != mct && ct.parent != null)
+		else if (isZoom)
+		{
+			Transform anchor = primaryWeapon.GetChild(2);
+			view.SetPositionAndRotation(anchor.position, anchor.rotation);
+		}
+		else if (!camAnim.enabled)
 		{
 			enableCamRotate = false;
-			ct.position = Vector3.MoveTowards(ct.position, mct.position, Time.deltaTime * 20f);
-			ct.rotation = Quaternion.RotateTowards(ct.rotation, mct.rotation, Time.deltaTime * 20f);
-			if (Vector3.Distance(ct.transform.position, mct.position) < 0.05f)
+			view.position = Vector3.MoveTowards(view.position, ct.position, Time.deltaTime * 20f);
+			view.rotation = Quaternion.RotateTowards(view.rotation, ct.rotation, Time.deltaTime * 20f);
+			if (Vector3.Distance(view.position, ct.position) < 0.05f && ct.localPosition.sqrMagnitude < 0.0001f)
 			{
-				ct.SetParent(mct);
-				ct.localEulerAngles = new Vector3(0f, 0f, 0f);
-				ct.localPosition = new Vector3(0f, 0f, 0f);
+				ct.localPosition = Vector3.zero;
+				view.localRotation = Quaternion.identity;
+				view.localPosition = Vector3.zero;
 				camAnim.enabled = true;
 				fp.DOFParams.DOFBlurSize = 1f;
 				enableCamRotate = true;
@@ -2407,11 +2432,7 @@ public class FPSController : MonoBehaviour
 
 	private void LateUpdate()
 	{
-		if (!MyView(base.gameObject))
-		{
-			int network = Menu.network;
-			int num = 1;
-		}
+		UpdateAimPresentation();
 	}
 
 	private bool isGrounded()

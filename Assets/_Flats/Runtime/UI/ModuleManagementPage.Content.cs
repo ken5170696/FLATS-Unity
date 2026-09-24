@@ -79,14 +79,6 @@ public sealed partial class ModuleManagementPage
         if(sortValue=="name")entries=entries.OrderBy(e=>e.Item2,StringComparer.OrdinalIgnoreCase).ToList();
         if(sortValue=="name-desc")entries=entries.OrderByDescending(e=>e.Item2,StringComparer.OrdinalIgnoreCase).ToList();
         int row=0;foreach(var e in entries.Skip(offset).Take(20))AddRow(e.Item1,e.Item2,e.Item3,row++);
-        if(tab=="Installed"&&Service.Installed.Length==0&&localFilter=="All"&&search.text.Length==0)
-        {
-            var hint=ui.Text("NoDownloadedMods",listContent,"Your installed mods are available offline.\nExplore the official catalogue when connected.",0,-rowY-50,ListWidth-40,72,18,ModCenterWidgets.Muted);
-            hint.rectTransform.anchorMin=hint.rectTransform.anchorMax=new Vector2(.5f,1);
-            var browse=ui.Button("BrowseMore",listContent,"Explore mods",-ListWidth/2+125,-rowY-118,210,44,()=>Switch("Explore"));
-            ((RectTransform)browse.transform).anchorMin=((RectTransform)browse.transform).anchorMax=new Vector2(.5f,1);
-            listContent.sizeDelta=new Vector2(0,Mathf.Max(listScroll.viewport.rect.height,rowY+150));
-        }
         if(entries.Count==0)Empty(tab=="Installed"&&Service.Installed.Length==0&&search.text.Length==0&&localFilter=="All"?"No mods installed\nOpen Explore to download your first mod.":tab=="Downloads"?(search.text.Length>0?"No matching downloads\nClear your search to see the queue.":"No downloads\nYour queue will appear here."):"No matching mods\nTry another search or filter.");
         if(!entries.Any(e=>e.Item1==selectedId))selectedId=entries.FirstOrDefault()?.Item1??"";
         Page(entries.Count);restoreScroll=false;RefreshQuick();ShowDetail();
@@ -126,51 +118,59 @@ public sealed partial class ModuleManagementPage
     void Empty(string message)
     {
         float h=Mathf.Max(180,listScroll.viewport.rect.height);bool compact=h<280;
-        var panel=ui.Panel("EmptyPanel",listContent,0,-h/2,ListWidth-16,h,ModCenterWidgets.Paper);
-        panel.rectTransform.anchorMin=panel.rectTransform.anchorMax=new Vector2(.5f,1);
-        var icon=ui.Rect("ModIcon",panel.transform,0,80,64,64).gameObject.AddComponent<ModTileGraphic>();icon.color=ModCenterWidgets.Accent;icon.raycastTarget=false;icon.gameObject.SetActive(!compact);
+        var view=Instantiate(emptyStatePrefab,listContent,false);view.name="EmptyPanel";
+        var panel=(RectTransform)view.transform;panel.anchoredPosition=new Vector2(0,-h/2);panel.sizeDelta=new Vector2(ListWidth-16,h);
+        view.icon.SetActive(!compact);
         var parts=message.Split(new[]{'\n'},2);
-        var title=ui.Text("EmptyTitle",panel.transform,parts[0],0,compact?h/2-32:-4,Mathf.Min(760,ListWidth-80),42,compact?24:30);title.alignment=TextAnchor.MiddleCenter;
-        var t=ui.Text("EmptyState",panel.transform,parts.Length>1?parts[1]:"",0,compact?h/2-78:-60,Mathf.Min(760,ListWidth-80),48,18,ModCenterWidgets.Muted);t.alignment=TextAnchor.MiddleCenter;
-        if(message.StartsWith("Loading")){Page(0);return;}
+        view.title.text=parts[0];view.message.text=parts.Length>1?parts[1]:"";
+        if(message.StartsWith("Loading")){view.primary.gameObject.SetActive(false);view.secondary.gameObject.SetActive(false);Page(0);return;}
         bool query=search.text.Length>0||localFilter!="All"||categoryValue.Length>0;
         string label;Action action;
         if(tab=="Explore"&&Service.Source==null){label="Try again";action=Reload;}
         else if(query){label="Clear filters";action=()=>{localFilter="All";categoryValue="";compatible=true;offset=0;Reload();};}
         else if(tab=="Explore"){label="Try again";action=Reload;}
         else {label="Explore mods";action=()=>Switch("Explore");}
-        ui.Button("EmptyAction",panel.transform,label,-145,-h/2+28,260,46,action,ModCenterWidgets.Accent);
-        ui.Button("EmptySecondary",panel.transform,query?"Clear search":"Go to installed",155,-h/2+28,260,46,()=>{if(query){search.text="";Reload();}else Switch("Installed");});
+        view.primary.GetComponentInChildren<Text>().text=label;Listen(view.primary,action);
+        view.secondary.GetComponentInChildren<Text>().text=query?"Clear search":"Go to installed";
+        view.secondary.gameObject.SetActive(query||tab!="Installed");
+        Listen(view.secondary,()=>{if(query){search.text="";Reload();}else Switch("Installed");});
         Page(0);
     }
     static string PlayerName(string value) { return string.Join(" ",(value ?? "Unnamed mod").Split(new[]{' ' ,'\n','\r','\t'},StringSplitOptions.RemoveEmptyEntries)); }
     void AddRow(string id,string name,string subtitle,int index)
     {
         if(tab=="Explore"){AddCard(id,name,subtitle,index);return;}
-        float width=ListWidth-16,height=tab=="Downloads"?108:68;
-        var b=ui.Button("Mod-"+id,listContent,"",0,0,width,height,()=>SelectRow(id),id==selectedId?ModCenterWidgets.Tint:ModCenterWidgets.Paper);
-        var r=(RectTransform)b.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,1);r.pivot=new Vector2(.5f,1);r.anchoredPosition=new Vector2(0,-rowY);
-        var icon=ui.Rect("ModIcon",r,-width/2+34,-height/2,40,40).gameObject.AddComponent<ModTileGraphic>();icon.color=ModCenterWidgets.Accent;icon.raycastTarget=false;
-        var title=ui.Text("Name",r,PlayerName(name),-width/2+68+width*.16f,-25,width*.32f,44,18,localize:id==CrosshairModule.Id);title.alignment=TextAnchor.MiddleLeft;
+        bool downloading=tab=="Downloads";
+        var view=Instantiate(downloading?downloadRowPrefab:installedRowPrefab,listContent,false);
+        view.name="Mod-"+id;view.scroll=listScroll;
+        var rect=(RectTransform)view.transform;
+        rect.sizeDelta=new Vector2(ListWidth-16,rect.sizeDelta.y);
+        rect.anchoredPosition=new Vector2(0,-rowY);
+        view.select.image.color=id==selectedId?ModCenterWidgets.Tint:ModCenterWidgets.Paper;
+        Listen(view.select,()=>SelectRow(id));
+        view.title.translate=id==CrosshairModule.Id;view.SetTitle(PlayerName(name));
         var record=Host.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
         var package=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);
-        var version=package?.manifest.version??record?.Manifest.Version.ToString()??"";
-        ui.Text("Scope",r,id==CrosshairModule.Id?"Client-only":package?.manifest.scope??"", -width/2+68+width*.16f,-55,width*.32f,24,14,ModCenterWidgets.Muted);
-        ui.Text("Version",r,version,-width*.06f,-height/2,100,36,16);
-        var state=ui.Text("State",r,subtitle.Split('\n').Last(),width*.14f,-height/2,width*.27f,60,15,ModCenterWidgets.Muted);
-        if(tab=="Installed"&&(package!=null||record!=null))
+        view.scope.text=package==null?"":package.manifest.scope=="ClientOnly"?"Your screen only":"Multiplayer mod";
+        view.version.text=package?.manifest.version??record?.Manifest.Version.ToString()??"";
+        view.state.text=subtitle.Split('\n').Last();
+        bool installedRow=!downloading&&(package!=null||record!=null);
+        view.toggle.gameObject.SetActive(installedRow);view.details.gameObject.SetActive(installedRow);
+        if(installedRow)
         {
-            bool requested=package?.requested??Host.Requested(id);
-            var toggle=ui.Button("Toggle-"+id,r,"",width/2-122,-height/2,72,44,()=>ToggleRow(id),Color.clear);
-            var track=ui.Panel("Switch",toggle.transform,0,0,58,30,requested?ModCenterWidgets.Accent:new Color(.7f,.68f,.7f));toggle.targetGraphic=track;
-            ui.Panel("Thumb",track.transform,requested?14:-14,0,22,22,Color.white).raycastTarget=false;
-            ui.Button("Details-"+id,r,"...",width/2-44,-height/2,60,44,()=>{selectedId=id;OpenDetail();});
-            ui.Panel("Rule",r,0,-height+1,width,1,ModCenterWidgets.Line);
+            view.toggle.name="Toggle-"+id;view.details.name="Details-"+id;
+            view.SetRequested(package?.requested??Host.Requested(id));
+            Listen(view.toggle,()=>ToggleRow(id));
+            Listen(view.details,()=>{selectedId=id;OpenDetail();});
         }
-        foreach(Transform t in r)((RectTransform)t).anchorMin=((RectTransform)t).anchorMax=new Vector2(.5f,1);
-        b.gameObject.AddComponent<ModScrollFocus>().Scroll=listScroll;
-        rowY+=height;listContent.sizeDelta=new Vector2(0,Mathf.Max(listScroll.viewport.rect.height,rowY));
-        if(b.name==pendingFocusName&&!detailOpen)Focus(b);
+        if(downloading)
+        {
+            Listen(view.queueAction,()=>QueueAction(id));
+            Listen(view.queueCancel,()=>Service.Downloads.Cancel(id));
+        }
+        rowY+=rect.rect.height;
+        listContent.sizeDelta=new Vector2(0,Mathf.Max(listScroll.viewport.rect.height,rowY+listBottomPadding));
+        if(view.name==pendingFocusName&&!detailOpen)Focus(view.select);
     }
     void Page(int total)
     {
@@ -234,19 +234,14 @@ public sealed partial class ModuleManagementPage
         catch(Exception) { SetPrimary("Desktop required",false); }
 #endif
     }
-    void SetDescription(string text,float height=200)
+    void SetDescription(string text)
     {
-        float width=ContentWidth-96;
         detailScroll.gameObject.SetActive(true);
-        float panelHeight=((RectTransform)detailPanel.transform).rect.height;
-        float titleHeight=Mathf.Clamp(detailTitle.preferredHeight+6,54,100);
-        Place(detailTitle.transform,0,panelHeight/2-20-titleHeight/2,width,titleHeight);
-        height=panelHeight-titleHeight-114;
-        Place(detailScroll.transform,0,panelHeight/2-34-titleHeight-height/2,width,height);detailScroll.viewport.sizeDelta=new Vector2(width-12,height);
         description.text=text;description.rectTransform.anchoredPosition=Vector2.zero;
-        description.rectTransform.sizeDelta=new Vector2(width-28,height);
-        description.rectTransform.sizeDelta=new Vector2(width-28,Mathf.Max(height,description.preferredHeight+12));
-        detailContent.sizeDelta=new Vector2(0,description.rectTransform.sizeDelta.y);
+        Canvas.ForceUpdateCanvases();
+        float height=Mathf.Max(detailScroll.viewport.rect.height,description.preferredHeight+12);
+        description.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,height);
+        detailContent.sizeDelta=new Vector2(0,height);
     }
     void SetPrimary(string label,bool allowed) { enable.GetComponentInChildren<Text>().text=label;enable.interactable=allowed; }
     string PlayerProblem(PackageManifest manifest)

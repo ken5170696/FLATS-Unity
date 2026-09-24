@@ -610,7 +610,7 @@ public partial class Menu : MonoBehaviour
 		Array.Resize(ref bt, 6);
 		for (int i = 0; i < buttons.Length; i++)
 		{
-			bt[i] = buttons[i].transform.parent.GetChild(1).GetComponent<Text>();
+			bt[i] = tileArtwork.labels[i];
             // Main sprite rectangles and padding now match the original 512px assets.
             // Preserve the authored Image RectTransform instead of a tight-crop workaround.
 		}
@@ -728,10 +728,10 @@ public partial class Menu : MonoBehaviour
 		roomTexts[3].text = "Player Count: " + playerCount;
 		roomTexts[4].text = "Searching for a room...";
 		myButton = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-		myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
+		myButton.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(myCharacter.color)
 			.GetComponent<Image>()
 			.color;
-		myButton.transform.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(0).GetChild(0)
+		myButton.transform.GetChild(0).GetComponent<Image>().sprite = characterScreen.GetChild(0).GetChild(0)
 			.GetChild(0)
 			.GetComponent<Image>()
 			.sprite;
@@ -924,14 +924,14 @@ public partial class Menu : MonoBehaviour
 			bytes2 = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
 			icon.LoadImage(bytes2);
 		}
-		mt.GetChild(5).GetChild(0).GetChild(0)
+		characterScreen.GetChild(0).GetChild(0)
 			.GetChild(0)
 			.GetComponent<Image>()
 			.sprite = Sprite.Create(icon, new Rect(0f, 0f, 128f, 128f), new Vector2(0.5f, 0.5f));
-		mt.GetChild(5).GetChild(0).GetChild(1)
+		characterScreen.GetChild(0).GetChild(1)
 			.GetComponent<InputField>()
 			.text = myCharacter.name;
-		mt.GetChild(5).GetChild(0).GetChild(2)
+		characterScreen.GetChild(0).GetChild(2)
 			.GetComponent<InputField>()
 			.text = myCharacter.comment;
 		if (myCharacter.death == 0)
@@ -944,58 +944,58 @@ public partial class Menu : MonoBehaviour
 		}
 		singleScore = ((float)((myCharacter.survivalScore + myCharacter.assortmentScore + myCharacter.headshotScore) / 3)).ToString("F0");
 		totalScore = ((float.Parse(multiScore) + 1f) * float.Parse(singleScore) / 2f).ToString("F0");
-		mt.GetChild(5).GetChild(2).GetChild(1)
+		characterScreen.GetChild(2).GetChild(1)
 			.GetComponent<Text>()
 			.text = totalScore;
-		mt.GetChild(5).GetChild(2).GetChild(3)
+		characterScreen.GetChild(2).GetChild(3)
 			.GetComponent<Text>()
 			.text = multiScore;
-		mt.GetChild(5).GetChild(2).GetChild(5)
+		characterScreen.GetChild(2).GetChild(5)
 			.GetComponent<Text>()
 			.text = myCharacter.kill.ToString();
-		mt.GetChild(5).GetChild(2).GetChild(7)
+		characterScreen.GetChild(2).GetChild(7)
 			.GetComponent<Text>()
 			.text = myCharacter.death.ToString();
-		mt.GetChild(5).GetChild(2).GetChild(9)
+		characterScreen.GetChild(2).GetChild(9)
 			.GetComponent<Text>()
 			.text = singleScore;
-		mt.GetChild(5).GetChild(2).GetChild(11)
+		characterScreen.GetChild(2).GetChild(11)
 			.GetComponent<Text>()
 			.text = myCharacter.survivalScore.ToString();
-		mt.GetChild(5).GetChild(2).GetChild(13)
+		characterScreen.GetChild(2).GetChild(13)
 			.GetComponent<Text>()
 			.text = myCharacter.assortmentScore.ToString();
-		mt.GetChild(5).GetChild(2).GetChild(15)
+		characterScreen.GetChild(2).GetChild(15)
 			.GetComponent<Text>()
 			.text = myCharacter.headshotScore.ToString();
-		mt.GetChild(5).GetChild(3).GetChild(0)
+		characterScreen.GetChild(3).GetChild(0)
 			.GetChild(1)
 			.GetComponent<Image>()
-			.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+			.sprite = characterScreen.GetChild(3).GetChild(2)
 			.GetChild(myCharacter.primaryWeapon)
 			.GetChild(0)
 			.GetComponent<Image>()
 			.sprite;
-		mt.GetChild(5).GetChild(3).GetChild(0)
+		characterScreen.GetChild(3).GetChild(0)
 			.GetChild(2)
 			.GetComponent<Text>()
-			.text = mt.GetChild(5).GetChild(3).GetChild(2)
+			.text = characterScreen.GetChild(3).GetChild(2)
 			.GetChild(myCharacter.primaryWeapon)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text;
-		mt.GetChild(5).GetChild(3).GetChild(1)
+		characterScreen.GetChild(3).GetChild(1)
 			.GetChild(1)
 			.GetComponent<Image>()
-			.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+			.sprite = characterScreen.GetChild(3).GetChild(2)
 			.GetChild(myCharacter.secondaryWeapon)
 			.GetChild(0)
 			.GetComponent<Image>()
 			.sprite;
-		mt.GetChild(5).GetChild(3).GetChild(1)
+		characterScreen.GetChild(3).GetChild(1)
 			.GetChild(2)
 			.GetComponent<Text>()
-			.text = mt.GetChild(5).GetChild(3).GetChild(2)
+			.text = characterScreen.GetChild(3).GetChild(2)
 			.GetChild(myCharacter.secondaryWeapon)
 			.GetChild(1)
 			.GetComponent<Text>()
@@ -1006,18 +1006,18 @@ public partial class Menu : MonoBehaviour
 		sightDictionary[3] = "4x sight";
 		sightDictionary[4] = "6x sight";
 		sightDictionary[5] = "8x sight";
-		mt.GetChild(5).GetChild(4).GetChild(1)
+		characterScreen.GetChild(4).GetChild(1)
 			.GetComponent<Text>()
 			.text = myCharacter.attack + myCharacter.defense + "/10";
-		mt.GetChild(5).GetChild(4).GetChild(2)
+		characterScreen.GetChild(4).GetChild(2)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = myCharacter.attack.ToString();
-		mt.GetChild(5).GetChild(4).GetChild(3)
+		characterScreen.GetChild(4).GetChild(3)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = myCharacter.defense.ToString();
-		mt.GetChild(5).GetChild(5).GetChild(0)
+		characterScreen.GetChild(5).GetChild(0)
 			.GetComponent<Text>()
 			.text = "ID:" + myCharacter.id;
         InitializeVolumeSliders();
@@ -1025,35 +1025,35 @@ public partial class Menu : MonoBehaviour
 		aaText[0] = "OFF";
 		aaText[1] = "ON";
 		FPSController.aa = IntToBool(mySettings.graphics_aa);
-		mt.GetChild(6).GetChild(1).GetChild(0)
+		settingsScreen.GetChild(1).GetChild(0)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = aaText[mySettings.graphics_aa];
 		dofText[0] = "OFF";
 		dofText[1] = "ON";
 		FPSController.dof = IntToBool(mySettings.graphics_dof);
-		mt.GetChild(6).GetChild(1).GetChild(1)
+		settingsScreen.GetChild(1).GetChild(1)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = dofText[mySettings.graphics_dof];
 		motionBlurText[0] = "OFF";
 		motionBlurText[1] = "ON";
 		FPSController.motionBlur = IntToBool(mySettings.graphics_motionBlur);
-		mt.GetChild(6).GetChild(1).GetChild(2)
+		settingsScreen.GetChild(1).GetChild(2)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = motionBlurText[mySettings.graphics_motionBlur];
 		edgeRenderingText[0] = "OFF";
 		edgeRenderingText[1] = "ON";
 		FPSController.edgeRendering = IntToBool(mySettings.graphics_edgeRendering);
-		mt.GetChild(6).GetChild(1).GetChild(3)
+		settingsScreen.GetChild(1).GetChild(3)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = edgeRenderingText[mySettings.graphics_edgeRendering];
 		saturationFilterText[0] = "OFF";
 		saturationFilterText[1] = "ON";
 		FPSController.saturationFilter = IntToBool(mySettings.graphics_saturationFilter);
-		mt.GetChild(6).GetChild(1).GetChild(4)
+		settingsScreen.GetChild(1).GetChild(4)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = saturationFilterText[mySettings.graphics_saturationFilter];
@@ -1061,7 +1061,7 @@ public partial class Menu : MonoBehaviour
 		sensitivityText[1] = "Normal";
 		sensitivityText[2] = "High";
 		FPSController.sensitivity = mySettings.control_sensitivity + 1;
-		mt.GetChild(6).GetChild(2).GetChild(0)
+		settingsScreen.GetChild(2).GetChild(0)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = sensitivityText[mySettings.control_sensitivity];
@@ -1089,28 +1089,28 @@ public partial class Menu : MonoBehaviour
 			ui.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(ui.GetChild(6).rectTransform().anchoredPosition3D.x), ui.GetChild(6).rectTransform().anchoredPosition3D.y, ui.GetChild(6).rectTransform().anchoredPosition3D.z);
 		}
 		FPSController.handedness = mySettings.control_handedness;
-		mt.GetChild(6).GetChild(2).GetChild(1)
+		settingsScreen.GetChild(2).GetChild(1)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = handednessText[mySettings.control_handedness];
 		yAxisText[0] = "Regular";
 		yAxisText[1] = "Inverted";
 		FPSController.invertY = IntToBool(mySettings.control_yAxis);
-		mt.GetChild(6).GetChild(2).GetChild(2)
+		settingsScreen.GetChild(2).GetChild(2)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = yAxisText[mySettings.control_yAxis];
 		autoAimText[0] = "OFF";
 		autoAimText[1] = "ON";
 		FPSController.autoAim = IntToBool(mySettings.control_autoAim);
-		mt.GetChild(6).GetChild(2).GetChild(3)
+		settingsScreen.GetChild(2).GetChild(3)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = autoAimText[mySettings.control_autoAim];
 		tapFiringText[0] = "OFF";
 		tapFiringText[1] = "ON";
 		FPSController.tapFiring = IntToBool(mySettings.control_tapFiring);
-		mt.GetChild(6).GetChild(2).GetChild(4)
+		settingsScreen.GetChild(2).GetChild(4)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = tapFiringText[mySettings.control_tapFiring];
@@ -1133,32 +1133,32 @@ public partial class Menu : MonoBehaviour
 		{
 			bool flag = VRController.device == "oculus";
 		}
-		mt.GetChild(6).GetChild(3).GetChild(0)
+		settingsScreen.GetChild(3).GetChild(0)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = resolutionText[mySettings.vr_resolution];
 		string eyeDistanceText = ((mySettings.vr_eyeDistance != 0) ? ("+" + (float)mySettings.vr_eyeDistance * 0.5f) : "Default");
 		VRController.offset = (float)mySettings.vr_eyeDistance * 0.5f;
-		mt.GetChild(6).GetChild(3).GetChild(1)
+		settingsScreen.GetChild(3).GetChild(1)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = eyeDistanceText;
 		headRotationText[0] = "OFF";
 		headRotationText[1] = "ON";
-		mt.GetChild(6).GetChild(3).GetChild(2)
+		settingsScreen.GetChild(3).GetChild(2)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = headRotationText[mySettings.vr_headRotation];
 		batteryText[0] = "OFF";
 		batteryText[1] = "ON";
 		Application.targetFrameRate = 60 - 30 * mySettings.extra_batterySaver;
-		mt.GetChild(6).GetChild(5).GetChild(0)
+		settingsScreen.GetChild(5).GetChild(0)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = batteryText[mySettings.extra_batterySaver];
 		notificationText[0] = "OFF";
 		notificationText[1] = "ON";
-		mt.GetChild(6).GetChild(5).GetChild(1)
+		settingsScreen.GetChild(5).GetChild(1)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = notificationText[mySettings.extra_notification];
@@ -1227,7 +1227,7 @@ public partial class Menu : MonoBehaviour
 		{
 			customControlEnabled = false;
 		}
-		mt.GetChild(7).GetChild(0).GetChild(3)
+		leaderboardScreen.GetChild(0).GetChild(3)
 			.GetComponent<Text>()
 			.text = totalScore;
 		if (Input.GetJoystickNames().Length > 0)
@@ -1245,7 +1245,7 @@ public partial class Menu : MonoBehaviour
 		}
         // Original shared materials retained their theme across scenes. Restore
         // owned instances here, after Start has loaded the saved character.
-        Color savedTheme = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color).GetComponent<Image>().color;
+        Color savedTheme = characterScreen.GetChild(1).GetChild(myCharacter.color).GetComponent<Image>().color;
         mainUI.color = MainThemeColor(savedTheme);
         selected.color = savedTheme;
 		if (Application.loadedLevel == 0)
@@ -1258,8 +1258,8 @@ public partial class Menu : MonoBehaviour
 				mainUI.color = new Color(0.5f, 0.5f, 0.5f, mainUI.color.a);
 				if (Application.platform == RuntimePlatform.MetroPlayerX86)
 				{
-					mt.GetChild(1).GetComponent<Image>().enabled = false;
-					mt.GetChild(1).GetChild(0).GetComponent<Text>()
+					titleHeading.GetComponent<Image>().enabled = false;
+					titleHeading.GetChild(0).GetComponent<Text>()
 						.enabled = false;
 				}
 				yield return new WaitForSeconds(0.2f);
@@ -1318,7 +1318,7 @@ public partial class Menu : MonoBehaviour
 		skipTitle = false;
 		for (int i = 0; i < 5; i++)
 		{
-			roomTexts[i] = mt.GetChild(9).GetChild(0).GetChild(i)
+			roomTexts[i] = matchingScreen.GetChild(0).GetChild(i)
 				.GetComponent<Text>();
 		}
 		ruleTitleText = new Dictionary<int, string>();
@@ -1412,19 +1412,19 @@ public partial class Menu : MonoBehaviour
 				if (rule == 1 || rule == 6 || rule == 8)
 				{
 					int index = (int)photonPlayer.CustomProperties["TC"];
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(index)
+					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(index)
 						.GetComponent<Image>()
 						.color;
 				}
 				else if (photonPlayer.GetTeam() == PunTeams.Team.red)
 				{
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
+					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(9)
 						.GetComponent<Image>()
 						.color;
 				}
 				else
 				{
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
+					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(7)
 						.GetComponent<Image>()
 						.color;
 				}
@@ -1476,7 +1476,7 @@ public partial class Menu : MonoBehaviour
 			}
 		}
 		if (!Application.isMobilePlatform && !VRmode && GetComponent<FlatsDesktopSettings>() == null)
-			gameObject.AddComponent<FlatsDesktopSettings>().Initialize(mt.GetChild(6).GetChild(3));
+			gameObject.AddComponent<FlatsDesktopSettings>().Initialize(settingsScreen.GetChild(3));
 		if (gameState == "Main")
 		{
 			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(5f));
@@ -1492,6 +1492,7 @@ public partial class Menu : MonoBehaviour
 				yield break;
 			}
 			ambient.GetComponent<AudioSource>().Play();
+			mainMenuInitialized = true;
 			if (current == "Main")
 			{
 				quitButton.SetActive(true);
@@ -1522,7 +1523,7 @@ public partial class Menu : MonoBehaviour
             Fade(-1);
             return;
         }
-		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || (current != "Main" && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main"))
+		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || (current != "Main" && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
 		{
 			Fade(-1);
 		}
@@ -1553,7 +1554,7 @@ public partial class Menu : MonoBehaviour
 				{
 					mySettings.graphics_aa = 0;
 					FPSController.aa = IntToBool(mySettings.graphics_aa);
-					mt.GetChild(6).GetChild(1).GetChild(0)
+					settingsScreen.GetChild(1).GetChild(0)
 						.GetChild(1)
 						.GetComponent<Text>()
 						.text = aaText[mySettings.graphics_aa];
@@ -1562,7 +1563,7 @@ public partial class Menu : MonoBehaviour
 				{
 					mySettings.graphics_dof = 0;
 					FPSController.dof = IntToBool(mySettings.graphics_dof);
-					mt.GetChild(6).GetChild(1).GetChild(1)
+					settingsScreen.GetChild(1).GetChild(1)
 						.GetChild(1)
 						.GetComponent<Text>()
 						.text = dofText[mySettings.graphics_dof];
@@ -1571,7 +1572,7 @@ public partial class Menu : MonoBehaviour
 				{
 					mySettings.graphics_motionBlur = 0;
 					FPSController.motionBlur = IntToBool(mySettings.graphics_motionBlur);
-					mt.GetChild(6).GetChild(1).GetChild(2)
+					settingsScreen.GetChild(1).GetChild(2)
 						.GetChild(1)
 						.GetComponent<Text>()
 						.text = motionBlurText[mySettings.graphics_motionBlur];
@@ -1580,7 +1581,7 @@ public partial class Menu : MonoBehaviour
 				{
 					mySettings.graphics_edgeRendering = 0;
 					FPSController.edgeRendering = IntToBool(mySettings.graphics_edgeRendering);
-					mt.GetChild(6).GetChild(1).GetChild(3)
+					settingsScreen.GetChild(1).GetChild(3)
 						.GetChild(1)
 						.GetComponent<Text>()
 						.text = edgeRenderingText[mySettings.graphics_edgeRendering];
@@ -1589,7 +1590,7 @@ public partial class Menu : MonoBehaviour
 				{
 					mySettings.graphics_saturationFilter = 0;
 					FPSController.saturationFilter = IntToBool(mySettings.graphics_saturationFilter);
-					mt.GetChild(6).GetChild(1).GetChild(4)
+					settingsScreen.GetChild(1).GetChild(4)
 						.GetChild(1)
 						.GetComponent<Text>()
 						.text = saturationFilterText[mySettings.graphics_saturationFilter];
@@ -1676,7 +1677,7 @@ public partial class Menu : MonoBehaviour
 				}
 				else if (confirm.activeSelf)
 				{
-					Selectable selectable = ((!confirm.transform.GetChild(5).gameObject.activeSelf) ? confirm.transform.GetChild(3).GetComponent<Selectable>() : confirm.transform.GetChild(5).GetComponent<Selectable>());
+					Selectable selectable = (confirm.GetComponent<ConfirmationDialogView>().alert.gameObject.activeSelf ? confirm.GetComponent<ConfirmationDialogView>().alert : confirm.GetComponent<ConfirmationDialogView>().negative);
 					selectable.Select();
 				}
 				else if (roomCreation.activeSelf)
@@ -1701,7 +1702,7 @@ public partial class Menu : MonoBehaviour
 		}
 		else if (framerateAlertIsEnabled)
 		{
-			Selectable selectable2 = ((!confirm.transform.GetChild(5).gameObject.activeSelf) ? confirm.transform.GetChild(3).GetComponent<Selectable>() : confirm.transform.GetChild(5).GetComponent<Selectable>());
+			Selectable selectable2 = (confirm.GetComponent<ConfirmationDialogView>().alert.gameObject.activeSelf ? confirm.GetComponent<ConfirmationDialogView>().alert : confirm.GetComponent<ConfirmationDialogView>().negative);
 			selectable2.Select();
 		}
 		if (update.activeSelf)
@@ -1873,6 +1874,10 @@ public partial class Menu : MonoBehaviour
 
 	public void Fade(int button)
 	{
+        if (saveTransferMessageDialog != null && saveTransferMessageDialog.activeSelf)
+        { if (button == -1) saveTransferMessageClose.onClick.Invoke(); return; }
+        if (saveTransferDialog != null && saveTransferDialog.activeSelf)
+        { if (button == -1) saveImportCancel.onClick.Invoke(); return; }
         if (HandleControlNavigation(button)) return;
         if (localMatchPanel != null && localMatchPanel.activeSelf)
         { if (button == -1) CloseLocalMatch(); return; }
@@ -2027,7 +2032,7 @@ public partial class Menu : MonoBehaviour
 				}
 				else
 				{
-					ShowConfirm("Quit Application", "Quit Flats.", Quit, "OK", "Cancel");
+						ShowConfirm("Quit Application", "Quit Flats.", Quit, "Quit", "Cancel");
 				}
 				break;
 			case 0:
@@ -2143,7 +2148,7 @@ public partial class Menu : MonoBehaviour
 				leaderboardLoading.SetActive(true);
 				StartCoroutine("Leaderboard", false);
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				currentDetail = mt.GetChild(7).GetChild(0).gameObject;
+				currentDetail = leaderboardScreen.GetChild(0).gameObject;
 				currentDetail.SetActive(true);
 				backButton.SetActive(true);
 				anim.SetBool("Detail", true);
@@ -2152,7 +2157,7 @@ public partial class Menu : MonoBehaviour
 			case 5:
 				StartCoroutine("Information");
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				currentDetail = mt.GetChild(8).GetChild(0).gameObject;
+				currentDetail = informationScreen.GetChild(0).gameObject;
 				currentDetail.SetActive(true);
 				backButton.SetActive(true);
 				anim.SetBool("Detail", true);
@@ -2165,10 +2170,10 @@ public partial class Menu : MonoBehaviour
 				}
 				break;
 			case -3:
-				ShowConfirm("Reset", "Exit from current game and reboot.", Reset, "OK", "Cancel");
+				ShowConfirm("Reset", "Exit from current game and reboot.", Reset, "Restart", "Cancel");
 				break;
 			case -4:
-				ShowConfirm("Quit Application", "Quit Flats.", Quit, "OK", "Cancel");
+				ShowConfirm("Quit Application", "Quit Flats.", Quit, "Quit", "Cancel");
 				break;
 			}
 			if (button >= 0)
@@ -2277,15 +2282,15 @@ public partial class Menu : MonoBehaviour
 						objective = 0;
 						playerCount = 0;
 						botCount = 0;
-						mt.GetChild(3).GetChild(0).GetChild(0)
+						multiplayerScreen.GetChild(0).GetChild(0)
 							.GetChild(1)
 							.GetComponent<Text>()
 							.text = ruleTitleText[rule];
-						mt.GetChild(3).GetChild(0).GetChild(1)
+						multiplayerScreen.GetChild(0).GetChild(1)
 							.GetChild(1)
 							.GetComponent<Text>()
 							.text = objectiveText[rule + "-" + objective];
-						mt.GetChild(3).GetChild(0).GetChild(2)
+						multiplayerScreen.GetChild(0).GetChild(2)
 							.GetChild(1)
 							.GetComponent<Text>()
 							.text = "Any";
@@ -2345,7 +2350,7 @@ public partial class Menu : MonoBehaviour
 					else
 					{
 						yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-						currentDetail = mt.GetChild(page).GetChild(button).gameObject;
+						currentDetail = DetailScreenFor(page).GetChild(button).gameObject;
 						currentDetail.SetActive(true);
 						RefreshRegionLabel();
 						backButton.SetActive(true);
@@ -2476,10 +2481,10 @@ public partial class Menu : MonoBehaviour
 					roomTexts[3].text = "Player Count: " + playerCount;
 					roomTexts[4].text = "Searching for a room...";
 					myButton = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-					myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
+					myButton.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(myCharacter.color)
 						.GetComponent<Image>()
 						.color;
-					myButton.transform.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(0).GetChild(0)
+					myButton.transform.GetChild(0).GetComponent<Image>().sprite = characterScreen.GetChild(0).GetChild(0)
 						.GetChild(0)
 						.GetComponent<Image>()
 						.sprite;
@@ -2566,10 +2571,10 @@ public partial class Menu : MonoBehaviour
 						roomTexts[3].text = "Player Count: " + playerCount;
 						roomTexts[4].text = "Matchmaking... Wait or press Start Now.";
 						myButton = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-						myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
+						myButton.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(myCharacter.color)
 							.GetComponent<Image>()
 							.color;
-						myButton.transform.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(0).GetChild(0)
+						myButton.transform.GetChild(0).GetComponent<Image>().sprite = characterScreen.GetChild(0).GetChild(0)
 							.GetChild(0)
 							.GetComponent<Image>()
 							.sprite;
@@ -2605,11 +2610,11 @@ public partial class Menu : MonoBehaviour
 					break;
 				case 16:
 				{
-					string text = PhotonNetwork.player.NickName + ":" + mt.GetChild(3).GetChild(3).GetChild(2)
+					string text = PhotonNetwork.player.NickName + ":" + multiplayerScreen.GetChild(3).GetChild(2)
 						.GetComponent<InputField>()
 						.text;
 					base.gameObject.GetPhotonView().RPC("Chat", PhotonTargets.MasterClient, text);
-					mt.GetChild(3).GetChild(3).GetChild(2)
+					multiplayerScreen.GetChild(3).GetChild(2)
 						.GetComponent<InputField>()
 						.text = "";
 					break;
@@ -2699,7 +2704,7 @@ public partial class Menu : MonoBehaviour
 					StartCoroutine("BackgroundColor", "Change");
 					if (Application.loadedLevel == 0)
 					{
-						Color color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
+						Color color = characterScreen.GetChild(1).GetChild(myCharacter.color)
 							.GetComponent<Image>()
 							.color;
 						ParticleSystem particleSystem = GameObject.Find("BackgroundParticle").GetComponent<ParticleSystem>();
@@ -2709,14 +2714,14 @@ public partial class Menu : MonoBehaviour
 				case 12:
 				{
 					int primaryWeapon = myCharacter.primaryWeapon;
-					Transform child = mt.GetChild(5).GetChild(3).GetChild(3)
+					Transform child = characterScreen.GetChild(3).GetChild(3)
 						.GetChild(0);
-					child.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+					child.GetChild(0).GetComponent<Image>().sprite = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(primaryWeapon)
 						.GetChild(0)
 						.GetComponent<Image>()
 						.sprite;
-					child.GetChild(1).GetComponent<Text>().text = mt.GetChild(5).GetChild(3).GetChild(2)
+					child.GetChild(1).GetComponent<Text>().text = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(primaryWeapon)
 						.GetChild(1)
 						.GetComponent<Text>()
@@ -2758,14 +2763,14 @@ public partial class Menu : MonoBehaviour
 				case 13:
 				{
 					int secondaryWeapon = myCharacter.secondaryWeapon;
-					Transform child3 = mt.GetChild(5).GetChild(3).GetChild(3)
+					Transform child3 = characterScreen.GetChild(3).GetChild(3)
 						.GetChild(0);
-					child3.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+					child3.GetChild(0).GetComponent<Image>().sprite = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(secondaryWeapon)
 						.GetChild(0)
 						.GetComponent<Image>()
 						.sprite;
-					child3.GetChild(1).GetComponent<Text>().text = mt.GetChild(5).GetChild(3).GetChild(2)
+					child3.GetChild(1).GetComponent<Text>().text = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(secondaryWeapon)
 						.GetChild(1)
 						.GetComponent<Text>()
@@ -2808,14 +2813,14 @@ public partial class Menu : MonoBehaviour
 				{
 					int num = IntParseFast(EventSystem.current.currentSelectedGameObject.name.Replace("Weapon", ""));
 					Debug.Log("picked weapon:" + num);
-					Transform child2 = mt.GetChild(5).GetChild(3).GetChild(3)
+					Transform child2 = characterScreen.GetChild(3).GetChild(3)
 						.GetChild(0);
-					child2.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+					child2.GetChild(0).GetComponent<Image>().sprite = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(num)
 						.GetChild(0)
 						.GetComponent<Image>()
 						.sprite;
-					child2.GetChild(1).GetComponent<Text>().text = mt.GetChild(5).GetChild(3).GetChild(2)
+					child2.GetChild(1).GetComponent<Text>().text = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(num)
 						.GetChild(1)
 						.GetComponent<Text>()
@@ -2858,36 +2863,36 @@ public partial class Menu : MonoBehaviour
 					if (myCharacter.secondaryWeapon == savedWeapon)
 					{
 						myCharacter.secondaryWeapon = myCharacter.primaryWeapon;
-						mt.GetChild(5).GetChild(3).GetChild(1)
+						characterScreen.GetChild(3).GetChild(1)
 							.GetChild(1)
 							.GetComponent<Image>()
-							.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+							.sprite = characterScreen.GetChild(3).GetChild(2)
 							.GetChild(myCharacter.secondaryWeapon)
 							.GetChild(0)
 							.GetComponent<Image>()
 							.sprite;
-						mt.GetChild(5).GetChild(3).GetChild(1)
+						characterScreen.GetChild(3).GetChild(1)
 							.GetChild(2)
 							.GetComponent<Text>()
-							.text = mt.GetChild(5).GetChild(3).GetChild(2)
+							.text = characterScreen.GetChild(3).GetChild(2)
 							.GetChild(myCharacter.secondaryWeapon)
 							.GetChild(1)
 							.GetComponent<Text>()
 							.text;
 					}
 					myCharacter.primaryWeapon = savedWeapon;
-					mt.GetChild(5).GetChild(3).GetChild(0)
+					characterScreen.GetChild(3).GetChild(0)
 						.GetChild(1)
 						.GetComponent<Image>()
-						.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+						.sprite = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(myCharacter.primaryWeapon)
 						.GetChild(0)
 						.GetComponent<Image>()
 						.sprite;
-					mt.GetChild(5).GetChild(3).GetChild(0)
+					characterScreen.GetChild(3).GetChild(0)
 						.GetChild(2)
 						.GetComponent<Text>()
-						.text = mt.GetChild(5).GetChild(3).GetChild(2)
+						.text = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(myCharacter.primaryWeapon)
 						.GetChild(1)
 						.GetComponent<Text>()
@@ -2897,36 +2902,36 @@ public partial class Menu : MonoBehaviour
 					if (myCharacter.primaryWeapon == savedWeapon)
 					{
 						myCharacter.primaryWeapon = myCharacter.secondaryWeapon;
-						mt.GetChild(5).GetChild(3).GetChild(0)
+						characterScreen.GetChild(3).GetChild(0)
 							.GetChild(1)
 							.GetComponent<Image>()
-							.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+							.sprite = characterScreen.GetChild(3).GetChild(2)
 							.GetChild(myCharacter.primaryWeapon)
 							.GetChild(0)
 							.GetComponent<Image>()
 							.sprite;
-						mt.GetChild(5).GetChild(3).GetChild(0)
+						characterScreen.GetChild(3).GetChild(0)
 							.GetChild(2)
 							.GetComponent<Text>()
-							.text = mt.GetChild(5).GetChild(3).GetChild(2)
+							.text = characterScreen.GetChild(3).GetChild(2)
 							.GetChild(myCharacter.primaryWeapon)
 							.GetChild(1)
 							.GetComponent<Text>()
 							.text;
 					}
 					myCharacter.secondaryWeapon = savedWeapon;
-					mt.GetChild(5).GetChild(3).GetChild(1)
+					characterScreen.GetChild(3).GetChild(1)
 						.GetChild(1)
 						.GetComponent<Image>()
-						.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+						.sprite = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(myCharacter.secondaryWeapon)
 						.GetChild(0)
 						.GetComponent<Image>()
 						.sprite;
-					mt.GetChild(5).GetChild(3).GetChild(1)
+					characterScreen.GetChild(3).GetChild(1)
 						.GetChild(2)
 						.GetComponent<Text>()
-						.text = mt.GetChild(5).GetChild(3).GetChild(2)
+						.text = characterScreen.GetChild(3).GetChild(2)
 						.GetChild(myCharacter.secondaryWeapon)
 						.GetChild(1)
 						.GetComponent<Text>()
@@ -2943,7 +2948,7 @@ public partial class Menu : MonoBehaviour
 					}
 					if (myCharacter.sightList[savedWeapon] == 0)
 					{
-						mt.GetChild(5).GetChild(3).GetChild(3)
+						characterScreen.GetChild(3).GetChild(3)
 							.GetChild(0)
 							.GetChild(13)
 							.GetChild(0)
@@ -2952,24 +2957,24 @@ public partial class Menu : MonoBehaviour
 					}
 					else
 					{
-						mt.GetChild(5).GetChild(3).GetChild(3)
+						characterScreen.GetChild(3).GetChild(3)
 							.GetChild(0)
 							.GetChild(13)
 							.GetChild(0)
 							.GetComponent<Text>()
 							.text = sightDictionary[myCharacter.sightList[savedWeapon]];
 					}
-					mt.GetChild(5).GetChild(3).GetChild(3)
+					characterScreen.GetChild(3).GetChild(3)
 						.GetChild(0)
 						.GetChild(9)
 						.GetComponent<Text>()
 						.text = sightDictionary[myCharacter.sightList[savedWeapon]];
 					break;
 				case 18:
-					EventSystem.current.SetSelectedGameObject(mt.GetChild(5).GetChild(3).GetChild(2)
+					EventSystem.current.SetSelectedGameObject(characterScreen.GetChild(3).GetChild(2)
 						.GetChild(savedWeapon)
 						.gameObject);
-						mt.GetChild(5).GetChild(3).GetChild(3)
+						characterScreen.GetChild(3).GetChild(3)
 							.gameObject.SetActive(false);
 						break;
 					default:
@@ -2985,10 +2990,10 @@ public partial class Menu : MonoBehaviour
 						break;
 					}
 					InputDevice inputDevice = InputManager.ActiveDevice;
-					if (mt.GetChild(5).GetChild(3).GetChild(3)
+					if (characterScreen.GetChild(3).GetChild(3)
 						.gameObject.activeSelf && (Input.GetKeyUp(KeyCode.Escape) || inputDevice.CommandWasPressed || inputDevice.Action2.WasPressed))
 					{
-						mt.GetChild(5).GetChild(3).GetChild(3)
+						characterScreen.GetChild(3).GetChild(3)
 							.gameObject.SetActive(false);
 						backButton.SetActive(true);
 						MonoBehaviour.print("Back with B");
@@ -3259,7 +3264,7 @@ public partial class Menu : MonoBehaviour
 				}
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
 				anim.SetBool("Fade", false);
-				mt.GetChild(10).gameObject.SetActive(false);
+				resultsScreen.gameObject.SetActive(false);
 				StartCoroutine("BackgroundColor", "FadeIn");
 			}
 			if (current == "Main")
@@ -3711,10 +3716,10 @@ public partial class Menu : MonoBehaviour
 			if (myButton == null)
 			{
 				myButton = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-				myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
+				myButton.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(myCharacter.color)
 					.GetComponent<Image>()
 					.color;
-				myButton.transform.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(0).GetChild(0)
+				myButton.transform.GetChild(0).GetComponent<Image>().sprite = characterScreen.GetChild(0).GetChild(0)
 					.GetChild(0)
 					.GetComponent<Image>()
 					.sprite;
@@ -3736,14 +3741,14 @@ public partial class Menu : MonoBehaviour
 				if (PunTeams.PlayersPerTeam[PunTeams.Team.red].Count <= PunTeams.PlayersPerTeam[PunTeams.Team.blue].Count)
 				{
 					PhotonNetwork.player.SetTeam(PunTeams.Team.red);
-					myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
+					myButton.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(9)
 						.GetComponent<Image>()
 						.color;
 				}
 				else
 				{
 					PhotonNetwork.player.SetTeam(PunTeams.Team.blue);
-					myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
+					myButton.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(7)
 						.GetComponent<Image>()
 						.color;
 				}
@@ -3769,19 +3774,19 @@ public partial class Menu : MonoBehaviour
 				if (rule == 1 || rule == 6 || rule == 8)
 				{
 					int index = (int)photonPlayer.CustomProperties["TC"];
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(index)
+					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(index)
 						.GetComponent<Image>()
 						.color;
 				}
 				else if (photonPlayer.GetTeam() == PunTeams.Team.red)
 				{
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
+					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(9)
 						.GetComponent<Image>()
 						.color;
 				}
 				else
 				{
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
+					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(7)
 						.GetComponent<Image>()
 						.color;
 				}
@@ -3824,19 +3829,19 @@ public partial class Menu : MonoBehaviour
 			if (rule == 1 || rule == 6 || rule == 8)
 			{
 				int index = (int)newPlayer.CustomProperties["TC"];
-				gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(index)
+				gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(index)
 					.GetComponent<Image>()
 					.color;
 			}
 			else if (newPlayer.GetTeam() == PunTeams.Team.red)
 			{
-				gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
+				gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(9)
 					.GetComponent<Image>()
 					.color;
 			}
 			else
 			{
-				gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
+				gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(7)
 					.GetComponent<Image>()
 					.color;
 			}
@@ -4053,7 +4058,7 @@ public partial class Menu : MonoBehaviour
 				int average = (int)(((long)myCharacter.survivalScore + myCharacter.assortmentScore + myCharacter.headshotScore) / 3);
 				int num = (int)Math.Min(int.MaxValue, Math.Max(0d, Math.Round(((double)kd + 1d) * average / 2d)));
                 totalScore = num.ToString();
-                mt.GetChild(7).GetChild(0).GetChild(3).GetComponent<Text>().text = totalScore;
+                leaderboardScreen.GetChild(0).GetChild(3).GetComponent<Text>().text = totalScore;
 				string shortText = myCharacter.name + "$" + myCharacter.kill + "$" + myCharacter.death + "$" + myCharacter.survivalScore + "$" + myCharacter.assortmentScore + "$" + myCharacter.headshotScore;
 				dl.AddScore("user-" + myCharacter.id, num, 0, shortText);
 			}
@@ -4061,7 +4066,7 @@ public partial class Menu : MonoBehaviour
             uploadButton.SetActive(true);
             var uploadLabel = uploadButton.GetComponentInChildren<Text>(true);
             if (uploadLabel != null) uploadLabel.text = "Upload (unavailable)";
-            foreach (var label in mt.GetChild(7).GetComponentsInChildren<Text>(true))
+            foreach (var label in leaderboardScreen.GetComponentsInChildren<Text>(true))
                 if (label.text == "Leaderboard") label.text = "Leaderboard (local)";
             if (upload) ShowConfirm("Scores are local only", "No scores were uploaded. The original cloud service is unavailable. This leaderboard shows scores stored on this device. Use save files or LAN Sync to transfer scores.", null, "OK", null);
 			List<dreamloLeaderBoard.Score> playerList = new List<dreamloLeaderBoard.Score>();
@@ -4128,7 +4133,7 @@ public partial class Menu : MonoBehaviour
 				}
 				array = texture2D.EncodeToPNG();
 				System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", array);
-				mt.GetChild(5).GetChild(0).GetChild(0)
+				characterScreen.GetChild(0).GetChild(0)
 					.GetChild(0)
 					.GetComponent<Image>()
 					.sprite = Sprite.Create(texture2D, new Rect(0f, 0f, 128f, 128f), new Vector2(0.5f, 0.5f));
@@ -4153,7 +4158,7 @@ public partial class Menu : MonoBehaviour
 		public IEnumerator BackgroundColor(string command)
 		{
 			float alpha = 0.2f;
-			Color backgroundThemeColor = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
+			Color backgroundThemeColor = characterScreen.GetChild(1).GetChild(myCharacter.color)
 				.GetComponent<Image>()
 				.color;
 			Color mainColor = MainThemeColor(backgroundThemeColor);
@@ -4390,19 +4395,19 @@ public partial class Menu : MonoBehaviour
 						if (Multiplayer.rule == 1 || Multiplayer.rule == 6)
 						{
 							int color = localNetworkPlayer.color;
-							gameObject2.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(color)
+							gameObject2.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(color)
 								.GetComponent<Image>()
 								.color;
 						}
 						else if (localNetworkPlayer.team == "red")
 						{
-							gameObject2.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
+							gameObject2.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(9)
 								.GetComponent<Image>()
 								.color;
 						}
 						else
 						{
-							gameObject2.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
+							gameObject2.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(7)
 								.GetComponent<Image>()
 								.color;
 						}
@@ -4436,19 +4441,19 @@ public partial class Menu : MonoBehaviour
 						if (Multiplayer.rule == 1 || Multiplayer.rule == 6)
 						{
 							int index = (int)photonPlayer.CustomProperties["TC"];
-							gameObject3.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(index)
+							gameObject3.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(index)
 								.GetComponent<Image>()
 								.color;
 						}
 						else if (photonPlayer.GetTeam() == PunTeams.Team.red)
 						{
-							gameObject3.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
+							gameObject3.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(9)
 								.GetComponent<Image>()
 								.color;
 						}
 						else
 						{
-							gameObject3.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
+							gameObject3.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(7)
 								.GetComponent<Image>()
 								.color;
 						}
@@ -4485,7 +4490,7 @@ public partial class Menu : MonoBehaviour
 						foreach (var botScore in FlatsOfflineScores.Bots)
 						{
 							var row=(GameObject)UnityEngine.Object.Instantiate(result);
-							row.GetComponent<Image>().color=mt.GetChild(5).GetChild(1).GetChild(botScore.team==0?9:7).GetComponent<Image>().color;
+							row.GetComponent<Image>().color=characterScreen.GetChild(1).GetChild(botScore.team==0?9:7).GetComponent<Image>().color;
 							row.transform.GetChild(1).GetComponent<Text>().text=botScore.name;
 							row.transform.GetChild(2).GetComponent<Text>().text=botScore.kills.ToString();
 							row.transform.GetChild(3).GetComponent<Text>().text=botScore.deaths.ToString();
@@ -4502,7 +4507,7 @@ public partial class Menu : MonoBehaviour
 					{
 						for (int num3 = list.Count - 1; num3 > -1; num3--)
 						{
-							if (list[num3].GetComponent<Image>().color == mt.GetChild(5).GetChild(1).GetChild(9)
+							if (list[num3].GetComponent<Image>().color == characterScreen.GetChild(1).GetChild(9)
 								.GetComponent<Image>()
 								.color)
 							{
@@ -4514,7 +4519,7 @@ public partial class Menu : MonoBehaviour
 					{
 						for (int num4 = list.Count - 1; num4 > -1; num4--)
 						{
-							if (list[num4].GetComponent<Image>().color == mt.GetChild(5).GetChild(1).GetChild(7)
+							if (list[num4].GetComponent<Image>().color == characterScreen.GetChild(1).GetChild(7)
 								.GetComponent<Image>()
 								.color)
 							{
@@ -4573,7 +4578,7 @@ public partial class Menu : MonoBehaviour
 				if (Multiplayer.rule != 1 && Multiplayer.rule != 6)
 				{
 					GameObject gameObject4 = (GameObject)UnityEngine.Object.Instantiate(result);
-					gameObject4.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
+					gameObject4.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(9)
 						.GetComponent<Image>()
 						.color;
 					for (int num8 = 0; num8 < gameObject4.transform.childCount; num8++)
@@ -4592,7 +4597,7 @@ public partial class Menu : MonoBehaviour
 						}
 					}
 					GameObject gameObject5 = (GameObject)UnityEngine.Object.Instantiate(result);
-					gameObject5.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
+					gameObject5.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(7)
 						.GetComponent<Image>()
 						.color;
 					for (int num9 = 0; num9 < gameObject5.transform.childCount; num9++)
@@ -4618,7 +4623,7 @@ public partial class Menu : MonoBehaviour
 						int siblingIndex = 0;
 						for (int num10 = 0; num10 < multiplayerResultList.childCount; num10++)
 						{
-							if (multiplayerResultList.GetChild(num10).GetComponent<Image>().color == mt.GetChild(5).GetChild(1).GetChild(7)
+							if (multiplayerResultList.GetChild(num10).GetComponent<Image>().color == characterScreen.GetChild(1).GetChild(7)
 								.GetComponent<Image>()
 								.color)
 							{
@@ -4634,7 +4639,7 @@ public partial class Menu : MonoBehaviour
 						int siblingIndex2 = 0;
 						for (int num11 = 0; num11 < multiplayerResultList.childCount; num11++)
 						{
-							if (multiplayerResultList.GetChild(num11).GetComponent<Image>().color == mt.GetChild(5).GetChild(1).GetChild(9)
+							if (multiplayerResultList.GetChild(num11).GetComponent<Image>().color == characterScreen.GetChild(1).GetChild(9)
 								.GetComponent<Image>()
 								.color)
 							{
@@ -4775,16 +4780,12 @@ public partial class Menu : MonoBehaviour
         private Flats.UI.ConfirmationPresenter confirmationPresenter;
         private Flats.UI.ConfirmationPresenter Confirmation
         {
-            get { return confirmationPresenter ?? (confirmationPresenter = new Flats.UI.ConfirmationPresenter(confirm, (target, source) => {
-                var label = target.AddComponent<FlatsLocalizedText>();
-                label.font = FlatsLocalizedText.GetSourceFont(source);
-                return label;
-            })); }
+            get { return confirmationPresenter ?? (confirmationPresenter = new Flats.UI.ConfirmationPresenter(confirm)); }
         }
         // Retained public entry points for persistent UnityEvents and existing callers.
         public void ShowConfirm(string title, string message, UnityAction<bool> action, string positiveBtnText, string negativeBtnText)
         {
-            Confirmation.ShowConfirm(mt.GetChild(0).GetComponent<Image>().color, title, message, action, positiveBtnText, negativeBtnText);
+            Confirmation.ShowConfirm(backControl.GetComponent<Image>().color, title, message, action, positiveBtnText, negativeBtnText);
         }
         public void OnClickedConfirm() { Confirmation.OnClickedConfirm(); }
 

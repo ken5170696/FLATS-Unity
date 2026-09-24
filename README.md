@@ -33,10 +33,13 @@ Close the Editor using this project, then run from the repository root:
 
 ```powershell
 $unity = '<Unity installation>/6000.3.24f1/Editor/Unity.exe'
+python tools/check_source.py
 ./tools/unity.ps1 -UnityEditor $unity -Task Windows
 ```
 
 Output: `Builds/Portal/Windows/FLATS.exe`. Keep the complete folder, including `FLATS_Data`, `UnityPlayer.dll` and the Mono runtime. Other tasks are `Import`, `Web`, `Linux`, `Mac`, `Android` and `IOS`. Local build products and logs are ignored by Git. Build availability does not establish full gameplay support on every platform.
+
+Install Python 3 (3.12 is used in CI) and make `python` available on PATH. The command runs source integrity before starting Unity, including new untracked assets. Save Scene and Prefab Mode changes explicitly before building from the Editor; the build refuses unsaved scene/prefab state. A dirty Git working tree is allowed for local candidates: `source-snapshot.json` records each source hash, and `build-provenance.json` distinguishes that snapshot from its base commit. `packed-assets.json` lists packed source assets by size for investigating build contents; it is not a runtime-memory or compressed-download measurement. Detailed build reporting adds diagnostic build overhead. None of these commands publishes a release.
 
 ## Project layout
 

@@ -388,8 +388,7 @@ public class DamageReceiver : MonoBehaviour
 			return;
 		}
 		died = true;
-		GameObject gameObject = new GameObject();
-		gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
+		GameObject gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
 		if (gameObject == null)
 		{
 			return;

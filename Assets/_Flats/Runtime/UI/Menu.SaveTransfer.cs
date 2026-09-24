@@ -4,17 +4,18 @@ using UnityEngine.UI;
 
 public partial class Menu
 {
-    GameObject saveTransferDialog;
-    GameObject saveTransferMessageDialog;
-    Text saveTransferPreview, saveTransferMessageTitle, saveTransferMessageBody;
-    ScrollRect saveTransferMessageScroll;
-    RectTransform saveTransferMessageContent;
-    Button saveTransferCopyPath;
+    [SerializeField] GameObject saveTransferDialog;
+    [SerializeField] GameObject saveTransferMessageDialog;
+    [SerializeField] Text saveTransferPreview, saveTransferMessageTitle, saveTransferMessageBody;
+    [SerializeField] ScrollRect saveTransferMessageScroll;
+    [SerializeField] RectTransform saveTransferMessageContent;
+    [SerializeField] Button saveTransferCopyPath;
+    [SerializeField] Button saveTransferMessageClose;
     string exportedSavePath;
-    InputField saveImportPath;
-    Button saveImportConfirm, saveImportCancel;
-    Button saveTransferImportButton,saveTransferExportButton;
-    Text saveImportConfirmLabel, saveTransferTitle;
+    [SerializeField] InputField saveImportPath;
+    [SerializeField] Button saveImportConfirm, saveImportCancel;
+    [SerializeField] Button saveTransferImportButton,saveTransferExportButton;
+    [SerializeField] Text saveImportConfirmLabel, saveTransferTitle;
     bool saveImportIsJson, saveExportIsJson;
 #if UNITY_WEBGL && !UNITY_EDITOR
     FlatsBrowserSaveTransfer browserSaveTransfer;
@@ -22,48 +23,26 @@ public partial class Menu
 #endif
     FlatsLocalProfile.Profile pendingSaveImport;
 
+    public void ShowLegacyCloudStatus()
+    {
+        PlayMenuSound(pressSE);
+        ShowConfirm("Legacy cloud unavailable", "Original service data cannot be accessed. No cloud data was loaded.\nUse Export save / Import old save files, or LAN Sync between desktop devices.", null, "OK", null);
+    }
+
     void InitializeSaveTransfer()
     {
-        var sync = mt.Find("Character/Sync");
-        if (sync == null) return;
-        var original = sync.GetComponentInChildren<Text>(true);
-        var ui = new ModCenterWidgets(original != null ? FlatsLocalizedText.GetSourceFont(original) : Resources.GetBuiltinResource<Font>("Arial.ttf"),
-            () => PlayMenuSound(pressSE));
-        var syncRect = (RectTransform)sync;
-        syncRect.offsetMin = new Vector2(syncRect.offsetMin.x, syncRect.offsetMin.y - 64f);
-        for (int i = 0; i < sync.childCount; i++)
-        {
-            if (sync.GetChild(i) is RectTransform child)
-                child.anchoredPosition += new Vector2(0f, 32f);
-        }
-        var heading = ui.Text("SaveTransferHeading", sync, "Save files", 0, -131, 430, 25, 17, Color.white);
-        heading.alignment = TextAnchor.MiddleCenter;
-        var nativeControl = sync.Find("LANSync").GetComponent<Image>();
-        var importButton = saveTransferImportButton = ui.Button("ImportOldSave", sync, "Import old save", -105, -168, 190, 34,
-            ShowSaveImport, Color.white);
-        var exportButton = saveTransferExportButton = ui.Button("ExportSave", sync, "Export save", 105, -168, 190, 34,
-            ExportSave, Color.white);
-        foreach (var button in new[] { importButton, exportButton })
-        {
-            var image = button.GetComponent<Image>();
-            image.material = nativeControl.material;
-            image.type = nativeControl.type;
-            button.GetComponentInChildren<Text>().color = Color.white;
-        }
-
-        Color dialogColor = new Color(.31f, .24f, .29f);
-        saveTransferDialog = ui.Panel("SaveTransferDialog", sync, 0, 32, 475, 340, dialogColor).gameObject;
-        saveTransferTitle = ui.Text("Title", saveTransferDialog.transform, "Import old save", 0, 126, 435, 40, 24, Color.white);
-        saveImportPath = ui.Input("SaveImportPath", saveTransferDialog.transform, "Absolute path to .dat or .json save", 0, 40, 435);
-        saveImportPath.characterLimit = FlatsSaveTransfer.MaximumBytes;
-        saveImportPath.lineType = InputField.LineType.MultiLineNewline;
-        ((RectTransform)saveImportPath.transform).sizeDelta = new Vector2(435, 100);
-        saveImportPath.gameObject.SetActive(false);
-        saveTransferPreview = ui.Text("Preview", saveTransferDialog.transform, "", 0, -70, 435, 80, 16, Color.white);
-        saveImportConfirm = ui.Button("ConfirmImport", saveTransferDialog.transform, "Replace current save", 113, -126, 215, 42, ConfirmSaveImport, ModCenterWidgets.Accent);
-        saveImportConfirmLabel = saveImportConfirm.GetComponentInChildren<Text>();
-        saveImportCancel = ui.Button("CancelImport", saveTransferDialog.transform, "Cancel", -113, -126, 215, 42, () =>
-        {
+        saveTransferImportButton.onClick.AddListener(()=>{PlayMenuSound(pressSE);ShowSaveImport();});
+        saveTransferExportButton.onClick.AddListener(()=>{PlayMenuSound(pressSE);ExportSave();});
+        saveImportConfirm.onClick.AddListener(()=>{PlayMenuSound(pressSE);ConfirmSaveImport();});
+        saveImportCancel.onClick.AddListener(()=>{PlayMenuSound(cancelSE);CancelSaveImport();});
+        saveTransferCopyPath.onClick.AddListener(()=>{PlayMenuSound(pressSE);GUIUtility.systemCopyBuffer=exportedSavePath;});
+        saveTransferMessageClose.onClick.AddListener(()=>{PlayMenuSound(cancelSE);saveTransferMessageDialog.SetActive(false);});
+#if UNITY_WEBGL && !UNITY_EDITOR
+        browserSaveTransfer = FlatsBrowserSaveTransfer.Create(transform);
+#endif
+    }
+    void CancelSaveImport()
+    {
             pendingSaveImport = null;
             saveTransferDialog.SetActive(false);
 #if UNITY_WEBGL && !UNITY_EDITOR
@@ -72,29 +51,6 @@ public partial class Menu
                 FlatsStorageNotice.Show("Imported profile is active for this session, but browser persistence was not confirmed. Export a backup and retry saving from the browser storage notice.", false);
                 Application.LoadLevel(0);
             }
-#endif
-        }, ModCenterWidgets.Muted);
-        saveTransferDialog.transform.Find("CancelImport/Label").GetComponent<Text>().color = Color.white;
-        saveTransferDialog.SetActive(false);
-
-        saveTransferMessageDialog = ui.Panel("SaveTransferMessage", sync, 0, 32, 475, 245, dialogColor).gameObject;
-        saveTransferMessageTitle = ui.Text("Title", saveTransferMessageDialog.transform, "", 0, 84, 435, 40, 24, Color.white);
-        saveTransferMessageScroll = ui.Scroll("MessageScroll", saveTransferMessageDialog.transform,
-            0, 8, 435, 125, out saveTransferMessageContent);
-        saveTransferMessageBody = ui.Text("Message", saveTransferMessageContent, "", 0, 0, 405, 125, 16, Color.white);
-        var messageRect = saveTransferMessageBody.rectTransform;
-        messageRect.anchorMin = new Vector2(.5f, 1f);
-        messageRect.anchorMax = new Vector2(.5f, 1f);
-        messageRect.pivot = new Vector2(.5f, 1f);
-        saveTransferMessageBody.alignment = TextAnchor.UpperLeft;
-        saveTransferCopyPath = ui.Button("CopyPath", saveTransferMessageDialog.transform, "Copy path", -113, -88, 215, 42,
-            () => GUIUtility.systemCopyBuffer = exportedSavePath, ModCenterWidgets.Accent);
-        ui.Button("Close", saveTransferMessageDialog.transform, "Close", 113, -88, 215, 42,
-            () => saveTransferMessageDialog.SetActive(false), ModCenterWidgets.Muted);
-        saveTransferMessageDialog.transform.Find("Close/Label").GetComponent<Text>().color = Color.white;
-        saveTransferMessageDialog.SetActive(false);
-#if UNITY_WEBGL && !UNITY_EDITOR
-        browserSaveTransfer = FlatsBrowserSaveTransfer.Create(transform);
 #endif
     }
 

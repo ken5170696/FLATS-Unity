@@ -7,6 +7,24 @@ public sealed class FlatsSightTarget : MonoBehaviour
     RenderTexture target;
     Camera sightCamera;
     RawImage[] displays;
+    Camera aimCamera;
+    float imageRoll;
+    void Start()
+    {
+        var owner = GetComponentInParent<FPSController>();
+        if (owner == null || owner.myCamera == null || sightCamera == null) return;
+        aimCamera = owner.myCamera.GetComponentInChildren<Camera>();
+        if (aimCamera == null || !aimCamera.enabled) { aimCamera = null; return; }
+        // Recovered scope canvases can face backwards. Retain their image roll,
+        // but use the world camera's origin and forward direction for all lenses.
+        imageRoll = Vector3.Dot(sightCamera.transform.up, aimCamera.transform.up) < 0 ? 180f : 0f;
+    }
+    void LateUpdate()
+    {
+        if (aimCamera != null && sightCamera != null)
+            sightCamera.transform.SetPositionAndRotation(aimCamera.transform.position,
+                aimCamera.transform.rotation * Quaternion.AngleAxis(imageRoll, Vector3.forward));
+    }
     public static GameObject Create(string path)
     {
         var sight = (GameObject)Instantiate(Resources.Load(path));

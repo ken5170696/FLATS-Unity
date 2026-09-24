@@ -40,7 +40,7 @@ public partial class Menu
     void InitializeControls()
     {
         if (bindingsPanel != null) return;
-        var control = mt.GetChild(6).GetChild(2);
+        var control = settingsScreen.GetChild(2);
         // All layout, fonts, materials and animation are authored in SettingsScreen.prefab.
         // The first five Control children are the existing general-setting rows.
         for (int i = 0; i < 5; i++) controlOptions.Add(control.GetChild(i).gameObject);
@@ -201,7 +201,11 @@ public partial class Menu
     }
     void RefreshControlTile()
     {
-        if (!Application.isMobilePlatform && current != "Play")
-            buttons[4].transform.parent.gameObject.SetActive(current != "Settings");
+        tileArtwork.SetDesktopSettingsLayout(!Application.isMobilePlatform && current == "Settings");
+        // Only suppress the obsolete settings entry. The menu Animator owns
+        // visibility everywhere else, including title, detail and gameplay.
+        // Forcing this shared slot on resurrected Leaderboard over the HUD.
+        if (!Application.isMobilePlatform && current == "Settings")
+            buttons[4].transform.parent.gameObject.SetActive(false);
     }
 }
