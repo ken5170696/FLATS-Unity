@@ -41,6 +41,9 @@ public sealed class FlatsDesktopSettings : MonoBehaviour
         if(row.name=="DesktopResolution") {index=(index+direction+sizes.Count)%sizes.Count;Screen.SetResolution(sizes[index].x,sizes[index].y,Screen.fullScreenMode);}
         else if(row.name=="DesktopWindowMode") {fullscreen=!fullscreen;Screen.fullScreenMode=fullscreen?FullScreenMode.FullScreenWindow:FullScreenMode.Windowed;}
         else if(row.name=="DesktopVSync")QualitySettings.vSyncCount=QualitySettings.vSyncCount==0?1:0;
+        // An enabled crosshair module replaces the original reticle, so these settings
+        // would change nothing visible; they are shown as module-controlled instead.
+        else if(ModuleCrosshair && (row.name=="DesktopCrosshairColor" || row.name=="DesktopCrosshairSize")) { Refresh(); return; }
         else if(row.name=="DesktopCrosshairColor")FlatsPreferences.SetInt(Prefix+"CrosshairColor",(FlatsPreferences.GetInt(Prefix+"CrosshairColor",0)+direction+6)%6);
         else if(row.name=="DesktopCrosshairSize")FlatsPreferences.SetInt(Prefix+"CrosshairSize",(FlatsPreferences.GetInt(Prefix+"CrosshairSize",1)+direction+4)%4);
         ApplyCrosshair();
@@ -49,6 +52,7 @@ public sealed class FlatsDesktopSettings : MonoBehaviour
         FlatsPreferences.SetInt(Prefix+"VSync",QualitySettings.vSyncCount);FlatsPreferences.Save();
         Invoke("Refresh",0.2f);
     }
+    static bool ModuleCrosshair { get { return Flats.UI.CrosshairPresentation.Appearance!=null; } }
     void ApplyCrosshair(){if(reticle==null)return;reticle.localScale=reticleScale*(0.75f+0.25f*FlatsPreferences.GetInt(Prefix+"CrosshairSize",1));if(FlatsPreferences.HasKey(Prefix+"CrosshairColor"))foreach(var image in reticle.GetComponentsInChildren<Image>(true)){var color=crosshairColors[FlatsPreferences.GetInt(Prefix+"CrosshairColor",0)%6];color.a=image.color.a;image.color=color;}}
-    void Refresh(){page.GetChild(0).GetChild(1).GetComponent<Text>().text=sizes[index].x+" x "+sizes[index].y;page.GetChild(1).GetChild(1).GetComponent<Text>().text=Screen.fullScreen?"Fullscreen":"Windowed";page.GetChild(2).GetChild(1).GetComponent<Text>().text=QualitySettings.vSyncCount==0?"OFF":"ON";page.GetChild(3).GetChild(1).GetComponent<Text>().text=colorNames[FlatsPreferences.GetInt(Prefix+"CrosshairColor",0)%6];page.GetChild(4).GetChild(1).GetComponent<Text>().text=(75+25*FlatsPreferences.GetInt(Prefix+"CrosshairSize",1))+"%";}
+    void Refresh(){page.GetChild(0).GetChild(1).GetComponent<Text>().text=sizes[index].x+" x "+sizes[index].y;page.GetChild(1).GetChild(1).GetComponent<Text>().text=Screen.fullScreen?"Fullscreen":"Windowed";page.GetChild(2).GetChild(1).GetComponent<Text>().text=QualitySettings.vSyncCount==0?"OFF":"ON";page.GetChild(3).GetChild(1).GetComponent<Text>().text=ModuleCrosshair?"Set in Mod center":colorNames[FlatsPreferences.GetInt(Prefix+"CrosshairColor",0)%6];page.GetChild(4).GetChild(1).GetComponent<Text>().text=ModuleCrosshair?"Set in Mod center":(75+25*FlatsPreferences.GetInt(Prefix+"CrosshairSize",1))+"%";}
 }

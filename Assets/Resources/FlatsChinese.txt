@@ -852,3 +852,4 @@ Recovered base record. Damaged generations retained: {0}	已從基礎紀錄復�
 Recovered the last valid backup. Original retained at: {0}	已從最後一份有效備份復原。原始檔案保留於：{0}
 Also imports {0} personal settings (language, controls, crosshair).	另外會匯入 {0} 項個人設定（語言、按鍵、準心）。
 official.* mods can only be installed from the official source	official.* 模組只能從官方來源安裝
+Set in Mod center	在模組中心設定
