@@ -22,6 +22,7 @@ public partial class Menu
     bool browserImportAwaitingSave;
 #endif
     FlatsLocalProfile.Profile pendingSaveImport;
+    FlatsSaveTransfer.Preference[] pendingSavePreferences;
 
     public void ShowLegacyCloudStatus()
     {
@@ -44,6 +45,7 @@ public partial class Menu
     void CancelSaveImport()
     {
             pendingSaveImport = null;
+            pendingSavePreferences = null;
             saveTransferDialog.SetActive(false);
 #if UNITY_WEBGL && !UNITY_EDITOR
             if (browserImportAwaitingSave)
@@ -75,6 +77,7 @@ public partial class Menu
         if(browserImportAwaitingSave){PersistBrowserImport();return;}
 #endif
         pendingSaveImport = null;
+        pendingSavePreferences = null;
         saveExportIsJson = false;
         saveImportIsJson = false;
         saveImportPath.readOnly = false;
@@ -84,7 +87,7 @@ public partial class Menu
 #if UNITY_WEBGL && !UNITY_EDITOR
         browserSaveTransfer.Upload((bytes, filename) =>
         {
-            try { PreviewSaveProfile(FlatsSaveTransfer.ReadBytes(bytes, filename)); }
+            try { PreviewSaveProfile(FlatsSaveTransfer.ReadBytes(bytes, filename, out var preferences), preferences); }
             catch (Exception error) { ShowSaveTransferMessage("Import failed", error.Message); }
         }, (status, error) =>
         {
@@ -108,12 +111,14 @@ public partial class Menu
 #endif
     }
 
-    void PreviewSaveProfile(FlatsLocalProfile.Profile profile)
+    void PreviewSaveProfile(FlatsLocalProfile.Profile profile, FlatsSaveTransfer.Preference[] preferences)
     {
         if (gameState != "Main") throw new InvalidOperationException("Return to the main menu before importing a save.");
         pendingSaveImport = profile;
+        pendingSavePreferences = preferences;
         string name = profile.character.Split('$')[1];
-        saveTransferPreview.text = "Character: " + name + "\n\nThe current save will be backed up before replacement.";
+        saveTransferPreview.text = "Character: " + name + "\n\nThe current save will be backed up before replacement." +
+            (preferences != null && preferences.Length > 0 ? "\nAlso imports " + preferences.Length + " personal settings (language, controls, crosshair)." : "");
         saveImportPath.gameObject.SetActive(false);
         saveImportConfirmLabel.text = "Replace current save";
         saveTransferDialog.SetActive(true);
@@ -122,10 +127,16 @@ public partial class Menu
 
     void PreviewSaveImport(string text)
     {
-        try { PreviewSaveProfile(saveImportIsJson ? FlatsSaveTransfer.ReadJson(text) : FlatsSaveTransfer.Read(text)); }
+        try
+        {
+            FlatsSaveTransfer.Preference[] preferences;
+            var profile = saveImportIsJson ? FlatsSaveTransfer.ReadJson(text, out preferences) : FlatsSaveTransfer.Read(text, out preferences);
+            PreviewSaveProfile(profile, preferences);
+        }
         catch (Exception error)
         {
             pendingSaveImport = null;
+            pendingSavePreferences = null;
             if (saveTransferDialog.activeSelf) saveTransferPreview.text = "Import failed: " + error.Message;
             else ShowSaveTransferMessage("Import failed", error.Message);
         }
@@ -194,11 +205,12 @@ public partial class Menu
             // synchronously so ordinary Menu saves cannot write the old snapshot.
             var importedSnapshot=Flats.Profiles.LegacyProfileCodec.Decode(new Flats.Profiles.ProfilePayload(pendingSaveImport.character,pendingSaveImport.settings,pendingSaveImport.current));
 #endif
-            FlatsSaveTransfer.Import(pendingSaveImport);
+            FlatsSaveTransfer.Import(pendingSaveImport, pendingSavePreferences);
 #if UNITY_WEBGL && !UNITY_EDITOR
             myCharacter=importedSnapshot.Character;mySettings=importedSnapshot.Settings;myCurrent=importedSnapshot.Current;
 #endif
             pendingSaveImport = null;
+            pendingSavePreferences = null;
 #if UNITY_WEBGL && !UNITY_EDITOR
             browserImportAwaitingSave = true;
             PersistBrowserImport();
@@ -230,6 +242,7 @@ public partial class Menu
             {
                 saveExportIsJson = true;
                 pendingSaveImport = null;
+                pendingSavePreferences = null;
                 saveTransferTitle.text = "Export save JSON";
                 saveImportPath.gameObject.SetActive(true);
                 saveImportPath.text = FlatsSaveTransfer.ExportJson();
