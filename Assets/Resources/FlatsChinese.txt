@@ -778,7 +778,7 @@ Find package	尋找套件
 Paste manifest.json	貼上 manifest.json
 Review package	檢視套件
 View details	查看詳情
-✓  Current game build	✓  目前的遊戲版本
+✓  Current game build	√  目前的遊戲版本
 Your screen only	僅影響自己的畫面
 Multiplayer mod	多人模組
 Multiplayer session mod	多人對局模組
