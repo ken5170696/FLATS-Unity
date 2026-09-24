@@ -34,7 +34,7 @@ public static class FlatsLocalization
         }
     }
     public static Font ChineseFont => chineseFont != null ? chineseFont :
-        (chineseFont = Resources.Load<Font>("fonts/NotoSansTC-Regular"));
+        (chineseFont = Resources.Load<Font>("fonts/Huninn-Regular"));
     public static void SetLanguage(string value)
     {
         if (value != "en" && value != "zh-Hant") throw new ArgumentException("Unsupported language", nameof(value));

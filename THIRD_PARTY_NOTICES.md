@@ -12,6 +12,6 @@ Fonts include Casper (Michael Chereda), GoodDog (Ethan Dunham / Fonthead Design)
 
 Unity and registry packages have their own terms; restored package directories expose their accompanying notices/licences. Package versions are recorded in `Packages/packages-lock.json`. Retain required notices when distributing a built player.
 
-Traditional Chinese UI uses Noto Sans TC Regular from https://github.com/notofonts/noto-cjk (Sans/SubsetOTF/TC/NotoSansTC-Regular.otf), under the SIL Open Font License 1.1. The accompanying copyright and license are included in `Assets/Resources/fonts/NotoSansTC-LICENSE.txt`.
+Traditional Chinese UI uses jf open-huninn 2.1 (jf open 粉圓) by justfont, from https://github.com/justfont/open-huninn-font/releases/tag/v2.1, under the SIL Open Font License 1.1. The original font is bundled without modification; copyright and license are included in `Assets/Resources/fonts/Huninn-LICENSE.txt`.
 
 Maintenance contributions remain subject to their authors' rights. No additional broad reuse licence has been selected for those contributions. Obtain the applicable rights before redistributing content beyond the permissions already held.

@@ -7,6 +7,12 @@ public sealed class FlatsLocalizedText : Text
 {
     public bool translate = true;
     Font originalFont;
+    int menuFontSize;
+    public void UseMenuTypography()
+    {
+        if (menuFontSize == 0) menuFontSize = fontSize;
+        RefreshLanguage();
+    }
     public Font SourceFont => originalFont != null ? originalFont : font;
     public static Font GetSourceFont(Text label) => label is FlatsLocalizedText localized ? localized.SourceFont : label.font;
     bool rendering;
@@ -49,6 +55,7 @@ public sealed class FlatsLocalizedText : Text
             if (character >= '\u2e80') { needsChinese = true; break; }
         font = needsChinese && FlatsLocalization.ChineseFont != null
             ? FlatsLocalization.ChineseFont : originalFont;
+        if (menuFontSize > 0) fontSize = needsChinese ? menuFontSize + 2 : menuFontSize;
     }
     protected override void OnPopulateMesh(VertexHelper helper)
     {

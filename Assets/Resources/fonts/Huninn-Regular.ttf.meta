@@ -12,7 +12,7 @@ TrueTypeFontImporter:
   includeFontData: 1
   use2xBehaviour: 0
   fontNames:
-  - Noto Sans TC
+  - jf-openhuninn-2.1
   customCharacters:
   fontRenderingMode: 0
   output:
