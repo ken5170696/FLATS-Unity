@@ -634,3 +634,70 @@ Release, then press a new binding. Esc / Start cancels.	放開後按下新按鍵
 Quit Application	離開遊戲
 Quit Flats.	確定要離開 FLATS 嗎？
 Your installed mods still work. Please try again later.	已安裝的模組仍可使用，請稍後再試。
+Exit from current game and reboot.	結束目前的遊戲並返回主選單。
+Store unavailable	商店無法使用
+This build cannot verify or restore Store purchases. No purchase has been made and no entitlement has been granted.	此版本無法驗證或還原商店購買紀錄。未進行任何購買，也未授予任何購買權益。
+Incorrect input	輸入錯誤
+Custom mapping failed.	自訂按鍵設定失敗。
+Connect a controller	請連接控制器
+You must connect a controller to make its custom mapping.	請先連接控制器，再設定自訂按鍵。
+Deleted your custom mapping.	已刪除自訂按鍵設定
+Your custom controller mapping has been deleted.	已刪除你的控制器自訂按鍵設定。
+No custom mapping.	沒有自訂按鍵設定
+Your custom controller mapping does not exist.	你尚未建立控制器自訂按鍵設定。
+Extremely low framerate!	畫面更新率過低！
+All graphics settings have been disabled.	已停用所有圖形效果。
+Local match	單機對戰
+The offline room could not be created. Please try again.	無法建立離線房間，請再試一次。
+Enter a room name.	請輸入房間名稱。
+Cardboard mode	Cardboard 模式
+Use gamepads to play VR mode.	請使用遊戲控制器遊玩 VR 模式。
+Legacy cloud unavailable	舊版雲端服務無法使用
+Original service data cannot be accessed. No cloud data was loaded.	無法存取原有服務的資料，未載入任何雲端資料。
+Use Export save / Import old save files, or LAN Sync between desktop devices.	請使用「匯出存檔／匯入舊存檔」，或在桌面裝置之間使用區域網路同步。
+Not available	無法使用
+Sorry, currently not available.	抱歉，目前無法使用。
+Not available from TV	電視裝置無法使用
+Sorry, currently this option is unavalable.	抱歉，目前無法使用此選項。
+This option is unavailable.	此選項無法使用
+Sorry, currently this option is not supported in VR mode.	抱歉，VR 模式目前不支援此選項。
+Return to the main menu	返回主選單
+End your game or matchmaking before syncing saved scores.	請先結束遊戲或配對，再同步已儲存的分數。
+LAN Sync in this browser	瀏覽器中的區域網路同步
+Browsers cannot use UDP LAN sync. Use Export save on the source device, then Import old save here. These controls are below LAN Sync.	瀏覽器無法使用 UDP 區域網路同步。請在來源裝置匯出存檔，再於此處匯入舊存檔。這些功能位於區域網路同步下方。
+LAN Sync unavailable	區域網路同步無法使用
+The LAN component is missing. Use Export save / Import old save instead.	缺少區域網路元件，請改用「匯出存檔／匯入舊存檔」。
+LAN Sync failed	區域網路同步失敗
+Review received scores	確認收到的分數
+LAN sender ID: {0}	區域網路傳送者 ID：{0}
+Kills / deaths: {0} / {1}	擊殺／死亡：{0}／{1}
+Survival / assortment / headshot: {0} / {1} / {2}	生存／綜合／爆頭：{0}／{1}／{2}
+Replace only your ID and these five scores, then reload? Confirm only a sender you recognize.	要僅取代你的 ID 與這五項分數，然後重新載入嗎？請只確認你認得的傳送者。
+Replace scores	取代分數
+Broadcasting LAN scores	正在廣播區域網路分數
+Sending ID: {0}	傳送中的 ID：{0}
+Open LAN Sync on the receiving device now. Delivery is not confirmed here.	請在接收裝置開啟區域網路同步。此處無法確認資料是否已送達。
+Broadcast stops after 60 seconds, or when you close this dialog.	廣播會在 60 秒後或關閉此視窗時停止。
+LAN broadcast ended	區域網路廣播已結束
+Received scores are no longer valid. Your scores were not changed.	收到的分數已失效，你的分數未變更。
+Could not confirm save	無法確認存檔
+Current-session scores were restored. Check the storage error before retrying or restarting.	已還原本次遊戲的分數。請先確認儲存錯誤，再重試或重新啟動。
+Multiplayer Ready	多人遊戲已就緒
+If you are playing singleplayer, current score will be saved.	若你正在遊玩單人模式，目前的分數將會儲存。
+Match could not start	無法開始對戰
+Not all players completed synchronization within 60 seconds. The room connection was closed. Return to the main menu, then host or join again.	部分玩家未在 60 秒內完成同步，房間連線已關閉。請返回主選單，再重新建立或加入房間。
+Scores are local only	分數僅儲存在本機
+No scores were uploaded. The original cloud service is unavailable. This leaderboard shows scores stored on this device. Use save files or LAN Sync to transfer scores.	未上傳任何分數。原有雲端服務無法使用，此排行榜顯示此裝置儲存的分數。請使用存檔或區域網路同步來移轉分數。
+Image size error	圖片尺寸錯誤
+Image scale must be larger than 128x128.	圖片尺寸必須大於 128×128。
+Leave the current room before changing region.	請先離開目前的房間，再切換伺服器區域。
+Multiplayer request timed out	多人遊戲請求逾時
+The server did not complete the room request within 25 seconds. Please retry.	伺服器未在 25 秒內完成房間請求，請再試一次。
+Local modules need attention	本機模組需要處理
+Multiplayer connection	多人遊戲連線
+The local module service is unavailable. Return to the main menu and restart FLATS after restoring module storage.	本機模組服務無法使用。請返回主選單，修復模組儲存空間後再重新啟動 FLATS。
+Local modules could not start. {0}	本機模組無法啟動。{0}
+Open MOD from the main menu to inspect storage recovery and retry. Multiplayer has not started.	請從主選單開啟模組中心，檢查儲存空間復原狀態後重試。多人遊戲尚未開始。
+Local module initialization did not finish within 15 seconds. Return to the main menu and check MOD, then retry multiplayer. No room was joined.	本機模組未在 15 秒內完成初始化。請返回主選單檢查模組中心，再重試多人遊戲。目前未加入任何房間。
+Photon connection timed out after 20 seconds. Please retry.	Photon 連線等待 20 秒後逾時，請再試一次。
+Photon connection lost: {0}	Photon 連線中斷：{0}
