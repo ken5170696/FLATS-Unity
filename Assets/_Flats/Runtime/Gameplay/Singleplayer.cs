@@ -205,7 +205,8 @@ public class Singleplayer : MonoBehaviour
 					}
 					if (enemy == 0 && nextPhaseReady)
 					{
-						if (lastSkipper != null && Application.loadedLevelName == "FlatCity")
+						nextPhaseReady = false;
+						if (lastSkipper != null)
 						{
 							lastSkipper.SetActive(false);
 							lastSkipper.GetComponent<Collider>().enabled = true;
@@ -481,7 +482,7 @@ public class Singleplayer : MonoBehaviour
 			int num = UnityEngine.Random.Range(0, phaseSkipper.Length);
 			if (phaseSkipper[num] == lastSkipper)
 			{
-				num = ((num <= phaseSkipper.Length) ? (num + 1) : 0);
+				num = ((num < phaseSkipper.Length - 1) ? (num + 1) : 0);
 			}
 			phaseSkipper[num].SetActive(true);
 			lastSkipper = phaseSkipper[num];

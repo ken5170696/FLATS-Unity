@@ -13,12 +13,18 @@ public class PhaseSkipper : MonoBehaviour
 
 	private void ApplyDamage()
 	{
+		// Several projectiles can deliver messages before the frame ends. Only
+		// consume a live wave once, never during its countdown or spawn sequence.
+		if (!base.GetComponent<Collider>().enabled ||
+			(Singleplayer.rule == 0 && (!Singleplayer.nextPhaseReady || Singleplayer.enemy <= 0)))
+		{
+			return;
+		}
 		base.GetComponent<Collider>().enabled = false;
 		base.GetComponent<Renderer>().enabled = false;
 		if (Singleplayer.rule == 0)
 		{
 			Singleplayer.chance = false;
-			Singleplayer.nextPhaseReady = true;
 			base.gameObject.tag = "Untagged";
 			GameObject[] array = GameObject.FindGameObjectsWithTag("Enemy");
 			GameObject[] array2 = array;
