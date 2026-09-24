@@ -28,7 +28,8 @@ public sealed partial class ModuleManagementPage
         Listen(view.select,()=>{selectedId=id;OpenDetail();});
         var item=known[id];
         view.thumbnail.gameObject.SetActive(!string.IsNullOrEmpty(item.imageUrl));if(view.thumbnail.gameObject.activeSelf)LoadArtwork(view.thumbnail,item.imageUrl,-1);
-        view.title.text=PlayerName(name);view.purpose.text=ScopeLabel(item.manifest)+"\n"+(item.manifest.description??"");view.state.text=CatalogStatus(item);
+        view.title.text=PlayerName(name);// The description is author content; only the game-provided scope label is translated.
+        view.purpose.text=FlatsLocalization.Translate(ScopeLabel(item.manifest))+"\n"+(item.manifest.description??"");view.state.text=CatalogStatus(item);
         view.review.GetComponentInChildren<Text>().text=Service.Installed.Any(p=>p.manifest.id==id)?"Manage":"Review";
         Listen(view.review,()=>{selectedId=id;OpenDetail();});
         rowY=(index/columns+1)*(height+20);listContent.sizeDelta=new Vector2(0,Mathf.Max(listScroll.viewport.rect.height,rowY));
@@ -96,7 +97,7 @@ public sealed partial class ModuleManagementPage
             if(this==null || !isActiveAndEnabled)return;
             var problem=ModRules.Compatibility(importCandidate.manifest);if(problem.Length>0)throw new InvalidDataException(problem);
             HideModal();
-            Ask("Import "+importCandidate.manifest.name+" v"+importCandidate.manifest.version+"?\n\n"+(importCandidate.bytes/1024f).ToString("0.0")+" KB · Local package\n"+importCandidate.manifest.scope+"\n"+Service.Problem(importCandidate.manifest)+"\n\nInstallation does not enable a new mod. Restart is required to load it. Packages may run code.",()=>Run(async()=>
+            Ask("Import "+importCandidate.manifest.name+" v"+importCandidate.manifest.version+"?\n\n"+(importCandidate.bytes/1024f).ToString("0.0")+" KB · Local package\n"+ScopeLabel(importCandidate.manifest)+"\n"+Service.Problem(importCandidate.manifest)+"\n\nInstallation does not enable a new mod. Restart is required to load it. Packages may run code.",()=>Run(async()=>
             {
                 string stage=Service.Store.BeginStaging();
                 try{using(Service.Store.Reserve(importCandidate.manifest.id))await Task.Run(()=>Service.Store.Install(reviewedPath,stage,importCandidate,"Local import",CancellationToken.None));await Service.RefreshInstalled();if(this==null || !isActiveAndEnabled)return;Switch("Installed");notice.text="Package imported. Review its status before enabling.";}

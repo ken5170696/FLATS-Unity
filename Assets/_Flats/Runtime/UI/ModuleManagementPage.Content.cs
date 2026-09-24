@@ -88,7 +88,7 @@ public sealed partial class ModuleManagementPage
         string id=package.manifest.id;
         var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==id);
         string state=Service.NeedsRestart(id)?(package.requested?"Restart required":record?.Active==true?"Disable on restart":"Disabled"):(record?.Active==true?"Active now":package.requested?"Enabled / not active":"Disabled");
-        if(Service.Problem(package.manifest).Length>0||!string.IsNullOrEmpty(record?.Reason))state="Needs attention / "+state;
+        if(Service.Problem(package.manifest).Length>0||!string.IsNullOrEmpty(record?.Reason))state="Needs attention / "+FlatsLocalization.Translate(state);
         if(known.TryGetValue(id,out var item)&&ModRules.Version(item.manifest.version)>ModRules.Version(package.manifest.version))state="Update available / "+state;
         return state;
     }
