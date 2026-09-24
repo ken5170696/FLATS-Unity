@@ -25,18 +25,19 @@ public sealed class FlatsDesktopSettings : MonoBehaviour
             if(saved>=0) {index=saved;Screen.SetResolution(width,height,FlatsPreferences.GetInt(Prefix+"Fullscreen",0)==1?FullScreenMode.FullScreenWindow:FullScreenMode.Windowed);}
         }
         QualitySettings.vSyncCount=FlatsPreferences.GetInt(Prefix+"VSync",QualitySettings.vSyncCount);
-        // Rows authored in SettingsScreen.prefab are used as they are. Older prefabs only
-        // have the three VR rows, which are converted here until the page is authored.
-        if(page.Find(Names[0])==null)
-        {
-            for(int i=0;i<2;i++)Instantiate(page.GetChild(2).gameObject,page,false);
-            string[] labels={"Resolution","Window Mode","VSync","Crosshair Color","Crosshair Size"};
-            for(int i=0;i<5;i++){var row=page.GetChild(i);row.name=Names[i];row.GetChild(0).GetComponent<Text>().text=labels[i];var rect=(RectTransform)row;rect.anchoredPosition=new Vector2(rect.anchoredPosition.x,140-i*70);}
-        }
+        // SettingsScreen.prefab authors both row sets on this page; desktop shows its own.
+        ShowDesktopRows(true);
         var ui=GameObject.Find("UICamera");
         if(ui!=null && ui.transform.childCount>1 && ui.transform.GetChild(1).childCount>7){reticle=ui.transform.GetChild(1).GetChild(7) as RectTransform;if(reticle!=null)reticleScale=reticle.localScale;}
         ApplyCrosshair();
         Refresh();
+    }
+    static readonly string[] VrNames={"Resolution","EyeDistance","HeadRotation"};
+    // The VR-Image page holds the VR rows and the desktop rows; only one set is shown.
+    public void ShowDesktopRows(bool desktop)
+    {
+        foreach(var name in Names){var row=page.Find(name);if(row!=null)row.gameObject.SetActive(desktop);}
+        foreach(var name in VrNames){var row=page.Find(name);if(row!=null)row.gameObject.SetActive(!desktop);}
     }
     static readonly string[] Names={"DesktopResolution","DesktopWindowMode","DesktopVSync","DesktopCrosshairColor","DesktopCrosshairSize"};
     void SetValue(int row,string value){var t=page.Find(Names[row]);if(t!=null)t.GetChild(1).GetComponent<Text>().text=value;}

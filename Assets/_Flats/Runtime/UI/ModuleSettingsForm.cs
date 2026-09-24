@@ -29,7 +29,8 @@ public sealed class ModuleSettingsForm : MonoBehaviour
         presetList = offered ?? new ModulePreset[0];
         changed = onChanged;
         Draft = ModuleSettingsSchema.Normalize(specs, current);
-        foreach (var view in views) if (view != null) Destroy(view.gameObject);
+        // Deactivate before the deferred Destroy so focus and lookups this frame only see new rows.
+        foreach (var view in views) if (view != null) { view.gameObject.SetActive(false); Destroy(view.gameObject); }
         views.Clear();
         rowTemplate.gameObject.SetActive(false);
         foreach (var spec in specs)
@@ -44,7 +45,7 @@ public sealed class ModuleSettingsForm : MonoBehaviour
         if (presets != null && presetTemplate != null)
         {
             presetTemplate.gameObject.SetActive(false);
-            foreach (Transform old in presets) if (old != presetTemplate.transform) Destroy(old.gameObject);
+            foreach (Transform old in presets) if (old != presetTemplate.transform) { old.gameObject.SetActive(false); Destroy(old.gameObject); }
             presets.gameObject.SetActive(presetList.Length > 0);
             foreach (var preset in presetList)
             {

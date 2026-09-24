@@ -1797,9 +1797,11 @@ public partial class Menu : MonoBehaviour
 			{
 				VRmode = true;
 				FPSController.enableCamRotate = true;
+				GetComponent<FlatsDesktopSettings>()?.ShowDesktopRows(false);
 				return;
 			}
 			VRmode = false;
+			GetComponent<FlatsDesktopSettings>()?.ShowDesktopRows(true);
 			if (Application.loadedLevel != 0)
 			{
 				GameObject gameObject = Camera.main.transform.root.gameObject;

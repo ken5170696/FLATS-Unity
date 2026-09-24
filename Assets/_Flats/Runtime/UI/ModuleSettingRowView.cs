@@ -90,6 +90,8 @@ public sealed class ModuleSettingRowView : MonoBehaviour
     static string ChoiceName(string id)
     {
         if (string.IsNullOrEmpty(id)) return "";
+        // A bare "T" would also translate keyboard key labels.
+        if (id == "t") return "T shape";
         var text = new System.Text.StringBuilder();
         foreach (char c in id)
         {
