@@ -622,3 +622,7 @@ Aim and shoot them.	瞄準並射擊敵人。
 Pick the sniper rifle on the floor.	拾取地上的狙擊步槍。
 Move left	向左移動
 Move right	向右移動
+Grab flag: {control:Interact}.	奪取旗幟：{control:Interact}。
+Reset bomb: {control:Interact}.	重設炸彈：{control:Interact}。
+Pick up bomb: {control:Interact}.	拾取炸彈：{control:Interact}。
+Join: {control:Join}.	加入：{control:Join}。

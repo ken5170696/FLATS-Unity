@@ -208,11 +208,11 @@ public class GrabbedObject : MonoBehaviour
 			{
 				if (Input.GetJoystickNames().Length > 0)
 				{
-					phaseText.text = "Hold change button to grab the flag.";
+					phaseText.text = "Grab flag: {control:Interact}.";
 				}
 				else if (Input.mousePresent)
 				{
-					phaseText.text = "Press Q to grab the flag.";
+					phaseText.text = "Grab flag: {control:Interact}.";
 				}
 				else
 				{
@@ -223,11 +223,11 @@ public class GrabbedObject : MonoBehaviour
 			{
 				if (Input.GetJoystickNames().Length > 0)
 				{
-					phaseText.text = "Hold change button to reset the bomb.";
+					phaseText.text = "Reset bomb: {control:Interact}.";
 				}
 				else if (Input.mousePresent)
 				{
-					phaseText.text = "Press Q to reset the bomb.";
+					phaseText.text = "Reset bomb: {control:Interact}.";
 				}
 				else
 				{
@@ -247,11 +247,11 @@ public class GrabbedObject : MonoBehaviour
 			{
 				if (Input.GetJoystickNames().Length > 0)
 				{
-					phaseText.text = "Hold change button to pick the bomb.";
+					phaseText.text = "Pick up bomb: {control:Interact}.";
 				}
 				else if (Input.mousePresent)
 				{
-					phaseText.text = "Press Q to pick the bomb.";
+					phaseText.text = "Pick up bomb: {control:Interact}.";
 				}
 				else
 				{

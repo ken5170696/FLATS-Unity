@@ -680,7 +680,7 @@ public partial class Menu : MonoBehaviour
 					if (Input.GetJoystickNames().Length > 0)
 					{
 						notification.transform.GetChild(0).GetChild(1).GetComponent<Text>()
-							.text = ruleTitleText[r] + "\nHold reload button to join";
+							.text = ruleTitleText[r] + "\nJoin: {control:Join}.";
 					}
 					else if (!Application.isMobilePlatform && Input.mousePresent)
 					{
@@ -1600,7 +1600,7 @@ public partial class Menu : MonoBehaviour
 				framerateAlertIsEnabled = true;
 			}
 		}
-		if (notification.gameObject.activeSelf && ((!customControlEnabled && activeDevice.Action3.IsPressed) || (customControlEnabled && Input.GetButton(customControl["Reload"]))))
+		if (notification.gameObject.activeSelf && FlatsControls.PadState("Reload"))
 		{
 			accepting += Time.unscaledDeltaTime;
 			if (accepting > 1f && canOpen)

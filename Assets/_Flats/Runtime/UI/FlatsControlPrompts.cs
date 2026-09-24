@@ -14,6 +14,7 @@ public static class FlatsControlPrompts
                 FlatsControls.Label("Forward", false) + " / " + FlatsControls.Label("Left", false) + " / " + FlatsControls.Label("Backward", false) + " / " + FlatsControls.Label("Right", false);
             if (action == "Look") return FlatsLocalization.Translate(pad ? "Right stick" : "Mouse");
             if (action == "Menu") return pad ? "Start / Select" : "Esc";
+            if (action == "Join") return "Enter / " + FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label("Reload", true);
             if (pad && action == "Interact") return FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label("Change", true);
             if (pad && action == "Aim") return FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label(action, true);
             return FlatsControls.Label(action, pad);
