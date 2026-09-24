@@ -5325,6 +5325,9 @@ public partial class Menu : MonoBehaviour
 				}
 				parent.GetChild(1).GetComponent<Text>().text = notificationText[mySettings.extra_notification];
 			}
+            // These settings apply immediately; closing the player or browser
+            // without navigating Back must not discard the accepted value.
+            if (current == "Settings") SaveDataController.Save();
 		}
 
 		public static int IntParseFast(string value)
