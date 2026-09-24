@@ -341,6 +341,7 @@ public partial class Menu : MonoBehaviour
     }
 	private void OnDestroy()
 	{
+		if (Current == this) Current = null;
         if (captureAction != null) FlatsControls.Capturing = false;
         if (localDiscovery != null) localDiscovery.Stop();
         Canvas.preWillRenderCanvases -= BindThemeMaterials;
@@ -351,6 +352,7 @@ public partial class Menu : MonoBehaviour
 
 	private void Awake()
 	{
+		Current = this;
 		// The authored menu clips are quiet and the legacy source was at half
 		// volume. Keep this gain on the UI source, separate from weapon audio.
 		AudioSource menuSound = GetComponent<AudioSource>();

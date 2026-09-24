@@ -16,6 +16,12 @@ public partial class Menu
     [SerializeField] Transform matchingScreen;
     [SerializeField] Transform resultsScreen;
 
+    // The menu of the loaded scene, for gameplay code that needs menu data without
+    // finding it by name or sibling index.
+    public static Menu Current { get; private set; }
+    // Character colour swatches (Color0..11); NightLand glass reuses the palette.
+    public Transform CharacterColors => characterScreen != null ? characterScreen.Find("Color") : null;
+
     // Legacy navigation uses page IDs in save/navigation logic. Resolve these
     // IDs to explicit references, independently of Hierarchy sibling order.
     Transform DetailScreenFor(int page)

@@ -58,8 +58,9 @@ public class GlassController : MonoBehaviour
 		{
 			string text = base.gameObject.name.Replace("GlassController", "");
 			mat = GameObject.Find("Glass_Baked" + text).transform.GetChild(0).GetComponent<Renderer>().material;
-			colorParent = GameObject.Find("UICamera").transform.GetChild(0).GetChild(5).GetChild(1);
-			StartCoroutine("ColorfulGlass");
+			// Menu.Awake runs before scene Start calls, so the menu is available here.
+			colorParent = Menu.Current != null ? Menu.Current.CharacterColors : null;
+			if (colorParent != null && colorParent.childCount > 0) StartCoroutine("ColorfulGlass");
 		}
 	}
 
