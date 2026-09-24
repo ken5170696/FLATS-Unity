@@ -10,10 +10,10 @@ public partial class Menu
     GameObject bindingsPanel;
     readonly List<GameObject> controlOptions = new List<GameObject>();
     readonly List<Button> bindingRows = new List<Button>();
-    readonly List<Button> controlTabs = new List<Button>();
     readonly List<Text> bindingLabels = new List<Text>();
     readonly List<Text> bindingDetails = new List<Text>();
-    readonly List<GameObject> controlTabMarkers = new List<GameObject>();
+    Text controlCategoryLabel;
+    int controlCategory;
     Button bindingPrevious, bindingNext;
     Text bindingPageLabel;
     int bindingPage;
@@ -40,18 +40,12 @@ public partial class Menu
         var buttonStyle = control.GetChild(0).Find("Plus").GetComponent<Button>();
         var textStyle = control.GetChild(0).GetChild(0).GetComponent<Text>();
         bindingsPanel = ControlRect("Bindings", control, 0, 0, 600, 340).gameObject;
-        string[] tabNames = { "GeneralControls", "KeyboardControls", "GamepadControls" };
-        string[] tabLabels = { "General", "Keyboard / Mouse", "Controller" };
-        for (int i = 0; i < tabNames.Length; i++)
-        {
-            int tab = i;
-            var button = ControlButton(tabNames[i], control, tabLabels[i], (i - 1) * 205, 205, 190, 42,
-                buttonStyle, textStyle, () => ShowBindings(tab != 0, tab == 2));
-            controlTabs.Add(button);
-            var marker = ControlRect("ActiveTab", button.transform, 0, -21, 190, 2).gameObject.AddComponent<Image>();
-            marker.color = Color.white; marker.raycastTarget = false;
-            controlTabMarkers.Add(marker.gameObject);
-        }
+        ControlPlate("ControlCategoryBackground", control, 205);
+        ControlButton("PreviousControlType", control, "<", -265, 205, 50, 50,
+            buttonStyle, textStyle, () => ChangeControlCategory(-1));
+        controlCategoryLabel = ControlText("ControlType", control, "", 0, 205, 420, 50, textStyle, 24, TextAnchor.MiddleCenter);
+        ControlButton("NextControlType", control, ">", 265, 205, 50, 50,
+            buttonStyle, textStyle, () => ChangeControlCategory(1));
         for (int i = 0; i < FlatsControls.KeyboardActions.Length; i++)
         {
             int row = i;
@@ -62,6 +56,7 @@ public partial class Menu
             bindingDetails.Add(ControlText("Detail", button.transform, "", -240, -17, 240, 20, textStyle, 13, TextAnchor.MiddleLeft));
         }
         bindingStatus = ControlText("Status", bindingsPanel.transform, "", 0, -149, 520, 30, textStyle, 14, TextAnchor.MiddleLeft);
+        ControlPlate("BindingFooter", bindingsPanel.transform, -205);
         bindingPrevious = ControlButton("PreviousPage", bindingsPanel.transform, "<", -265, -205, 50, 42,
             buttonStyle, textStyle, () => ChangeBindingPage(-1));
         bindingPageLabel = ControlText("Page", bindingsPanel.transform, "", -180, -205, 100, 42, textStyle, 20, TextAnchor.MiddleCenter);
@@ -83,6 +78,11 @@ public partial class Menu
         rect.anchorMin = rect.anchorMax = rect.pivot = new Vector2(.5f, .5f);
         rect.anchoredPosition = new Vector2(x, y); rect.sizeDelta = new Vector2(width, height);
         return rect;
+    }
+    void ControlPlate(string name, Transform parent, float y)
+    {
+        var image = ControlRect(name, parent, 0, y, 600, 50).gameObject.AddComponent<Image>();
+        image.material = mainUI; image.color = Color.white; image.raycastTarget = false;
     }
     static Text ControlText(string name, Transform parent, string value, float x, float y, float width, float height,
         Text style, int size, TextAnchor alignment)
@@ -120,12 +120,16 @@ public partial class Menu
         bindingPage = 0;
         foreach (var child in controlOptions) child.SetActive(!show);
         bindingsPanel.SetActive(show);
-        int selectedTab = !show ? 0 : pad ? 2 : 1;
-        for (int i = 0; i < controlTabs.Count; i++)
-        {
-            controlTabMarkers[i].SetActive(i == selectedTab);
-        }
+        controlCategory = !show ? 0 : pad ? 2 : 1;
+        controlCategoryLabel.text = !show ? "General" : pad ? "Controller" : "Keyboard / Mouse";
         if (show) RefreshBindings();
+    }
+
+    void ChangeControlCategory(int direction)
+    {
+        if (FlatsControls.Capturing || releasePending) return;
+        int category = (controlCategory + direction + 3) % 3;
+        ShowBindings(category != 0, category == 2);
     }
 
     string BindingAction(int index) => (bindingPad ? FlatsControls.PadActions : FlatsControls.KeyboardActions)[index];
