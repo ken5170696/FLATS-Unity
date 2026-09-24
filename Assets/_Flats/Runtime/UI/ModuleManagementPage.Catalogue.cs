@@ -87,7 +87,7 @@ public sealed partial class ModuleManagementPage
                     var entry=zip.GetEntry("manifest.json");if(entry==null||entry.Length>96*1024)throw new InvalidDataException("Missing or oversized manifest.json.");
                     using(var reader=new StreamReader(entry.Open()))manifest=JsonUtility.FromJson<PackageManifest>(reader.ReadToEnd());
                 }
-                manifest.Validate();string hash;using(var stream=File.OpenRead(reviewedPath))using(var sha=SHA256.Create())hash=BitConverter.ToString(sha.ComputeHash(stream)).Replace("-","").ToLowerInvariant();
+                manifest.Validate();ModRules.RequireLocalImportable(manifest);string hash;using(var stream=File.OpenRead(reviewedPath))using(var sha=SHA256.Create())hash=BitConverter.ToString(sha.ComputeHash(stream)).Replace("-","").ToLowerInvariant();
                 return new CatalogItem{manifest=manifest,sha256=hash,bytes=file.Length};
             });
             if(this==null || !isActiveAndEnabled)return;
@@ -100,7 +100,7 @@ public sealed partial class ModuleManagementPage
                 finally{Service.Store.EndStaging(stage);}
             }));
         }
-        catch(Exception e){if(this!=null && isActiveAndEnabled)importNotice.text="Could not review package. "+e.Message;}
+        catch(Exception e){if(this!=null && isActiveAndEnabled)importNotice.text="Could not review package. "+FlatsLocalization.Translate(e.Message);}
         finally{busy=false;}
     }
 }

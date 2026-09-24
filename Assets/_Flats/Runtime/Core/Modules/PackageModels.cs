@@ -136,6 +136,13 @@ namespace Flats.Modules
             }
             catch (Exception e) { return e.Message; }
         }
+        // official.* modules come only from the official source. A local ZIP must not be able to
+        // take over an official identity such as the built-in crosshair binding.
+        public static void RequireLocalImportable(PackageManifest m)
+        {
+            if (m?.id != null && m.id.StartsWith("official.", StringComparison.Ordinal))
+                throw new InvalidDataException("official.* mods can only be installed from the official source");
+        }
         // Legacy single-preset packages and crosshair@2 data packages both draw the HUD crosshair.
         public static bool IsCrosshairProvider(PackageManifest m) =>
             m != null && (m.kind == "crosshair" || (m.kind == "data" && m.adapter == CrosshairSettingsSpec.Adapter));

@@ -121,7 +121,8 @@ namespace Flats.Modules
             foreach(var p in Installed)
             {
                 cancel.ThrowIfCancellationRequested();
-                var page=await source.Browse(new CatalogQuery{Search=p.manifest.id,Compatible=false},cancel);
+                // Only versions this build can run count as updates; the newest overall may not be installable.
+                var page=await source.Browse(new CatalogQuery{Search=p.manifest.id,Compatible=true},cancel);
                 EnsureAlive();cancel.ThrowIfCancellationRequested();
                 var item=page.items.FirstOrDefault(i=>i.manifest.id==p.manifest.id);
                 if(item!=null)items.Add(item);
