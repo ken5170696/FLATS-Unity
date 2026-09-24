@@ -8,6 +8,18 @@ namespace Flats.Modules
     public static class SessionModules
     {
         public const string Property = "FM1";
+        // Short lobby-visible digest of the FM1 agreement. Random matchmaking filters on it so
+        // players are only matched into rooms whose required modules they already have.
+        public const string DigestProperty = "FMH";
+        public static string Digest(string agreement)
+        {
+            if (string.IsNullOrEmpty(agreement)) return "none";
+            using (var sha = System.Security.Cryptography.SHA256.Create())
+            {
+                var hash = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(agreement));
+                return string.Concat(hash.Take(8).Select(b => b.ToString("x2")));
+            }
+        }
         public static string Encode(IEnumerable<InstalledPackage> active)
         {
             var all=active.ToDictionary(x=>x.manifest.id,StringComparer.Ordinal);

@@ -93,7 +93,7 @@ public partial class Menu
             var properties = new ExitGames.Client.Photon.Hashtable { { "R", rule }, { "O", objective } };
             PublishRoomModules(properties);
             accepted = PhotonNetwork.CreateRoom(room, new RoomOptions { MaxPlayers = 2, IsVisible = false,
-                CustomRoomProperties = properties, CustomRoomPropertiesForLobby = new[] { "R", "O" } }, null);
+                CustomRoomProperties = properties, CustomRoomPropertiesForLobby = new[] { "R", "O", Flats.Modules.SessionModules.DigestProperty } }, null);
         }
         else accepted = PhotonNetwork.JoinRoom(room);
         if (!accepted) LocalRoomFailed("Photon could not send the room request. Refresh and retry.");

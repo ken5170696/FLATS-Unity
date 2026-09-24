@@ -774,6 +774,7 @@ public partial class Menu : MonoBehaviour
 		{
 			customProps["R"] = rule;
 		}
+        RequireRoomModules(customProps);
         pendingRoomDeadline = Time.realtimeSinceStartup + 25f;
 		PhotonNetwork.JoinRandomRoom(customProps, 0);
 		preCheckToStayRoom = true;
@@ -2527,6 +2528,7 @@ public partial class Menu : MonoBehaviour
 					{
 						customProps3["O"] = objective;
 					}
+					RequireRoomModules(customProps3);
 					PhotonNetwork.JoinRandomRoom(customProps3, (byte)playerCount);
 					break;
 				}
@@ -2598,7 +2600,7 @@ public partial class Menu : MonoBehaviour
 						{
 							MaxPlayers = (byte)playerCount,
 							CustomRoomProperties = customProps2,
-							CustomRoomPropertiesForLobby = new string[2] { "R", "O" },
+							CustomRoomPropertiesForLobby = new string[3] { "R", "O", Flats.Modules.SessionModules.DigestProperty },
 							IsVisible = false
 						};
 						string roomName = invitationRoomName.text;
@@ -3919,7 +3921,7 @@ public partial class Menu : MonoBehaviour
 			RoomOptions roomOptions = new RoomOptions();
 			roomOptions.MaxPlayers = (byte)playerCount;
 			roomOptions.CustomRoomProperties = hashtable;
-			roomOptions.CustomRoomPropertiesForLobby = new string[2] { "R", "O" };
+			roomOptions.CustomRoomPropertiesForLobby = new string[3] { "R", "O", Flats.Modules.SessionModules.DigestProperty };
 			string roomName = "pub-" + StringUtils.GeneratePassword(8);
 			PhotonNetwork.CreateRoom(roomName, roomOptions, null);
 		}

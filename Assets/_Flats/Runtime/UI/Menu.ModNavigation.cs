@@ -62,7 +62,15 @@ public partial class Menu
     }
     void PublishRoomModules(ExitGames.Client.Photon.Hashtable properties)
     {
-        properties[SessionModules.Property]=BuiltinModules.Instance.Center.Agreement();
+        string agreement=BuiltinModules.Instance.Center.Agreement();
+        properties[SessionModules.Property]=agreement;
+        properties[SessionModules.DigestProperty]=SessionModules.Digest(agreement);
+    }
+    // Random matchmaking only offers rooms whose required modules match ours; the full
+    // FM1 comparison on join remains the authoritative check.
+    void RequireRoomModules(ExitGames.Client.Photon.Hashtable expected)
+    {
+        expected[SessionModules.DigestProperty]=SessionModules.Digest(BuiltinModules.Instance.Center.Agreement());
     }
     static string pendingModuleRejection;
     readonly RoomModuleCoordinator roomModules=new RoomModuleCoordinator();
