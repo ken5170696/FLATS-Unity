@@ -45,6 +45,7 @@ namespace Flats.Modules
         public void Enable(ModuleLifetime lifetime)
         {
             if(package.manifest.kind=="managed") { implementation.Enable(lifetime);return; }
+            if(package.manifest.kind=="data" && package.manifest.adapter==Flats.Core.EnemyTuning.Adapter) { EnableEnemyTuning(lifetime);return; }
             if(!ModRules.IsCrosshairProvider(package.manifest))
                 throw new NotSupportedException("No game handler for "+package.manifest.adapter);
             if(CrosshairPresentation.Appearance!=null)throw new InvalidOperationException("Disable the other crosshair module first");
@@ -55,6 +56,18 @@ namespace Flats.Modules
             if(package.manifest.kind=="crosshair")settings.Values=CrosshairSettingsSpec.FromLegacy(package.manifest.crosshairStyle,package.manifest.crosshairSize);
             else if(package.manifest.presets!=null && package.manifest.presets.Length>0)settings.Values=ModuleSettingsSchema.Apply(CrosshairSettingsSpec.Specs(),settings.Values,package.manifest.presets[0]);
             CrosshairPresentation.Appearance=settings;
+        }
+        void EnableEnemyTuning(ModuleLifetime lifetime)
+        {
+            // The payload is part of the hashed package, so every player in the room applies the same values.
+            if(string.IsNullOrEmpty(package.manifest.payload))throw new InvalidDataException("Enemy tuning packages require a payload");
+            string file=Path.GetFullPath(Path.Combine(path,package.manifest.payload));
+            if(!file.StartsWith(Path.GetFullPath(path),StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Payload path escapes the package");
+            var info=new FileInfo(file);if(!info.Exists || info.Length>16*1024)throw new InvalidDataException("Enemy tuning payload is missing or too large");
+            var payload=UnityEngine.JsonUtility.FromJson<Flats.Core.EnemyTuningPayload>(File.ReadAllText(file));
+            if(payload==null)throw new InvalidDataException("Invalid enemy tuning payload");
+            Flats.Core.EnemyTuning.Apply(payload);
+            lifetime.Own(Flats.Core.EnemyTuning.Reset);
         }
         public void Disable() { implementation?.Disable(); }
     }

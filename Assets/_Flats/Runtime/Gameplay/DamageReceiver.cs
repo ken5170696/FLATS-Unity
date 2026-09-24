@@ -103,7 +103,7 @@ public class DamageReceiver : MonoBehaviour
 		if (!userIsPlayer)
 		{
 			myAI = GetComponent<AI>();
-			hitPoints = 1000f * (1f + (float)myAI.stats_Defense * 0.1f);
+			hitPoints = 1000f * (1f + (float)myAI.stats_Defense * 0.1f) * Flats.Core.EnemyTuning.Health;
 		}
 		while (true)
 		{

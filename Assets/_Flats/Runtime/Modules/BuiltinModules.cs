@@ -164,6 +164,8 @@ namespace Flats.Modules
             if(Instance!=null && Instance!=this){Destroy(gameObject);return;}
             Instance=this; CrosshairPresentation.Appearance=null;
             ModAdapters.Register(CrosshairSettingsSpec.Adapter,ModuleScope.ClientOnly);
+            // Changes enemy balance for everyone in the match, so it is session-only.
+            ModAdapters.Register(Flats.Core.EnemyTuning.Adapter,ModuleScope.RequiredForSession);
             string directory=Application.persistentDataPath;
 #if UNITY_EDITOR
             var testRoot=Environment.GetEnvironmentVariable("FLATS_MOD_TEST_ROOT");
