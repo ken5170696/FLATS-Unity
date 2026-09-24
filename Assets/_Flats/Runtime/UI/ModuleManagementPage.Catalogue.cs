@@ -16,6 +16,9 @@ public sealed partial class ModuleManagementPage
     [SerializeField] Text importNotice;
     CatalogItem importCandidate;
     string reviewedPath;
+    // Players see before installing whether a mod only changes their own screen or is
+    // required by everyone in a multiplayer room.
+    static string ScopeLabel(PackageManifest m) { return m.scope=="ClientOnly"?"Your screen only":"Multiplayer mod"; }
     void AddCard(string id,string name,string subtitle,int index)
     {
         int columns=ListWidth<760?1:ListWidth>=1300?3:2;float gap=20,width=(ListWidth-16-gap*(columns-1))/columns,height=((RectTransform)catalogueCardPrefab.transform).rect.height;
@@ -25,7 +28,7 @@ public sealed partial class ModuleManagementPage
         Listen(view.select,()=>{selectedId=id;OpenDetail();});
         var item=known[id];
         view.thumbnail.gameObject.SetActive(!string.IsNullOrEmpty(item.imageUrl));if(view.thumbnail.gameObject.activeSelf)LoadArtwork(view.thumbnail,item.imageUrl,-1);
-        view.title.text=PlayerName(name);view.purpose.text=item.manifest.description??"";view.state.text=CatalogStatus(item);
+        view.title.text=PlayerName(name);view.purpose.text=ScopeLabel(item.manifest)+"\n"+(item.manifest.description??"");view.state.text=CatalogStatus(item);
         view.review.GetComponentInChildren<Text>().text=Service.Installed.Any(p=>p.manifest.id==id)?"Manage":"Review";
         Listen(view.review,()=>{selectedId=id;OpenDetail();});
         rowY=(index/columns+1)*(height+20);listContent.sizeDelta=new Vector2(0,Mathf.Max(listScroll.viewport.rect.height,rowY));

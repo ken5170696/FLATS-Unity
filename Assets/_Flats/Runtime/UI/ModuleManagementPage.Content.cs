@@ -289,7 +289,8 @@ public sealed partial class ModuleManagementPage
             var plan=await Service.Plan(manifest,item,CancellationToken.None);
             if(this==null||!isActiveAndEnabled)return;
             var changes=string.Join("\n",plan.Modules.Select(m=>m.id+"  "+m.version+(plan.Downloads.Any(d=>d.manifest.id==m.id)?" - download":" - installed")));
-            Ask((enablePlan?"Enable ":"Install ")+PlayerName(manifest.name)+" and requirements?\n"+changes+"\nTotal download: "+(plan.Bytes/1024f).ToString("0.0")+" KB\nConflicts: none in this plan.\n"+
+            Ask((enablePlan?"Enable ":"Install ")+PlayerName(manifest.name)+" and requirements?\n"+ScopeLabel(manifest)+
+                (manifest.scope=="ClientOnly"?"":"\nEveryone in the room needs the same version.")+"\n"+changes+"\nTotal download: "+(plan.Bytes/1024f).ToString("0.0")+" KB\nConflicts: none in this plan.\n"+
                 (plan.Downloads.Length>0?"Packages install together. New mods stay disabled; review Enable after downloading.":"The complete dependency set will be enabled in this profile.")+"\nRestart FLATS to apply.",()=>Run(()=>Service.ApplyPlan(plan,state,enablePlan)));
         },false);
     }
