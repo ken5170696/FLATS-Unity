@@ -11,12 +11,12 @@ public partial class Menu
         var sound = settingsScreen.GetChild(0);
         if (musicVolumeSlider == null)
         {
-            musicVolumeSlider = sound.GetChild(0).GetComponentInChildren<Slider>(true);
+            musicVolumeSlider = sound.Find("Volume-BGM").GetComponentInChildren<Slider>(true);
             musicVolumeSlider.onValueChanged.AddListener(value => SetVolume(true, Mathf.RoundToInt(value), true));
         }
         if (masterVolumeSlider == null)
         {
-            masterVolumeSlider = sound.GetChild(1).GetComponentInChildren<Slider>(true);
+            masterVolumeSlider = sound.Find("Volume-All").GetComponentInChildren<Slider>(true);
             masterVolumeSlider.onValueChanged.AddListener(value => SetVolume(false, Mathf.RoundToInt(value), true));
         }
         SetVolume(true, mySettings.sound_bgm, false);
@@ -40,8 +40,7 @@ public partial class Menu
         }
         var slider = music ? musicVolumeSlider : masterVolumeSlider;
         if (slider != null) slider.SetValueWithoutNotify(value);
-        settingsScreen.GetChild(0).GetChild(music ? 0 : 1).GetChild(1)
-            .GetComponent<Text>().text = (value * 10) + "%";
+        SettingValue(0, music ? "Volume-BGM" : "Volume-All").text = (value * 10) + "%";
         if (save && changed) SaveDataController.Save();
     }
 }

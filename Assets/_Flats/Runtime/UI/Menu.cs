@@ -805,46 +805,28 @@ public partial class Menu : MonoBehaviour
 		aaText[0] = "OFF";
 		aaText[1] = "ON";
 		FPSController.aa = IntToBool(mySettings.graphics_aa);
-		settingsScreen.GetChild(1).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = aaText[mySettings.graphics_aa];
+		SettingValue(1, "Anti-Aliasing").text = aaText[mySettings.graphics_aa];
 		dofText[0] = "OFF";
 		dofText[1] = "ON";
 		FPSController.dof = IntToBool(mySettings.graphics_dof);
-		settingsScreen.GetChild(1).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = dofText[mySettings.graphics_dof];
+		SettingValue(1, "DepthOfField").text = dofText[mySettings.graphics_dof];
 		motionBlurText[0] = "OFF";
 		motionBlurText[1] = "ON";
 		FPSController.motionBlur = IntToBool(mySettings.graphics_motionBlur);
-		settingsScreen.GetChild(1).GetChild(2)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = motionBlurText[mySettings.graphics_motionBlur];
+		SettingValue(1, "MotionBlur").text = motionBlurText[mySettings.graphics_motionBlur];
 		edgeRenderingText[0] = "OFF";
 		edgeRenderingText[1] = "ON";
 		FPSController.edgeRendering = IntToBool(mySettings.graphics_edgeRendering);
-		settingsScreen.GetChild(1).GetChild(3)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = edgeRenderingText[mySettings.graphics_edgeRendering];
+		SettingValue(1, "EdgeRendering").text = edgeRenderingText[mySettings.graphics_edgeRendering];
 		saturationFilterText[0] = "OFF";
 		saturationFilterText[1] = "ON";
 		FPSController.saturationFilter = IntToBool(mySettings.graphics_saturationFilter);
-		settingsScreen.GetChild(1).GetChild(4)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = saturationFilterText[mySettings.graphics_saturationFilter];
+		SettingValue(1, "SaturationFilter").text = saturationFilterText[mySettings.graphics_saturationFilter];
 		sensitivityText[0] = "Low";
 		sensitivityText[1] = "Normal";
 		sensitivityText[2] = "High";
 		FPSController.sensitivity = mySettings.control_sensitivity + 1;
-		settingsScreen.GetChild(2).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = sensitivityText[mySettings.control_sensitivity];
+		SettingValue(2, "CameraSensitivity").text = sensitivityText[mySettings.control_sensitivity];
 		handednessText[0] = "Right";
 		handednessText[1] = "Left";
 		Transform ui = mt.parent.GetChild(1);
@@ -869,31 +851,19 @@ public partial class Menu : MonoBehaviour
 			ui.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(ui.GetChild(6).rectTransform().anchoredPosition3D.x), ui.GetChild(6).rectTransform().anchoredPosition3D.y, ui.GetChild(6).rectTransform().anchoredPosition3D.z);
 		}
 		FPSController.handedness = mySettings.control_handedness;
-		settingsScreen.GetChild(2).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = handednessText[mySettings.control_handedness];
+		SettingValue(2, "Handedness").text = handednessText[mySettings.control_handedness];
 		yAxisText[0] = "Regular";
 		yAxisText[1] = "Inverted";
 		FPSController.invertY = IntToBool(mySettings.control_yAxis);
-		settingsScreen.GetChild(2).GetChild(2)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = yAxisText[mySettings.control_yAxis];
+		SettingValue(2, "Y-Axis").text = yAxisText[mySettings.control_yAxis];
 		autoAimText[0] = "OFF";
 		autoAimText[1] = "ON";
 		FPSController.autoAim = IntToBool(mySettings.control_autoAim);
-		settingsScreen.GetChild(2).GetChild(3)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = autoAimText[mySettings.control_autoAim];
+		SettingValue(2, "AutoAim").text = autoAimText[mySettings.control_autoAim];
 		tapFiringText[0] = "OFF";
 		tapFiringText[1] = "ON";
 		FPSController.tapFiring = IntToBool(mySettings.control_tapFiring);
-		settingsScreen.GetChild(2).GetChild(4)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = tapFiringText[mySettings.control_tapFiring];
+		SettingValue(2, "TapFiring").text = tapFiringText[mySettings.control_tapFiring];
 		resolutionText[0] = "Low";
 		resolutionText[1] = "Normal";
 		resolutionText[2] = "High";
@@ -913,35 +883,20 @@ public partial class Menu : MonoBehaviour
 		{
 			bool flag = VRController.device == "oculus";
 		}
-		settingsScreen.GetChild(3).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = resolutionText[mySettings.vr_resolution];
+		SettingValue(3, "Resolution").text = resolutionText[mySettings.vr_resolution];
 		string eyeDistanceText = ((mySettings.vr_eyeDistance != 0) ? ("+" + (float)mySettings.vr_eyeDistance * 0.5f) : "Default");
 		VRController.offset = (float)mySettings.vr_eyeDistance * 0.5f;
-		settingsScreen.GetChild(3).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = eyeDistanceText;
+		SettingValue(3, "EyeDistance").text = eyeDistanceText;
 		headRotationText[0] = "OFF";
 		headRotationText[1] = "ON";
-		settingsScreen.GetChild(3).GetChild(2)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = headRotationText[mySettings.vr_headRotation];
+		SettingValue(3, "HeadRotation").text = headRotationText[mySettings.vr_headRotation];
 		batteryText[0] = "OFF";
 		batteryText[1] = "ON";
 		Application.targetFrameRate = 60 - 30 * mySettings.extra_batterySaver;
-		settingsScreen.GetChild(5).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = batteryText[mySettings.extra_batterySaver];
+		SettingValue(5, "BatterySaver").text = batteryText[mySettings.extra_batterySaver];
 		notificationText[0] = "OFF";
 		notificationText[1] = "ON";
-		settingsScreen.GetChild(5).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = notificationText[mySettings.extra_notification];
+		SettingValue(5, "Notification").text = notificationText[mySettings.extra_notification];
 		fireButtonPosition = new Vector2(Mathf.Abs(mt.parent.GetChild(1).GetChild(1).rectTransform()
 			.anchoredPosition.x), mt.parent.GetChild(1).GetChild(1).rectTransform()
 			.anchoredPosition.y);
@@ -1334,46 +1289,31 @@ public partial class Menu : MonoBehaviour
 				{
 					mySettings.graphics_aa = 0;
 					FPSController.aa = IntToBool(mySettings.graphics_aa);
-					settingsScreen.GetChild(1).GetChild(0)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = aaText[mySettings.graphics_aa];
+					SettingValue(1, "Anti-Aliasing").text = aaText[mySettings.graphics_aa];
 				}
 				if (mySettings.graphics_dof != 0)
 				{
 					mySettings.graphics_dof = 0;
 					FPSController.dof = IntToBool(mySettings.graphics_dof);
-					settingsScreen.GetChild(1).GetChild(1)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = dofText[mySettings.graphics_dof];
+					SettingValue(1, "DepthOfField").text = dofText[mySettings.graphics_dof];
 				}
 				if (mySettings.graphics_motionBlur != 0)
 				{
 					mySettings.graphics_motionBlur = 0;
 					FPSController.motionBlur = IntToBool(mySettings.graphics_motionBlur);
-					settingsScreen.GetChild(1).GetChild(2)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = motionBlurText[mySettings.graphics_motionBlur];
+					SettingValue(1, "MotionBlur").text = motionBlurText[mySettings.graphics_motionBlur];
 				}
 				if (mySettings.graphics_edgeRendering != 0)
 				{
 					mySettings.graphics_edgeRendering = 0;
 					FPSController.edgeRendering = IntToBool(mySettings.graphics_edgeRendering);
-					settingsScreen.GetChild(1).GetChild(3)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = edgeRenderingText[mySettings.graphics_edgeRendering];
+					SettingValue(1, "EdgeRendering").text = edgeRenderingText[mySettings.graphics_edgeRendering];
 				}
 				if (mySettings.graphics_saturationFilter != 0)
 				{
 					mySettings.graphics_saturationFilter = 0;
 					FPSController.saturationFilter = IntToBool(mySettings.graphics_saturationFilter);
-					settingsScreen.GetChild(1).GetChild(4)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = saturationFilterText[mySettings.graphics_saturationFilter];
+					SettingValue(1, "SaturationFilter").text = saturationFilterText[mySettings.graphics_saturationFilter];
 				}
 				SaveDataController.Save();
 				changedSettings = true;
