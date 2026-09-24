@@ -18439,7 +18439,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: "\u2713  Current game build"
+  m_Text: "\u221A  Current game build"
   translate: 1
 --- !u!1 &7041516198293102214
 GameObject:

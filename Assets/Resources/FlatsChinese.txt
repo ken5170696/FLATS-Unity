@@ -778,7 +778,6 @@ Find package	尋找套件
 Paste manifest.json	貼上 manifest.json
 Review package	檢視套件
 View details	查看詳情
-✓  Current game build	√  目前的遊戲版本
 Your screen only	僅影響自己的畫面
 Multiplayer mod	多人模組
 Multiplayer session mod	多人對局模組
@@ -874,3 +873,4 @@ Toggle	切換
 Aim Mode	瞄準方式
 Language	語言
 {0} enabled mods are not installed and will be skipped.	有 {0} 個已啟用的模組未安裝，將略過。
+Current game build	目前的遊戲版本

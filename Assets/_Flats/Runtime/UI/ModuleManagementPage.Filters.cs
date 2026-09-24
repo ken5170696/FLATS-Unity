@@ -28,11 +28,11 @@ public sealed partial class ModuleManagementPage
         foreach(var value in values)
         {
             string choice=value;var b=Instantiate(categoryChoicePrefab,categoryChoices,false);b.name="Category-"+choice;
-            b.GetComponentInChildren<Text>().text=(categoryValue==choice?"✓  ":"    ")+(choice.Length==0?"All categories":choice);
+            b.GetComponentInChildren<Text>().text=(categoryValue==choice?"√  ":"    ")+(choice.Length==0?"All categories":choice);
             b.image.color=categoryValue==choice?ModCenterWidgets.Tint:Color.white;
             Listen(b,()=>{categoryValue=choice;offset=0;Reload();});
         }
-        compatibleFilter.GetComponentInChildren<Text>().text=(compatible?"✓  ":"    ")+"Current game build";
+        compatibleFilter.GetComponentInChildren<Text>().text=(compatible?"√  ":"    ")+"Current game build";
         if(selected!=null)foreach(var button in filtersContent.GetComponentsInChildren<Button>())if(button.name==selected){EventSystem.current.SetSelectedGameObject(button.gameObject);break;}
     }
 }

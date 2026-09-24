@@ -87,6 +87,10 @@ public static class FlatsLocalization
             if (match.Success)
                 return placeholder.Replace(pair.Value, token => match.Groups["p" + token.Groups[1].Value].Value);
         }
+        // Leading indentation and the check mark of toggle rows are layout, not text.
+        int lead = 0;
+        while (lead < source.Length && (source[lead] == ' ' || source[lead] == '√')) lead++;
+        if (lead > 0 && lead < source.Length) return source.Substring(0, lead) + Translate(source.Substring(lead));
         if (source.StartsWith("Objective: ", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(11));
         if (source.StartsWith("Objective:", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(10));
         if (source.StartsWith("Rule:", StringComparison.Ordinal)) return "規則：" + Translate(source.Substring(5));
