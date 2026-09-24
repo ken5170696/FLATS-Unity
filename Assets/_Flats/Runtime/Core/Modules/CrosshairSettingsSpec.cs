@@ -8,7 +8,7 @@ namespace Flats.Modules
     public static class CrosshairSettingsSpec
     {
         public const string Adapter = "crosshair@2";
-        public static readonly string[] Styles = { "cross", "dot", "ring", "crossdot", "t" };
+        public static readonly string[] Styles = { "cross", "dot", "ring", "crossDot", "t" };
 
         public static ModuleSettingSpec[] Specs() => new[]
         {

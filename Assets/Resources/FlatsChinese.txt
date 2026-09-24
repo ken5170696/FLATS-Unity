@@ -854,3 +854,17 @@ Also imports {0} personal settings (language, controls, crosshair).	另外會匯
 official.* mods can only be installed from the official source	official.* 模組只能從官方來源安裝
 Set in Mod center	在模組中心設定
 Everyone in the room needs the same version.	同一房間的每位玩家都需要安裝相同版本。
+
+Size	大小
+Thickness	粗細
+Gap	間距
+Opacity	透明度
+Outline	外框
+Outline color	外框顏色
+Cross Dot	十字加點
+T	T 字
+Classic	經典
+Precision Dot	精準點
+Wide Ring	寬圓環
+Save your Crosshair changes?	要儲存準心的變更嗎？
+The draft has not been applied. Saving keeps the mod's enabled state.	草稿尚未套用。儲存後會保留此模組的啟用狀態。

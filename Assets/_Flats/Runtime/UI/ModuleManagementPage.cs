@@ -72,7 +72,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         if(wired)return;
         if(Host==null || Service==null || menu==null)
             throw new InvalidOperationException("ModulePageBinding must bind the page before use");
-        if(root==null || search==null || sizeSlider==null)
+        if(root==null || search==null || (sizeSlider==null && settingsForm==null))
             throw new InvalidOperationException("ModulesScreen prefab has missing authored view references");
         ui=new ModCenterWidgets(FlatsLocalizedText.GetSourceFont(search.textComponent),()=>menu.PlayMenuSound(menu.pressSE));
         BindViewActions();

@@ -23,7 +23,11 @@ public sealed partial class ModuleManagementPage
     [SerializeField] RectTransform draftControls;
     [SerializeField] Slider sizeSlider;
     [SerializeField] Button[] styles;
-    bool Dirty=>draft!=null&&(draft.style!=Host.ConfiguredCrosshair.style||!Mathf.Approximately(draft.size,Host.ConfiguredCrosshair.size));
+    [SerializeField, Tooltip("Settings-driven editor. When assigned it replaces the style buttons and size slider.")]
+    ModuleSettingsForm settingsForm;
+    bool Generic=>settingsForm!=null;
+    static string Signature(CrosshairSettings s)=>string.Join(";",s.Values.Select(v=>v.id+"="+v.value));
+    bool Dirty=>draft!=null&&Signature(draft)!=Signature(Host.ConfiguredCrosshair);
     
     
     void RefreshQuick()
@@ -54,26 +58,40 @@ public sealed partial class ModuleManagementPage
     
     void OpenSettings()
     {
-        var saved=Host.ConfiguredCrosshair;draft=new CrosshairSettings{style=saved.style,size=saved.size};
-        SaveView();settingsOpen=true;detailOpen=false;draftNotice.text="";ApplyView();RefreshDraft();Focus(styles[(int)draft.style]);
+        // Start from every saved value so editing style or size keeps colour, thickness and outline.
+        draft=Host.ConfiguredCrosshair.Clone();
+        SaveView();settingsOpen=true;detailOpen=false;draftNotice.text="";ApplyView();
+        if(Generic)
+        {
+            // Settings are in HUD units; the preview shows them three times larger, as before.
+            preview.rectTransform.localScale=Vector3.one*3;
+            settingsForm.Bind(CrosshairSettingsSpec.Specs(),CrosshairSettingsSpec.Presets(),draft.Values,values=>{draft.Values=values;RefreshDraft();});
+            RefreshDraft();var first=settingsForm.GetComponentInChildren<Selectable>();if(first!=null)Focus(first);
+        }
+        else {RefreshDraft();Focus(styles[(int)draft.style]);}
     }
     void RefreshDraft()
     {
-        preview.Set(draft.style,draft.size*3);settingsLabel.text="Size: "+draft.size+" HUD units";
-        sizeSlider.SetValueWithoutNotify(draft.size);
-        for(int i=0;i<styles.Length;i++){styles[i].image.color=i==(int)draft.style?ModCenterWidgets.Tint:ModCenterWidgets.Paper;}
+        if(Generic)preview.Set(draft);
+        else
+        {
+            preview.Set(draft.style,draft.size*3);settingsLabel.text="Size: "+draft.size+" HUD units";
+            if(sizeSlider!=null)sizeSlider.SetValueWithoutNotify(draft.size);
+            if(styles!=null)for(int i=0;i<styles.Length;i++){styles[i].image.color=i==(int)draft.style?ModCenterWidgets.Tint:ModCenterWidgets.Paper;}
+        }
         draftNotice.text=Dirty?"Unsaved changes":"Saved settings";saveDraft.interactable=!Host.ReadOnly&&Dirty;
     }
     bool SaveDraft(bool leave)
     {
-        if(!Host.Configure(draft.style,draft.size)){draftNotice.text=Host.Notice;return false;}
+        if(!Host.Configure(draft.Values)){draftNotice.text=Host.Notice;return false;}
         if(leave)FinishSettings();else RefreshDraft();return true;
     }
     void FinishSettings() { settingsOpen=false;detailOpen=false;Reload();FocusSelected(); }
     void LeaveSettings()
     {
         if(!Dirty){FinishSettings();return;}
-        Ask("Save your Crosshair changes?\n\nStyle: "+Host.ConfiguredCrosshair.style+" → "+draft.style+"\nSize: "+Host.ConfiguredCrosshair.size+" → "+draft.size+" HUD units\n\nThe draft has not been applied. Saving keeps the mod's enabled state.",()=>SaveDraft(true));
+        Ask(Generic?"Save your Crosshair changes?\n\nThe draft has not been applied. Saving keeps the mod's enabled state.":
+            "Save your Crosshair changes?\n\nStyle: "+Host.ConfiguredCrosshair.style+" → "+draft.style+"\nSize: "+Host.ConfiguredCrosshair.size+" → "+draft.size+" HUD units\n\nThe draft has not been applied. Saving keeps the mod's enabled state.",()=>SaveDraft(true));
         confirmPanel.transform.Find("ConfirmAction").GetComponentInChildren<Text>().text="Save & leave";
         confirmPanel.transform.Find("CancelAction").GetComponentInChildren<Text>().text="Stay here";
         extraConfirm.gameObject.SetActive(true);extraConfirm.GetComponentInChildren<Text>().text="Discard & leave";extraConfirm.onClick.RemoveAllListeners();extraConfirm.onClick.AddListener(()=>{HideModal();FinishSettings();});

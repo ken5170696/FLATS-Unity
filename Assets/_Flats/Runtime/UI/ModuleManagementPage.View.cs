@@ -64,15 +64,17 @@ public sealed partial class ModuleManagementPage
         Listen(confirmPanel.transform, "CancelAction", () => { if(!busy)HideModal(); });
         Listen(crosshairPanel.transform, "LightPreview", () => previewBackdrop.color=new Color(.75f,.72f,.75f));
         Listen(crosshairPanel.transform, "DarkPreview", () => previewBackdrop.color=new Color(.25f,.23f,.26f));
-        for(int i=0;i<styles.Length;i++)
+        // Legacy crosshair controls are optional once the settings-driven form is authored.
+        if(styles!=null)for(int i=0;i<styles.Length;i++)
         {
             var value=(CrosshairStyle)i;
             Listen(styles[i], () => Configure(value,draft.size));
         }
-        sizeSlider.onValueChanged.AddListener(value=>Configure(draft.style,value));
-        Listen(smaller, () => Configure(draft.style,draft.size-2));
-        Listen(larger, () => Configure(draft.style,draft.size+2));
-        Listen(reset, () => Ask("Restore Crosshair defaults?\n\nThis changes only this mod's draft. Save changes to apply it. Other mods and game settings are not affected.",()=>Configure(CrosshairStyle.Cross,24)));
+        if(sizeSlider!=null)sizeSlider.onValueChanged.AddListener(value=>Configure(draft.style,value));
+        if(smaller!=null)Listen(smaller, () => Configure(draft.style,draft.size-2));
+        if(larger!=null)Listen(larger, () => Configure(draft.style,draft.size+2));
+        Listen(reset, () => Ask("Restore Crosshair defaults?\n\nThis changes only this mod's draft. Save changes to apply it. Other mods and game settings are not affected.",
+            ()=>{if(Generic)settingsForm.ResetToDefaults();else Configure(CrosshairStyle.Cross,24);}));
         Listen(saveDraft, () => SaveDraft(true));
         Listen(cancelDraft, LeaveSettings);
         Listen(importPanel.transform,"ReviewImport",ReviewImport);
