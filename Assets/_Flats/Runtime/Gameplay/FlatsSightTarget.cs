@@ -17,7 +17,12 @@ public sealed class FlatsSightTarget : MonoBehaviour
         if (aimCamera == null || !aimCamera.enabled) { aimCamera = null; return; }
         // Recovered scope canvases can face backwards. Retain their image roll,
         // but use the world camera's origin and forward direction for all lenses.
-        imageRoll = Vector3.Dot(sightCamera.transform.up, aimCamera.transform.up) < 0 ? 180f : 0f;
+        // Measure the roll against the sight anchor this sight is mounted on, which
+        // is the eye pose while aiming. The live world camera would make the result
+        // depend on the weapon's pose at spawn: a holstered secondary or a sight
+        // created mid weapon-change then showed the lens image upside down.
+        Transform anchor = transform.parent != null ? transform.parent : aimCamera.transform;
+        imageRoll = Vector3.Dot(sightCamera.transform.up, anchor.up) < 0 ? 180f : 0f;
     }
     void LateUpdate()
     {
