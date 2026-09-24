@@ -34,7 +34,8 @@ public sealed partial class ModuleManagementPage
             Listen(view.select,()=>
             {
                 if(selected){Switch("Installed");return;}
-                Ask("Select "+profile.name+"?\n\n"+profile.modules.Count(m=>m.requested)+" enabled mods. Dependencies and conflicts will be checked.\n\nRestart FLATS to run this configuration. Installed packages are shared.",()=>Run(async()=>{Host.SelectProfile(profile.id);await Service.RefreshInstalled();if(this==null || !isActiveAndEnabled)return;RenderProfiles();notice.text=Host.Notice;},false));
+                int missing=profile.modules.Count(m=>m.requested&&!Service.Installed.Any(i=>i.manifest.id==m.id));
+                Ask("Select "+profile.name+"?\n\n"+(profile.modules.Count(m=>m.requested)-missing)+" enabled mods. Dependencies and conflicts will be checked."+(missing>0?"\n"+missing+" enabled mods are not installed and will be skipped.":"")+"\n\nRestart FLATS to run this configuration. Installed packages are shared.",()=>Run(async()=>{Host.SelectProfile(profile.id);await Service.RefreshInstalled();if(this==null || !isActiveAndEnabled)return;RenderProfiles();notice.text=Host.Notice;},false));
             });
             Listen(view.duplicate,()=>NameProfile(profile.name+" copy",name=>Profiles.Create(name,profile.id)));
             Listen(view.rename,()=>NameProfile(profile.name,name=>Profiles.Rename(profile.id,name)));

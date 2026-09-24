@@ -90,7 +90,9 @@ namespace Flats.Modules
         {
             get { var entry=document.modules.FirstOrDefault(m=>m.id==CrosshairModule.Id);return CrosshairSettings.FromJson(entry?.json); }
         }
-        public bool Requested(string id) { return Profiles!=null?Profiles.Requested(id):document.modules.Any(m=>m.id==id&&m.requested); }
+        // The selected profile is the only enabled-state source. Without profiles nothing
+        // was applied, so nothing reports as enabled (modules-v1.json is migration input).
+        public bool Requested(string id) { return Profiles!=null&&Profiles.Requested(id); }
         public void InitializeProfiles(string directory,InstalledPackage[] installed)
         {
             if(store.ReadOnly)throw new InvalidOperationException(store.Notice);
@@ -125,12 +127,14 @@ namespace Flats.Modules
         {
             Profiles.Select(id,profile=>
             {
-                var enabled=profile.modules.Where(m=>m.requested).Select(m=>m.id).ToArray();
+                // Uninstalled modules stay recorded in the profile but are not loaded, so they
+                // do not block selecting it; reinstalling them restores the saved intent.
+                var enabled=profile.modules.Where(m=>m.requested&&Center.Installed.Any(i=>i.manifest.id==m.id)).Select(m=>m.id).ToArray();
                 foreach(var entry in profile.modules)
                 {
                     if(entry.id==CrosshairModule.Id && !entry.requested){if(!string.IsNullOrEmpty(entry.json))CrosshairSettings.FromJson(entry.json);continue;}
                     if(!entry.requested)continue;
-                    var p=Center.Installed.FirstOrDefault(i=>i.manifest.id==entry.id);if(p==null)throw new InvalidOperationException("Missing module: "+entry.id);
+                    var p=Center.Installed.FirstOrDefault(i=>i.manifest.id==entry.id);if(p==null)continue;
                     var issue=ModuleDiagnostics.Inspect(p.manifest,Center.Installed.Select(i=>i.manifest),enabled);if(issue.Length>0)throw new InvalidOperationException(issue);
                 }
             });
