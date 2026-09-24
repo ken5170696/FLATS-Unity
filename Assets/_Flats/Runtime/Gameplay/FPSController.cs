@@ -68,6 +68,12 @@ public class FPSController : MonoBehaviour
 	private Gun currentGun;
 
 	private bool startZooming;
+
+	// Aim-in takes a few frames (startZooming) before isZoom is set. Cancelling and
+	// toggling must treat that transition as aiming, or reload, weapon change,
+	// grenade or sprint started mid-transition would finish aimed afterwards.
+	private bool Aiming => isZoom || startZooming;
+
 	private Vector3 aimEyeLocalPosition;
 
 	private Transform ui;
@@ -524,7 +530,7 @@ public class FPSController : MonoBehaviour
 		EasyTouch.On_Swipe -= On_Swipe;
 		EasyTouch.On_LongTapStart -= On_LongTapStart;
 		EasyTouch.On_LongTapEnd -= On_LongTapEnd;
-		if (isZoom)
+		if (Aiming)
 		{
 			Zoom(false);
 		}
@@ -711,7 +717,7 @@ public class FPSController : MonoBehaviour
 		{
 			return;
 		}
-		if (!isZoom && zoom)
+		if (!Aiming && zoom)
 		{
 			if (primarySightIndex == 0)
 			{
@@ -721,7 +727,7 @@ public class FPSController : MonoBehaviour
 			aimEyeLocalPosition = mt.InverseTransformPoint(ct.position);
 			camAnim.enabled = false;
 		}
-		else if (isZoom && !zoom)
+		else if (Aiming && !zoom)
 		{
 			if ((bool)sight)
 			{
@@ -733,6 +739,7 @@ public class FPSController : MonoBehaviour
 				reticle.SetVisible(true);
 			}
 			isZoom = false;
+			startZooming = false;
 		}
 	}
 
@@ -898,7 +905,7 @@ public class FPSController : MonoBehaviour
 		}
 		if (MyView(base.gameObject))
 		{
-			if (isZoom)
+			if (Aiming)
 			{
 				Zoom(false);
 			}
@@ -1048,7 +1055,7 @@ public class FPSController : MonoBehaviour
 		}
 		biten = true;
 		Multiplayer.limit += 10;
-		if (MyView(base.gameObject) && isZoom)
+		if (MyView(base.gameObject) && Aiming)
 		{
 			Zoom(false);
 		}
@@ -1300,7 +1307,7 @@ public class FPSController : MonoBehaviour
 			{
 				yield break;
 			}
-			if (MyView(base.gameObject) && isZoom)
+			if (MyView(base.gameObject) && Aiming)
 			{
 				Zoom(false);
 			}
@@ -1492,7 +1499,7 @@ public class FPSController : MonoBehaviour
 		{
 			yield break;
 		}
-		if (MyView(base.gameObject) && isZoom)
+		if (MyView(base.gameObject) && Aiming)
 		{
 			Zoom(false);
 		}
@@ -1535,7 +1542,7 @@ public class FPSController : MonoBehaviour
 		{
 			yield break;
 		}
-		if (MyView(base.gameObject) && isZoom)
+		if (MyView(base.gameObject) && Aiming)
 		{
 			Zoom(false);
 		}
@@ -1625,7 +1632,7 @@ public class FPSController : MonoBehaviour
 			yield break;
 		}
 		base.GetComponent<AudioSource>().PlayOneShot(grenadeSE);
-		if (MyView(base.gameObject) && isZoom)
+		if (MyView(base.gameObject) && Aiming)
 		{
 			Zoom(false);
 		}
@@ -1836,11 +1843,11 @@ public class FPSController : MonoBehaviour
 				{
 					if (zoomPressTime <= holdTime)
 					{
-						if (!isZoom && enableFire && !anim.GetBool("Run"))
+						if (!Aiming && enableFire && !anim.GetBool("Run"))
 						{
 							Zoom(true);
 						}
-						else if (isZoom)
+						else if (Aiming)
 						{
 							Zoom(false);
 						}
@@ -2082,11 +2089,11 @@ public class FPSController : MonoBehaviour
 							}
 							picking = false;
 						}
-						if (FlatsControls.PadState("Aim", 0) && grabbedObject == null && enableFire && !grabbing && !isZoom && enableFire && !anim.GetBool("Run"))
+						if (FlatsControls.PadState("Aim", 0) && grabbedObject == null && enableFire && !grabbing && !Aiming && enableFire && !anim.GetBool("Run"))
 						{
 							Zoom(true);
 						}
-						if (FlatsControls.PadState("Aim", 2) && grabbedObject == null && !grabbing && isZoom)
+						if (FlatsControls.PadState("Aim", 2) && grabbedObject == null && !grabbing && Aiming)
 						{
 							Zoom(false);
 						}
@@ -2103,7 +2110,7 @@ public class FPSController : MonoBehaviour
 						}
 						if (FlatsControls.PadState("Scope", 1) && Menu.canOpen)
 						{
-							if (isZoom)
+							if (Aiming)
 							{
 								Zoom(false);
 							}
@@ -2230,7 +2237,7 @@ public class FPSController : MonoBehaviour
 					}
 					if (input.ToggleZoom)
 					{
-						if (isZoom)
+						if (Aiming)
 						{
 							Zoom(false);
 						}
@@ -2316,7 +2323,7 @@ public class FPSController : MonoBehaviour
 						{
 							anim.SetBool("Run", true);
 						}
-						if (isZoom)
+						if (Aiming)
 						{
 							Zoom(false);
 						}
