@@ -46,13 +46,13 @@ public static class FlatsPortalBuild
         public PackedItem[] assets;
     }
 
-    [MenuItem("Flats Recovery/Portal/Build Windows")]
+    [MenuItem("FLATS/Build/Portal Windows")]
     public static void Windows() { Build(BuildTarget.StandaloneWindows64, "Windows", "FLATS.exe"); }
-    [MenuItem("Flats Recovery/Portal/Build Web")]
+    [MenuItem("FLATS/Build/Portal Web")]
     public static void Web() { Build(BuildTarget.WebGL, "Web", ""); }
-    [MenuItem("Flats Recovery/Portal/Build Linux")]
+    [MenuItem("FLATS/Build/Portal Linux")]
     public static void Linux() { Build(BuildTarget.StandaloneLinux64, "Linux", "FLATS.x86_64"); }
-    [MenuItem("Flats Recovery/Portal/Build macOS")]
+    [MenuItem("FLATS/Build/Portal macOS")]
     public static void Mac() { Build(BuildTarget.StandaloneOSX, "macOS", "FLATS.app"); }
     public static void Android()
     {

@@ -9,7 +9,7 @@ using UnityEditor.Build.Reporting;
 
 public static class FlatsOfflineBuild
 {
-    [MenuItem("Flats Recovery/Build Windows Offline")]
+    [MenuItem("FLATS/Build/Windows Offline")]
     public static void BuildWindows()
     {
         var previousCompany=PlayerSettings.companyName;
