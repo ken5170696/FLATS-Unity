@@ -174,8 +174,10 @@ public static class FlatsSaveTransfer
     public static Preference[] CapturePreferences()
     {
         var list = new List<Preference>();
+        // The language is exported as shown, even if it was never chosen explicitly.
+        list.Add(new Preference { key = LanguageKey, kind = "string", value = FlatsLocalization.Language });
         foreach (string key in StringKeys())
-            if (FlatsPreferences.HasKey(key)) list.Add(new Preference { key = key, kind = "string", value = FlatsPreferences.GetString(key) });
+            if (key != LanguageKey && FlatsPreferences.HasKey(key)) list.Add(new Preference { key = key, kind = "string", value = FlatsPreferences.GetString(key) });
         foreach (string key in new[] { CrosshairColorKey, CrosshairSizeKey })
             if (FlatsPreferences.HasKey(key))
                 list.Add(new Preference { key = key, kind = "int", value = FlatsPreferences.GetInt(key).ToString(CultureInfo.InvariantCulture) });

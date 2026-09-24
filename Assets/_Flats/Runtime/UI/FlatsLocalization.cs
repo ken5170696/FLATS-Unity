@@ -38,11 +38,14 @@ public static class FlatsLocalization
     public static void SetLanguage(string value)
     {
         if (value != "en" && value != "zh-Hant") throw new ArgumentException("Unsupported language", nameof(value));
-        if (Language == value) return;
+        // An explicit choice is saved even when it matches the system default, so it
+        // survives a later system language change and is included in exports.
+        bool changed = Language != value;
+        if (!changed && FlatsPreferences.GetString(Preference) == value) return;
         FlatsPreferences.SetString(Preference, value);
         FlatsPreferences.Save();
         language = value;
-        Changed?.Invoke();
+        if (changed) Changed?.Invoke();
     }
     public static string Translate(string source)
     {
