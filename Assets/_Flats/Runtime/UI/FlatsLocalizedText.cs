@@ -7,6 +7,8 @@ public sealed class FlatsLocalizedText : Text
 {
     public bool translate = true;
     Font originalFont;
+    public Font SourceFont => originalFont != null ? originalFont : font;
+    public static Font GetSourceFont(Text label) => label is FlatsLocalizedText localized ? localized.SourceFont : label.font;
     bool rendering;
     public override string text
     {

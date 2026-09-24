@@ -27,7 +27,7 @@ public partial class Menu
         var sync = mt.Find("Character/Sync");
         if (sync == null) return;
         var original = sync.GetComponentInChildren<Text>(true);
-        var ui = new ModCenterWidgets(original != null ? original.font : Resources.GetBuiltinResource<Font>("Arial.ttf"),
+        var ui = new ModCenterWidgets(original != null ? FlatsLocalizedText.GetSourceFont(original) : Resources.GetBuiltinResource<Font>("Arial.ttf"),
             () => PlayMenuSound(pressSE));
         var syncRect = (RectTransform)sync;
         syncRect.offsetMin = new Vector2(syncRect.offsetMin.x, syncRect.offsetMin.y - 64f);

@@ -24,7 +24,7 @@ public partial class Menu
         if (localMatchPanel == null)
         {
             localDiscovery = gameObject.AddComponent<FlatsLanDiscovery>();
-            var ui = new ModCenterWidgets(bt[0].font, () => PlayMenuSound(pressSE));
+            var ui = new ModCenterWidgets(FlatsLocalizedText.GetSourceFont(bt[0]), () => PlayMenuSound(pressSE));
             localMatchPanel = ui.Panel("LocalMatchOnline", mt, 0, 0, 540, 410, new Color(.31f, .24f, .29f)).gameObject;
             ui.Text("Title", localMatchPanel.transform, "Local Match - online rooms", 0, 176, 500, 35, 24, Color.white);
             ui.Text("Explanation", localMatchPanel.transform,

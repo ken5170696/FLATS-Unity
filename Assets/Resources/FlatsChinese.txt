@@ -285,3 +285,134 @@ Profile saved.	設定組合已儲存。
 Keep your enabled mods and settings together.	將啟用的模組與設定儲存在同一組合。
 Room modules differ	房間模組不一致
 Open Mod	開啟模組
+Regular	正常
+Territory	據點爭奪
+Blow up the Base	基地爆破
+Zombie	殭屍模式
+Co-op Survival	合作生存
+Searching...	搜尋中…
+Kill other players.	擊敗其他玩家。
+Kill the other team's players.	擊敗敵隊玩家。
+Dominate the area.	佔領區域。
+Capture the other team's flag\nand bring it back to my team's base.	奪取敵隊旗幟，\n並帶回我方基地。
+Blow up the other team's base.\nSeparated Offense and Defense.\n\nOffense: Set a bomb on the base.\nDefense: Defend my team's base.	炸毀敵隊基地。\n分為進攻方與防守方。\n\n進攻：在基地安裝炸彈。\n防守：保護我方基地。
+A zombie makes another zombie.	殭屍會感染其他玩家。
+Defend your team's VIP and kill the other team's VIP.	保護我方 VIP，並擊敗敵隊 VIP。
+Survive with your co-players.\nYour record is saved as the record of\nsingleplayer mode.\n\nNote: Started from phase 1\nand current score will be reset.	與隊友一起生存。\n紀錄會儲存至單人模式。\n\n注意：從第 1 階段開始，\n目前分數將重設。
+3 Kills	3 次擊殺
+5 Kills	5 次擊殺
+10 Kills	10 次擊殺
+15 Kills	15 次擊殺
+30 Seconds	30 秒
+60 Seconds	60 秒
+90 Seconds	90 秒
+1 Flag	1 面旗幟
+2 Flags	2 面旗幟
+3 Flags	3 面旗幟
+1 Round	1 回合
+2 Rounds	2 回合
+3 Rounds	3 回合
+3 kill	3 次擊殺
+Flat City	扁平城市
+Urban Park	都市公園
+Beachside Town	海濱小鎮
+Department Store	百貨公司
+Warehouse	倉庫
+Night Land	夜之境
+Window Mode	視窗模式
+VSync	垂直同步
+Crosshair Color	準心顏色
+Crosshair Size	準心大小
+White	白色
+Black	黑色
+Red	紅色
+Green	綠色
+Cyan	青色
+Magenta	洋紅色
+<- Button Area ->	← 按鈕區域 →
+<- Stick Area ->	← 搖桿區域 →
+Check your text before posting it.\nLog will be deleted automatically\nafter everyone has gone.	發送前請確認訊息內容。\n所有人離開後，\n聊天紀錄會自動刪除。
+Deathmatch\nTap here to join	死亡競賽\n點此加入
+Disable\n(Delete Mapping)	停用\n（刪除按鍵配置）
+Enable\n(Customize Mapping)	啟用\n（自訂按鍵配置）
+Drag buttons to change their position.\nTap buttons to change their size.	拖曳按鈕以調整位置。\n點按按鈕以調整大小。
+Enter the room name within 20 letters.\nIf you want to create a new room, make the name unique.	請輸入 20 個字元以內的房間名稱。\n建立新房間時，請使用不重複的名稱。
+How to calculate:\nFinal Damage = Damage x ( 1 + Attack x 0.1 )\nHP = 1000 x ( 1 + Defense x 0.1 )	計算方式：\n最終傷害 = 傷害 ×（1 + 攻擊 × 0.1）\n生命值 = 1000 ×（1 + 防禦 × 0.1）
+Hunt monochrome enemies.\nDon't kill colorful ones.	獵殺單色敵人，\n不要擊殺彩色敵人。
+Limit framerate to 30fps.\nDisabled automatically when you are in VR mode.	將幀率限制為每秒 30 幀。\n進入 VR 模式時會自動停用。
+Make headshots in a row.\nDon't shoot body.	連續命中頭部，\n不要射中身體。
+Network disconnected.\nTry again later.	網路連線已中斷。\n請稍後再試。
+One player must be the host at first.\n\nAfter the room creation,\nother players can join the room as a client.	請先由一位玩家擔任主機。\n\n建立房間後，\n其他玩家即可加入。
+Receive notification if someone started open match.\nThis is an experimental option, may affects performance and not work well.	有人開始公開配對時接收通知。\n此功能仍在實驗階段，可能影響效能或無法正常運作。
+Sight:None\n(reload speed bonus)	準心：無\n（裝填速度加成）
+Stay this room and notice when it is full.\nCheck this if you want to play\nsingleplayer while waiting.	留在房間內，額滿時通知。\n若想在等待期間遊玩單人模式，\n請勾選此項。
+Survive every wave.\nEnemies get stronger.	撐過每一波攻勢。\n敵人會越來越強。
+This setting is used for open match\nand invitation match.\n\nYou must be in the same server region\nto make matches with your friends.	此設定適用於公開配對\n與邀請對戰。\n\n與朋友遊玩時，\n必須選擇相同伺服器地區。
+You can delete custom mapping anywhere in the game\nby keep pressing jump,pick,reload and change button.	在遊戲中同時按住跳躍、拾取、裝填與切換按鈕，\n即可刪除自訂按鍵配置。
+You must be in the same online version\nto make matches with others.	必須使用相同的連線版本，\n才能與其他玩家配對。
+Leaderboard (local)	本機排行榜
+Hold reload button to join	按住裝填按鈕加入
+Press enter key to join	按 Enter 加入
+Tap here to join	點此加入
+Manage	管理
+Review	檢視
+Pause	暫停
+Verifying	驗證中
+Pending	等待中
+Downloading	下載中
+Paused	已暫停
+Failed	失敗
+Cancelled	已取消
+All installed mods	所有已安裝模組
+VERSION	版本
+STATUS	狀態
+ENABLED	啟用
+Preview	預覽
+Style	樣式
+Dot	圓點
+Cross	十字
+Circle	圓圈
+Client-only	僅影響本機
+Filters	篩選
+CATEGORY	類別
+All	全部
+Needs attention	需要處理
+Updates	更新
+Save changes	儲存變更
+Restore defaults	還原預設
+Local module storage	本機模組儲存空間
+Make FLATS your own	打造你的 FLATS
+3× preview · actual size uses HUD units	3 倍預覽 · 實際大小以 HUD 單位計算
+Your changes affect the preview only.\nSave changes to keep this configuration.	變更只會影響預覽。\n儲存後才會保留此設定。
+Changes apply when you save.\nSaving does not enable a disabled mod.	儲存後套用變更。\n儲存不會啟用已停用的模組。
+Import a local mod	匯入本機模組
+Choose a FLATS ZIP package or enter its full file path.\nOnly import packages from a source you recognise.	選擇 FLATS ZIP 套件，或輸入完整檔案路徑。\n請只匯入來源可信的套件。
+The package will be checked before installation.	安裝前將先檢查套件。
+Your installed mods are available offline.\nExplore the official catalogue when connected.	離線時仍可使用已安裝模組。\n連線後即可瀏覽官方目錄。
+Find an official package	尋找官方套件
+Paste a package manifest to find its official download.\nWeb installs crosshair data packages; code packages require desktop FLATS.	貼上套件資訊以尋找官方下載。\n網頁版可安裝準心資料套件；程式套件需要桌面版 FLATS。
+The official package is downloaded and verified after your review.	確認後將下載並驗證官方套件。
+Profile name	設定組合名稱
+Online Version:{0}	連線版本：{0}
+Update Version {0}	更新版本 {0}
+Multiplayer Score: {0}	多人分數：{0}
+Singleplayer Score: {0}	單人分數：{0}
+Total Score: {0}	總分：{0}
+Camera: {0}	觀戰：{0}
+Room: {0}	房間：{0}
+Start Now! {0}	立即開始！{0}
+Add bot and Start Now! {0}	加入電腦玩家並開始！{0}
+Downloads ({0})	下載（{0}）
+Size: {0} HUD units	大小：{0} HUD 單位
+{0} mods enabled	已啟用 {0} 個模組
+Update to {0}	更新至 {0}
+Import failed: {0}	匯入失敗：{0}
+Could not review package. {0}	無法檢視套件。{0}
+Could not complete the action. {0}	無法完成操作。{0}
+Could not find package: {0}	找不到套件：{0}
+Loading mods — connecting to {0}	正在載入模組 — 連線至 {0}
+Character: {0}	角色：{0}
+The current save will be backed up before replacement.	取代前會先備份目前存檔。
+MOD / INSTALLED	模組 / 已安裝
+MOD / EXPLORE	模組 / 探索
+MOD / DOWNLOADS	模組 / 下載

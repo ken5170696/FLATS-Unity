@@ -7,7 +7,7 @@ public partial class Menu
     Text languageLabel;
     void InitializeLanguageButton()
     {
-        var ui = new ModCenterWidgets(bt[0].font, () => PlayMenuSound(pressSE));
+        var ui = new ModCenterWidgets(FlatsLocalizedText.GetSourceFont(bt[0]), () => PlayMenuSound(pressSE));
         languageButton = ui.Button("Language", transform, "", 0, 0, 178, 48,
             () => { FlatsLocalization.SetLanguage(FlatsLocalization.IsChinese ? "en" : "zh-Hant"); RefreshLanguageButton(); },
             new Color(.31f,.24f,.29f,1));

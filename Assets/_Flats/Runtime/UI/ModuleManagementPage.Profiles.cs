@@ -37,7 +37,7 @@ public sealed partial class ModuleManagementPage
             float x=-(ListWidth-16)/2+width/2+(i%columns)*(width+gap),y=-(i/columns)*(height+gap);
             var card=ui.Panel("Profile-"+profile.id,listContent,x,y,width,height,selected?ModCenterWidgets.Tint:Color.white).rectTransform;
             card.anchorMin=card.anchorMax=new Vector2(.5f,1);card.pivot=new Vector2(.5f,1);
-            ui.Text("ProfileTitle",card,profile.name,0,-36,width-36,52,26);
+            ui.Text("ProfileTitle",card,profile.name,0,-36,width-36,52,26,localize:false);
             ui.Text("ProfileModules",card,profile.modules.Count(m=>m.requested)+" mods enabled",0,-82,width-36,34,17,ModCenterWidgets.Muted);
             string state=(selected?"Selected":"Saved profile")+(running?" / Running":"")+(selected&&Profiles.RestartRequired?" / Restart required":"");
             ui.Text("ProfileState",card,state,0,-124,width-36,48,16,ModCenterWidgets.Accent);

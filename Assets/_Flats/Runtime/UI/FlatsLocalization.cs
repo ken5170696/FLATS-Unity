@@ -7,6 +7,7 @@ public static class FlatsLocalization
     const string Preference = "ui.language";
     static string language;
     static Dictionary<string, string> chinese;
+    static readonly List<KeyValuePair<string, string>> templates = new List<KeyValuePair<string, string>>();
     static Font chineseFont;
     public static event Action Changed;
     public static bool IsChinese => Language == "zh-Hant";
@@ -47,12 +48,34 @@ public static class FlatsLocalization
                 foreach (string line in asset.text.Split('\n'))
                 {
                     int split = line.IndexOf('\t');
-                    if (split > 0) chinese[line.Substring(0, split).Replace("\\n", "\n")] =
-                        line.Substring(split + 1).TrimEnd('\r').Replace("\\n", "\n");
+                    if (split > 0)
+                    {
+                        string key = line.Substring(0, split).Replace("\\n", "\n");
+                        string value = line.Substring(split + 1).TrimEnd('\r').Replace("\\n", "\n");
+                        if (key.Contains("{0}")) templates.Add(new KeyValuePair<string,string>(key,value));
+                        else chinese[key] = value;
+                    }
                 }
         }
-        return chinese.TryGetValue(source, out string translated) ? translated : source;
+        if (chinese.TryGetValue(source, out string translated)) return translated;
+        // Parameters are kept verbatim: names, paths, scores and server messages are data.
+        foreach (var pair in templates)
+        {
+            int marker = pair.Key.IndexOf("{0}", StringComparison.Ordinal);
+            string prefix = pair.Key.Substring(0, marker), suffix = pair.Key.Substring(marker + 3);
+            if (source.Length >= prefix.Length + suffix.Length &&
+                source.StartsWith(prefix, StringComparison.Ordinal) && source.EndsWith(suffix, StringComparison.Ordinal))
+                return pair.Value.Replace("{0}", source.Substring(prefix.Length, source.Length-prefix.Length-suffix.Length));
+        }
+        if (source.StartsWith("Objective: ", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(11));
+        if (source.IndexOf('\n') >= 0)
+        {
+            var lines = source.Split('\n');
+            for (int i=0; i<lines.Length; i++) lines[i]=Translate(lines[i]);
+            return string.Join("\n", lines);
+        }
+        return source;
     }
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void Reset() { language = null; chinese = null; chineseFont = null; Changed = null; }
+    static void Reset() { language = null; chinese = null; templates.Clear(); chineseFont = null; Changed = null; }
 }

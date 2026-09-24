@@ -72,7 +72,7 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
         if(wired)return;
         if(Host==null || Service==null || menu==null)throw new InvalidOperationException("ModulePageBinding must bind the page before use");
         wired=true;
-        var font=menu.buttons[0].transform.parent.GetComponentInChildren<Text>(true).font;
+        var font=FlatsLocalizedText.GetSourceFont(menu.buttons[0].transform.parent.GetComponentInChildren<Text>(true));
 
         foreach(Transform child in transform) { child.gameObject.SetActive(false);Destroy(child.gameObject); }
         var bg=GetComponent<Image>();if(bg!=null)bg.enabled=false;

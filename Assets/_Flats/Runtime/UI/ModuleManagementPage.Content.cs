@@ -151,7 +151,7 @@ public sealed partial class ModuleManagementPage
         var b=ui.Button("Mod-"+id,listContent,"",0,0,width,height,()=>SelectRow(id),id==selectedId?ModCenterWidgets.Tint:ModCenterWidgets.Paper);
         var r=(RectTransform)b.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,1);r.pivot=new Vector2(.5f,1);r.anchoredPosition=new Vector2(0,-rowY);
         var icon=ui.Rect("ModIcon",r,-width/2+34,-height/2,40,40).gameObject.AddComponent<ModTileGraphic>();icon.color=ModCenterWidgets.Accent;icon.raycastTarget=false;
-        var title=ui.Text("Name",r,PlayerName(name),-width/2+68+width*.16f,-25,width*.32f,44,18);title.alignment=TextAnchor.MiddleLeft;
+        var title=ui.Text("Name",r,PlayerName(name),-width/2+68+width*.16f,-25,width*.32f,44,18,localize:id==CrosshairModule.Id);title.alignment=TextAnchor.MiddleLeft;
         var record=Host.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
         var package=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);
         var version=package?.manifest.version??record?.Manifest.Version.ToString()??"";

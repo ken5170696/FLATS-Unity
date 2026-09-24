@@ -26,8 +26,8 @@ public sealed partial class ModuleManagementPage
         var icon=ui.Rect("ModIcon",cover.transform,0,0,50,50).gameObject.AddComponent<ModTileGraphic>();icon.color=ModCenterWidgets.Accent;icon.raycastTarget=false;
         var item=known[id];
         if(!string.IsNullOrEmpty(item.imageUrl)){var img=ui.Rect("Thumbnail",cover.transform,0,0,80,80).gameObject.AddComponent<RawImage>();img.raycastTarget=false;LoadArtwork(img,item.imageUrl,-1);}
-        ui.Text("Name",r,PlayerName(name),0,-123,width-36,46,22);
-        var desc=ui.Text("Purpose",r,item.manifest.description??"",0,-164,width-36,38,16,ModCenterWidgets.Muted);
+        ui.Text("Name",r,PlayerName(name),0,-123,width-36,46,22,localize:false);
+        var desc=ui.Text("Purpose",r,item.manifest.description??"",0,-164,width-36,38,16,ModCenterWidgets.Muted,localize:false);
         ui.Text("State",r,CatalogStatus(item),-width/4,-209,width/2-24,34,14,ModCenterWidgets.Muted);
         ui.Button("Review-"+id,r,Service.Installed.Any(p=>p.manifest.id==id)?"Manage":"Review",width/2-76,-209,128,42,()=>{selectedId=id;OpenDetail();},ModCenterWidgets.Accent);
         foreach(Transform t in r)((RectTransform)t).anchorMin=((RectTransform)t).anchorMax=new Vector2(.5f,1);
