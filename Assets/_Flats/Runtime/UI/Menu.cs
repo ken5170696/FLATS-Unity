@@ -846,6 +846,7 @@ public partial class Menu : MonoBehaviour
 
 	private IEnumerator Start()
 	{
+        InitializeLanguageButton();
         StartCoroutine(ShowPendingModuleRejection());
 		SocialDesc desc = new SocialDesc
 		{
@@ -1698,6 +1699,7 @@ public partial class Menu : MonoBehaviour
 
 	private void LateUpdate()
 	{
+        RefreshLanguageButton();
         CheckMultiplayerDeadline();
 		if ((current == "Playing" && !framerateAlertIsEnabled) || VRmode || standaloneModule == null || inControlModule == null)
 		{

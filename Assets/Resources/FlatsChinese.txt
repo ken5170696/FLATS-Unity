@@ -1,0 +1,287 @@
+Play	開始遊戲
+Play / Matchmaking	開始 / 配對中
+Mod	模組
+Modules	模組
+MOD	模組
+Singleplayer	單人遊戲
+Multiplayer	多人遊戲
+Character	角色
+Settings	設定
+Leaderboard	排行榜
+Information	資訊
+Resume	繼續遊戲
+Back	返回
+Cancel	取消
+Close	關閉
+OK	確定
+Continue	繼續
+Confirm	確認
+Yes	是
+No	否
+Exit	離開
+Quit	離開遊戲
+Start	開始
+New Game	新遊戲
+Restart	重新開始
+Retry	重試
+Reset	重設
+Default	預設
+None	無
+none	無
+Normal	一般
+Normal (x2)	一般（x2）
+ON	開啟
+OFF	關閉
+On	開啟
+Off	關閉
+Enable	啟用
+Disable	停用
+Enabled	已啟用
+Disabled	已停用
+Any	不限
+Full	全滿
+4 or Less	4 人以下
+Loading...	載入中…
+Please wait...	請稍候…
+Wait...	請稍候…
+Matchmaking...	配對中…
+Start Matchmaking	開始配對
+Open Match	公開配對
+Private Match	私人對戰
+Local Match	區域網路對戰
+Offline	離線
+Online	線上
+Create the Room	建立房間
+Join or create this room	加入或建立房間
+Enter the room name...	輸入房間名稱…
+Enter the room name within 20 letters.	請輸入 20 個字元以內的房間名稱。
+Enter host's IP address...	輸入主機 IP 位址…
+Connect via Local Network	透過區域網路連線
+Connect Automatically (recommended)	自動連線（建議）
+Connect Manually (use this if you can't join the room)	手動連線（無法加入時使用）
+Be Client	加入主機
+Show my IP address	顯示我的 IP 位址
+Server Region	伺服器地區
+Player Count	玩家人數
+Player Count:	玩家人數：
+Rule	規則
+Stage	地圖
+Vote map	投票選地圖
+Invite	邀請
+Chat	聊天
+Message	訊息
+Enter text...	輸入訊息…
+Enter name...	輸入名稱…
+Enter comment...	輸入留言…
+Name	名稱
+Comment:	留言：
+Upload	上傳
+Enter	輸入
+Stats	能力值
+Attack	攻擊
+Defense	防禦
+Bot Stats	電腦玩家能力值
+Level (Bonus)	等級（加成）
+Score	分數
+Your Score	你的分數
+Result	結果
+Total Score:	總分：
+Singleplayer Score:	單人分數：
+Multiplayer Score:	多人分數：
+Multiplayer Score: 0	多人分數：0
+Kill:	擊殺：
+Death:	死亡：
+Survival:	生存：
+Headshot Challenge:	爆頭挑戰：
+Assortment:	綜合挑戰：
+Objective:	目標：
+Objective	目標
+Survival	生存模式
+Headshot Challenge	爆頭挑戰
+Assortment	綜合挑戰
+Deathmatch	死亡競賽
+Team Deathmatch	團隊死亡競賽
+Capture the Flag	奪旗模式
+Training	訓練
+Tutorial	教學
+Training mode.	練習操作與射擊。
+Let's walk around the stages.	自由探索各個地圖。
+Phase	階段
+Wait until the next phase...	等待下一階段…
+Long tap to exchange	長按交換武器
+Gun Name	武器名稱
+Damage	傷害
+Headshot Bonus	爆頭加成
+Magazine Size	彈匣容量
+Max Ammo Count	最大彈藥量
+Reload Time	裝填時間
+Accuracy	精準度
+RPM	每分鐘射速
+Primary	主武器
+Secondary	副武器
+Set as Primary	設為主武器
+Set as Secondary	設為副武器
+Sight	準心
+Assault Rifle typeA	突擊步槍 A 型
+Assault Rifle typeB	突擊步槍 B 型
+Assault Rifle typeC	突擊步槍 C 型
+Assault Rifle typeD	突擊步槍 D 型
+SMG typeA	衝鋒槍 A 型
+SMG typeB	衝鋒槍 B 型
+SMG typeC	衝鋒槍 C 型
+SMG typeD	衝鋒槍 D 型
+Handgun typeA	手槍 A 型
+Handgun typeB	手槍 B 型
+Shotgun typeA	霰彈槍 A 型
+Shotgun typeB	霰彈槍 B 型
+Sniper Rifle typeA	狙擊步槍 A 型
+Sniper Rifle typeB	狙擊步槍 B 型
+Light Machinegun	輕機槍
+Grenade Launcher	榴彈發射器
+All Volumes	主音量
+BGM Volume	背景音樂音量
+Sound	音效
+Graphics	畫面
+Controls	操作
+Control	操作
+Extra	其他
+Anti-Aliasing	反鋸齒
+DoF Effect	景深效果
+Motion Blur	動態模糊
+Edge Rendering	邊緣描線
+Saturation Filter	飽和度濾鏡
+Cam Sensitivity	視角靈敏度
+Handedness	慣用手
+Right	右手
+Left	左手
+Y-Axis	垂直視角
+Inverted	反轉
+Auto-Aim	自動瞄準
+Tap Firing	點按射擊
+Control Method	操作方式
+Touch	觸控
+Controller	控制器
+Keyboard & Mouse	鍵盤與滑鼠
+Controller Name	控制器名稱
+Connect a controller and press enable button.	連接控制器後，按下啟用按鈕。
+No controller detected.	未偵測到控制器。
+Release the button.	請放開按鈕。
+Learn how to control your current control device.	了解目前操作裝置的使用方式。
+Resolution	解析度
+Eye Distance	瞳距
+Head Rotation	頭部旋轉
+Battery Saver	省電模式
+Match Notification	配對通知
+Low	低
+Medium	中
+High	高
+Very High	非常高
+Fast	快速
+Slow	慢速
+Fullscreen	全螢幕
+Windowed	視窗模式
+Display	顯示
+Quality	畫質
+About	關於
+News	最新消息
+New Features and Fixes	新功能與修正
+Please visit and follow us.	歡迎造訪並追蹤我們。
+Share	分享
+Share This App	分享遊戲
+Rate This App	評價遊戲
+Open Store	開啟商店
+Remove Ads	移除廣告
+Explanation	說明
+LAN Sync	區域網路同步
+Enter ID number...	輸入 ID 號碼…
+Receive this ID's data	接收此 ID 的資料
+Save files	存檔檔案
+Import old save	匯入舊存檔
+Export save	匯出存檔
+Export save JSON	匯出 JSON 存檔
+Paste exported FLATS JSON	貼上匯出的 FLATS JSON
+Absolute path to .dat or .json save	輸入 .dat 或 .json 存檔的完整路徑
+Review JSON	檢視 JSON
+Load file	載入檔案
+Replace current save	取代目前存檔
+Copy JSON	複製 JSON
+Copy link	複製連結
+Copy path	複製路徑
+Use this session	僅在本次使用
+Retry browser save	重試瀏覽器儲存
+Saving imported profile to browser storage...	正在將匯入資料儲存至瀏覽器…
+Clipboard unavailable. Select and copy the JSON above.	無法使用剪貼簿，請選取並複製上方 JSON。
+Copy this JSON and save it in a text file or paste it into Import old save on another device.	複製這份 JSON 並另存為文字檔，或在其他裝置的「匯入舊存檔」中貼上。
+Share unavailable in VR	VR 模式無法分享
+Exit VR mode to save the image and copy the website link.	請離開 VR 模式，再儲存圖片並複製網站連結。
+Share image saved	分享圖片已儲存
+Share failed	分享失敗
+Share text copied	分享文字已複製
+Could not copy	無法複製
+Download requested	已要求下載
+Installed	已安裝
+Explore	探索
+Downloads	下載
+Profiles	設定組合
+PROFILES	設定組合
+Search installed mods...	搜尋已安裝模組…
+Search downloads...	搜尋下載項目…
+Search mods...	搜尋模組…
+Enable, configure and manage your mods.	啟用、設定及管理你的模組。
+Custom Crosshair	自訂準心
+Configure	設定
+Check updates	檢查更新
+All categories	所有類別
+Compatible only	僅顯示相容版本
+All versions	所有版本
+Name A-Z	名稱 A–Z
+Name Z-A	名稱 Z–A
+Updated	更新時間
+Update	更新
+Install	安裝
+Uninstall	解除安裝
+Remove	移除
+Delete	刪除
+Import	匯入
+Choose file	選擇檔案
+Clear search	清除搜尋
+Go to installed	查看已安裝
+Select a mod	選擇模組
+Active	已啟用
+Inactive	未啟用
+Available	可使用
+Unavailable	無法使用
+Official service offline	官方服務離線
+Read only	唯讀
+Storage recovery report	儲存空間復原報告
+Try again	再試一次
+Restart after recovery	復原後重新啟動
+Loading local modules...	正在載入本機模組…
+Loading local modules and saved profiles...	正在載入本機模組與設定組合…
+Module changes are blocked until local storage recovers.	本機儲存空間復原前無法變更模組。
+No mods installed. Open Explore to download your first mod.	尚未安裝模組。前往「探索」下載第一個模組。
+External mod changes apply after restarting FLATS.	外部模組變更將在重新啟動 FLATS 後生效。
+Manage mods installed on this device.	管理此裝置上已安裝的模組。
+Downloads continue while you browse.	瀏覽時會繼續下載。
+Official mod service is unavailable in this build.	此版本無法使用官方模組服務。
+Official service unavailable\nYour installed mods still work. Please try again later.	官方服務暫時無法使用\n已安裝的模組仍可使用，請稍後再試。
+Retrieving catalogue details.	正在取得目錄詳細資料。
+Your installed mods remain available. Retry when your connection is available.	已安裝的模組仍可使用，請恢復網路連線後重試。
+Check your connection, then retry.	請檢查網路連線後重試。
+Download failed. Your existing mods were kept.	下載失敗，現有模組已保留。
+Download complete. Open Installed to manage the mod.	下載完成。前往「已安裝」管理模組。
+Download cancelled.	已取消下載。
+Checking dependency versions...	正在檢查相依模組版本…
+Checking package...	正在檢查套件…
+Package imported. Review its status before enabling.	套件已匯入，啟用前請確認狀態。
+Unsaved changes	尚未儲存的變更
+Saved settings	設定已儲存
+Save	儲存
+Save & leave	儲存並離開
+Stay here	留在此頁
+Discard & leave	捨棄並離開
+Disable instead	改為停用
+Profile saved.	設定組合已儲存。
+Keep your enabled mods and settings together.	將啟用的模組與設定儲存在同一組合。
+Room modules differ	房間模組不一致
+Open Mod	開啟模組
