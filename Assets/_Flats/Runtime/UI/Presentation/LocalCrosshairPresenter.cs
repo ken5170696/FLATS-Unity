@@ -34,7 +34,7 @@ namespace Flats.UI
             // Legacy DesktopCrosshairSize may scale the parent. Module size is in HUD canvas units.
             var scale=transform.localScale;
             custom.rectTransform.localScale=new Vector3(1/Mathf.Max(.001f,scale.x),1/Mathf.Max(.001f,scale.y),1);
-            custom.Set(appearance.Style,appearance.Size);
+            custom.Set(appearance);
         }
         void Restore()
         {

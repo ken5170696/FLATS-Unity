@@ -136,6 +136,9 @@ namespace Flats.Modules
             }
             catch (Exception e) { return e.Message; }
         }
+        // Legacy single-preset packages and crosshair@2 data packages both draw the HUD crosshair.
+        public static bool IsCrosshairProvider(PackageManifest m) =>
+            m != null && (m.kind == "crosshair" || (m.kind == "data" && m.adapter == CrosshairSettingsSpec.Adapter));
         public static Uri Url(string value, bool allowLoopback)
         {
             if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.UserInfo.Length > 0 || uri.Fragment.Length > 0 ||

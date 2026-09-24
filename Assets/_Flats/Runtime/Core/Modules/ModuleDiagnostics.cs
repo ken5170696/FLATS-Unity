@@ -28,7 +28,7 @@ namespace Flats.Modules
             {
                 string issue=visit(selected);if(issue.Length>0)return issue;
                 foreach(var other in all.Where(m=>m.id!=selected.id && enabled.Contains(m.id)))
-                    if((selected.conflicts ?? new string[0]).Contains(other.id) || (other.conflicts ?? new string[0]).Contains(selected.id) || (selected.kind=="crosshair" && other.kind=="crosshair"))
+                    if((selected.conflicts ?? new string[0]).Contains(other.id) || (other.conflicts ?? new string[0]).Contains(selected.id) || (ModRules.IsCrosshairProvider(selected) && ModRules.IsCrosshairProvider(other)))
                         return "Conflict: "+other.id;
                 return "";
             }

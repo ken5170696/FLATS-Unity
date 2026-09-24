@@ -86,7 +86,7 @@ namespace Flats.Modules
                 owner.InitializeProfiles(root,Installed);ApplyProfileIntent(Installed);
                 Downloads=new DownloadQueue(Store,Source,runInline:platform.RunInline);Running=Installed;
                 activationStarted=true;
-                owner.AttachExternal(Running.Select(p=>p.manifest.id==CrosshairModule.Id && p.manifest.kind=="crosshair" ? (IFirstPartyModule)owner.Crosshair.Bind(p.manifest) : new ExternalModule(p,Store.ContentPath(p))).ToArray(),Running.Where(p=>p.requested).Select(p=>p.manifest.id).ToArray());
+                owner.AttachExternal(Running.Select(p=>p.manifest.id==CrosshairModule.Id && ModRules.IsCrosshairProvider(p.manifest) ? (IFirstPartyModule)owner.Crosshair.Bind(p.manifest) : new ExternalModule(p,Store.ContentPath(p))).ToArray(),Running.Where(p=>p.requested).Select(p=>p.manifest.id).ToArray());
                 Notice=string.Join("\n",Store.Notices.Distinct());
                 Ready=true;
                 if(Source==null)Notice+="\nOfficial mod service is unavailable in this build. Installed mods remain available.";
