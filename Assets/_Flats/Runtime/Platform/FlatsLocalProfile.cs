@@ -154,10 +154,16 @@ public class FlatsStorageNotice : MonoBehaviour
     }
     private void OnGUI()
     {
+        // Immediate-mode GUI bypasses FlatsLocalizedText. Translate here and use the
+        // bundled Chinese font, which Web builds need because they have no OS fallback.
+        // Exception messages and paths have no catalogue entry and stay as data.
+        Font font = FlatsLocalization.IsChinese ? FlatsLocalization.ChineseFont : null;
+        GUIStyle label = new GUIStyle(GUI.skin.label) { wordWrap = true }, button = new GUIStyle(GUI.skin.button);
+        if (font != null) label.font = button.font = font;
         GUI.depth=-1000;GUILayout.BeginArea(new Rect(30,30,Mathf.Min(Screen.width-60,780),300),GUI.skin.box);
-        GUILayout.Label(message);
-        if(fatal){if(GUILayout.Button("Quit without overwriting data"))Application.Quit();}
-        else if(GUILayout.Button("Close"))Destroy(gameObject);
+        GUILayout.Label(FlatsLocalization.Translate(message), label);
+        if(fatal){if(GUILayout.Button(FlatsLocalization.Translate("Quit without overwriting data"), button))Application.Quit();}
+        else if(GUILayout.Button(FlatsLocalization.Translate("Close"), button))Destroy(gameObject);
         GUILayout.EndArea();
     }
 }

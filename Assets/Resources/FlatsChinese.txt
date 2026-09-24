@@ -701,3 +701,152 @@ Open MOD from the main menu to inspect storage recovery and retry. Multiplayer h
 Local module initialization did not finish within 15 seconds. Return to the main menu and check MOD, then retry multiplayer. No room was joined.	本機模組未在 15 秒內完成初始化。請返回主選單檢查模組中心，再重試多人遊戲。目前未加入任何房間。
 Photon connection timed out after 20 seconds. Please retry.	Photon 連線等待 20 秒後逾時，請再試一次。
 Photon connection lost: {0}	Photon 連線中斷：{0}
+
+Kill:{0} Death:{1} Time:{2}	擊殺：{0} 死亡：{1} 時間：{2}
+Time:{0}	時間：{0}
+Red:{0} Blue:{1} Time:{2}	紅隊：{0} 藍隊：{1} 時間：{2}
+Choosing the Mother Zombie...	正在選出母體殭屍…
+Winners: Survivors	勝利：倖存者
+Winners: Zombies	勝利：殭屍
+Winner:Survivors	勝利：倖存者
+You are offense side. Set the bomb on the enemies' base.	你是進攻方。請在敵方基地安裝炸彈。
+You are defense side. Defend your base.	你是防守方。請守住我方基地。
+Red Team	紅隊
+Blue Team	藍隊
+Game Over	遊戲結束
+Player Count: {0}	玩家人數：{0}
+Searching for a room...	正在尋找房間…
+Matchmaking... Wait or press Start Now.	配對中…請稍候，或按「立即開始」。
+Syncing... up to a minute.	同步中…最多約一分鐘。
+Player synchronization timed out.	玩家同步逾時。
+Adjusting team members...	正在調整隊伍成員…
+Score: {0}	分數：{0}
+Died at Phase {0}	在第 {0} 階段陣亡
+Max Headshot Chain: {0}	最高連續爆頭：{0}
+Highscore!!	最高分！！
+Your level is...	你的等級是…
+Beginner	新手
+Good Shooter	好槍手
+Survivor	倖存者
+Tough Guy	硬漢
+Gun Devil	槍魔
+Ninja	忍者
+Crazy Killer	瘋狂殺手
+FPS Zombie	FPS 殭屍
+Fribbler	閒晃者
+Day Dreamer	白日夢想家
+Store purchases unavailable	無法使用商店購買
+Goodbye Ads!	再見了，廣告！
+Thank you!	謝謝你！
+Beer for Developer	請開發者喝啤酒
+Upload (unavailable)	上傳（無法使用）
+Import failed	匯入失敗
+Export failed	匯出失敗
+Save exported	存檔已匯出
+Your save was written to:	你的存檔已寫入：
+Save files: Export on source; Import old save here.	存檔：在來源裝置匯出，在這裡匯入舊存檔。
+Preview before replacing the current save.	取代目前存檔前會先預覽。
+LAN Sync (native builds, same network):	區域網路同步（原生版本、同一網路）：
+Open source first, then receiver; confirm scores.	先開啟來源裝置，再開啟接收裝置，並確認分數。
+Only ID + scores transfer, not gameplay.	只會傳送 ID 和分數，不含遊戲內容。
+Browsers cannot use UDP LAN Sync.	瀏覽器無法使用 UDP 區域網路同步。
+Use save files to transfer your progress.	請使用存檔轉移你的進度。
+Legacy cloud restoration is unavailable.	無法還原舊版雲端資料。
+The ID/Receive entry cannot recover old cloud data.	ID／接收功能無法找回舊的雲端資料。
+Cloud unavailable	雲端服務無法使用
+Legacy ID (unavailable)	舊版 ID（無法使用）
+Play together online using a room code or LAN discovery.	使用房間代碼或區域網路探索，一起在線上遊玩。
+Internet required; players must use the same region and version.	需要網際網路；玩家必須使用相同的區域與版本。
+Host rules: Deathmatch · 3 kills · 2 players.	主機規則：死亡競賽 · 3 擊殺 · 2 名玩家。
+Discovered room	已發現的房間
+No room selected.	尚未選擇房間。
+No rooms found on this network.	在此網路上找不到房間。
+Refresh LAN or enter the host’s room code.	請重新整理區域網路，或輸入主機的房間代碼。
+Region: {0} / online {1}	區域：{0} / 線上版本 {1}
+Select a room below, or enter the host's code. Discovery expires after 30 seconds.	從下方選擇房間，或輸入主機的房間代碼。探索結果會在 30 秒後失效。
+Connecting to {0}... Back cancels.	正在連線到 {0}…按返回可取消。
+Join {0} / {1}	加入 {0} / {1}
+Room request timed out. Retry or check the host's code.	房間請求逾時，請重試或確認主機的房間代碼。
++ New profile	＋ 新增設定組合
+Clear filters	清除篩選
+Close filters	關閉篩選
+Compatible	相容
+Light	淺色
+Dark	深色
+Ring	圓環
+Find package	尋找套件
+Paste manifest.json	貼上 manifest.json
+Review package	檢視套件
+View details	查看詳情
+✓  Current game build	✓  目前的遊戲版本
+Your screen only	僅影響自己的畫面
+Multiplayer mod	多人模組
+Multiplayer session mod	多人對局模組
+Version {0}	版本 {0}
+At a glance	概覽
+By {0}	作者：{0}
+Not installed	未安裝
+Available version: {0}	可用版本：{0}
+Installed: None	已安裝：無
+Installed: {0}	已安裝：{0}
+Changes	更新內容
+No changelog provided.	未提供更新紀錄。
+Compatible with this FLATS build	相容於此 FLATS 版本
+Required dependencies	必要的相依模組
+Dependencies are installed individually after your review.	相依模組會在你確認後逐一安裝。
+Required: >= {0} < {1}	需要：>= {0} < {1}
+No description provided.	未提供說明。
+Affects your screen only.	只影響你的畫面。
+This mod participates in multiplayer session requirements.	此模組會納入多人對局的模組需求。
+This package runs code with FLATS privileges.	此套件會以 FLATS 的權限執行程式碼。
+Changes the local crosshair appearance.	變更本機的準心外觀。
+Not installed. Installation does not enable a new mod.	尚未安裝。安裝後不會自動啟用新模組。
+Client-only  /  Enabled in selected profile / Not active now	僅限本機  /  已在所選設定組合中啟用 / 目前未執行
+Client-only  /  Disabled in selected profile / Active now	僅限本機  /  已在所選設定組合中停用 / 目前執行中
+Restart required	需要重新啟動
+Needs attention / Restart required	需要處理 / 需要重新啟動
+Update available / Restart required	有可用更新 / 需要重新啟動
+Update available / Needs attention / Restart required	有可用更新 / 需要處理 / 需要重新啟動
+Disable on restart	重新啟動後停用
+Needs attention / Disable on restart	需要處理 / 重新啟動後停用
+Update available / Disable on restart	有可用更新 / 重新啟動後停用
+Update available / Needs attention / Disable on restart	有可用更新 / 需要處理 / 重新啟動後停用
+Needs attention / Disabled	需要處理 / 已停用
+Update available / Disabled	有可用更新 / 已停用
+Update available / Needs attention / Disabled	有可用更新 / 需要處理 / 已停用
+Active now	目前執行中
+Needs attention / Active now	需要處理 / 目前執行中
+Update available / Active now	有可用更新 / 目前執行中
+Update available / Needs attention / Active now	有可用更新 / 需要處理 / 目前執行中
+Enabled / not active	已啟用／尚未執行
+Needs attention / Enabled / not active	需要處理 / 已啟用／尚未執行
+Update available / Enabled / not active	有可用更新 / 已啟用／尚未執行
+Update available / Needs attention / Enabled / not active	有可用更新 / 需要處理 / 已啟用／尚未執行
+Requires desktop FLATS	需要桌面版 FLATS
+Update available	有可用更新
+Desktop required	需要桌面版
+Paused at {0} / {1} KB. Continue to resume. If the service cannot resume safely, the download starts again.	已暫停於 {0} / {1} KB。按「繼續」可恢復下載；若服務無法安全續傳，將重新開始下載。
+Source: {0} / {1} results	來源：{0} / {1} 個結果
+Import {0} v{1}?	要匯入 {0} v{1} 嗎？
+{0} KB · Local package	{0} KB · 本機套件
+ClientOnly	僅影響自己
+RequiredForSession	多人對局必需
+Installation does not enable a new mod. Restart is required to load it. Packages may run code.	安裝後不會自動啟用新模組，需要重新啟動才會載入。套件可能會執行程式碼。
+Select {0}?	要選擇 {0} 嗎？
+{0} enabled mods. Dependencies and conflicts will be checked.	已啟用 {0} 個模組，將檢查相依與衝突。
+Restart FLATS to run this configuration. Installed packages are shared.	重新啟動 FLATS 以執行此設定組合。已安裝的套件會共用。
+Delete {0}?	要刪除 {0} 嗎？
+Only this saved configuration is removed. Shared packages remain installed.	只會移除這個已儲存的設定組合，共用的套件仍會保留。
+Selected: {0}. Restart required; the running configuration is unchanged.	已選擇：{0}。需要重新啟動；目前執行中的設定不變。
+Selected: {0}. Profile edits are saved locally; packages are shared.	已選擇：{0}。設定組合的修改會儲存在本機；套件為共用。
+Installed {0}	已安裝 {0}
+Profile could not be loaded. No defaults were written.	無法載入個人檔案。未寫入任何預設值。
+Profile saved. Legacy preference copy could not be updated; it will be retried.	個人檔案已儲存。舊版偏好設定副本無法更新，稍後會再試一次。
+Save could not be confirmed. Existing recovery records were retained.	無法確認存檔是否完成。已保留現有的復原紀錄。
+Profile saved, but recovery-copy maintenance reported a problem.	個人檔案已儲存，但維護復原副本時發生問題。
+Imported profile is active for this session, but browser persistence was not confirmed. Export a backup and retry saving from the browser storage notice.	匯入的個人檔案已在本次遊戲中生效，但無法確認瀏覽器是否已保存。請先匯出備份，再從瀏覽器儲存提示重試儲存。
+The legacy resetData flag is enabled. Automatic data deletion was blocked.	舊版 resetData 旗標已啟用。已阻止自動刪除資料。
+Quit without overwriting data	不覆寫資料並離開
+Recovered previous committed generation. Damaged records retained: {0}	已從上一個已提交的版本復原。已保留損壞的紀錄：{0}
+Recovered base record. Damaged generations retained: {0}	已從基礎紀錄復原。已保留損壞的版本：{0}
+Recovered the last valid backup. Original retained at: {0}	已從最後一份有效備份復原。原始檔案保留於：{0}
