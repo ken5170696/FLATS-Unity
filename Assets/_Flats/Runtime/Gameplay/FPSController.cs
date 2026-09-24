@@ -2432,6 +2432,9 @@ public class FPSController : MonoBehaviour
 
 	private void LateUpdate()
 	{
+		// Script import order 50 runs after IKController has posed the chest
+		// and camera rig, and before scopes (75) and visible tracers (100).
+		// Sampling the sight before IK moves it breaks ADS when looking up/down.
 		UpdateAimPresentation();
 	}
 

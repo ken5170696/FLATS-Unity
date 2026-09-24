@@ -21,6 +21,7 @@ public sealed class FlatsSightTarget : MonoBehaviour
     }
     void LateUpdate()
     {
+        // Script import order 75 observes the final eye pose from FPSController.
         if (aimCamera != null && sightCamera != null)
             sightCamera.transform.SetPositionAndRotation(aimCamera.transform.position,
                 aimCamera.transform.rotation * Quaternion.AngleAxis(imageRoll, Vector3.forward));
