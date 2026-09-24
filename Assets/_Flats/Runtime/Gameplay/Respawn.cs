@@ -67,11 +67,19 @@ public class Respawn : MonoBehaviour
 			GameObject deadPlayer2 = base.transform.root.gameObject;
 			UnityEngine.Object.Destroy(deadPlayer2.GetComponent<Destroy>());
 			yield return new WaitForSeconds(1.5f);
-			Menu menu2 = GameObject.Find("Menu").GetComponent<Menu>();
+			if (Menu.gameState != "Multiplayer" || (Multiplayer.rule == 8 && Multiplayer.end))
+				yield break;
+			var menuObject = GameObject.Find("Menu");
+			Menu menu2 = menuObject != null ? menuObject.GetComponent<Menu>() : null;
+			if (menu2 == null) yield break;
 			if (!Multiplayer.end)
 			{
 				menu2.StartCoroutine("BackgroundColor", "Respawn");
 				yield return new WaitForSeconds(3f);
+				// The round may end or the player may leave during the fade delay.
+				// Do not create a new player/spectator against a closed match UI.
+				if (menu2 == null || Menu.gameState != "Multiplayer" || (Multiplayer.rule == 8 && Multiplayer.end))
+					yield break;
 				int respawnPattern = 0;
 				if (Multiplayer.rule == 1 || Multiplayer.rule == 6)
 				{

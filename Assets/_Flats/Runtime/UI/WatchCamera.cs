@@ -37,7 +37,15 @@ public class WatchCamera : MonoBehaviour
 	{
 		mt = base.transform;
 		multiplayer = GameObject.Find("MultiplayerController");
-		ui = GameObject.Find("UI").GetComponent<Canvas>();
+		var uiObject = GameObject.Find("UI");
+		ui = uiObject != null ? uiObject.GetComponent<Canvas>() : null;
+		if (ui == null)
+		{
+			// A delayed spectator can reach Start after the match UI is closed.
+			enabled = false;
+			UnityEngine.Object.Destroy(gameObject);
+			yield break;
+		}
 		currentPlayerName = mt.GetChild(0).GetChild(0).GetChild(0)
 			.GetComponent<Text>();
 		currentPhase = Menu.currentSurvivalPhase;
