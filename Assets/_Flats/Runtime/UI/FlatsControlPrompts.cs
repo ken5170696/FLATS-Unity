@@ -16,7 +16,7 @@ public static class FlatsControlPrompts
             if (action == "Menu") return pad ? "Start / Select" : "Esc";
             if (action == "Join") return "Enter / " + FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label("Reload", true);
             if (pad && action == "Interact") return FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label("Change", true);
-            if (pad && action == "Aim") return FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label(action, true);
+            if ((pad || FlatsControls.HoldToAim) && action == "Aim") return FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label(action, pad);
             return FlatsControls.Label(action, pad);
         });
     }

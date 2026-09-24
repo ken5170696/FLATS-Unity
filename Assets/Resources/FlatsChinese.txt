@@ -868,3 +868,7 @@ Precision Dot	精準點
 Wide Ring	寬圓環
 Save your Crosshair changes?	要儲存準心的變更嗎？
 The draft has not been applied. Saving keeps the mod's enabled state.	草稿尚未套用。儲存後會保留此模組的啟用狀態。
+Hold to aim	按住以瞄準
+Press to toggle	按一下切換
+Aim mode: Hold	瞄準方式：按住
+Aim mode: Toggle	瞄準方式：切換

@@ -25,6 +25,7 @@ public partial class Menu
     Text bindingPageLabel;
     int bindingPage;
     Text bindingStatus;
+    Text aimModeLabel;
     bool bindingPad;
     string captureAction;
     float captureStarted;
@@ -60,6 +61,14 @@ public partial class Menu
         bindingNext.onClick.AddListener(() => ChangeBindingPage(1));
         bindingsPanel.transform.Find("ResetBindings").GetComponent<Button>().onClick.AddListener(() =>
         { FlatsControls.ResetBindings(bindingPad); RefreshBindings(); bindingStatus.text = "Default bindings restored."; });
+        // Optional authored button in SettingsScreen.prefab: Bindings/AimMode with a Label.
+        var aimMode = bindingsPanel.transform.Find("AimMode");
+        if (aimMode != null)
+        {
+            aimModeLabel = aimMode.Find("Label")?.GetComponent<Text>();
+            aimMode.GetComponent<Button>().onClick.AddListener(() =>
+            { FlatsControls.HoldToAim = !FlatsControls.HoldToAim; RefreshBindings(); });
+        }
         ShowBindings(!Application.isMobilePlatform, false);
     }
     void BindAuthoredRow(List<Button> rows, List<Text> labels, List<Text> details, int actionIndex, int pageIndex, int slot)
@@ -116,7 +125,13 @@ public partial class Menu
             string action = BindingAction(i);
             bindingRows[i].transform.Find("Label").GetComponent<Text>().text = FlatsControls.Label(action, bindingPad);
             bindingLabels[i].text = ActionName(action, false);
-            bindingDetails[i].text = bindingPad && action == "Jump" ? "Hold to sprint" : bindingPad && action == "Change" ? "Hold to pick up" : "";
+            bindingDetails[i].text = bindingPad && action == "Jump" ? "Hold to sprint" : bindingPad && action == "Change" ? "Hold to pick up" :
+                !bindingPad && action == "Aim" ? (FlatsControls.HoldToAim ? "Hold to aim" : "Press to toggle") : "";
+        }
+        if (aimModeLabel != null)
+        {
+            aimModeLabel.transform.parent.gameObject.SetActive(!bindingPad);
+            aimModeLabel.text = FlatsControls.HoldToAim ? "Aim mode: Hold" : "Aim mode: Toggle";
         }
         for (int i = 0; i < bindingPages.Length; i++)
             bindingPages[i].SetActive(i == (bindingPad ? 2 : 0) + bindingPage && bindingsPanel.activeSelf);

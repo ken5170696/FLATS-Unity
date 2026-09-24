@@ -13,6 +13,13 @@ public static class FlatsControls
     public static bool Capturing { get; set; }
     public static bool UsingGamepad { get; set; }
     static string Key(string action, bool pad) => "controls.v1." + (pad ? "pad." : "key.") + action;
+    public const string AimModeKey = "controls.v1.aimMode";
+    // Keyboard and mouse aim: "toggle" (default, the original behaviour) or "hold".
+    public static bool HoldToAim
+    {
+        get => FlatsPreferences.GetString(AimModeKey) == "hold";
+        set { FlatsPreferences.SetString(AimModeKey, value ? "hold" : "toggle"); FlatsPreferences.Save(); Changed?.Invoke(); }
+    }
     public static KeyCode Keyboard(string action)
     {
         int index = Array.IndexOf(KeyboardActions, action);

@@ -2235,7 +2235,19 @@ public class FPSController : MonoBehaviour
 							}
 						}
 					}
-					if (input.ToggleZoom)
+					if (FlatsControls.HoldToAim)
+					{
+						// Holding re-enters aim once a reload, sprint or weapon change ends.
+						if (input.AimHeld && !Aiming && enableFire && !anim.GetBool("Run"))
+						{
+							Zoom(true);
+						}
+						else if (!input.AimHeld && Aiming)
+						{
+							Zoom(false);
+						}
+					}
+					else if (input.ToggleZoom)
 					{
 						if (Aiming)
 						{

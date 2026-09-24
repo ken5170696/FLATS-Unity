@@ -11,7 +11,7 @@ namespace Flats.Core
     public struct PlayerInputSnapshot
     {
         public float Forward, Right, LookX, LookY;
-        public bool Sprint, Fire, Reload, ChangeWeapon, Grenade, Jump, Interact, ToggleZoom;
+        public bool Sprint, Fire, Reload, ChangeWeapon, Grenade, Jump, Interact, ToggleZoom, AimHeld;
     }
 
     public interface IPlayerInputSource

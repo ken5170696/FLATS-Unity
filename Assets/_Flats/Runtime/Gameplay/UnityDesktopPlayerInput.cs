@@ -14,7 +14,8 @@ namespace Flats.Gameplay
                 Sprint = FlatsControls.Held("Sprint"), Fire = FlatsControls.Held("Fire"),
                 Reload = FlatsControls.Down("Reload"), ChangeWeapon = FlatsControls.Down("Change"),
                 Grenade = FlatsControls.Down("Grenade"), Jump = FlatsControls.Down("Jump"),
-                Interact = FlatsControls.Down("Interact"), ToggleZoom = FlatsControls.Down("Aim")
+                Interact = FlatsControls.Down("Interact"), ToggleZoom = FlatsControls.Down("Aim"),
+                AimHeld = FlatsControls.Held("Aim")
             };
         }
     }
