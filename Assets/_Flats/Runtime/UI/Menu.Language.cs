@@ -5,6 +5,8 @@ public partial class Menu
 {
     Button languageButton;
     Text languageLabel;
+    RectTransform languageAlignmentReference;
+    readonly Vector3[] languageReferenceCorners = new Vector3[4];
     void InitializeLanguageButton()
     {
         foreach (var label in bt)
@@ -14,6 +16,7 @@ public partial class Menu
             () => { FlatsLocalization.SetLanguage(FlatsLocalization.IsChinese ? "en" : "zh-Hant"); RefreshLanguageButton(); },
             new Color(.31f,.24f,.29f,1));
         var rect = (RectTransform)languageButton.transform;
+        languageAlignmentReference = quitButton.transform.Find("Quit") as RectTransform;
         languageButton.image.material = mainUI;
         languageButton.image.color = Color.white;
         rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.zero;
@@ -36,8 +39,19 @@ public partial class Menu
         languageLabel.font = FlatsLocalization.ChineseFont;
         var canvas = GetComponentInParent<Canvas>();
         float scale = canvas != null ? canvas.scaleFactor : 1;
-        ((RectTransform)languageButton.transform).anchoredPosition = new Vector2(
-            24 + Screen.safeArea.xMin / Mathf.Max(scale,.01f),
-            24 + Screen.safeArea.yMin / Mathf.Max(scale,.01f));
+        var rect = (RectTransform)languageButton.transform;
+        var parent = (RectTransform)rect.parent;
+        if (languageAlignmentReference != null)
+        {
+            // Use the existing footer's bounds, including its parent transform,
+            // so all three controls share top/bottom edges at every canvas scale.
+            languageAlignmentReference.GetWorldCorners(languageReferenceCorners);
+            Vector3 bottom = parent.InverseTransformPoint(languageReferenceCorners[0]);
+            Vector3 top = parent.InverseTransformPoint(languageReferenceCorners[2]);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, top.y - bottom.y);
+            rect.anchoredPosition = new Vector2(
+                parent.rect.xMax - top.x + Screen.safeArea.xMin / Mathf.Max(scale,.01f),
+                Mathf.Max(bottom.y - parent.rect.yMin, Screen.safeArea.yMin / Mathf.Max(scale,.01f)));
+        }
     }
 }
