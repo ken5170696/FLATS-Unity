@@ -17,6 +17,7 @@ public partial class Menu
             PlayMenuSound(pressSE);
             FlatsLocalization.SetLanguage(FlatsLocalization.IsChinese ? "en" : "zh-Hant");
             RefreshLanguageButton();
+            RefreshPersonalRows();
         });
         RefreshLanguageButton();
     }

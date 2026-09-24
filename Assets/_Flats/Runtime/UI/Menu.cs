@@ -4818,6 +4818,7 @@ public partial class Menu : MonoBehaviour
 			Transform parent = EventSystem.current.currentSelectedGameObject.transform.parent;
 			int num = ((EventSystem.current.currentSelectedGameObject.name == "Plus") ? 1 : (-1));
 			if (parent.name.StartsWith("Desktop")) { GetComponent<FlatsDesktopSettings>().Change(parent,num); return; }
+			if (ChangePersonalRow(parent)) return;
 			if (parent.name == "Rule")
 			{
 				rule += num;

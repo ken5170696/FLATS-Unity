@@ -25,7 +25,6 @@ public partial class Menu
     Text bindingPageLabel;
     int bindingPage;
     Text bindingStatus;
-    Text aimModeLabel;
     bool bindingPad;
     string captureAction;
     float captureStarted;
@@ -43,8 +42,8 @@ public partial class Menu
         if (bindingsPanel != null) return;
         var control = settingsScreen.GetChild(2);
         // All layout, fonts, materials and animation are authored in SettingsScreen.prefab.
-        // The first five Control children are the existing general-setting rows.
-        for (int i = 0; i < 5; i++) controlOptions.Add(control.GetChild(i).gameObject);
+        // General-setting rows are the Control children with Plus/Minus buttons.
+        foreach (Transform child in control) if (child.Find("Plus") != null) controlOptions.Add(child.gameObject);
         bindingsPanel = control.Find("Bindings").gameObject;
         controlCategoryLabel = control.Find("ControlType").GetComponent<Text>();
         control.Find("PreviousControlType").GetComponent<Button>().onClick.AddListener(() => ChangeControlCategory(-1));
@@ -61,15 +60,40 @@ public partial class Menu
         bindingNext.onClick.AddListener(() => ChangeBindingPage(1));
         bindingsPanel.transform.Find("ResetBindings").GetComponent<Button>().onClick.AddListener(() =>
         { FlatsControls.ResetBindings(bindingPad); RefreshBindings(); bindingStatus.text = "Default bindings restored."; });
-        // Optional authored button in SettingsScreen.prefab: Bindings/AimMode with a Label.
-        var aimMode = bindingsPanel.transform.Find("AimMode");
-        if (aimMode != null)
-        {
-            aimModeLabel = aimMode.Find("Label")?.GetComponent<Text>();
-            aimMode.GetComponent<Button>().onClick.AddListener(() =>
-            { FlatsControls.HoldToAim = !FlatsControls.HoldToAim; RefreshBindings(); });
-        }
         ShowBindings(!Application.isMobilePlatform, false);
+        RefreshPersonalRows();
+    }
+    // Authored settings rows (Index/Count/Plus/Minus) whose Plus and Minus call PlusMinus.
+    // They are looked up by name so they can be placed on any Settings page.
+    Transform SettingsRow(string name)
+    {
+        foreach (var child in settingsScreen.GetComponentsInChildren<Transform>(true))
+            if (child.name == name && child.Find("Plus") != null) return child;
+        return null;
+    }
+    void RefreshPersonalRows()
+    {
+        var language = SettingsRow("Language");
+        if (language != null)
+        {
+            var value = language.GetChild(1).GetComponent<Text>();
+            value.text = FlatsLocalization.IsChinese ? "中文" : "English";
+            value.font = FlatsLocalization.ChineseFont;
+        }
+        var aim = SettingsRow("AimMode");
+        if (aim != null) aim.GetChild(1).GetComponent<Text>().text = FlatsControls.HoldToAim ? "Hold" : "Toggle";
+    }
+    bool ChangePersonalRow(Transform row)
+    {
+        if (row.name == "Language")
+        {
+            FlatsLocalization.SetLanguage(FlatsLocalization.IsChinese ? "en" : "zh-Hant");
+            RefreshLanguageButton();
+        }
+        else if (row.name == "AimMode") FlatsControls.HoldToAim = !FlatsControls.HoldToAim;
+        else return false;
+        RefreshPersonalRows();
+        return true;
     }
     void BindAuthoredRow(List<Button> rows, List<Text> labels, List<Text> details, int actionIndex, int pageIndex, int slot)
     {
@@ -127,11 +151,6 @@ public partial class Menu
             bindingLabels[i].text = ActionName(action, false);
             bindingDetails[i].text = bindingPad && action == "Jump" ? "Hold to sprint" : bindingPad && action == "Change" ? "Hold to pick up" :
                 !bindingPad && action == "Aim" ? (FlatsControls.HoldToAim ? "Hold to aim" : "Press to toggle") : "";
-        }
-        if (aimModeLabel != null)
-        {
-            aimModeLabel.transform.parent.gameObject.SetActive(!bindingPad);
-            aimModeLabel.text = FlatsControls.HoldToAim ? "Aim mode: Hold" : "Aim mode: Toggle";
         }
         for (int i = 0; i < bindingPages.Length; i++)
             bindingPages[i].SetActive(i == (bindingPad ? 2 : 0) + bindingPage && bindingsPanel.activeSelf);
