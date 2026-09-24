@@ -32,6 +32,8 @@ Before a local build, save your scene and Prefab Mode work. The build command re
 
 ## Hierarchy and references
 
+`RoomScreen/MatchingDetails/PlayerList` owns the waiting-room list's top alignment, padding and spacing through its VerticalLayoutGroup. `PlayerButton` owns each row's preferred height. `RoomPlayerListLayout` schedules one layout refresh after the animated screen becomes active, including when rows were added while hidden; it does not override these authored values.
+
 Group by responsibility, not by Unity component type: a screen owns its heading, navigation, content and modal presentation. A reusable prefab owns a coherent editable feature. Avoid extracting every decorative rectangle into its own prefab.
 
 Inspector references express ownership. Keep runtime services and transient selection/cancellation state out of serialized data. Use a prefab's own references for its internal controls and bind external services at the composition boundary. Repeated data should instantiate an authored row/card template, then bind values and callbacks.
