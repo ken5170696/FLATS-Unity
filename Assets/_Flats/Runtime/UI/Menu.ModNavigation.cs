@@ -74,16 +74,19 @@ public partial class Menu
         expected[SessionModules.DigestProperty]=SessionModules.Digest(BuiltinModules.Instance.Center.Agreement());
     }
     static string pendingModuleRejection;
-    // First room-required module this client lacks in the exact version and content.
-    // "Open Mod" goes straight to it in Explore, where the normal review installs it.
+    // First room-required module this client is not running in the exact version and
+    // content: missing, a different version, or installed but disabled. "Open Mod" goes
+    // straight to it in Explore, where the normal review installs or enables it.
     static string roomRequirement;
     static string FirstMissingRequirement(object agreement)
     {
         try
         {
-            var installed=BuiltinModules.Instance.Center.Installed;
+            // The same test as this client's own agreement: a running package that is active.
+            var owner=BuiltinModules.Instance;
             foreach(var r in SessionModules.Requirements(agreement as string))
-                if(!installed.Any(p=>p.manifest.id==r.Id && p.manifest.version==r.Version && p.sha256==r.Sha256))return r.Id;
+                if(!owner.Center.Running.Any(p=>p.manifest.id==r.Id && p.manifest.version==r.Version && p.sha256==r.Sha256) ||
+                   !owner.Manager.Installed.Any(m=>m.Manifest.Id==r.Id && m.Active))return r.Id;
         }
         catch(System.Exception){}
         return null;
