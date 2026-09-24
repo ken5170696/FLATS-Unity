@@ -1019,24 +1019,7 @@ public partial class Menu : MonoBehaviour
 		mt.GetChild(5).GetChild(5).GetChild(0)
 			.GetComponent<Text>()
 			.text = "ID:" + myCharacter.id;
-		bgm1.volume = (float)mySettings.sound_bgm / 10f;
-		if (Singleplayer.chance)
-		{
-			bgm2.volume = (float)mySettings.sound_bgm / 10f;
-		}
-		else
-		{
-			bgm2.volume = 0f;
-		}
-		mt.GetChild(6).GetChild(0).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = mySettings.sound_bgm.ToString();
-        ApplyListenerVolume();
-		mt.GetChild(6).GetChild(0).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = mySettings.sound_all.ToString();
+        InitializeVolumeSliders();
 		aaText[0] = "OFF";
 		aaText[1] = "ON";
 		FPSController.aa = IntToBool(mySettings.graphics_aa);
@@ -5071,32 +5054,14 @@ public partial class Menu : MonoBehaviour
 				parent.GetChild(1).GetComponent<Text>().text = myCharacter.defense.ToString();
 				parent.parent.GetChild(1).GetComponent<Text>().text = myCharacter.attack + myCharacter.defense + "/10";
 			}
-			else if (parent.name == "Volume-BGM")
-			{
-				if ((num < 0 && mySettings.sound_bgm > 0) || (num > 0 && mySettings.sound_bgm < 10))
-				{
-					mySettings.sound_bgm += num;
-				}
-				bgm1.volume = (float)mySettings.sound_bgm / 10f;
-				if (Singleplayer.chance)
-				{
-					bgm2.volume = (float)mySettings.sound_bgm / 10f;
-				}
-				else
-				{
-					bgm2.volume = 0f;
-				}
-				parent.GetChild(1).GetComponent<Text>().text = mySettings.sound_bgm.ToString();
-			}
-			else if (parent.name == "Volume-All")
-			{
-				if ((num < 0 && mySettings.sound_all > 0) || (num > 0 && mySettings.sound_all < 10))
-				{
-					mySettings.sound_all += num;
-				}
-                ApplyListenerVolume();
-				parent.GetChild(1).GetComponent<Text>().text = mySettings.sound_all.ToString();
-			}
+            else if (parent.name == "Volume-BGM")
+            {
+                SetVolume(true, mySettings.sound_bgm + num, false);
+            }
+            else if (parent.name == "Volume-All")
+            {
+                SetVolume(false, mySettings.sound_all + num, false);
+            }
 			else if (parent.name == "Anti-Aliasing")
 			{
 				if (mySettings.graphics_aa == 0)
