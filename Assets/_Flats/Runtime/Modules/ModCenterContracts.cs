@@ -16,6 +16,7 @@ namespace Flats.Modules
         bool ReadOnly { get; }
         bool Requested(string id);
         bool Configure(CrosshairStyle style, float size);
+        bool Configure(SettingValue[] values);
         void SelectProfile(string id);
         void InitializeProfiles(string directory, InstalledPackage[] installed);
         void AttachExternal(IFirstPartyModule[] modules, string[] requested);

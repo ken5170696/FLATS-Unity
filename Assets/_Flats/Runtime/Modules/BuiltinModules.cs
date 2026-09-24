@@ -204,18 +204,6 @@ namespace Flats.Modules
             if(settings!=null)entry.json=settings.ToJson();
             copy.modules=entries.ToArray();return copy;
         }
-        public bool Request(string id,bool enabled)
-        {
-            try
-            {
-                var next=Candidate(id,enabled,id==CrosshairModule.Id?ConfiguredCrosshair:null);
-                SaveDocument(next);
-                if(Profiles.RestartRequired){Notice="Saved to selected profile. Restart required.";return true;}
-                bool ok=Manager.Apply(externalRequested);
-                Notice=ok?"Saved":Manager.LastError; return ok;
-            }
-            catch(Exception e){Notice="Could not save; active state unchanged. "+e.Message;return false;}
-        }
         // Changes style and size only; colour, thickness, gap and outline are kept.
         public bool Configure(CrosshairStyle style,float size)
         {
