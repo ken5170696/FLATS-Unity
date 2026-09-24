@@ -67,7 +67,9 @@ public class LocalNetwork : MonoBehaviour
         {
             try
             {
-                if (receiver.Available == 0) break;
+                // A queued empty UDP datagram can report zero Available bytes.
+                // Consume it rather than leaving it ahead of later valid packets.
+                if (!receiver.Poll(0, SelectMode.SelectRead)) break;
                 EndPoint source = new IPEndPoint(IPAddress.Any, 0);
                 int count = receiver.ReceiveFrom(receiveBuffer, 0, receiveBuffer.Length, SocketFlags.None, ref source);
                 if (count == 0 || count > LanSyncRecord.MaximumBytes) continue;
