@@ -60,7 +60,14 @@ namespace Flats.Modules
             }
             else if (!string.IsNullOrEmpty(adapter) || !string.IsNullOrEmpty(payload))
                 throw new InvalidDataException("Only data packages declare an adapter or payload");
-            ModuleSettingsSchema.Validate(settings, presets);
+            // crosshair@2 presets are applied to the game's own crosshair settings, so they
+            // are validated against that contract rather than against declared settings.
+            if (kind == "data" && adapter == CrosshairSettingsSpec.Adapter)
+            {
+                ModuleSettingsSchema.Validate(settings, null);
+                ModuleSettingsSchema.Validate(CrosshairSettingsSpec.Specs(), presets);
+            }
+            else ModuleSettingsSchema.Validate(settings, presets);
             if (kind == "crosshair" && (crosshairStyle < 0 || crosshairStyle > 2 || float.IsNaN(crosshairSize) || float.IsInfinity(crosshairSize) || crosshairSize < 6 || crosshairSize > 64 || scope != "ClientOnly"))
                 throw new InvalidDataException("Crosshair packages require ClientOnly scope, style 0-2 and size 6-64");
             if (kind == "managed")

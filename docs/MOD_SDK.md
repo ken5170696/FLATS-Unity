@@ -1,6 +1,8 @@
-# Mod SDK preview — API 1.0.0
+# Mod SDK preview — API 1.1.0
 
-This preview supports crosshair data packages and the existing managed module contract. It does not expose weapons, maps or game modes as supported third-party APIs. Game compatibility and API compatibility are separate: declare both ranges, with an inclusive minimum and exclusive maximum. FLATS 5.4.2 uses API 1.0.0 and manifest schema 1.
+This preview supports crosshair data packages, data modules for game adapters (manifest schema 2) and the existing managed module contract. It does not expose weapons, maps or game modes as supported third-party APIs. Game compatibility and API compatibility are separate: declare both ranges, with an inclusive minimum and exclusive maximum.
+
+This source revision uses API 1.1.0, which reads manifest schemas 1 and 2. FLATS 5.4.2 players use API 1.0.0 and only schema 1, so a schema 2 package is unavailable to them rather than misread. A schema 2 package declares `apiMinimum` 1.1.0 or later.
 
 ## Create a data package
 
@@ -16,6 +18,28 @@ On desktop, open MOD, import the ZIP, review the installation, then enable it an
 
 Web/AOT supports crosshair data. The browser's manifest import finds a matching package in the configured catalogue; it does not install arbitrary pasted local data or run DLLs. An operator must publish the package to that catalogue, including immutable size/hash metadata. In Web, use Explore or paste the exact published manifest, review, install, enable and reload. If the service is unavailable, existing installed data remains usable; retry new downloads after service recovery. Hosting a personal catalogue is a separate operator task.
 
+## Data modules (manifest schema 2)
+
+A data module contains no code. It declares `kind: data` and the game `adapter` it targets, written as `name@major`. The game registers the adapters it implements. A package for an adapter the game does not have, or with a scope the adapter does not accept, is shown as incompatible instead of failing when enabled. A data module may omit `gameMinimum` and `gameMaximum`, because it depends on the adapter version rather than on a game release. Declare them only to exclude releases you know are wrong.
+
+| Adapter | Scope | What it changes | Data |
+|---|---|---|---|
+| `crosshair@2` | `ClientOnly` | The local HUD crosshair | The first entry in `presets` |
+| `enemy.tuning@1` | `RequiredForSession` | AI enemy health, damage and movement speed | `payload`: a JSON file with `schema: 1` and `health`, `damage`, `speed` multipliers between 0.25 and 4 (default 1) |
+
+`crosshair@2` settings are `style` (`cross`, `dot`, `ring`, `crossDot`, `t`), `size` (6–64), `thickness` (1–8), `gap` (0–16), `color` and `outlineColor` (`#rrggbb` or `#rrggbbaa`), `opacity` (0.2–1) and `outline` (`true`/`false`). Values are strings, as in `docs/examples/crosshair-preset/manifest.json`. A preset lists only the values it changes; the others keep their defaults. Presets are checked against these settings when the package is installed, so an unknown name or an out-of-range value is rejected.
+
+An `enemy.tuning@1` payload is part of the hashed package. Every player in a room therefore uses the same numbers, and the room agreement below rejects players whose package differs. See `docs/examples/enemy-tuning`.
+
+The same packaging command handles schema 2 and includes the payload that sits next to the manifest:
+
+```sh
+python tools/package_mod.py docs/examples/crosshair-preset/manifest.json --output Builds/Mods
+python tools/package_mod.py docs/examples/enemy-tuning/manifest.json --output Builds/Mods
+```
+
+Payloads are relative `.json` paths of at most 16 KiB. The packager checks the adapter's scope and the enemy tuning ranges. The game still performs the full validation when installing.
+
 ## Contracts and lifecycle
 
 The preserved API types are `Flats.Modules.IFirstPartyModule`, `ModuleManifest`, `ModuleLifetime`, `ModuleScope`, `ModuleDependency` and `VersionRange` in `Flats.Core`. Compile against the same API version; do not reference Menu, FPSController, UI hierarchy or host implementation types. This release keeps the existing type names and assembly identity for binary compatibility.
@@ -28,11 +52,11 @@ Managed ZIPs declare `kind: managed`, a safe relative `.dll` `assembly` path and
 
 ## Settings, dependencies and multiplayer
 
-The package schema is 1. The official crosshair setting schema is independently 1 (`style`, `size`); validate values before saving. Profiles retain requested module IDs/versions and settings independently from the installed package set and the running profile. Selecting a profile requires restart. Missing modules, unsupported schemas or incompatible dependencies must surface an error, not silently alter the selected configuration. Existing stored data is retained for recovery.
+Package manifests use schema 1 or 2. The official Custom Crosshair stores `crosshair@2` settings (listed above). Settings saved by the older schema 1 editor (`style`, `size`) are converted when loaded, keeping the thickness and gap the old renderer drew. Profiles retain requested module IDs/versions and settings independently from the installed package set and the running profile. The selected profile is the only record of which modules are enabled. Selecting a profile requires restart. A module the profile enables but that is no longer installed is skipped and reported in the confirmation; its intent is kept, so reinstalling restores it. Unsupported schemas and incompatible dependencies surface an error instead of silently altering the selected configuration. Existing stored data is retained for recovery.
 
 Versions are three numeric components. A dependency uses `id`, `minimum`, `maximum`; every requested dependency must be present, compatible and enabled. Cycles, duplicate IDs and declared conflicts are rejected. Crosshair providers also conflict at activation even if an author omits the declaration. Package paths cannot escape the archive; transport verifies declared bytes/hash and installation uses the existing atomic recovery mechanism.
 
-`ClientOnly` is for local visual changes, not gameplay rules. `RequiredForSession` participates in the running session's version/hash agreement; peers with different required modules cannot play together. This is consistency checking, not anti-cheat or server authority. Do not change the active module set during a match. Reconnect must use the same running profile until a restart applies another one.
+`ClientOnly` is for local visual changes, not gameplay rules. `RequiredForSession` participates in the running session's version/hash agreement; peers with different required modules cannot play together. Random matchmaking only joins rooms with the same required modules. Joining a room directly checks the full agreement; if a module is missing, the game names it and can open it in Explore. This is consistency checking, not anti-cheat or server authority. Do not change the active module set during a match. Reconnect must use the same running profile until a restart applies another one.
 
 ## Compatibility and migration
 

@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "id": "example.author-tough-enemies",
+  "version": "1.0.0",
+  "name": "Author Tough Enemies",
+  "author": "Your name",
+  "description": "Enemies have 50% more health. Everyone in a room must enable the same version.",
+  "category": "Gameplay",
+  "changelog": "First release.",
+  "apiMinimum": "1.1.0",
+  "apiMaximum": "2.0.0",
+  "scope": "RequiredForSession",
+  "kind": "data",
+  "adapter": "enemy.tuning@1",
+  "payload": "tuning.json",
+  "dependencies": [],
+  "conflicts": []
+}
