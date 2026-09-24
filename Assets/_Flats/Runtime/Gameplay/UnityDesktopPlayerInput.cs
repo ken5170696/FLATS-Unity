@@ -9,12 +9,12 @@ namespace Flats.Gameplay
         {
             return new PlayerInputSnapshot
             {
-                Forward = Input.GetAxis("Vertical"), Right = Input.GetAxis("Horizontal"),
+                Forward = FlatsControls.Axis("Forward", "Backward"), Right = FlatsControls.Axis("Right", "Left"),
                 LookX = Input.GetAxisRaw("mouse x"), LookY = Input.GetAxisRaw("mouse y"),
-                Sprint = Input.GetKey(KeyCode.LeftShift), Fire = Input.GetMouseButton(0),
-                Reload = Input.GetKeyDown(KeyCode.R), ChangeWeapon = Input.GetKeyDown(KeyCode.E),
-                Grenade = Input.GetKeyDown(KeyCode.G), Jump = Input.GetKeyDown(KeyCode.Space),
-                Interact = Input.GetKeyDown(KeyCode.Q), ToggleZoom = Input.GetMouseButtonDown(1)
+                Sprint = FlatsControls.Held("Sprint"), Fire = FlatsControls.Held("Fire"),
+                Reload = FlatsControls.Down("Reload"), ChangeWeapon = FlatsControls.Down("Change"),
+                Grenade = FlatsControls.Down("Grenade"), Jump = FlatsControls.Down("Jump"),
+                Interact = FlatsControls.Down("Interact"), ToggleZoom = FlatsControls.Down("Aim")
             };
         }
     }

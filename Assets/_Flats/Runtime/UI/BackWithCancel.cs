@@ -17,8 +17,9 @@ public class BackWithCancel : MonoBehaviour
 
 	private void Update()
 	{
+        if (FlatsControls.Capturing) return;
 		InputDevice activeDevice = InputManager.ActiveDevice;
-		if (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasReleased || (!Menu.customControlEnabled && activeDevice.Action2.WasPressed) || (Menu.customControlEnabled && Input.GetButtonDown(Menu.customControl["Pick"])))
+		if (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasReleased || activeDevice.Action2.WasPressed)
 		{
 			if (destroy)
 			{

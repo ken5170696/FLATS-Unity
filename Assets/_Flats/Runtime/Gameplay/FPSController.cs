@@ -1667,16 +1667,8 @@ public class FPSController : MonoBehaviour
 					if (Input.GetJoystickNames().Length > 0)
 					{
 						Debug.Log("Gamepad Control");
-						if (Menu.customControlEnabled)
-						{
-							EventSystem.current.gameObject.GetComponent<StandaloneInputModule>().enabled = true;
-							EventSystem.current.gameObject.GetComponent<InControlInputModule>().enabled = false;
-						}
-						else
-						{
-							EventSystem.current.gameObject.GetComponent<StandaloneInputModule>().enabled = false;
-							EventSystem.current.gameObject.GetComponent<InControlInputModule>().enabled = true;
-						}
+						EventSystem.current.gameObject.GetComponent<StandaloneInputModule>().enabled = false;
+                        EventSystem.current.gameObject.GetComponent<InControlInputModule>().enabled = true;
 					}
 					else
 					{
@@ -1890,7 +1882,8 @@ public class FPSController : MonoBehaviour
 				bool padUsed = activeDevice.AnyButtonIsPressed || Mathf.Abs(activeDevice.LeftStickX)>0.1f || Mathf.Abs(activeDevice.LeftStickY)>0.1f || Mathf.Abs(activeDevice.RightStickX)>0.1f || Mathf.Abs(activeDevice.RightStickY)>0.1f || activeDevice.LeftTrigger>0.1f || activeDevice.RightTrigger>0.1f;
 				if (padUsed) preferGamepad = true;
 				else if (Input.anyKey || Mathf.Abs(Input.GetAxisRaw("mouse x"))>0.01f || Mathf.Abs(Input.GetAxisRaw("mouse y"))>0.01f) preferGamepad = false;
-				if (!overrideInputDevice && preferGamepad && Input.GetJoystickNames().Length > 0 && activeDevice.Name != "None")
+				FlatsControls.UsingGamepad = !overrideInputDevice && preferGamepad && activeDevice.Name != "None";
+                if (!overrideInputDevice && preferGamepad && Input.GetJoystickNames().Length > 0 && activeDevice.Name != "None")
 				{
 					num = activeDevice.LeftStickY;
 					num2 = activeDevice.LeftStickX;
@@ -1900,7 +1893,7 @@ public class FPSController : MonoBehaviour
 					}
 					if (SessionPlaying)
 					{
-						if ((num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && !Menu.customControlEnabled && activeDevice.Action1.IsPressed) || (Menu.customControlEnabled && Input.GetButton(Menu.customControl["Jump"])))
+						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && FlatsControls.PadState("Jump"))
 						{
 							jumpPressTime += 1f * Time.deltaTime;
 							if (jumpPressTime > holdTime && num > 0f)
@@ -1909,7 +1902,7 @@ public class FPSController : MonoBehaviour
 								num2 /= 2f;
 							}
 						}
-						else if ((!Menu.customControlEnabled && activeDevice.Action1.WasReleased) || (Menu.customControlEnabled && Input.GetButtonUp(Menu.customControl["Jump"])))
+						else if (FlatsControls.PadState("Jump", 2))
 						{
 							if (jumpPressTime <= holdTime && !jumping)
 							{
@@ -1925,12 +1918,12 @@ public class FPSController : MonoBehaviour
 								jumpPressTime = 0f;
 							}
 						}
-						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && !Menu.customControlEnabled && activeDevice.LeftStickButton.IsPressed && !activeDevice.Action1.IsPressed)
+						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && FlatsControls.PadState("Sprint") && !FlatsControls.PadState("Jump"))
 						{
 							num *= 1.5f;
 							num2 /= 2f;
 						}
-						if ((!Menu.customControlEnabled && (activeDevice.RightTrigger.IsPressed || activeDevice.RightBumper.IsPressed)) || (Menu.customControlEnabled && ((Menu.customControl["Fire"].Contains("analog") && Input.GetAxis(Menu.customControl["Fire"]) > 0.8f) || (Menu.customControl["Fire"].Contains("button") && Input.GetButton(Menu.customControl["Fire"])))))
+						if (FlatsControls.PadState("Fire", 0))
 						{
 							RaycastHit hitInfo2 = default(RaycastHit);
 							if (Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo2, 3f, mask))
@@ -1970,7 +1963,7 @@ public class FPSController : MonoBehaviour
 								}
 							}
 						}
-						if (((!Menu.customControlEnabled && activeDevice.Action3.WasPressed) || (Menu.customControlEnabled && Input.GetButtonDown(Menu.customControl["Reload"]))) && (enableFire || grabbing))
+						if (FlatsControls.PadState("Reload", 1) && (enableFire || grabbing))
 						{
 							if (Menu.network == 0)
 							{
@@ -1981,7 +1974,7 @@ public class FPSController : MonoBehaviour
 								base.gameObject.GetPhotonView().RPC("Reload", PhotonTargets.All);
 							}
 						}
-						if ((!Menu.customControlEnabled && activeDevice.Action4.IsPressed) || (Menu.customControlEnabled && Input.GetButton(Menu.customControl["Change"])))
+						if (FlatsControls.PadState("Change", 0))
 						{
 							pickPressTime += 1f * Time.deltaTime;
 							if (pickPressTime > holdTime && !picking)
@@ -2050,7 +2043,7 @@ public class FPSController : MonoBehaviour
 								}
 							}
 						}
-						if ((!Menu.customControlEnabled && activeDevice.Action4.WasReleased) || (Menu.customControlEnabled && Input.GetButtonUp(Menu.customControl["Change"])))
+						if (FlatsControls.PadState("Change", 2))
 						{
 							if (pickPressTime <= holdTime)
 							{
@@ -2073,15 +2066,15 @@ public class FPSController : MonoBehaviour
 							}
 							picking = false;
 						}
-						if (((!Menu.customControlEnabled && (activeDevice.LeftTrigger.IsPressed || activeDevice.LeftBumper.IsPressed)) || (Menu.customControlEnabled && ((Menu.customControl["Zoom"].Contains("analog") && Input.GetAxis(Menu.customControl["Zoom"]) > 0.8f) || (Menu.customControl["Zoom"].Contains("button") && Input.GetButton(Menu.customControl["Zoom"]))))) && grabbedObject == null && enableFire && !grabbing && !isZoom && enableFire && !anim.GetBool("Run"))
+						if (FlatsControls.PadState("Aim", 0) && grabbedObject == null && enableFire && !grabbing && !isZoom && enableFire && !anim.GetBool("Run"))
 						{
 							Zoom(true);
 						}
-						if (((!Menu.customControlEnabled && (activeDevice.LeftTrigger.WasReleased || activeDevice.LeftBumper.WasReleased)) || (Menu.customControlEnabled && ((Menu.customControl["Zoom"].Contains("analog") && Input.GetAxis(Menu.customControl["Zoom"]) < 0.8f) || (Menu.customControl["Zoom"].Contains("button") && Input.GetButtonUp(Menu.customControl["Zoom"]))))) && grabbedObject == null && !grabbing && isZoom)
+						if (FlatsControls.PadState("Aim", 2) && grabbedObject == null && !grabbing && isZoom)
 						{
 							Zoom(false);
 						}
-						if (((!Menu.customControlEnabled && activeDevice.Action2.WasPressed) || (Menu.customControlEnabled && Input.GetButtonDown(Menu.customControl["Pick"]))) && grabbedObject == null && enableFire && !grabbing)
+						if (FlatsControls.PadState("Grenade", 1) && grabbedObject == null && enableFire && !grabbing)
 						{
 							if (Menu.network == 0)
 							{
@@ -2092,7 +2085,7 @@ public class FPSController : MonoBehaviour
 								base.gameObject.GetPhotonView().RPC("ThrowGrenade", PhotonTargets.All);
 							}
 						}
-						if (((!Menu.customControlEnabled && (activeDevice.RightStickButton.WasPressed || activeDevice.DPadUp.WasPressed)) || (Menu.customControlEnabled && Input.GetButtonDown(Menu.customControl["Zoom"]))) && Menu.canOpen)
+						if (FlatsControls.PadState("Scope", 1) && Menu.canOpen)
 						{
 							if (isZoom)
 							{

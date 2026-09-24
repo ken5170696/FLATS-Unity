@@ -572,3 +572,51 @@ No matching mods	找不到符合條件的模組
 {0} installed  /  {1} active	已安裝 {0} 個 / 啟用中 {1} 個
 FLATS reconstruction\nScores and settings are saved on this device.\nOnline multiplayer uses your configured Photon app.\nStore purchase verification is unavailable.\n\nOriginal game: © Foliage Games LLC	FLATS 重建版本\n分數與設定會儲存在此裝置。\n線上多人遊戲使用已設定的 Photon 服務。\n無法驗證商店購買紀錄。\n\n原作：© Foliage Games LLC
 FLATS Web\nOnline play uses the site's configured Photon service.\nBuilt-in crosshair settings and data presets are supported.\nDownloaded DLL mods require desktop Mono.\nBrowser saves may be cleared by the browser.\n\nOriginal game: © Foliage Games LLC	FLATS 網頁版\n線上遊戲使用網站已設定的 Photon 服務。\n支援內建準心設定與資料預設。\n下載的 DLL 模組需要桌面版 Mono。\n瀏覽器可能會清除本機存檔。\n\n原作：© Foliage Games LLC
+General	一般設定
+Keyboard / Mouse	鍵盤／滑鼠
+Forward	前進
+Backward	後退
+Jump	跳躍
+Sprint	衝刺
+Fire	射擊
+Aim	瞄準
+Reload	換彈
+Grenade	手榴彈
+Change weapon	切換武器
+Change / hold to pick up	切換／按住拾取
+Jump / hold to sprint	跳躍／按住衝刺
+Toggle aim	切換瞄準
+Pick up / exchange	拾取／交換
+Default bindings restored.	已還原預設綁定。
+Binding saved.	已儲存按鍵綁定。
+Binding cancelled. Previous binding kept.	已取消，保留原本的綁定。
+Already assigned to: 	此按鍵已綁定：
+Connect a controller to bind its buttons.	請先連接控制器，再設定按鍵。
+Select an action, then press a controller button.	選擇動作，再按下控制器按鍵。
+Left stick: move. Right stick: look. Start: menu.	左搖桿：移動。右搖桿：視角。Start：選單。
+Select an action, then press a key or mouse button.	選擇動作，再按下鍵盤或滑鼠按鍵。
+Esc cancels. Duplicate bindings are rejected.	Esc 取消。不接受重複按鍵。
+Release all buttons, then press the new binding.	放開所有按鍵，再按下新的按鍵。
+Esc / Start cancels. Timeout: 10 seconds.	Esc／Start 取消。等待時間：10 秒。
+Menu: Esc / Start   |   Confirm: Enter / A   |   Back: Esc / B	選單：Esc／Start　｜　確認：Enter／A　｜　返回：Esc／B
+Left stick	左搖桿
+Right stick	右搖桿
+Mouse	滑鼠
+Hold	按住
+Look around: {control:Look}.	環顧四周：{control:Look}。
+Move: {control:Move}.	移動：{control:Move}。
+Fire: {control:Fire}.	射擊：{control:Fire}。
+Reload: {control:Reload}.	換彈：{control:Reload}。
+Change weapons: {control:Change}.	切換武器：{control:Change}。
+Throw grenade: {control:Grenade}.	投擲手榴彈：{control:Grenade}。
+Pick up: {control:Interact}.	拾取：{control:Interact}。
+Aim: {control:Aim}.	瞄準：{control:Aim}。
+Jump: {control:Jump}.	跳躍：{control:Jump}。
+Sprint: {control:Sprint}.	衝刺：{control:Sprint}。
+Menu: {control:Menu}.	開啟選單：{control:Menu}。
+Exchange weapon: {control:Interact}.	交換武器：{control:Interact}。
+Select reset to exit the tutorial.	選擇重設以離開教學。
+Walk to the black cube.	走到黑色方塊旁。
+Need to reload?	需要換彈嗎？
+Aim and shoot them.	瞄準並射擊敵人。
+Pick the sniper rifle on the floor.	拾取地上的狙擊步槍。

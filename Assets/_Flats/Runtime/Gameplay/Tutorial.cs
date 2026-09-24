@@ -90,7 +90,15 @@ public class Tutorial : MonoBehaviour
 		}
 	}
 
-	private IEnumerator Start()
+	private void LateUpdate()
+    {
+        if (tutorialImage == null) return;
+        var group = tutorialImage.GetComponent<CanvasGroup>();
+        if (group == null) group = tutorialImage.gameObject.AddComponent<CanvasGroup>();
+        group.alpha = tutorialText.text.Contains("{control:") ? 0 : 1;
+    }
+
+    private IEnumerator Start()
 	{
 		GameObject p = (GameObject)UnityEngine.Object.Instantiate(Resources.Load("Flatman"), spawnPosition.position, spawnPosition.rotation);
 		player = p.transform;
@@ -135,12 +143,12 @@ public class Tutorial : MonoBehaviour
 					}
 					else
 					{
-						tutorialText.text = "First, use right stick\nand look around.";
+						tutorialText.text = "Look around: {control:Look}.";
 					}
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "First, use mouse \nand look around.";
+					tutorialText.text = "Look around: {control:Look}.";
 				}
 				else
 				{
@@ -181,11 +189,11 @@ public class Tutorial : MonoBehaviour
 				yield return new WaitForSeconds(0.5f);
 				if (Input.GetJoystickNames().Length > 0 && !mobileMouse)
 				{
-					tutorialText.text = "Walk to the black cube.\nUse left stick.";
+					tutorialText.text = "Walk to the black cube.\nMove: {control:Move}.";
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "Walk to the black cube.\nUse W/A/S/D keys.";
+					tutorialText.text = "Walk to the black cube.\nMove: {control:Move}.";
 				}
 				else
 				{
@@ -242,11 +250,11 @@ public class Tutorial : MonoBehaviour
 				yield return new WaitForSeconds(0.5f);
 				if (Input.GetJoystickNames().Length > 0 && !mobileMouse)
 				{
-					tutorialText.text = "Pull right trigger to fire.";
+					tutorialText.text = "Fire: {control:Fire}.";
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "Left click to fire.";
+					tutorialText.text = "Fire: {control:Fire}.";
 				}
 				else
 				{
@@ -309,11 +317,11 @@ public class Tutorial : MonoBehaviour
 				yield return new WaitForSeconds(0.5f);
 				if (Input.GetJoystickNames().Length > 0)
 				{
-					tutorialText.text = "Need to reload?\nUse this button.";
+					tutorialText.text = "Need to reload?\nReload: {control:Reload}.";
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "Need to reload?\nPress R Key.";
+					tutorialText.text = "Need to reload?\nReload: {control:Reload}.";
 				}
 				else
 				{
@@ -367,11 +375,11 @@ public class Tutorial : MonoBehaviour
 				}
 				if (Input.GetJoystickNames().Length > 0 && !mobileMouse)
 				{
-					tutorialText.text = "Press this button\nto change weapons.";
+					tutorialText.text = "Change weapons: {control:Change}.";
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "Press E key\nto change weapons.";
+					tutorialText.text = "Change weapons: {control:Change}.";
 				}
 				else
 				{
@@ -433,11 +441,11 @@ public class Tutorial : MonoBehaviour
 				yield return new WaitForSeconds(0.5f);
 				if (Input.GetJoystickNames().Length > 0 && !mobileMouse)
 				{
-					tutorialText.text = "Aim and shoot them\nor press this button\nto throw grenades.";
+					tutorialText.text = "Aim and shoot them.\nThrow grenade: {control:Grenade}.";
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "Aim and shoot them\nor press G key\nto throw grenades.";
+					tutorialText.text = "Aim and shoot them.\nThrow grenade: {control:Grenade}.";
 				}
 				else
 				{
@@ -523,11 +531,11 @@ public class Tutorial : MonoBehaviour
 				}
 				if (Input.GetJoystickNames().Length > 0 && !mobileMouse)
 				{
-					tutorialText.text = "Pick the sniper rifle on the floor.\nHold this button to pick up.";
+					tutorialText.text = "Pick the sniper rifle on the floor.\nPick up: {control:Interact}.";
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "Pick the sniper rifle on the floor.\nPress Q key to pick up.";
+					tutorialText.text = "Pick the sniper rifle on the floor.\nPick up: {control:Interact}.";
 				}
 				else
 				{
@@ -571,11 +579,11 @@ public class Tutorial : MonoBehaviour
 				}
 				if (Input.GetJoystickNames().Length > 0 && !mobileMouse)
 				{
-					tutorialText.text = "Hold left trigger\nfor zooming.";
+					tutorialText.text = "Aim: {control:Aim}.";
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "Right click\nfor zooming.";
+					tutorialText.text = "Aim: {control:Aim}.";
 				}
 				else
 				{
@@ -617,11 +625,11 @@ public class Tutorial : MonoBehaviour
 			{
 				if (Input.GetJoystickNames().Length > 0 && !mobileMouse)
 				{
-					tutorialText.text = "Press this button to jump.\nAnd hold it to sprint.";
+					tutorialText.text = "Jump: {control:Jump}.\nSprint: {control:Sprint}.";
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "Press space key to jump.\nAnd hold shift to sprint.";
+					tutorialText.text = "Jump: {control:Jump}.\nSprint: {control:Sprint}.";
 				}
 				else
 				{
@@ -656,11 +664,11 @@ public class Tutorial : MonoBehaviour
 				yield return new WaitForSeconds(0.5f);
 				if (Input.GetJoystickNames().Length > 0 && !mobileMouse)
 				{
-					tutorialText.text = "Press start or select button.\nSelect reset button\nand exit the tutorial.";
+					tutorialText.text = "Menu: {control:Menu}.\nSelect reset to exit the tutorial.";
 				}
 				else if (Input.mousePresent || mobileMouse)
 				{
-					tutorialText.text = "Press escape key.\nSelect reset button\nand exit the tutorial.";
+					tutorialText.text = "Menu: {control:Menu}.\nSelect reset to exit the tutorial.";
 				}
 				else
 				{

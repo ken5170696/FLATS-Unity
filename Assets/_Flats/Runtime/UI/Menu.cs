@@ -341,6 +341,7 @@ public partial class Menu : MonoBehaviour
     }
 	private void OnDestroy()
 	{
+        if (captureAction != null) FlatsControls.Capturing = false;
         if (localDiscovery != null) localDiscovery.Stop();
         Canvas.preWillRenderCanvases -= BindThemeMaterials;
 		if (runtimeBackgroundMaterial != null) Destroy(runtimeBackgroundMaterial);
@@ -1020,6 +1021,7 @@ public partial class Menu : MonoBehaviour
 			.GetComponent<Text>()
 			.text = "ID:" + myCharacter.id;
         InitializeVolumeSliders();
+        InitializeControls();
 		aaText[0] = "OFF";
 		aaText[1] = "ON";
 		FPSController.aa = IntToBool(mySettings.graphics_aa);
@@ -1205,7 +1207,7 @@ public partial class Menu : MonoBehaviour
 		{
 			string text2 = FlatsPreferences.GetString("controllermapping");
 			string[] array2 = text2.Split(new string[1] { "$" }, StringSplitOptions.None);
-			if (Input.GetJoystickNames()[0] == array2[0])
+			if (array2.Length == 7 && Input.GetJoystickNames()[0] == array2[0])
 			{
 				customControl["ControllerName"] = array2[0];
 				customControl["Jump"] = "joystick 1 " + array2[1];
@@ -1218,9 +1220,6 @@ public partial class Menu : MonoBehaviour
 			}
 			else
 			{
-				ShowConfirm("Detected another controller.", "Your custom button mapping has been deleted.", null, "OK", null);
-				FlatsPreferences.DeleteKey("controllermapping");
-				FlatsPreferences.Save();
 				customControlEnabled = false;
 			}
 		}
@@ -1233,20 +1232,10 @@ public partial class Menu : MonoBehaviour
 			.text = totalScore;
 		if (Input.GetJoystickNames().Length > 0)
 		{
-			if (customControlEnabled)
-			{
-				standaloneModule.submitButton = customControl["Jump"];
-				standaloneModule.cancelButton = customControl["Pick"];
-				standaloneModule.enabled = false;
-				inControlModule.enabled = true;
-			}
-			else
-			{
-				standaloneModule.submitButton = "Submit";
-				standaloneModule.cancelButton = "Cancel";
-				standaloneModule.enabled = true;
-				inControlModule.enabled = false;
-			}
+			standaloneModule.submitButton = "Submit";
+                standaloneModule.cancelButton = "Cancel";
+                standaloneModule.enabled = false;
+                inControlModule.enabled = true;
 		}
 		else
 		{
@@ -1524,16 +1513,16 @@ public partial class Menu : MonoBehaviour
 
 	private void Update()
 	{
+        if (TickBindingCapture()) return;
         TickLocalMatch();
 		InputDevice activeDevice = InputManager.ActiveDevice;
         if (multiplayerConnecting && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed ||
-            (!customControlEnabled && activeDevice.Action2.WasPressed) ||
-            (customControlEnabled && Input.GetButtonDown(customControl["Pick"]))))
+            activeDevice.Action2.WasPressed))
         {
             Fade(-1);
             return;
         }
-		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || (current != "Main" && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && ((!customControlEnabled && activeDevice.Action2.WasPressed) || (customControlEnabled && Input.GetButtonDown(customControl["Pick"]))))) && canOpen && !confirm.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main"))
+		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || (current != "Main" && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main"))
 		{
 			Fade(-1);
 		}
@@ -1545,25 +1534,7 @@ public partial class Menu : MonoBehaviour
 		{
 			anim.enabled = true;
 		}
-		if (customControlEnabled && !resetCustomizing && Input.GetButton(customControl["Jump"]) && Input.GetButton(customControl["Pick"]) && Input.GetButton(customControl["Reload"]) && Input.GetButton(customControl["Change"]))
-		{
-			resetTime += Time.unscaledDeltaTime;
-			if (resetTime > 5f)
-			{
-				resetCustomizing = true;
-				resetTime = 0f;
-				FlatsPreferences.DeleteKey("controllermapping");
-				FlatsPreferences.Save();
-				customControlEnabled = false;
-				standaloneModule.enabled = false;
-				inControlModule.enabled = true;
-				standaloneModule.submitButton = "Submit";
-				standaloneModule.cancelButton = "Cancel";
-				ShowConfirm("Disabled custom mapping", "Your custom controller mapping was disabled.", ResetCustomMapping, "OK", null);
-				Selectable component = confirm.transform.GetChild(3).GetComponent<Selectable>();
-				component.Select();
-			}
-		}
+		
 		if (mySettings != null && (mySettings.graphics_aa != 0 || mySettings.graphics_dof != 0 || mySettings.graphics_motionBlur != 0 || mySettings.graphics_saturationFilter != 0 || mySettings.graphics_edgeRendering != 0))
 		{
 			deltaTime += (Time.deltaTime - deltaTime) * 0.1f;
@@ -1682,6 +1653,8 @@ public partial class Menu : MonoBehaviour
 
 	private void LateUpdate()
 	{
+        RefreshControlTile();
+        if (FlatsControls.Capturing || releasePending || Time.frameCount <= suppressControlFrame) return;
         RefreshLanguageButton();
         CheckMultiplayerDeadline();
 		if ((current == "Playing" && !framerateAlertIsEnabled) || VRmode || standaloneModule == null || inControlModule == null)
@@ -1692,18 +1665,10 @@ public partial class Menu : MonoBehaviour
 		{
 			if (Input.GetJoystickNames().Length > 0)
 			{
-				if (customControlEnabled)
-				{
-					standaloneModule.enabled = true;
-					inControlModule.enabled = false;
-					standaloneModule.submitButton = customControl["Jump"];
-					standaloneModule.cancelButton = customControl["Pick"];
-				}
-				else
-				{
-					standaloneModule.enabled = false;
-					inControlModule.enabled = true;
-				}
+				standaloneModule.submitButton = "Submit";
+                standaloneModule.cancelButton = "Cancel";
+                standaloneModule.enabled = false;
+                inControlModule.enabled = true;
 				if (errorMessage.activeSelf)
 				{
 					Selectable component = errorMessage.transform.GetChild(2).GetComponent<Selectable>();
@@ -1908,6 +1873,7 @@ public partial class Menu : MonoBehaviour
 
 	public void Fade(int button)
 	{
+        if (HandleControlNavigation(button)) return;
         if (localMatchPanel != null && localMatchPanel.activeSelf)
         { if (button == -1) CloseLocalMatch(); return; }
         if (current == "Multiplayer" && button == 2 && !fliping && !multiplayerConnecting)

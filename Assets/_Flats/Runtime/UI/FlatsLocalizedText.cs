@@ -27,7 +27,7 @@ public sealed class FlatsLocalizedText : Text
         {
             var input = GetComponentInParent<InputField>(true);
             return translate && (input == null || input.placeholder == this)
-                ? FlatsLocalization.Translate(m_Text) : m_Text;
+                ? FlatsControlPrompts.Resolve(FlatsLocalization.Translate(m_Text)) : m_Text;
         }
     }
     protected override void OnEnable()
@@ -40,6 +40,15 @@ public sealed class FlatsLocalizedText : Text
     {
         FlatsLocalization.Changed -= RefreshLanguage;
         base.OnDisable();
+    }
+    string lastPrompt;
+    void LateUpdate()
+    {
+        if (!translate || !m_Text.Contains("{control:")) return;
+        string prompt = DisplayText;
+        if (lastPrompt == prompt) return;
+        lastPrompt = prompt;
+        RefreshLanguage();
     }
     void RefreshLanguage()
     {
