@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
 
 public static class FlatsLocalization
@@ -7,7 +8,13 @@ public static class FlatsLocalization
     const string Preference = "ui.language";
     static string language;
     static Dictionary<string, string> chinese;
-    static readonly List<KeyValuePair<string, string>> templates = new List<KeyValuePair<string, string>>();
+    sealed class Template
+    {
+        public Regex Pattern;
+        public string Value;
+    }
+    static readonly List<Template> templates = new List<Template>();
+    static readonly Regex placeholder = new Regex(@"\{([0-9]+)\}");
     static Font chineseFont;
     public static event Action Changed;
     public static bool IsChinese => Language == "zh-Hant";
@@ -52,28 +59,34 @@ public static class FlatsLocalization
                     {
                         string key = line.Substring(0, split).Replace("\\n", "\n");
                         string value = line.Substring(split + 1).TrimEnd('\r').Replace("\\n", "\n");
-                        if (key.Contains("{0}")) templates.Add(new KeyValuePair<string,string>(key,value));
+                        if (key.Contains("{0}"))
+                        {
+                            string pattern = Regex.Escape(key);
+                            foreach (Match token in placeholder.Matches(key))
+                                pattern = pattern.Replace(Regex.Escape(token.Value), "(?<p" + token.Groups[1].Value + ">.*?)");
+                            templates.Add(new Template { Pattern = new Regex("\\A" + pattern + "\\z", RegexOptions.CultureInvariant), Value = value });
+                        }
                         else chinese[key] = value;
                     }
                 }
         }
         if (chinese.TryGetValue(source, out string translated)) return translated;
-        // Parameters are kept verbatim: names, paths, scores and server messages are data.
-        foreach (var pair in templates)
-        {
-            int marker = pair.Key.IndexOf("{0}", StringComparison.Ordinal);
-            string prefix = pair.Key.Substring(0, marker), suffix = pair.Key.Substring(marker + 3);
-            if (source.Length >= prefix.Length + suffix.Length &&
-                source.StartsWith(prefix, StringComparison.Ordinal) && source.EndsWith(suffix, StringComparison.Ordinal))
-                return pair.Value.Replace("{0}", source.Substring(prefix.Length, source.Length-prefix.Length-suffix.Length));
-        }
-        if (source.StartsWith("Objective: ", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(11));
         if (source.IndexOf('\n') >= 0)
         {
             var lines = source.Split('\n');
             for (int i=0; i<lines.Length; i++) lines[i]=Translate(lines[i]);
             return string.Join("\n", lines);
         }
+        // Parameters are kept verbatim: names, paths, scores and server messages are data.
+        foreach (var pair in templates)
+        {
+            Match match = pair.Pattern.Match(source);
+            if (match.Success)
+                return placeholder.Replace(pair.Value, token => match.Groups["p" + token.Groups[1].Value].Value);
+        }
+        if (source.StartsWith("Objective: ", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(11));
+        if (source.StartsWith("Objective:", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(10));
+        if (source.StartsWith("Rule:", StringComparison.Ordinal)) return "規則：" + Translate(source.Substring(5));
         return source;
     }
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

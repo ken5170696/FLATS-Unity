@@ -12,6 +12,8 @@ public partial class Menu
             () => { FlatsLocalization.SetLanguage(FlatsLocalization.IsChinese ? "en" : "zh-Hant"); RefreshLanguageButton(); },
             new Color(.31f,.24f,.29f,1));
         var rect = (RectTransform)languageButton.transform;
+        languageButton.image.material = mainUI;
+        languageButton.image.color = Color.white;
         rect.anchorMin = rect.anchorMax = rect.pivot = Vector2.zero;
         rect.anchoredPosition = new Vector2(24,24);
         var icon = ui.Rect("LanguageIcon", rect, -62, 0, 34, 34).gameObject.AddComponent<LanguageTileGraphic>();

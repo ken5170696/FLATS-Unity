@@ -19,7 +19,7 @@ public sealed class FlatsLocalizedText : Text
     {
         get
         {
-            var input = GetComponentInParent<InputField>();
+            var input = GetComponentInParent<InputField>(true);
             return translate && (input == null || input.placeholder == this)
                 ? FlatsLocalization.Translate(m_Text) : m_Text;
         }
@@ -44,7 +44,10 @@ public sealed class FlatsLocalizedText : Text
     {
         if (!Application.isPlaying) return;
         if (originalFont == null) originalFont = font;
-        font = FlatsLocalization.IsChinese && FlatsLocalization.ChineseFont != null
+        bool needsChinese = false;
+        foreach (char character in DisplayText ?? "")
+            if (character >= '\u2e80') { needsChinese = true; break; }
+        font = needsChinese && FlatsLocalization.ChineseFont != null
             ? FlatsLocalization.ChineseFont : originalFont;
     }
     protected override void OnPopulateMesh(VertexHelper helper)

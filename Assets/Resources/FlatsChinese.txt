@@ -505,3 +505,42 @@ Duplicate	複製
 Rename	重新命名
 Manage selected	管理目前組合
 Review & switch	檢視並切換
+Score: {0} Phase: {1}	分數：{0}　階段：{1}
+Score: {0} HeadshotChain: {1}	分數：{0}　連續爆頭：{1}
+Score: {0} Rule: Deathmatch {1}	分數：{0}　規則：死亡競賽 {1}
+Score: {0} Rule: Team Deathmatch {1}	分數：{0}　規則：團隊死亡競賽 {1}
+Score: {0} Rule: Territory {1}	分數：{0}　規則：據點爭奪 {1}
+Score: {0} Rule: Capture the Flag {1}	分數：{0}　規則：奪旗模式 {1}
+Score: {0} Rule: Blow up the Base {1}	分數：{0}　規則：基地爆破 {1}
+Score: {0} Rule: Zombie	分數：{0}　規則：殭屍模式
+Score: {0} Rule: VIP	分數：{0}　規則：VIP
+You cleared Deathmatch!	你完成了死亡競賽！
+You cleared Team Deathmatch!	你完成了團隊死亡競賽！
+You cleared Territory!	你完成了據點爭奪！
+You cleared Capture the Flag!	你完成了奪旗模式！
+You cleared Blow up the Base!	你完成了基地爆破！
+You cleared Zombie!	你完成了殭屍模式！
+You cleared VIP!	你完成了 VIP 模式！
+Winner:Red Team	勝利：紅隊
+Winner:Blue Team	勝利：藍隊
+Winner:Zombies	勝利：殭屍
+Winner:Humans	勝利：人類
+Draw	平手
+Choose the shape and size of your aiming reticle.	選擇準心的形狀與大小。
+Client-only · Your screen only	僅影響本機 · 只改變你的畫面
+Configure a draft and preview changes before saving.	先調整並預覽，確認後再儲存。
+Selected	已選取
+Saved profile	已儲存組合
+Selected / Running	已選取 / 使用中
+Selected / Restart required	已選取 / 需要重新啟動
+Saved profile / Running	已儲存組合 / 使用中
+Client-only  /  Enabled in selected profile / Active now	僅影響本機 / 目前組合已啟用 / 使用中
+Client-only  /  Disabled in selected profile / Not active now	僅影響本機 / 目前組合已停用 / 未使用
+Installed version: {0}	已安裝版本：{0}
+Affects: Your screen only	影響範圍：僅你的畫面
+Select a row to view its status and actions.	選擇模組以查看狀態與可用操作。
+Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.	歡迎來到 FLATS。\n支援單人遊戲與 Photon 線上對戰。\n線上遊戲需要網際網路連線。
+Core stability, save transfer and module updates.	更新核心穩定性、存檔轉移與模組功能。
+- Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.	- 更新核心輸入與存檔轉移。\n- 準心套件與模組復原。\n- 本機排行榜；舊雲端服務無法使用。\n- 區域網路同步僅轉移 ID 與分數。\n- 本機配對：區域網路搜尋與線上房間。\n\n平台驗證詳見版本說明。
+FLATS {0} preview	FLATS {0} 預覽版
+Need a controller\nto play in VR mode.	VR 模式需要\n連接控制器。

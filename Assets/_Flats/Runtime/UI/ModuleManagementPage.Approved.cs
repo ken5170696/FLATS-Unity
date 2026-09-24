@@ -69,6 +69,7 @@ public sealed partial class ModuleManagementPage
         var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
         var package=Service.Installed.FirstOrDefault(p=>p.manifest.id==selectedId);
         bool configurable=selectedId==CrosshairModule.Id && package!=null;
+        ((FlatsLocalizedText)quickTitle).translate=configurable || (package==null && record==null);
         quickTitle.text=configurable?"Custom Crosshair":package?.manifest.name??record?.Manifest.DisplayName??"Select a mod";
         quickInfo.text=configurable?"Client-only  /  "+(Host.Requested(CrosshairModule.Id)?"Enabled in selected profile":"Disabled in selected profile")+" / "+(record?.Active==true?"Active now":"Not active now")+"\n\nInstalled version: 1.0.0\n\nAffects: Your screen only":
             package!=null?package.manifest.scope+"\n\nVersion "+package.manifest.version+"\n\n"+InstalledStatus(package):"Select a row to view its status and actions.";

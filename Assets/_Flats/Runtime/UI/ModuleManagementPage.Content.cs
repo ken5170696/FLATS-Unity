@@ -184,6 +184,8 @@ public sealed partial class ModuleManagementPage
         ApplyView();if(!detailOpen)return;
         overviewTab.gameObject.SetActive(false);versionsTab.gameObject.SetActive(false);dependenciesTab.gameObject.SetActive(false);atGlance.gameObject.SetActive(false);glanceScroll.gameObject.SetActive(false);
         artworkGeneration++;detailArtwork.gameObject.SetActive(false);
+        ((FlatsLocalizedText)detailTitle).translate=selectedId==CrosshairModule.Id || selectedId=="storage-report";
+        ((FlatsLocalizedText)description).translate=selectedId==CrosshairModule.Id || selectedId=="storage-report" || tab=="Downloads";
         crosshairPanel.SetActive(settingsOpen);secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);enable.interactable=false;
         foreach(Transform row in listContent){var b=row.GetComponent<Button>();if(b!=null)b.image.color=row.name=="Mod-"+selectedId?ModCenterWidgets.Accent:ModCenterWidgets.PanelColor;}
         if(tab=="Downloads"){UpdateDownloadDetail();return;}
