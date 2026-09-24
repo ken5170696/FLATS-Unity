@@ -27,10 +27,19 @@ namespace Flats.Modules
         public float crosshairSize;
         public DependencySpec[] dependencies;
         public string[] conflicts;
+        // Schema 2: data packages target a game adapter; any kind may declare settings.
+        public string adapter, payload;
+        public ModuleSettingSpec[] settings;
+        public ModulePreset[] presets;
+
+        public const string OpenGameMinimum = "0.0.0", OpenGameMaximum = "1000.0.0";
 
         public ModuleManifest Validate()
         {
-            if (schema != 1) throw new InvalidDataException("Unsupported manifest schema (expected 1)");
+            if (schema != 1 && schema != 2) throw new InvalidDataException("Unsupported manifest schema (expected 1 or 2)");
+            bool usesV2 = kind == "data" || !string.IsNullOrEmpty(adapter) || !string.IsNullOrEmpty(payload) ||
+                (settings?.Length ?? 0) > 0 || (presets?.Length ?? 0) > 0;
+            if (schema == 1 && usesV2) throw new InvalidDataException("Data packages, settings and presets require manifest schema 2");
             ModRules.Id(id);
             if(id=="staging" || id=="downloads" || id=="install-batch.json")throw new InvalidDataException("Module ID is reserved for internal storage");
             if (id.StartsWith("flats.", StringComparison.Ordinal)) throw new InvalidDataException("The flats.* namespace is reserved for built-in modules");
@@ -39,7 +48,19 @@ namespace Flats.Modules
             ModRules.Text(description, 16000, "description"); ModRules.Text(changelog, 16000, "changelog");
             ModRules.Text(category, 40, "category", true);
             if (scope != "ClientOnly" && scope != "RequiredForSession") throw new InvalidDataException("Unknown module scope");
-            if (kind != "crosshair" && kind != "managed") throw new InvalidDataException("Unsupported package kind");
+            if (kind != "crosshair" && kind != "managed" && kind != "data") throw new InvalidDataException("Unsupported package kind");
+            if (kind == "data")
+            {
+                ModAdapters.Validate(adapter);
+                if (!string.IsNullOrEmpty(payload))
+                {
+                    ModRules.RelativePath(payload);
+                    if (!payload.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Data payloads must be JSON files");
+                }
+            }
+            else if (!string.IsNullOrEmpty(adapter) || !string.IsNullOrEmpty(payload))
+                throw new InvalidDataException("Only data packages declare an adapter or payload");
+            ModuleSettingsSchema.Validate(settings, presets);
             if (kind == "crosshair" && (crosshairStyle < 0 || crosshairStyle > 2 || float.IsNaN(crosshairSize) || float.IsInfinity(crosshairSize) || crosshairSize < 6 || crosshairSize > 64 || scope != "ClientOnly"))
                 throw new InvalidDataException("Crosshair packages require ClientOnly scope, style 0-2 and size 6-64");
             if (kind == "managed")
@@ -55,15 +76,20 @@ namespace Flats.Modules
             foreach (var c in clashes) ModRules.Id(c);
             if (deps.Select(d => d.id).Distinct().Count() != deps.Length || clashes.Distinct().Count() != clashes.Length)
                 throw new InvalidDataException("Duplicate dependency or conflict");
+            // Data packages depend on their adapter version, not on a game release, so they
+            // may leave the game range open instead of being republished for every build.
+            bool openGame = kind == "data" && string.IsNullOrEmpty(gameMinimum) && string.IsNullOrEmpty(gameMaximum);
             return new ModuleManifest(id, version, name, description ?? "", scope == "ClientOnly" ? ModuleScope.ClientOnly : ModuleScope.RequiredForSession,
-                ModRules.Range(apiMinimum, apiMaximum), ModRules.Range(gameMinimum, gameMaximum),
+                ModRules.Range(apiMinimum, apiMaximum),
+                openGame ? ModRules.Range(OpenGameMinimum, OpenGameMaximum) : ModRules.Range(gameMinimum, gameMaximum),
                 deps.Select(d => new ModuleDependency(d.id, ModRules.Range(d.minimum, d.maximum))).ToArray(), clashes);
         }
     }
 
     public static class ModRules
     {
-        public const string GameVersion = "5.4.2", ApiVersion = "1.0.0";
+        // API 1.1.0 adds manifest schema 2 (data packages, settings, presets); 1.x packages still load.
+        public const string GameVersion = "5.4.2", ApiVersion = "1.1.0";
         public const long MaxArchive = 64L * 1024 * 1024, MaxExpanded = 256L * 1024 * 1024;
         public static void Id(string id)
         {
@@ -105,6 +131,7 @@ namespace Flats.Modules
                 var m = value.Validate();
                 if (!m.GameVersions.Contains(Version(GameVersion))) return "Requires game " + m.GameVersions;
                 if (!m.ApiVersions.Contains(Version(ApiVersion))) return "Requires Mod API " + m.ApiVersions;
+                if (value.kind == "data") return ModAdapters.Problem(value.adapter, m.Scope);
                 return "";
             }
             catch (Exception e) { return e.Message; }
