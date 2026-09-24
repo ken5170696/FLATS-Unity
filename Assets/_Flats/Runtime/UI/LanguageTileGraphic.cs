@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 
 // Two offset, square speech tiles match FLATS' solid geometric menu silhouettes.
+[RequireComponent(typeof(CanvasRenderer))]
 public sealed class LanguageTileGraphic : MaskableGraphic
 {
     protected override void OnPopulateMesh(VertexHelper vh)

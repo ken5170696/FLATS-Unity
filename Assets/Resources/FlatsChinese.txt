@@ -416,3 +416,92 @@ The current save will be backed up before replacement.	取代前會先備份目�
 MOD / INSTALLED	模組 / 已安裝
 MOD / EXPLORE	模組 / 探索
 MOD / DOWNLOADS	模組 / 下載
+Hi, welcome to the tutorial.	嗨，歡迎來到教學。
+First, turn your head\nand look around.	首先，轉動頭部，\n觀察四周。
+First, use right stick\nand look around.	首先，使用右搖桿，\n觀察四周。
+First, use mouse \nand look around.	首先，移動滑鼠，\n觀察四周。
+First, swipe screen\nand look around.	首先，滑動螢幕，\n觀察四周。
+Walk to the black cube.\nUse left stick.	使用左搖桿，\n走向黑色方塊。
+Walk to the black cube.\nUse W/A/S/D keys.	使用 W/A/S/D 鍵，\n走向黑色方塊。
+Walk to the black cube.\nUse stick on the screen.	使用螢幕上的搖桿，\n走向黑色方塊。
+Good.	很好。
+Now you can fire.	現在可以射擊了。
+Pull right trigger to fire.	按下右扳機射擊。
+Left click to fire.	按滑鼠左鍵射擊。
+Press fire button.	按下射擊按鈕。
+Need to reload?\nUse this button.	需要裝填彈藥？\n按下這個按鈕。
+Need to reload?\nPress R Key.	需要裝填彈藥？\n按下 R 鍵。
+Need to reload?\nPress reload button.	需要裝填彈藥？\n按下裝填按鈕。
+Press this button\nto change weapons.	按下這個按鈕，\n切換武器。
+Press E key\nto change weapons.	按下 E 鍵，\n切換武器。
+Hold reload button\nto change weapons.	按住裝填按鈕，\n切換武器。
+You can set default weapons\nvia 'Character' in the menu.	可在選單的「角色」中，\n設定預設武器。
+Next, kill enemies.	接下來，擊敗敵人。
+Aim and shoot them\nor press this button\nto throw grenades.	瞄準並射擊敵人，\n或按下這個按鈕\n投擲手榴彈。
+Aim and shoot them\nor press G key\nto throw grenades.	瞄準並射擊敵人，\n或按下 G 鍵\n投擲手榴彈。
+Aim and shoot them\nor hold aim button\nto throw grenades.	瞄準並射擊敵人，\n或按住瞄準按鈕\n投擲手榴彈。
+Nice work!!	做得好！
+Headshot always makes\ngood results.	瞄準頭部，\n可以造成更大傷害。
+You can get ammo\nfrom dropped guns.	地上掉落的槍械\n可以補充彈藥。
+Pick the sniper rifle on the floor.\nHold this button to pick up.	拾取地上的狙擊步槍。\n按住這個按鈕即可拾取。
+Pick the sniper rifle on the floor.\nPress Q key to pick up.	拾取地上的狙擊步槍。\n按下 Q 鍵即可拾取。
+Pick the sniper rifle on the floor.\nLong tap to pick up.	拾取地上的狙擊步槍。\n長按即可拾取。
+Hold left trigger\nfor zooming.	按住左扳機，\n使用瞄準鏡。
+Right click\nfor zooming.	按滑鼠右鍵，\n使用瞄準鏡。
+Press zoom button\nfor zooming.	按下縮放按鈕，\n使用瞄準鏡。
+Press this button to jump.\nAnd hold it to sprint.	按下這個按鈕跳躍，\n按住則可衝刺。
+Press space key to jump.\nAnd hold shift to sprint.	按空白鍵跳躍，\n按住 Shift 鍵衝刺。
+Press jump button to jump.\nAnd hold it to sprint.	按下跳躍按鈕跳躍，\n按住則可衝刺。
+OK. You've finished tutorial.	很好，你已完成教學。
+Press start or select button.\nSelect reset button\nand exit the tutorial.	按下 Start 或 Select 按鈕，\n選擇「重設」，\n即可離開教學。
+Press escape key.\nSelect reset button\nand exit the tutorial.	按下 Esc 鍵，\n選擇「重設」，\n即可離開教學。
+Press upper-left button.\nSelect reset button\nand exit the tutorial.	按下左上角按鈕，\n選擇「重設」，\n即可離開教學。
+Hold change button to exchange	按住切換按鈕交換武器
+Press Q key to exchange	按 Q 鍵交換武器
+You are the VIP.	你是 VIP。
+Red team's VIP: {0}	紅隊 VIP：{0}
+Blue team's VIP: {0}	藍隊 VIP：{0}
+Hold change button to grab the flag.	按住切換按鈕奪取旗幟。
+Press Q to grab the flag.	按 Q 鍵奪取旗幟。
+Long tap to grab the flag.	長按奪取旗幟。
+Hold change button to reset the bomb.	按住切換按鈕重設炸彈。
+Press Q to reset the bomb.	按 Q 鍵重設炸彈。
+Long tap to reset the bomb.	長按重設炸彈。
+Hold change button to pick the bomb.	按住切換按鈕拾取炸彈。
+Press Q to pick the bomb.	按 Q 鍵拾取炸彈。
+Long tap to pick the bomb.	長按拾取炸彈。
+Red team scored!	紅隊得分！
+Blue team scored!	藍隊得分！
+You are offense side.\nSet the bomb on the enemies' base.	你是進攻方。\n請在敵方基地安裝炸彈。
+You are defense side.\nDefend your base.	你是防守方。\n請守住我方基地。
+Blue team killed VIP!	藍隊擊敗了 VIP！
+Red team killed VIP!	紅隊擊敗了 VIP！
+VIP was killed!	VIP 已被擊敗！
+Team kill...	誤傷隊友…
+Headshot	爆頭
+Mortalshot	致命一擊
+Headshot {0}x	連續爆頭 {0} 倍
+Load succeeded.	載入成功。
+Make headshots in a row.	連續命中頭部。
+Saving...	儲存中…
+Phase {0}	第 {0} 階段
+Bonus+{0}	加成 +{0}
+You cleared phase {0}!!	你通過了第 {0} 階段！
+start in 3 seconds...	3 秒後開始…
+start in 2 seconds...	2 秒後開始…
+start in 1 second...	1 秒後開始…
+Local Match - online rooms	區域網路配對 — 線上房間
+Internet required. Same Photon app, region and version.\nLAN discovery only; gameplay uses Photon online.\nHost: Deathmatch / 3 kills / 2 players. Both joining starts map voting.	需要網路，且 Photon 應用、地區及版本必須相同。\n區域網路僅用於尋找房間；對戰透過 Photon 連線。\n主機：死亡競賽／3 次擊殺／2 人。雙方加入後開始地圖投票。
+Host room code: lan-...	主機房間代碼：lan-…
+Join code	使用代碼加入
+Host room	建立房間
+Refresh LAN	重新搜尋
+Enter the host's complete lan- room code.	請輸入主機完整的 lan- 房間代碼。
+Overview	總覽
+Versions	版本
+Dependencies	相依模組
+New profile	新增設定組合
+Duplicate	複製
+Rename	重新命名
+Manage selected	管理目前組合
+Review & switch	檢視並切換

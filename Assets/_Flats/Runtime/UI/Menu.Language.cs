@@ -26,7 +26,7 @@ public partial class Menu
     {
         if (languageButton == null) return;
         bool show = gameState == "Main" && current == "Main" && !fliping && !anim.GetBool("Title")
-            && !confirm.activeSelf && !errorMessage.activeSelf;
+            && !confirm.activeSelf && !errorMessage.activeSelf && !update.activeSelf;
         languageButton.gameObject.SetActive(show);
         languageLabel.text = FlatsLocalization.IsChinese ? "中文 / EN" : "EN / 中文";
         languageLabel.font = FlatsLocalization.ChineseFont;
