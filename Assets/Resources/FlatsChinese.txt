@@ -544,3 +544,31 @@ Core stability, save transfer and module updates.	更新核心穩定性、存檔
 - Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.	- 更新核心輸入與存檔轉移。\n- 準心套件與模組復原。\n- 本機排行榜；舊雲端服務無法使用。\n- 區域網路同步僅轉移 ID 與分數。\n- 本機配對：區域網路搜尋與線上房間。\n\n平台驗證詳見版本說明。
 FLATS {0} preview	FLATS {0} 預覽版
 Need a controller\nto play in VR mode.	VR 模式需要\n連接控制器。
+Button Mapping	按鍵配置
+Chat Room	聊天室
+Color	顏色
+Extra Settings	其他設定
+Invitation Match	邀請對戰
+Profile	個人資料
+Stage Select	選擇地圖
+Start Offline Match	開始離線對戰
+Sync	同步
+Weapons	武器
+Bots: {0}	電腦玩家：{0}
+No mods installed	尚未安裝模組
+Open Explore to download your first mod.	前往「探索」下載第一個模組。
+Explore mods	探索模組
+No results	找不到結果
+Try another search or filter.	試試其他關鍵字或篩選條件。
+No mods in this category.	此類別尚無模組。
+Official service unavailable	官方服務暫時無法使用
+Installed data modules remain available. Please try again later.	已安裝的資料模組仍可使用，請稍後再試。
+Check your connection and retry. Your installed mods are still available.	請檢查網路連線後重試。已安裝的模組仍可使用。
+No matching downloads	找不到符合條件的下載
+Clear your search to see the queue.	清除搜尋以查看下載佇列。
+No downloads	尚無下載項目
+Your queue will appear here.	下載佇列會顯示在這裡。
+No matching mods	找不到符合條件的模組
+{0} installed  /  {1} active	已安裝 {0} 個 / 啟用中 {1} 個
+FLATS reconstruction\nScores and settings are saved on this device.\nOnline multiplayer uses your configured Photon app.\nStore purchase verification is unavailable.\n\nOriginal game: © Foliage Games LLC	FLATS 重建版本\n分數與設定會儲存在此裝置。\n線上多人遊戲使用已設定的 Photon 服務。\n無法驗證商店購買紀錄。\n\n原作：© Foliage Games LLC
+FLATS Web\nOnline play uses the site's configured Photon service.\nBuilt-in crosshair settings and data presets are supported.\nDownloaded DLL mods require desktop Mono.\nBrowser saves may be cleared by the browser.\n\nOriginal game: © Foliage Games LLC	FLATS 網頁版\n線上遊戲使用網站已設定的 Photon 服務。\n支援內建準心設定與資料預設。\n下載的 DLL 模組需要桌面版 Mono。\n瀏覽器可能會清除本機存檔。\n\n原作：© Foliage Games LLC
