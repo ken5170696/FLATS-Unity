@@ -538,7 +538,7 @@ public partial class Menu : MonoBehaviour
 				Debug.Log("This is the first play.");
 				update.transform.GetChild(1).GetComponent<Text>().text = "FLATS " + text + " preview";
 				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Settings: language and aim mode (hold/toggle).\n- Save export includes personal settings.\n- Scopes upright; reload or sprint cancels aim.\n- PvP hits count once; co-op death/wave fixes.\n- Menu music resumes after a match.\n\nPlatform validation: see release notes.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller presets, curves, deadzones, stick test.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
 			}
 			else
 			{
@@ -598,8 +598,8 @@ public partial class Menu : MonoBehaviour
 					SaveDataController.Save();
 				}
 				update.transform.GetChild(1).GetComponent<Text>().text = "Update Version " + text;
-				update.transform.GetChild(2).GetComponent<Text>().text = "Settings, saves, aiming and multiplayer fixes.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Settings: language and aim mode (hold/toggle).\n- Save export includes personal settings.\n- Scopes upright; reload or sprint cancels aim.\n- PvP hits count once; co-op death/wave fixes.\n- Menu music resumes after a match.\n\nPlatform validation: see release notes.";
+				update.transform.GetChild(2).GetComponent<Text>().text = "Controls, settings and mobile play updates.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller presets, curves, deadzones, stick test.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
 			}
 			version = text;
 			FlatsPreferences.SetString("version", version);

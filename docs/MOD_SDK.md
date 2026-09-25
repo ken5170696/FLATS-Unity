@@ -2,7 +2,7 @@
 
 This preview supports crosshair data packages, data modules for game adapters (manifest schema 2) and the existing managed module contract. It does not expose weapons, maps or game modes as supported third-party APIs. Game compatibility and API compatibility are separate: declare both ranges, with an inclusive minimum and exclusive maximum.
 
-FLATS 5.4.3 uses API 1.1.0, which reads manifest schemas 1 and 2. FLATS 5.4.2 players use API 1.0.0 and only schema 1, so a schema 2 package is unavailable to them rather than misread. A schema 2 package declares `apiMinimum` 1.1.0 or later.
+FLATS 5.4.3 and 5.4.4 use API 1.1.0, which reads manifest schemas 1 and 2. FLATS 5.4.2 players use API 1.0.0 and only schema 1, so a schema 2 package is unavailable to them rather than misread. A schema 2 package declares `apiMinimum` 1.1.0 or later.
 
 ## Create a data package
 

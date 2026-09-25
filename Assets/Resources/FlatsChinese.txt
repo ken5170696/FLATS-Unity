@@ -540,8 +540,8 @@ Installed version: {0}	已安裝版本：{0}
 Affects: Your screen only	影響範圍：僅你的畫面
 Select a row to view its status and actions.	選擇模組以查看狀態與可用操作。
 Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.	歡迎來到 FLATS。\n支援單人遊戲與 Photon 線上對戰。\n線上遊戲需要網際網路連線。
-Settings, saves, aiming and multiplayer fixes.	設定、存檔、開鏡與多人修正。
-- Settings: language and aim mode (hold/toggle).\n- Save export includes personal settings.\n- Scopes upright; reload or sprint cancels aim.\n- PvP hits count once; co-op death/wave fixes.\n- Menu music resumes after a match.\n\nPlatform validation: see release notes.	- 設定：新增語言與瞄準方式（按住／切換）。\n- 存檔匯出包含個人設定。\n- 倍鏡不再顛倒；換彈或衝刺會取消開鏡。\n- 對戰傷害只計一次；修正合作死亡與換波錯誤。\n- 返回主選單時音樂立即播放。\n\n平台驗證詳見版本說明。
+Controls, settings and mobile play updates.	操作、設定與手機遊玩更新。
+- Separate aim sensitivity; Kill Cinematic switch.\n- Controller presets, curves, deadzones, stick test.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.	- 開鏡靈敏度可獨立設定；可關閉擊殺特寫。\n- 手把：配置預設、曲線、死區與搖桿測試。\n- 設定頁可捲動；所有按鍵在同一頁。\n- 手機：新增撿槍按鈕；觀戰時可開設定。\n- 子彈軌跡朝子彈方向淡入。\n\n平台驗證詳見版本說明。
 FLATS {0} preview	FLATS {0} 預覽版
 Need a controller\nto play in VR mode.	VR 模式需要\n連接控制器。
 Button Mapping	按鍵配置
