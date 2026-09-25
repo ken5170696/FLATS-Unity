@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -245,8 +246,6 @@ public partial class Menu : MonoBehaviour
 
 	public static bool backWithCancel = false;
 
-	private bool resetCustomizing;
-
 	private float resetTime;
 
 	public static Dictionary<string, string> customControl = new Dictionary<string, string>();
@@ -276,8 +275,6 @@ public partial class Menu : MonoBehaviour
 	public GameObject ipButton;
 
 	private Text[] roomTexts;
-
-	private string url;
 
 	private bool fireTV;
 
@@ -344,6 +341,7 @@ public partial class Menu : MonoBehaviour
 	{
 		if (Current == this) Current = null;
         if (captureAction != null) FlatsControls.Capturing = false;
+        FlatsLocalization.Changed -= RefreshPersonalRows;
         if (localDiscovery != null) localDiscovery.Stop();
         Canvas.preWillRenderCanvases -= BindThemeMaterials;
 		if (runtimeBackgroundMaterial != null) Destroy(runtimeBackgroundMaterial);
@@ -537,7 +535,7 @@ public partial class Menu : MonoBehaviour
 				Debug.Log("This is the first play.");
 				update.transform.GetChild(1).GetComponent<Text>().text = "FLATS " + text + " preview";
 				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller: common FPS layout, steady look speed.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
 			}
 			else
 			{
@@ -597,8 +595,8 @@ public partial class Menu : MonoBehaviour
 					SaveDataController.Save();
 				}
 				update.transform.GetChild(1).GetComponent<Text>().text = "Update Version " + text;
-				update.transform.GetChild(2).GetComponent<Text>().text = "Core stability, save transfer and module updates.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.";
+				update.transform.GetChild(2).GetComponent<Text>().text = "Controls, settings and mobile play updates.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller: common FPS layout, steady look speed.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
 			}
 			version = text;
 			FlatsPreferences.SetString("version", version);
@@ -838,6 +836,7 @@ public partial class Menu : MonoBehaviour
 			ui.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
 			ui.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
 			ui.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
+			SetInteractAnchor(ui, ETCBase.RectAnchor.CenterRight);
 			ui.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(ui.GetChild(5).rectTransform().anchoredPosition3D.x), ui.GetChild(5).rectTransform().anchoredPosition3D.y, ui.GetChild(5).rectTransform().anchoredPosition3D.z);
 			ui.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(ui.GetChild(6).rectTransform().anchoredPosition3D.x), ui.GetChild(6).rectTransform().anchoredPosition3D.y, ui.GetChild(6).rectTransform().anchoredPosition3D.z);
 		}
@@ -848,6 +847,7 @@ public partial class Menu : MonoBehaviour
 			ui.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
 			ui.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
 			ui.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
+			SetInteractAnchor(ui, ETCBase.RectAnchor.CenterLeft);
 			ui.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(ui.GetChild(5).rectTransform().anchoredPosition3D.x), ui.GetChild(5).rectTransform().anchoredPosition3D.y, ui.GetChild(5).rectTransform().anchoredPosition3D.z);
 			ui.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(ui.GetChild(6).rectTransform().anchoredPosition3D.x), ui.GetChild(6).rectTransform().anchoredPosition3D.y, ui.GetChild(6).rectTransform().anchoredPosition3D.z);
 		}
@@ -993,12 +993,6 @@ public partial class Menu : MonoBehaviour
 			{
 				backgroundRenderer.sharedMaterial.color = new Color(0f, 0f, 0f, 1f);
 				mainUI.color = new Color(0.5f, 0.5f, 0.5f, mainUI.color.a);
-				if (Application.platform == RuntimePlatform.MetroPlayerX86)
-				{
-					titleHeading.GetComponent<Image>().enabled = false;
-					titleHeading.GetChild(0).GetComponent<Text>()
-						.enabled = false;
-				}
 				yield return new WaitForSeconds(0.2f);
 				anim.SetBool("Title", true);
 			}
@@ -1263,7 +1257,19 @@ public partial class Menu : MonoBehaviour
             Fade(-1);
             return;
         }
-		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || (current != "Main" && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
+		// B or Esc answers an open confirmation dialog with its cancel choice (or the
+		// only button of an alert), as controller players expect.
+		if (confirm.activeSelf && canOpen && (Input.GetKeyUp(KeyCode.Escape) || InputManager.Devices.Any(device => device.Action2.WasPressed)))
+		{
+			var dialog = confirm.GetComponent<ConfirmationDialogView>();
+			Button choice = dialog.alert.gameObject.activeInHierarchy ? dialog.alert : dialog.negative;
+			if (choice != null && choice.gameObject.activeInHierarchy && choice.IsInteractable())
+			{
+				choice.onClick.Invoke();
+				return;
+			}
+		}
+		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
 		{
 			Fade(-1);
 		}
@@ -1367,14 +1373,56 @@ public partial class Menu : MonoBehaviour
 		}
 	}
 
+	// Last main-menu tile that had focus, so controller focus comes back to it after a
+	// dialog, a pointer click or a return from another page.
+	private GameObject lastMainTile;
+	// The Settings categories reuse the same tiles, so they are remembered separately.
+	private GameObject lastSettingsTile;
+
+	private void RememberMainTile()
+	{
+		var selected = EventSystem.current.currentSelectedGameObject;
+		if (selected == null || buttons == null) return;
+		bool main = current == "Main", settings = current == "Settings" && currentDetail == null;
+		if (!main && !settings) return;
+		foreach (Image tile in buttons)
+		{
+			if (tile != null && tile.transform.parent.gameObject == selected)
+			{
+				if (main) lastMainTile = selected; else lastSettingsTile = selected;
+				return;
+			}
+		}
+	}
+
+	private GameObject FirstVisibleTile()
+	{
+		if (buttons == null) return null;
+		foreach (Image tile in buttons)
+		{
+			if (tile == null) continue;
+			var selectable = tile.transform.parent.GetComponent<Selectable>();
+			if (selectable != null && selectable.gameObject.activeInHierarchy && selectable.IsInteractable()) return selectable.gameObject;
+		}
+		return null;
+	}
+
+	private GameObject MainTileToRestore()
+	{
+		if (lastMainTile != null)
+		{
+			// While the menu returns, the tiles are briefly hidden or not interactable;
+			// wait for the remembered tile instead of settling on the first one.
+			var selectable = lastMainTile.GetComponent<Selectable>();
+			return lastMainTile.activeInHierarchy && selectable != null && selectable.IsInteractable() ? lastMainTile : null;
+		}
+		var first = buttons[0].transform.parent.gameObject;
+		return first.activeInHierarchy ? first : null;
+	}
+
 	private void FramerateAlertIsChecked(bool result)
 	{
 		framerateAlertIsEnabled = false;
-	}
-
-	private void ResetCustomMapping(bool result)
-	{
-		resetCustomizing = false;
 	}
 
 	private void LateUpdate()
@@ -1387,14 +1435,25 @@ public partial class Menu : MonoBehaviour
 		{
 			return;
 		}
+		RememberMainTile();
+		// Pick the input module from the device in use every frame, not only when focus is
+		// empty: a controller press restores focus first, which used to leave the pointer
+		// module active for controller navigation.
+		bool controllerNavigation = current != "Playing" && Input.GetJoystickNames().Length > 0 && !PointerFocusPolicy.PointerActive;
+		if (current != "Playing" && inControlModule.enabled != controllerNavigation)
+		{
+			standaloneModule.submitButton = "Submit";
+			standaloneModule.cancelButton = "Cancel";
+			standaloneModule.enabled = !controllerNavigation;
+			inControlModule.enabled = controllerNavigation;
+		}
+		// The pointer module handles the mouse; a resting cursor must not add a second,
+		// hover highlight next to controller focus.
+		inControlModule.allowMouseInput = false;
 		if (current != "Playing" && (EventSystem.current.currentSelectedGameObject == null || !EventSystem.current.currentSelectedGameObject.activeInHierarchy))
 		{
-			if (Input.GetJoystickNames().Length > 0)
+			if (controllerNavigation)
 			{
-				standaloneModule.submitButton = "Submit";
-                standaloneModule.cancelButton = "Cancel";
-                standaloneModule.enabled = false;
-                inControlModule.enabled = true;
 				if (errorMessage.activeSelf)
 				{
 					Selectable component = errorMessage.transform.GetChild(2).GetComponent<Selectable>();
@@ -1412,17 +1471,25 @@ public partial class Menu : MonoBehaviour
 				}
 				else if (current == "Main" || (current == "Map" && !voted))
 				{
-					EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);
+					// Return to the tile the player was on, not always the first one.
+					EventSystem.current.SetSelectedGameObject(MainTileToRestore());
 				}
-				else if (backButton.activeSelf)
+				else if (current == "Settings" && currentDetail == null && lastSettingsTile != null && lastSettingsTile.activeInHierarchy && lastSettingsTile.GetComponent<Selectable>().IsInteractable())
 				{
+					// Back from a Settings page returns to that page's category.
+					EventSystem.current.SetSelectedGameObject(lastSettingsTile);
+				}
+				else if (FirstVisibleTile() != null)
+				{
+					// Pages built from the menu tiles (Play, Singleplayer and so on) start on
+					// their first tile, not on Back, so A does not leave the page.
+					EventSystem.current.SetSelectedGameObject(FirstVisibleTile());
+				}
+				else if (backButton.activeSelf && current != "Play" && current != "Singleplayer" && current != "Multiplayer" && !(current == "Settings" && currentDetail == null))
+				{
+					// Tile pages wait for their tiles to appear rather than settling on Back.
 					EventSystem.current.SetSelectedGameObject(backButton);
 				}
-			}
-			else if ((bool)standaloneModule)
-			{
-				standaloneModule.enabled = true;
-				inControlModule.enabled = false;
 			}
 		}
 		else if (framerateAlertIsEnabled)
@@ -1898,7 +1965,6 @@ public partial class Menu : MonoBehaviour
                 vote.Add(new Map { mapKey = i });
 			syncData = "";
 			roomTexts = new Text[5];
-			url = "https://dl.dropboxusercontent.com/s/ahx0zuddx9t4gre/News.txt";
 			invitedRules = new List<int>();
 			roomList = new RoomInfo[0];
 			framerateLimit = 20f;

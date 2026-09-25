@@ -1188,11 +1188,6 @@ public class AI : MonoBehaviour
 				ptv.SetSynchronizedValues(velocity, Time.deltaTime * 5f);
 			}
 		}
-		else
-		{
-			int network = Menu.network;
-			int num = 1;
-		}
 		if (targets.Count > 0)
 		{
 			if (targets[0] == null || !targets[0].gameObject.activeSelf)

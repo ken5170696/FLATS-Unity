@@ -9,6 +9,13 @@ public class Bullet : MonoBehaviour
 
 	public Material trailMaterial;
 
+	[Tooltip("Trail opacity from the tail (0) to the bullet (1).")]
+	public AnimationCurve trailAlpha = AnimationCurve.Linear(0f, 0f, 1f, 1f);
+
+	[Tooltip("Evenly spaced segments used to draw the trail fade.")]
+	[Range(2, 64)]
+	public int trailSegments = 16;
+
 	public UnityEngine.Object hitEffect;
 
 	public UnityEngine.Object grenadeHitEffect;
@@ -28,6 +35,8 @@ public class Bullet : MonoBehaviour
 	private bool played;
 
 	private VectorLine trail;
+	private readonly System.Collections.Generic.List<Vector3> trailPath = new System.Collections.Generic.List<Vector3>();
+	private Color32[] trailColors;
 	private bool trailOriginPending;
 
 	public bool grenade;
@@ -67,12 +76,12 @@ public class Bullet : MonoBehaviour
 		VectorLine.canvas3D.gameObject.layer = LayerMask.NameToLayer("Default");
 		if (shooter.tag == "Player")
 		{
-			trail.points3.Add(shooter.GetComponent<FPSController>().primaryWeapon.GetChild(1).position);
+			trailPath.Add(shooter.GetComponent<FPSController>().primaryWeapon.GetChild(1).position);
 			trailOriginPending = !grenade && !hand;
 		}
 		else
 		{
-			trail.points3.Add(shooter.GetComponent<AI>().primaryWeapon.GetChild(1).position);
+			trailPath.Add(shooter.GetComponent<AI>().primaryWeapon.GetChild(1).position);
 		}
 		float waitTime = 4f;
 		if (grenade)
@@ -158,7 +167,7 @@ public class Bullet : MonoBehaviour
         FPSController playerShooter = shooter.GetComponent<FPSController>();
 		if (trail != null)
 		{
-			trail.points3.Add(mt.position);
+			trailPath.Add(mt.position);
 		}
 		ContactPoint contactPoint = col.contacts[0];
 		if (hand || col.gameObject.layer == LayerMask.NameToLayer("Default") || col.gameObject.layer == LayerMask.NameToLayer("Glass") || col.gameObject.layer == LayerMask.NameToLayer("BulletOnly"))
@@ -308,25 +317,68 @@ public class Bullet : MonoBehaviour
 			if (trailOriginPending)
 			{
 				var player = shooter.GetComponent<FPSController>();
-				if (player != null) trail.points3[0] = player.GetBulletTrailOrigin();
+				if (player != null) trailPath[0] = player.GetBulletTrailOrigin();
 				trailOriginPending = false;
 			}
 			if ((bool)mt && Time.timeScale != 0f)
 			{
-				trail.points3.Add(mt.position);
+				trailPath.Add(mt.position);
 			}
-			if (trail.points3.Count > 8 && !hand)
+			if (trailPath.Count > 8 && !hand)
 			{
-				trail.points3.Remove(trail.points3[trail.points3.Count - 2]);
+				trailPath.RemoveAt(trailPath.Count - 2);
 			}
 			if (Camera.main.cullingMask != 0)
 			{
 				VectorLine.SetCamera3D(Camera.main);
 			}
+			ResampleTrail();
 			trail.continuousTexture = true;
 			trail.drawDepth = 2;
-			trail.SetColor(shooterColor);
+			trail.smoothColor = true;
+			trail.SetColors(trailColors);
 			trail.Draw3D();
+		}
+	}
+
+	// The recorded path has one long segment up to the bullet. Redistribute it
+	// evenly so the opacity ramp spans the whole visible trail.
+	private void ResampleTrail()
+	{
+		int segments = Mathf.Max(2, trailSegments);
+		var points = trail.points3;
+		points.Clear();
+		float total = 0f;
+		for (int i = 1; i < trailPath.Count; i++) total += Vector3.Distance(trailPath[i - 1], trailPath[i]);
+		int source = 1;
+		float walked = 0f;
+		for (int i = 0; i <= segments; i++)
+		{
+			if (trailPath.Count < 2 || total <= 0f)
+			{
+				points.Add(trailPath[trailPath.Count - 1]);
+				continue;
+			}
+			float target = total * i / segments;
+			while (source < trailPath.Count - 1 && walked + Vector3.Distance(trailPath[source - 1], trailPath[source]) < target)
+			{
+				walked += Vector3.Distance(trailPath[source - 1], trailPath[source]);
+				source++;
+			}
+			float length = Vector3.Distance(trailPath[source - 1], trailPath[source]);
+			float t = length > 0f ? Mathf.Clamp01((target - walked) / length) : 1f;
+			points.Add(Vector3.Lerp(trailPath[source - 1], trailPath[source], t));
+		}
+		if (trailColors == null || trailColors.Length != segments)
+		{
+			trailColors = new Color32[segments];
+		}
+		// With smoothColor, segment 0 is flat and segment i blends entry i-1 to i.
+		for (int i = 0; i < segments; i++)
+		{
+			Color c = shooterColor;
+			c.a *= Mathf.Clamp01(trailAlpha.Evaluate(i / (segments - 1f)));
+			trailColors[i] = c;
 		}
 	}
 

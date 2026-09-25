@@ -24,6 +24,10 @@ public class WatchCamera : MonoBehaviour
 
 	private OVRHead ht;
 
+	// Set while following another player; the player HUD stays hidden until respawn,
+	// including after the pause menu closes and re-enables the HUD canvas.
+	private bool hidingHud;
+
 	private static GameObject[] LivingPlayers()
 	{
 		var players = new List<GameObject>();
@@ -58,6 +62,7 @@ public class WatchCamera : MonoBehaviour
 		if (others.Length > 0)
 		{
 			ui.enabled = false;
+			hidingHud = true;
 			for (int i = 0; i < others.Length; i++)
 			{
 				if ((bool)others[i].GetComponent<FPSController>())
@@ -102,6 +107,18 @@ public class WatchCamera : MonoBehaviour
 		}
 	}
 
+	// Spectator Menu button (WatchCamera prefab). The player HUD and its menu button are hidden
+	// while spectating, so this opens the same pause menu with Settings.
+	public void OpenMenu()
+	{
+		var menuObject = GameObject.Find("Menu");
+		var menu = menuObject != null ? menuObject.GetComponent<Menu>() : null;
+		if (menu != null && Menu.current == "Playing" && !Multiplayer.end)
+		{
+			menu.Fade(-1);
+		}
+	}
+
 	public void ChangeCamera(int num)
 	{
 		if (otherPlayers.Count > 1 && !Multiplayer.end)
@@ -138,6 +155,7 @@ public class WatchCamera : MonoBehaviour
 		}
 		if (Menu.currentSurvivalPhase != currentPhase)
 		{
+			hidingHud = false;
 			ui.enabled = true;
 			Transform transform = GameObject.Find("SpawnPoints").transform;
 			if (Menu.network == 0)
@@ -156,6 +174,10 @@ public class WatchCamera : MonoBehaviour
 		{
 			if (Menu.current == "Playing")
 			{
+				if (hidingHud && ui.enabled)
+				{
+					ui.enabled = false;
+				}
 				mt.rotation = currentCamera.rotation;
 				if (Menu.VRmode)
 				{
@@ -205,14 +227,17 @@ public class WatchCamera : MonoBehaviour
 			}
 		}
 		InputDevice activeDevice = InputManager.ActiveDevice;
-		if (activeDevice.RightTrigger.WasPressed || activeDevice.RightBumper.WasPressed)
+		// Switching the watched player belongs to the spectator view, not to an open menu.
+		if (Menu.current == "Playing" && (activeDevice.RightTrigger.WasPressed || activeDevice.RightBumper.WasPressed))
 		{
 			ChangeCamera(1);
 		}
-		else if (activeDevice.LeftTrigger.WasPressed || activeDevice.LeftBumper.WasPressed)
+		else if (Menu.current == "Playing" && (activeDevice.LeftTrigger.WasPressed || activeDevice.LeftBumper.WasPressed))
 		{
 			ChangeCamera(-1);
 		}
+		// The spectator controls step aside while the pause menu or Settings is open.
+		mt.GetChild(0).GetChild(0).GetComponent<Canvas>().enabled = Menu.current == "Playing";
 		if (!Menu.VRmode)
 		{
 			mt.GetChild(0).GetChild(0).GetComponent<Canvas>()

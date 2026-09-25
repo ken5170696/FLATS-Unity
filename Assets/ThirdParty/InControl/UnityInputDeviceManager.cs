@@ -24,6 +24,12 @@ namespace InControl
 
 		private int joystickHash;
 
+		// FLATS: Windows reports some XInput controllers (for example a Bluetooth Xbox
+		// Series controller) with an empty joystick name, which is also how it reports
+		// empty slots. Such slots wait here and attach with the Xbox profile once they
+		// produce input, so a real controller works and an empty slot adds nothing.
+		private readonly List<int> unnamedJoysticks = new List<int>();
+
 		private bool JoystickInfoHasChanged
 		{
 			get
@@ -42,6 +48,13 @@ namespace InControl
 			customDeviceProfiles = new List<UnityInputDeviceProfileBase>();
 
 			AddSystemDeviceProfiles();
+			foreach (UnityInputDeviceProfileBase profile in systemDeviceProfiles)
+			{
+				if (profile is XboxOneWin10AEProfile || profile is XboxOneWin10Profile || profile is XboxOneWinProfile || profile is Xbox360WinProfile)
+				{
+					UseSeparateTriggerAxes((UnityInputDeviceProfile)profile);
+				}
+			}
 			QueryJoystickInfo();
 			AttachDevices();
 		}
@@ -60,6 +73,104 @@ namespace InControl
 					AttachDevices();
 				}
 			}
+			AttachActiveUnnamedJoysticks();
+		}
+
+		private void AttachActiveUnnamedJoysticks()
+		{
+			for (int i = unnamedJoysticks.Count - 1; i >= 0; i--)
+			{
+				int id = unnamedJoysticks[i];
+				if (HasAttachedDeviceWithJoystickId(id))
+				{
+					unnamedJoysticks.RemoveAt(i);
+				}
+				else if (UnnamedJoystickHasInput(id))
+				{
+					unnamedJoysticks.RemoveAt(i);
+					var profile = new UnnamedXInputProfile();
+					AttachDevice(new UnityInputDevice(profile, id, string.Empty));
+					Debug.Log("[InControl] Unnamed joystick " + id + " attached as " + profile.Name);
+				}
+			}
+		}
+
+		// The Xbox profiles read each trigger from its own axis (9th LT, 10th RT) and
+		// also from the shared 3rd axis (LT positive, RT negative), keeping the larger
+		// value. Some controllers (a Bluetooth Xbox Series controller among them)
+		// report the shared axis with the opposite sign, so LT also pulled RT and aiming
+		// fired. Once either separate trigger axis of a device has moved, the shared
+		// axis is ignored for that device.
+		private sealed class UnnamedXInputProfile : XboxOneWin10AEProfile
+		{
+			public UnnamedXInputProfile()
+			{
+				UseSeparateTriggerAxes(this);
+			}
+		}
+
+		private static void UseSeparateTriggerAxes(UnityInputDeviceProfile profile)
+		{
+			var shared = new SharedTriggerSource();
+			foreach (InputControlMapping mapping in profile.AnalogMappings)
+			{
+				var analog = mapping.Source as UnityAnalogSource;
+				if (analog != null && analog.AnalogIndex == 2 &&
+					(mapping.Target == InputControlType.LeftTrigger || mapping.Target == InputControlType.RightTrigger))
+				{
+					mapping.Source = shared;
+				}
+			}
+		}
+
+		private sealed class SharedTriggerSource : InputControlSource
+		{
+			private readonly HashSet<InputDevice> separateAxesSeen = new HashSet<InputDevice>();
+
+			public float GetValue(InputDevice inputDevice)
+			{
+				var device = (UnityInputDevice)inputDevice;
+				if (separateAxesSeen.Contains(device))
+				{
+					return 0f;
+				}
+				if (Mathf.Abs(device.ReadRawAnalogValue(8)) > 0.05f || Mathf.Abs(device.ReadRawAnalogValue(9)) > 0.05f)
+				{
+					separateAxesSeen.Add(device);
+					return 0f;
+				}
+				return device.ReadRawAnalogValue(2);
+			}
+
+			public bool GetState(InputDevice inputDevice)
+			{
+				return Utility.IsNotZero(GetValue(inputDevice));
+			}
+		}
+
+		private static bool UnnamedJoystickHasInput(int id)
+		{
+			if (id < 1 || id > 8)
+			{
+				return false;
+			}
+			int firstButton = (int)KeyCode.Joystick1Button0 + (id - 1) * 20;
+			for (int button = 0; button < 10; button++)
+			{
+				if (Input.GetKey((KeyCode)(firstButton + button)))
+				{
+					return true;
+				}
+			}
+			// Left and right stick axes; triggers rest at a nonzero value on some drivers.
+			foreach (int analog in new[] { 0, 1, 3, 4 })
+			{
+				if (Mathf.Abs(Input.GetAxisRaw("joystick " + id + " analog " + analog)) > 0.3f)
+				{
+					return true;
+				}
+			}
+			return false;
 		}
 
 		private void QueryJoystickInfo()
@@ -119,6 +230,7 @@ namespace InControl
 
 		private void AttachJoystickDevices()
 		{
+			unnamedJoysticks.Clear();
 			try
 			{
 				for (int i = 0; i < joystickCount; i++)
@@ -151,6 +263,10 @@ namespace InControl
 		{
 			if (HasAttachedDeviceWithJoystickId(unityJoystickId) || unityJoystickName.IndexOf("webcam", StringComparison.OrdinalIgnoreCase) != -1 || (InputManager.UnityVersion < new VersionInfo(4, 5, 0, 0) && (Application.platform == RuntimePlatform.OSXEditor || Application.platform == RuntimePlatform.OSXPlayer) && unityJoystickName == "Unknown Wireless Controller") || (InputManager.UnityVersion >= new VersionInfo(4, 6, 3, 0) && (Application.platform == RuntimePlatform.WindowsEditor || Application.platform == RuntimePlatform.WindowsPlayer) && string.IsNullOrEmpty(unityJoystickName)))
 			{
+				if (string.IsNullOrEmpty(unityJoystickName) && !HasAttachedDeviceWithJoystickId(unityJoystickId) && !unnamedJoysticks.Contains(unityJoystickId))
+				{
+					unnamedJoysticks.Add(unityJoystickId);
+				}
 				return;
 			}
 			UnityInputDeviceProfileBase unityInputDeviceProfileBase = null;

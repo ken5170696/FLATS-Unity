@@ -8,7 +8,6 @@ public static class FlatsControls
     public static readonly string[] KeyboardActions = { "Forward", "Backward", "Left", "Right", "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Interact" };
     public static readonly string[] PadActions = { "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Scope" };
     static readonly KeyCode[] defaults = { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.LeftShift, KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.R, KeyCode.E, KeyCode.G, KeyCode.Q };
-    static readonly InputControlType[] padDefaults = { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.Action2, InputControlType.RightStickButton };
     public static event Action Changed;
     public static bool Capturing { get; set; }
     public static bool UsingGamepad { get; set; }
@@ -19,6 +18,41 @@ public static class FlatsControls
     {
         get => FlatsPreferences.GetString(AimModeKey) == "hold";
         set { FlatsPreferences.SetString(AimModeKey, value ? "hold" : "toggle"); FlatsPreferences.Save(); Changed?.Invoke(); }
+    }
+    public const string KillCinematicKey = "ui.v1.killCinematic";
+    // Headshot and mortal-shot slow-motion camera. "off" keeps only the text notice.
+    public static bool KillCinematic
+    {
+        get => FlatsPreferences.GetString(KillCinematicKey) != "off";
+        set { FlatsPreferences.SetString(KillCinematicKey, value ? "on" : "off"); FlatsPreferences.Save(); Changed?.Invoke(); }
+    }
+    public const string AimSensitivityKey = "controls.v1.aimSensitivity";
+    // Look sensitivity while aimed, on the camera sensitivity scale (Low 1, Normal 2, High 3).
+    // Index 0 follows the camera sensitivity, the original behaviour. Weapon zoom still slows it.
+    public static readonly float[] AimSensitivities = { 0f, 0.5f, 1f, 1.5f, 2f, 2.5f, 3f, 4f };
+    public static readonly string[] AimSensitivityNames = { "Match camera", "Very Low", "Low", "Low+", "Normal", "Normal+", "High", "Very High" };
+    static int aimSensitivityIndex = -1;
+    public static int AimSensitivityIndex
+    {
+        get
+        {
+            if (aimSensitivityIndex < 0)
+                aimSensitivityIndex = int.TryParse(FlatsPreferences.GetString(AimSensitivityKey), out int saved) && saved >= 0 && saved < AimSensitivities.Length ? saved : 0;
+            return aimSensitivityIndex;
+        }
+        set
+        {
+            aimSensitivityIndex = (value % AimSensitivities.Length + AimSensitivities.Length) % AimSensitivities.Length;
+            FlatsPreferences.SetString(AimSensitivityKey, aimSensitivityIndex.ToString());
+            FlatsPreferences.Save(); Changed?.Invoke();
+        }
+    }
+    // An imported save replaces preferences; read the stored value again on next use.
+    public static void ReloadAimSensitivity() { aimSensitivityIndex = -1; }
+    public static float AimSensitivity(float cameraSensitivity)
+    {
+        float aimed = AimSensitivities[AimSensitivityIndex];
+        return aimed > 0f ? aimed : cameraSensitivity;
     }
     public static KeyCode Keyboard(string action)
     {
@@ -31,11 +65,30 @@ public static class FlatsControls
     public static bool Down(string action) => !Capturing && Input.GetKeyDown(Keyboard(action));
     public static float Axis(string positive, string negative) => (Held(positive) ? 1 : 0) - (Held(negative) ? 1 : 0);
     public static readonly InputControlType[] PadButtons = { InputControlType.Action1, InputControlType.Action2, InputControlType.Action3, InputControlType.Action4, InputControlType.LeftBumper, InputControlType.RightBumper, InputControlType.LeftTrigger, InputControlType.RightTrigger, InputControlType.LeftStickButton, InputControlType.RightStickButton, InputControlType.DPadUp, InputControlType.DPadDown, InputControlType.DPadLeft, InputControlType.DPadRight };
+    // InControl counts only the face buttons as "buttons"; bumpers, stick clicks, the
+    // D-pad and Start/Back are separate controls. These helpers treat every bindable
+    // button as controller input.
+    public static bool AnyPadButtonHeld(InputDevice device)
+    {
+        if (device == null || device == InputDevice.Null) return false;
+        if (device.AnyButtonIsPressed || device.CommandIsPressed) return true;
+        foreach (var button in PadButtons) if (device.GetControl(button).IsPressed) return true;
+        return false;
+    }
+    // Input.anyKey also reports held joystick buttons; this is true only for a keyboard
+    // key or mouse button.
+    public static bool KeyboardOrMouseKeyHeld()
+    {
+        if (!Input.anyKey) return false;
+        for (var key = KeyCode.JoystickButton0; key <= KeyCode.Joystick8Button19; key++)
+            if (Input.GetKey(key)) return false;
+        return true;
+    }
     public static InputControlType Pad(string action)
     {
         int index = Array.IndexOf(PadActions, action);
         if (index < 0) throw new ArgumentException(action);
-        return Enum.TryParse(FlatsPreferences.GetString(Key(action, true)), out InputControlType value) && Array.IndexOf(PadButtons, value) >= 0 ? value : padDefaults[index];
+        return Enum.TryParse(FlatsPreferences.GetString(Key(action, true)), out InputControlType value) && Array.IndexOf(PadButtons, value) >= 0 ? value : FlatsGamepad.DefaultButton(index);
     }
     static bool State(InputControl control, int edge) => edge == 1 ? control.WasPressed : edge == 2 ? control.WasReleased : control.IsPressed;
     public static bool PadState(string action, int edge = 0)
@@ -50,11 +103,7 @@ public static class FlatsControls
             if (binding.Contains("analog")) return edge == 2 ? Input.GetAxis(binding) < .8f : Input.GetAxis(binding) > .8f;
             return edge == 1 ? Input.GetButtonDown(binding) : edge == 2 ? Input.GetButtonUp(binding) : Input.GetButton(binding);
         }
-        bool result = State(device.GetControl(Pad(action)), edge);
-        if (action == "Fire") result |= State(device.RightBumper, edge);
-        if (action == "Aim") result |= State(device.LeftBumper, edge);
-        if (action == "Scope") result |= State(device.DPadUp, edge);
-        return result;
+        return State(device.GetControl(Pad(action)), edge);
     }
     public static string Label(string action, bool pad)
     {
@@ -67,14 +116,8 @@ public static class FlatsControls
         }
         string legacy = action == "Grenade" ? "Pick" : action == "Aim" ? "Zoom" : action;
         if (!FlatsPreferences.HasKey(Key(action, true)) && Menu.customControlEnabled && Menu.customControl.TryGetValue(legacy, out string binding)) return binding;
-        string label = PadLabel(Pad(action));
-        if (!FlatsPreferences.HasKey(Key(action, true)))
-        {
-            if (action == "Fire") label += " / RB";
-            if (action == "Aim") label += " / LB";
-            if (action == "Scope") label += " / D-pad Up";
-        }
-        return label;
+        var style = FlatsGamepad.DeviceStyle(InputManager.ActiveDevice);
+        return FlatsGamepad.Glyph(Pad(action), style);
     }
     public static string PadLabel(InputControlType button)
     {
@@ -93,24 +136,35 @@ public static class FlatsControls
             default: return button.ToString();
         }
     }
-    public static bool Bind(string action, string value, bool pad, out string conflict)
+    // A button already used by another action is swapped: that action takes this
+    // action's previous button, so nothing is left unbound. `swapped` names it.
+    public static bool Bind(string action, string value, bool pad, out string swapped)
     {
-        conflict = null;
+        swapped = null;
         if (Array.IndexOf(pad ? PadActions : KeyboardActions, action) < 0) return false;
         if (pad ? !Enum.TryParse(value, out InputControlType p) || Array.IndexOf(PadButtons, p) < 0 : !Enum.TryParse(value, out KeyCode k) || !ValidKey(k)) return false;
+        string previous = pad ? Pad(action).ToString() : Keyboard(action).ToString();
         foreach (string other in pad ? PadActions : KeyboardActions)
         {
             if (other == action) continue;
-            if ((pad ? Pad(other).ToString() : Keyboard(other).ToString()) == value)
-            { conflict = other; return false; }
-            // Default secondary buttons remain active until their own action is customized.
-            if (pad && !FlatsPreferences.HasKey(Key(other, true)) &&
+            if ((pad ? Pad(other).ToString() : Keyboard(other).ToString()) == value) swapped = other;
+            // A default secondary button (RB fire, LB aim, D-pad up scope) is released by
+            // saving that action's primary button explicitly.
+            else if (pad && !FlatsPreferences.HasKey(Key(other, true)) &&
                 ((other == "Fire" && value == "RightBumper") || (other == "Aim" && value == "LeftBumper") || (other == "Scope" && value == "DPadUp")))
-            { conflict = other; return false; }
+                FlatsPreferences.SetString(Key(other, true), Pad(other).ToString());
         }
+        if (swapped != null && previous != value) FlatsPreferences.SetString(Key(swapped, pad), previous);
         FlatsPreferences.SetString(Key(action, pad), value);
         FlatsPreferences.Save(); Changed?.Invoke(); return true;
     }
+    // Used by layout presets; call NotifyChanged once afterwards.
+    public static void SetPad(string action, InputControlType button)
+    {
+        if (Array.IndexOf(PadActions, action) < 0 || Array.IndexOf(PadButtons, button) < 0) throw new ArgumentException(action);
+        FlatsPreferences.SetString(Key(action, true), button.ToString());
+    }
+    public static void NotifyChanged() { FlatsPreferences.Save(); Changed?.Invoke(); }
     public static void ResetBindings(bool pad)
     {
         foreach (string action in pad ? PadActions : KeyboardActions) FlatsPreferences.DeleteKey(Key(action, pad));

@@ -235,7 +235,7 @@ public partial class FPSController
 				}
 				if (MyView(base.gameObject))
 				{
-					inputDevice.Vibrate(0.1f);
+					FlatsGamepad.Vibrate(inputDevice, 0.1f);
 				}
 				anim.SetInteger("Burst", 1);
 				yield return new WaitForSeconds(0.1f);
@@ -279,7 +279,7 @@ public partial class FPSController
 				b.linearVelocity = dir;
 				if (MyView(base.gameObject))
 				{
-					inputDevice.Vibrate(0.1f);
+					FlatsGamepad.Vibrate(inputDevice, 0.1f);
 				}
 				anim.SetInteger("Burst", currentBurstCount);
 				currentBurstCount--;

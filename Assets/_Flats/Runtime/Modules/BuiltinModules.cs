@@ -62,7 +62,7 @@ namespace Flats.Modules
         public CrosshairModule()
         {
             // Placeholder until Bind() adopts the installed package's manifest.
-            Manifest=new ModuleManifest(Id,"1.0.0","Custom Crosshair","Adjustable crosshair style, size, colour and outline. Local HUD appearance only.",
+            Manifest=new ModuleManifest(Id,"1.0.0","Custom Crosshair","Adjustable crosshair style, size, thickness, gap, colour, opacity and outline, with Classic, Precision Dot and Wide Ring presets. Client-only HUD module for desktop and Web: install, enable, then restart FLATS.",
                 ModuleScope.ClientOnly,new VersionRange("1.0.0","2.0.0"),new VersionRange(ModRules.GameVersion,"6.0.0"));
         }
         public void Initialize(ModuleLifetime lifetime) { }

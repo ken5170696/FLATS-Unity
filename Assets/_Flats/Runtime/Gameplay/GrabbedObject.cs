@@ -210,7 +210,7 @@ public class GrabbedObject : MonoBehaviour
 				{
 					phaseText.text = "Grab flag: {control:Interact}.";
 				}
-				else if (Input.mousePresent)
+				else if (!Application.isMobilePlatform && Input.mousePresent)
 				{
 					phaseText.text = "Grab flag: {control:Interact}.";
 				}
@@ -225,7 +225,7 @@ public class GrabbedObject : MonoBehaviour
 				{
 					phaseText.text = "Reset bomb: {control:Interact}.";
 				}
-				else if (Input.mousePresent)
+				else if (!Application.isMobilePlatform && Input.mousePresent)
 				{
 					phaseText.text = "Reset bomb: {control:Interact}.";
 				}
@@ -249,7 +249,7 @@ public class GrabbedObject : MonoBehaviour
 				{
 					phaseText.text = "Pick up bomb: {control:Interact}.";
 				}
-				else if (Input.mousePresent)
+				else if (!Application.isMobilePlatform && Input.mousePresent)
 				{
 					phaseText.text = "Pick up bomb: {control:Interact}.";
 				}

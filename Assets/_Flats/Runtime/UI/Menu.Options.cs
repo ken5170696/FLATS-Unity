@@ -17,7 +17,13 @@ public partial class Menu
 {
     // The value text of a Settings row. Pages keep their order; rows are found by the
     // names PlusMinus already relies on, so authored rows can be added to a page.
-    Text SettingValue(int page, string row) => settingsScreen.GetChild(page).Find(row).GetChild(1).GetComponent<Text>();
+    // Rows may sit inside a page's scrolling content, so look them up by name at any depth.
+    Text SettingValue(int page, string row)
+    {
+        foreach (var child in settingsScreen.GetChild(page).GetComponentsInChildren<Transform>(true))
+            if (child.name == row && child.Find("Plus") != null) return child.GetChild(1).GetComponent<Text>();
+        throw new System.ArgumentException("Missing settings row " + row);
+    }
 
 		public void NameInput(string newName)
 		{
@@ -44,7 +50,7 @@ public partial class Menu
 			Transform parent = EventSystem.current.currentSelectedGameObject.transform.parent;
 			int num = ((EventSystem.current.currentSelectedGameObject.name == "Plus") ? 1 : (-1));
 			if (parent.name.StartsWith("Desktop")) { GetComponent<FlatsDesktopSettings>().Change(parent,num); return; }
-			if (ChangePersonalRow(parent)) return;
+			if (ChangePersonalRow(parent, num)) return;
 			if (parent.name == "Rule")
 			{
 				rule += num;
@@ -358,6 +364,7 @@ public partial class Menu
 					child.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
 					child.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
 					child.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
+					SetInteractAnchor(child, ETCBase.RectAnchor.CenterRight);
 					child.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(child.GetChild(5).rectTransform().anchoredPosition3D.x), child.GetChild(5).rectTransform().anchoredPosition3D.y, child.GetChild(5).rectTransform().anchoredPosition3D.z);
 					child.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(child.GetChild(6).rectTransform().anchoredPosition3D.x), child.GetChild(6).rectTransform().anchoredPosition3D.y, child.GetChild(6).rectTransform().anchoredPosition3D.z);
 				}
@@ -368,6 +375,7 @@ public partial class Menu
 					child.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
 					child.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
 					child.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
+					SetInteractAnchor(child, ETCBase.RectAnchor.CenterLeft);
 					child.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(child.GetChild(5).rectTransform().anchoredPosition3D.x), child.GetChild(5).rectTransform().anchoredPosition3D.y, child.GetChild(5).rectTransform().anchoredPosition3D.z);
 					child.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(child.GetChild(6).rectTransform().anchoredPosition3D.x), child.GetChild(6).rectTransform().anchoredPosition3D.y, child.GetChild(6).rectTransform().anchoredPosition3D.z);
 				}

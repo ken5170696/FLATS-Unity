@@ -82,6 +82,11 @@ public partial class FPSController : MonoBehaviour
 
 	private Transform ui;
 
+	// Contextual touch button (GameplayHUD/Interact); shown only when something can be picked up.
+	private ETCButton interactButton;
+
+	private Text interactLabel;
+
 	private Flats.UI.ICrosshairVisibility reticle;
 	private bool preferGamepad = true;
 
@@ -139,6 +144,8 @@ public partial class FPSController : MonoBehaviour
 	private bool picking;
 
 	public static float holdTime = 0.2f;
+
+	private bool padSprint;
 
 	public static int sensitivity = 5;
 
@@ -235,6 +242,19 @@ public partial class FPSController : MonoBehaviour
 		ikc = GetComponent<IKController>();
 		ptv = GetComponent<PhotonTransformView>();
 		ui = GameObject.Find("UICamera").transform;
+		if (MyView(base.gameObject))
+		{
+			var interact = ui.GetChild(1).Find("Interact");
+			interactButton = interact != null ? interact.GetComponent<ETCButton>() : null;
+			interactLabel = interact != null ? interact.GetComponentInChildren<Text>(true) : null;
+			ShowInteractButton(false, true);
+			// The press event is used rather than polling: EasyTouch may advance Down to
+			// Press before this controller's Update reads it.
+			if (interactButton != null)
+			{
+				interactButton.onDown.AddListener(OnInteractPressed);
+			}
+		}
         // Reuse the existing scene UI binding, without another global service lookup.
         var menu = ui.GetComponentInChildren<Menu>(true);
         if (menu != null) menu.BindGameplay(this);
@@ -254,8 +274,6 @@ public partial class FPSController : MonoBehaviour
 
 	private void Start()
 	{
-		int network = Menu.network;
-		int num2 = 1;
 		if (MyView(base.gameObject))
 		{
 			camAnim = ct.GetComponent<Animator>();
@@ -398,6 +416,7 @@ public partial class FPSController : MonoBehaviour
 
 	private void OnDisable()
 	{
+		ShowInteractButton(false);
 		EasyTouch.On_SimpleTap -= On_SimpleTap;
 		EasyTouch.On_Swipe -= On_Swipe;
 		EasyTouch.On_LongTapStart -= On_LongTapStart;
@@ -427,6 +446,10 @@ public partial class FPSController : MonoBehaviour
 
 	private void OnDestroy()
 	{
+		if (interactButton != null)
+		{
+			interactButton.onDown.RemoveListener(OnInteractPressed);
+		}
 		EasyTouch.On_SimpleTap -= On_SimpleTap;
 		EasyTouch.On_Swipe -= On_Swipe;
 		EasyTouch.On_LongTapStart -= On_LongTapStart;
@@ -435,7 +458,7 @@ public partial class FPSController : MonoBehaviour
 
 	private void ApplyLook(Flats.Core.LookInput input, float x, float y)
 	{
-		var look = Flats.Core.LookRotationPolicy.Evaluate(input, x, y, sensitivity, invertY,
+		var look = Flats.Core.LookRotationPolicy.Evaluate(input, x, y, isZoom ? FlatsControls.AimSensitivity(sensitivity) : sensitivity, invertY,
 			isZoom, isZoom ? currentGun.zoom : 1f, headTracking, VRController.device == "cardboard",
 			headRotation.x, headRotation.y, SessionPlaying, testMode,
 			mct.localEulerAngles.x, mct.localEulerAngles.y);
@@ -443,9 +466,115 @@ public partial class FPSController : MonoBehaviour
 		mct.localEulerAngles = new Vector3(look.CameraPitch, look.CameraYaw, 0f);
 	}
 
+	private bool CanInteract
+	{
+		get
+		{
+			if (grabbedObject != null && (enableFire || grabbing))
+			{
+				return true;
+			}
+			return droppedGun != null && enableFire && droppedGun.GetComponent<DroppedGun>().ready;
+		}
+	}
+
+	private void OnInteractPressed()
+	{
+		if (enabled && enableControl && touchControl && !overrideInputDevice && GameplayActive && CanInteract)
+		{
+			TryInteract();
+		}
+	}
+
+	private void ShowInteractButton(bool show, bool force = false)
+	{
+		if (interactButton == null || (!force && interactButton.visible == show))
+		{
+			return;
+		}
+		interactButton.visible = show;
+		interactButton.activated = show;
+		for (int i = 0; i < interactButton.transform.childCount; i++)
+		{
+			interactButton.transform.GetChild(i).gameObject.SetActive(show);
+		}
+	}
+
+	// Grab or drop an object, or exchange the weapon on the floor. Shared by the
+	// desktop Interact binding and the contextual touch Interact button.
+	private void TryInteract()
+	{
+		if (grabbedObject != null && enableFire)
+		{
+			if (SessionNetworkMode == 0)
+			{
+				int[] array5 = new int[2];
+				int[] receivedData4 = array5;
+				Grab(receivedData4);
+			}
+			else if (SessionNetworkMode != 1)
+			{
+				int[] array6 = new int[2]
+				{
+					0,
+					grabbedObject.gameObject.GetPhotonView().viewID
+				};
+				base.gameObject.GetPhotonView().RPC("Grab", PhotonTargets.AllBuffered, array6);
+			}
+		}
+		else if (grabbing && grabbedObject != null)
+		{
+			if (SessionNetworkMode == 0)
+			{
+				int[] receivedData5 = new int[2] { 1, 0 };
+				Grab(receivedData5);
+			}
+			else if (SessionNetworkMode != 1)
+			{
+				int[] array7 = new int[2]
+				{
+					1,
+					grabbedObject.gameObject.GetPhotonView().viewID
+				};
+				base.gameObject.GetPhotonView().RPC("Grab", PhotonTargets.AllBuffered, array7);
+			}
+		}
+		else if (droppedGun != null && enableFire)
+		{
+			DroppedGun component2 = droppedGun.GetComponent<DroppedGun>();
+			if (component2.ready)
+			{
+				if (SessionNetworkMode == 0)
+				{
+					int[] receivedData6 = new int[5] { component2.weaponIndex, component2.currentAmmo, component2.maxAmmo, component2.sight, 0 };
+					StartCoroutine(ExchangeWeapons(receivedData6));
+					UnityEngine.Object.Destroy(droppedGun.gameObject);
+				}
+				else if (SessionNetworkMode != 1 && base.gameObject.GetPhotonView().isMine)
+				{
+					int[] array8 = new int[5]
+					{
+						component2.weaponIndex,
+						component2.currentAmmo,
+						component2.maxAmmo,
+						component2.sight,
+						droppedGun.gameObject.GetPhotonView().viewID
+					};
+					base.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.All, array8);
+				}
+				droppedGun = null;
+			}
+		}
+	}
+
 	private void Update()
 	{
 		movedWithGravity = false;
+		if (!enableControl)
+		{
+			// Cutscenes (for example the zombie bite) suspend control; the button returns afterwards.
+			ShowInteractButton(false);
+		}
 		if (MyView(base.gameObject) && enableControl)
 		{
             // Consume edge actions even while paused; never replay a queued press on resume.
@@ -522,6 +651,16 @@ public partial class FPSController : MonoBehaviour
 			}
 			float num;
 			float num2;
+			bool canInteract = touchControl && !overrideInputDevice && GameplayActive && CanInteract;
+			ShowInteractButton(canInteract);
+			if (canInteract && interactLabel != null)
+			{
+				string label = grabbing ? "Drop" : (grabbedObject != null ? "Pick up" : "Swap");
+				if (interactLabel.text != label)
+				{
+					interactLabel.text = label;
+				}
+			}
             if (!GameplayActive)
             {
                 num = num2 = 0f;
@@ -669,9 +808,12 @@ public partial class FPSController : MonoBehaviour
 			else
 			{
 				InputDevice activeDevice = InputManager.ActiveDevice;
-				bool padUsed = activeDevice.AnyButtonIsPressed || Mathf.Abs(activeDevice.LeftStickX)>0.1f || Mathf.Abs(activeDevice.LeftStickY)>0.1f || Mathf.Abs(activeDevice.RightStickX)>0.1f || Mathf.Abs(activeDevice.RightStickY)>0.1f || activeDevice.LeftTrigger>0.1f || activeDevice.RightTrigger>0.1f;
+				FlatsGamepad.EnsureApplied(activeDevice);
+				bool padUsed = FlatsControls.AnyPadButtonHeld(activeDevice) || Mathf.Abs(activeDevice.LeftStickX)>0.1f || Mathf.Abs(activeDevice.LeftStickY)>0.1f || Mathf.Abs(activeDevice.RightStickX)>0.1f || Mathf.Abs(activeDevice.RightStickY)>0.1f || activeDevice.LeftTrigger>0.1f || activeDevice.RightTrigger>0.1f;
 				if (padUsed) preferGamepad = true;
-				else if (Input.anyKey || Mathf.Abs(Input.GetAxisRaw("mouse x"))>0.01f || Mathf.Abs(Input.GetAxisRaw("mouse y"))>0.01f) preferGamepad = false;
+				// Only a deliberate mouse move (over 3 pixels in a frame) hands control back; jitter of a resting
+				// mouse must not switch the controller off between stick inputs.
+				else if (FlatsControls.KeyboardOrMouseKeyHeld() || new Vector2(Input.GetAxisRaw("mouse x"), Input.GetAxisRaw("mouse y")).sqrMagnitude > 9f) preferGamepad = false;
 				FlatsControls.UsingGamepad = !overrideInputDevice && preferGamepad && activeDevice.Name != "None";
                 if (!overrideInputDevice && preferGamepad && Input.GetJoystickNames().Length > 0 && activeDevice.Name != "None")
 				{
@@ -679,36 +821,27 @@ public partial class FPSController : MonoBehaviour
 					num2 = activeDevice.LeftStickX;
 					if (enableCamRotate)
 					{
-						ApplyLook(Flats.Core.LookInput.Gamepad, activeDevice.RightStickX, activeDevice.RightStickY);
+						var look = FlatsGamepad.Look(new Vector2(activeDevice.RightStickX, activeDevice.RightStickY), Time.deltaTime, isZoom);
+						ApplyLook(Flats.Core.LookInput.Gamepad, look.x, look.y);
 					}
 					if (SessionPlaying)
 					{
-						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && FlatsControls.PadState("Jump"))
+						// Controller jump fires on press. Sprint toggles with a click (holding also
+						// works) and ends when forward input stops or the player aims.
+						if (FlatsControls.PadState("Jump", 1) && !jumping && isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
 						{
-							jumpPressTime += 1f * Time.deltaTime;
-							if (jumpPressTime > holdTime && num > 0f)
-							{
-								num *= 1.5f;
-								num2 /= 2f;
-							}
+							Y = mt.position.y;
+							jumping = true;
 						}
-						else if (FlatsControls.PadState("Jump", 2))
+						if (FlatsControls.PadState("Sprint", 1))
 						{
-							if (jumpPressTime <= holdTime && !jumping)
-							{
-								if (isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
-								{
-									Y = mt.position.y;
-									jumping = true;
-								}
-								jumpPressTime = 0f;
-							}
-							else
-							{
-								jumpPressTime = 0f;
-							}
+							padSprint = !padSprint;
 						}
-						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && FlatsControls.PadState("Sprint") && !FlatsControls.PadState("Jump"))
+						if (num <= 0.2f || isZoom)
+						{
+							padSprint = false;
+						}
+						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && (padSprint || FlatsControls.PadState("Sprint")))
 						{
 							num *= 1.5f;
 							num2 /= 2f;
@@ -940,67 +1073,7 @@ public partial class FPSController : MonoBehaviour
 					}
 					if (input.Interact)
 					{
-						if (grabbedObject != null && enableFire)
-						{
-							if (SessionNetworkMode == 0)
-							{
-								int[] array5 = new int[2];
-								int[] receivedData4 = array5;
-								Grab(receivedData4);
-							}
-							else if (SessionNetworkMode != 1)
-							{
-								int[] array6 = new int[2]
-								{
-									0,
-									grabbedObject.gameObject.GetPhotonView().viewID
-								};
-								base.gameObject.GetPhotonView().RPC("Grab", PhotonTargets.AllBuffered, array6);
-							}
-						}
-						else if (grabbing && grabbedObject != null)
-						{
-							if (SessionNetworkMode == 0)
-							{
-								int[] receivedData5 = new int[2] { 1, 0 };
-								Grab(receivedData5);
-							}
-							else if (SessionNetworkMode != 1)
-							{
-								int[] array7 = new int[2]
-								{
-									1,
-									grabbedObject.gameObject.GetPhotonView().viewID
-								};
-								base.gameObject.GetPhotonView().RPC("Grab", PhotonTargets.AllBuffered, array7);
-							}
-						}
-						else if (droppedGun != null && enableFire)
-						{
-							DroppedGun component2 = droppedGun.GetComponent<DroppedGun>();
-							if (component2.ready)
-							{
-								if (SessionNetworkMode == 0)
-								{
-									int[] receivedData6 = new int[5] { component2.weaponIndex, component2.currentAmmo, component2.maxAmmo, component2.sight, 0 };
-									StartCoroutine(ExchangeWeapons(receivedData6));
-									UnityEngine.Object.Destroy(droppedGun.gameObject);
-								}
-								else if (SessionNetworkMode != 1 && base.gameObject.GetPhotonView().isMine)
-								{
-									int[] array8 = new int[5]
-									{
-										component2.weaponIndex,
-										component2.currentAmmo,
-										component2.maxAmmo,
-										component2.sight,
-										droppedGun.gameObject.GetPhotonView().viewID
-									};
-									base.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.All, array8);
-								}
-								droppedGun = null;
-							}
-						}
+						TryInteract();
 					}
 					if (FlatsControls.HoldToAim)
 					{

@@ -31,7 +31,7 @@ public class GamepadInputFieldHelper : MonoBehaviour
 			return;
 		}
 		InputDevice activeDevice = InputManager.ActiveDevice;
-		if (Input.GetButtonUp("Cancel") || activeDevice.LeftStickX.WasPressed || activeDevice.LeftStickY.WasPressed)
+		if (Input.GetButtonUp("Cancel") || activeDevice.LeftStickX.WasPressed || activeDevice.LeftStickY.WasPressed || activeDevice.DPad.WasPressed || activeDevice.Action2.WasPressed)
 		{
 			if (Menu.VRmode)
 			{

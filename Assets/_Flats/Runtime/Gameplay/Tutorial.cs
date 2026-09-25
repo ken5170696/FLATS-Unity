@@ -533,13 +533,13 @@ public class Tutorial : MonoBehaviour
 				{
 					tutorialText.text = "Pick the sniper rifle on the floor.\nPick up: {control:Interact}.";
 				}
-				else if (Input.mousePresent || mobileMouse)
+				else if ((!Application.isMobilePlatform && Input.mousePresent) || mobileMouse)
 				{
 					tutorialText.text = "Pick the sniper rifle on the floor.\nPick up: {control:Interact}.";
 				}
 				else
 				{
-					tutorialText.text = "Pick the sniper rifle on the floor.\nLong tap to pick up.";
+					tutorialText.text = "Pick the sniper rifle on the floor.\nTap Swap to pick it up.";
 				}
 				anim.Play("TextFadeIn");
 				DroppedGun[] enemyguns = UnityEngine.Object.FindObjectsOfType<DroppedGun>();

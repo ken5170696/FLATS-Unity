@@ -18,14 +18,7 @@ public class Title : MonoBehaviour
 		{
 			UnityEngine.Object.Destroy(this);
 		}
-		if (Application.platform == RuntimePlatform.MetroPlayerX86)
-		{
-			yield return new WaitForSeconds(0.5f);
-		}
-		else
-		{
-			yield return new WaitForSeconds(titleAnimation.length + 1f);
-		}
+		yield return new WaitForSeconds(titleAnimation.length + 1f);
 		anim.SetBool("Title", false);
 		base.transform.parent.GetComponent<Menu>().StartCoroutine("BackgroundColor", "Title");
 		UnityEngine.Object.Destroy(this);

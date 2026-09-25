@@ -540,8 +540,8 @@ Installed version: {0}	已安裝版本：{0}
 Affects: Your screen only	影響範圍：僅你的畫面
 Select a row to view its status and actions.	選擇模組以查看狀態與可用操作。
 Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.	歡迎來到 FLATS。\n支援單人遊戲與 Photon 線上對戰。\n線上遊戲需要網際網路連線。
-Core stability, save transfer and module updates.	更新核心穩定性、存檔轉移與模組功能。
-- Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.	- 更新核心輸入與存檔轉移。\n- 準心套件與模組復原。\n- 本機排行榜；舊雲端服務無法使用。\n- 區域網路同步僅轉移 ID 與分數。\n- 本機配對：區域網路搜尋與線上房間。\n\n平台驗證詳見版本說明。
+Controls, settings and mobile play updates.	操作、設定與手機遊玩更新。
+- Separate aim sensitivity; Kill Cinematic switch.\n- Controller: common FPS layout, steady look speed.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.	- 開鏡靈敏度可獨立設定；可關閉擊殺特寫。\n- 手把：改用常見 FPS 配置，轉向速度穩定。\n- 設定頁可捲動；所有按鍵在同一頁。\n- 手機：新增撿槍按鈕；觀戰時可開設定。\n- 子彈軌跡朝子彈方向淡入。\n\n平台驗證詳見版本說明。
 FLATS {0} preview	FLATS {0} 預覽版
 Need a controller\nto play in VR mode.	VR 模式需要\n連接控制器。
 Button Mapping	按鍵配置
@@ -912,3 +912,58 @@ Changes enemy health, damage and speed for everyone in the room.	變更房間內
 Data package for the game feature {0}. It contains no code.	遊戲功能 {0} 的資料套件，不含程式碼。
 Source: {0} / {1} results (updating)	來源：{0} / {1} 個結果（更新中）
 Showing saved results. Check your connection, then retry.	目前顯示已儲存的結果。請檢查網路連線後再試一次。
+Aim Sensitivity	開鏡靈敏度
+Match camera	與視角相同
+Very Low	非常低
+Low+	偏低
+Normal+	偏高
+Pick up	拾取
+Swap	交換
+Drop	放下
+Tap Swap to exchange	點擊「交換」更換武器
+Enabled and applied.	已啟用並立即套用。
+Disabled and applied.	已停用並立即套用。
+Applies immediately.	立即套用。
+Crosshair module. Enabling and disabling apply immediately unless another crosshair is active.	準星模組。沒有其他準星啟用時，啟用與停用會立即套用。
+Pick the sniper rifle on the floor.\nTap Swap to pick it up.	拾取地上的狙擊步槍。\n點擊「交換」即可拾取。
+Kill Cinematic	擊殺特寫
+Slow-motion camera on headshots and mortal shots. OFF shows only the text.	爆頭與致命一擊的慢動作鏡頭。關閉後只顯示文字。
+Swapped with: 	已與此動作交換：
+Binding not saved.	按鍵未儲存。
+Default controller settings restored.	已還原手把預設設定。
+LB / RB: next section. Select an option to change it.	LB / RB：切換區段。選擇選項即可變更。
+Button layout	按鍵配置
+Layout preset	配置預設
+Custom	自訂
+Tactical	戰術
+Bumper Jumper	肩鍵跳躍
+Look & sticks	視角與搖桿
+Horizontal look speed	水平視角速度
+Vertical look speed	垂直視角速度
+Response curve	反應曲線
+Linear	線性
+Standard	標準
+Dynamic	動態
+Look stick deadzone	視角搖桿死區
+Move stick deadzone	移動搖桿死區
+Auto	自動
+Feedback	回饋
+Vibration	震動
+Right stick: look	右搖桿：視角
+Left stick: move	左搖桿：移動
+Press to jump.	按一下跳躍。
+Click while moving forward to sprint. Sprint stops when you stop moving forward or aim. Holding also works.	向前移動時按一下開始衝刺；停止前進或開鏡時結束。按住也可以。
+Shoot. Hold for automatic weapons.	射擊。自動武器請按住。
+Hold to aim down sights.	按住以開鏡瞄準。
+Reload the current weapon.	為目前的武器換彈。
+Tap to switch weapons. Hold to pick up or exchange a weapon on the floor.	點一下切換武器。按住可拾取或交換地上的武器。
+Throw a grenade.	投擲手榴彈。
+Aim down sights without holding a trigger.	不需按住板機即可開鏡瞄準。
+Default: grenade on the right bumper, as in most console shooters. Tactical: grenade on B / Circle. Bumper Jumper: jump on the left bumper, so you can jump without leaving the look stick. Changing any button makes the layout Custom.	預設：手榴彈在右肩鍵，與多數主機射擊遊戲相同。戰術：手榴彈在 B／圓圈鍵。肩鍵跳躍：跳躍改到左肩鍵，不必離開視角搖桿就能跳。變更任何按鍵後會變成「自訂」。
+How fast the right stick turns left and right. At 1x and Normal sensitivity a full push turns 180 degrees per second, and faster while held all the way.	右搖桿左右轉動的速度。1x、一般靈敏度時推到底每秒轉 180 度，持續推到底會再加快。
+How fast the right stick looks up and down. At 1x and Normal sensitivity a full push turns 135 degrees per second.	右搖桿上下轉動的速度。1x、一般靈敏度時推到底每秒轉 135 度。
+Standard (default): slower near the centre for fine aim. Linear: the view follows the stick directly. Dynamic: quick start, steady middle, fast at the edge.	標準（預設）：靠近中心較慢，方便微調瞄準。線性：視角直接跟隨搖桿。動態：起步快、中段穩、推到底時轉得快。
+Stick movement inside the circle is ignored. Raise it if the view drifts by itself. Auto uses the controller's own setting.	圓圈內的搖桿移動會被忽略。視角會自己飄移時請調高。「自動」使用手把本身的設定。
+Stick movement inside the circle is ignored. Raise it if you walk without touching the stick. Auto uses the controller's own setting.	圓圈內的搖桿移動會被忽略。沒碰搖桿卻會走動時請調高。「自動」使用手把本身的設定。
+Strength of controller vibration when firing. OFF turns it off.	射擊時手把震動的強度。「關閉」即不震動。
+Click to toggle	按一下切換

@@ -164,15 +164,16 @@ public class DroppedGun : MonoBehaviour
 				message.GetChild(1).GetChild(3).GetComponent<Text>()
 					.text = "Exchange weapon: {control:Interact}.";
 			}
-			else if (Input.mousePresent)
+			else if (!Application.isMobilePlatform && Input.mousePresent)
 			{
 				message.GetChild(1).GetChild(3).GetComponent<Text>()
 					.text = "Exchange weapon: {control:Interact}.";
 			}
 			else
 			{
+				// Mobile browsers can report a mouse; touch players use the HUD Swap button.
 				message.GetChild(1).GetChild(3).GetComponent<Text>()
-					.text = "Long tap to exchange";
+					.text = "Tap Swap to exchange";
 			}
 			message.GetChild(1).gameObject.SetActive(true);
 		}

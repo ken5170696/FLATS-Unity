@@ -139,7 +139,10 @@ public partial class Menu
 			ETCInput.ResetAxis("Horizontal");
 			ETCInput.ResetAxis("Vertical");
 		}
-		Selectable component = buttons[0].transform.parent.GetComponent<Selectable>();
+		// Pause starts on Resume (the Singleplayer page shows it on the second tile), so A
+		// continues the game instead of leaving for another mode.
+		Selectable component = buttons[gameState == "Singleplayer" ? 1 : 0].transform.parent.GetComponent<Selectable>();
+		lastMainTile = component.gameObject;
 		if (Input.GetJoystickNames().Length > 0)
 		{
 			component.Select();
@@ -635,6 +638,7 @@ public partial class Menu
 						RefreshRegionLabel();
 						backButton.SetActive(true);
 						anim.SetBool("Detail", true);
+						FocusDetailForController();
 					}
 				}
 				if (!(current == "Settings") || button != 4)

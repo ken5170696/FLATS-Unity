@@ -71,7 +71,7 @@ public partial class FPSController
 
 	private void On_LongTapStart(Gesture gesture)
 	{
-		if (ETCInput.GetButton("Fire") || ETCInput.GetButton("Reload") || ETCInput.GetButton("Jump") || ETCInput.GetButton("Zoom"))
+		if (ETCInput.GetButton("Fire") || ETCInput.GetButton("Reload") || ETCInput.GetButton("Jump") || ETCInput.GetButton("Zoom") || (interactButton != null && ETCInput.GetButton("Interact")))
 		{
 			return;
 		}
