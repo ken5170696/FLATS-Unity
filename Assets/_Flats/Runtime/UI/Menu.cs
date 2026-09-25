@@ -1469,8 +1469,9 @@ public partial class Menu : MonoBehaviour
 					// their first tile, not on Back, so A does not leave the page.
 					EventSystem.current.SetSelectedGameObject(FirstVisibleTile());
 				}
-				else if (backButton.activeSelf)
+				else if (backButton.activeSelf && current != "Play" && current != "Singleplayer" && current != "Multiplayer")
 				{
+					// Tile pages wait for their tiles to appear rather than settling on Back.
 					EventSystem.current.SetSelectedGameObject(backButton);
 				}
 			}
