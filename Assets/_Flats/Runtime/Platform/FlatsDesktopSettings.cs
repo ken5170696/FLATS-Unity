@@ -12,7 +12,6 @@ public sealed class FlatsDesktopSettings : MonoBehaviour
     RectTransform reticle;
     Vector3 reticleScale;
     readonly Color[] crosshairColors={Color.white,Color.black,Color.red,Color.green,Color.cyan,Color.magenta};
-    readonly string[] colorNames={"White","Black","Red","Green","Cyan","Magenta"};
     public void Initialize(Transform settingsPage)
     {
         page=settingsPage;
@@ -38,8 +37,12 @@ public sealed class FlatsDesktopSettings : MonoBehaviour
     {
         foreach(var name in Names){var row=page.Find(name);if(row!=null)row.gameObject.SetActive(desktop);}
         foreach(var name in VrNames){var row=page.Find(name);if(row!=null)row.gameObject.SetActive(!desktop);}
+        foreach(var name in RetiredNames){var row=page.Find(name);if(row!=null)row.gameObject.SetActive(false);}
     }
-    static readonly string[] Names={"DesktopResolution","DesktopWindowMode","DesktopVSync","DesktopCrosshairColor","DesktopCrosshairSize"};
+    // The crosshair is configured in the Mod center (Custom Crosshair), so the page
+    // shows only display rows; older prefabs may still carry the crosshair rows.
+    static readonly string[] Names={"DesktopResolution","DesktopWindowMode","DesktopVSync"};
+    static readonly string[] RetiredNames={"DesktopCrosshairColor","DesktopCrosshairSize"};
     void SetValue(int row,string value){var t=page.Find(Names[row]);if(t!=null)t.GetChild(1).GetComponent<Text>().text=value;}
     void AddSize(int width,int height){var size=new Vector2Int(width,height);if(!sizes.Contains(size))sizes.Add(size);}
     public void Change(Transform row,int direction)
@@ -48,18 +51,12 @@ public sealed class FlatsDesktopSettings : MonoBehaviour
         if(row.name=="DesktopResolution") {index=(index+direction+sizes.Count)%sizes.Count;Screen.SetResolution(sizes[index].x,sizes[index].y,Screen.fullScreenMode);}
         else if(row.name=="DesktopWindowMode") {fullscreen=!fullscreen;Screen.fullScreenMode=fullscreen?FullScreenMode.FullScreenWindow:FullScreenMode.Windowed;}
         else if(row.name=="DesktopVSync")QualitySettings.vSyncCount=QualitySettings.vSyncCount==0?1:0;
-        // An enabled crosshair module replaces the original reticle, so these settings
-        // would change nothing visible; they are shown as module-controlled instead.
-        else if(ModuleCrosshair && (row.name=="DesktopCrosshairColor" || row.name=="DesktopCrosshairSize")) { Refresh(); return; }
-        else if(row.name=="DesktopCrosshairColor")FlatsPreferences.SetInt(Prefix+"CrosshairColor",(FlatsPreferences.GetInt(Prefix+"CrosshairColor",0)+direction+6)%6);
-        else if(row.name=="DesktopCrosshairSize")FlatsPreferences.SetInt(Prefix+"CrosshairSize",(FlatsPreferences.GetInt(Prefix+"CrosshairSize",1)+direction+4)%4);
         ApplyCrosshair();
         FlatsPreferences.SetInt(Prefix+"Width",sizes[index].x);FlatsPreferences.SetInt(Prefix+"Height",sizes[index].y);
         FlatsPreferences.SetInt(Prefix+"Fullscreen",fullscreen?1:0);
         FlatsPreferences.SetInt(Prefix+"VSync",QualitySettings.vSyncCount);FlatsPreferences.Save();
         Invoke("Refresh",0.2f);
     }
-    static bool ModuleCrosshair { get { return Flats.UI.CrosshairPresentation.Appearance!=null; } }
     void ApplyCrosshair(){if(reticle==null)return;reticle.localScale=reticleScale*(0.75f+0.25f*FlatsPreferences.GetInt(Prefix+"CrosshairSize",1));if(FlatsPreferences.HasKey(Prefix+"CrosshairColor"))foreach(var image in reticle.GetComponentsInChildren<Image>(true)){var color=crosshairColors[FlatsPreferences.GetInt(Prefix+"CrosshairColor",0)%6];color.a=image.color.a;image.color=color;}}
-    void Refresh(){SetValue(0,sizes[index].x+" x "+sizes[index].y);SetValue(1,Screen.fullScreen?"Fullscreen":"Windowed");SetValue(2,QualitySettings.vSyncCount==0?"OFF":"ON");SetValue(3,ModuleCrosshair?"Set in Mod center":colorNames[FlatsPreferences.GetInt(Prefix+"CrosshairColor",0)%6]);SetValue(4,ModuleCrosshair?"Set in Mod center":(75+25*FlatsPreferences.GetInt(Prefix+"CrosshairSize",1))+"%");}
+    void Refresh(){SetValue(0,sizes[index].x+" x "+sizes[index].y);SetValue(1,Screen.fullScreen?"Fullscreen":"Windowed");SetValue(2,QualitySettings.vSyncCount==0?"OFF":"ON");}
 }
