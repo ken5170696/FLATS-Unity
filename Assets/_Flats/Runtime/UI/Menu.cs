@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -1256,6 +1257,18 @@ public partial class Menu : MonoBehaviour
             Fade(-1);
             return;
         }
+		// B or Esc answers an open confirmation dialog with its cancel choice (or the
+		// only button of an alert), as controller players expect.
+		if (confirm.activeSelf && canOpen && (Input.GetKeyUp(KeyCode.Escape) || InputManager.Devices.Any(device => device.Action2.WasPressed)))
+		{
+			var dialog = confirm.GetComponent<ConfirmationDialogView>();
+			Button choice = dialog.alert.gameObject.activeInHierarchy ? dialog.alert : dialog.negative;
+			if (choice != null && choice.gameObject.activeInHierarchy && choice.IsInteractable())
+			{
+				choice.onClick.Invoke();
+				return;
+			}
+		}
 		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
 		{
 			Fade(-1);

@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using InControl;
@@ -228,7 +229,7 @@ public partial class Menu
     {
         if (releasePending)
         {
-            if (!Input.anyKey && !InputManager.ActiveDevice.AnyButtonIsPressed && !InputManager.ActiveDevice.CommandIsPressed)
+            if (!Input.anyKey && InputManager.Devices.All(pad => !pad.AnyButtonIsPressed && !pad.CommandIsPressed))
             {
                 releasePending = false;
                 standaloneModule.enabled = restoreStandalone;
@@ -249,18 +250,26 @@ public partial class Menu
             }
             return Time.frameCount <= suppressControlFrame;
         }
-        if (!bindingsPanel.activeInHierarchy || (bindingPad && captureDevice != InputDevice.Null && !captureDevice.IsAttached) || !Application.isFocused || Input.GetKeyDown(KeyCode.Escape) || InputManager.ActiveDevice.CommandWasPressed || Time.unscaledTime - captureStarted > 10)
+        // Every attached controller is read, not only InControl's active device: with a
+        // second controller connected (or one whose sticks drift), the active device can
+        // be another pad, and presses and Start on the pad in hand were never seen.
+        var pads = InputManager.Devices;
+        if (!bindingsPanel.activeInHierarchy || (bindingPad && captureDevice != InputDevice.Null && !captureDevice.IsAttached) || !Application.isFocused || Input.GetKeyDown(KeyCode.Escape) || pads.Any(pad => pad.CommandWasPressed) || Time.unscaledTime - captureStarted > 10)
         { FinishBinding("Binding cancelled. Previous binding kept."); return true; }
         if (!captureReady)
         {
-            captureReady = Time.unscaledTime - captureStarted > .2f && !Input.anyKey && !InputManager.ActiveDevice.AnyButtonIsPressed && InputManager.ActiveDevice.LeftTrigger < .2f && InputManager.ActiveDevice.RightTrigger < .2f;
+            captureReady = Time.unscaledTime - captureStarted > .2f && !Input.anyKey && pads.All(pad => !pad.AnyButtonIsPressed && pad.LeftTrigger < .2f && pad.RightTrigger < .2f);
             return true;
         }
         string value = null;
         if (bindingPad)
         {
-            foreach (var button in FlatsControls.PadButtons)
-                if (InputManager.ActiveDevice.GetControl(button).WasPressed) { value = button.ToString(); break; }
+            foreach (var pad in pads)
+            {
+                foreach (var button in FlatsControls.PadButtons)
+                    if (pad.GetControl(button).WasPressed) { value = button.ToString(); break; }
+                if (value != null) break;
+            }
         }
         else foreach (var key in captureKeys)
             if (FlatsControls.ValidKey(key) && Input.GetKeyDown(key)) { value = key.ToString(); break; }
