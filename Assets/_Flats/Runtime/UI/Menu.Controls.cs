@@ -219,7 +219,10 @@ public partial class Menu
     }
     void BeginBinding(int index)
     {
-        if (captureAction != null) return;
+        // A capture that just ended waits for its button to be released. Starting another
+        // one then re-captured the row at once and recorded the disabled input modules as
+        // the state to restore, which left the menu without input.
+        if (captureAction != null || releasePending || Time.frameCount <= suppressControlFrame) return;
         if (bindingPad && InputManager.Devices.Count == 0)
         { bindingStatus.text = "Connect a controller to bind its buttons."; return; }
         captureAction = BindingAction(index);
@@ -231,7 +234,7 @@ public partial class Menu
         restoreStandalone = standaloneModule.enabled;
         restoreInControl = inControlModule.enabled;
         standaloneModule.enabled = inControlModule.enabled = false;
-        captureButton.transform.Find("Label").GetComponent<Text>().text = "Press a button...";
+        captureButton.transform.Find("Label").GetComponent<Text>().text = FlatsLocalization.Translate("Press a button...");
         bindingStatus.text = "Release, then press a new binding. Esc / Start cancels.";
     }
     void FinishBinding(string message)
