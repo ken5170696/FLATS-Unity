@@ -165,6 +165,17 @@ public class DamageReceiver : MonoBehaviour
 		healthbar.size = 0f;
 	}
 
+	// Destroy(myAI) completes at the end of the frame; adding the sink before then
+	// would give Photon two methods with the same RPC name.
+	private IEnumerator AddDeadAIRpcSink()
+	{
+		yield return null;
+		if (this != null && GetComponent<AI>() == null && GetComponent<DeadAIRpcSink>() == null)
+		{
+			base.gameObject.AddComponent<DeadAIRpcSink>();
+		}
+	}
+
 	[PunRPC]
 	private void NetworkDamage(int[] receivedData)
 	{
@@ -417,7 +428,7 @@ public class DamageReceiver : MonoBehaviour
 		else
 		{
 			UnityEngine.Object.Destroy(myAI);
-			if (Menu.network != 0 && GetComponent<DeadAIRpcSink>() == null) base.gameObject.AddComponent<DeadAIRpcSink>();
+			if (Menu.network != 0) StartCoroutine(AddDeadAIRpcSink());
 		}
 		UnityEngine.Object.Destroy(GetComponent<CharacterController>());
 		for (int j = 0; j < mt.childCount; j++)

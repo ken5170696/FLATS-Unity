@@ -55,7 +55,9 @@ public class Bullet : MonoBehaviour
 		}
 		if (shooter.gameObject.activeSelf)
 		{
-			Physics.IgnoreCollision(base.GetComponent<Collider>(), shooter.GetComponent<Collider>());
+			// A dead shooter's CharacterController may already be destroyed.
+			var shooterCollider = shooter.GetComponent<Collider>();
+			if (shooterCollider != null) Physics.IgnoreCollision(base.GetComponent<Collider>(), shooterCollider);
 			if (FlatsOfflineScores.FreeForAll)
 				foreach (var ownCollider in shooter.GetComponentsInChildren<Collider>())
 					Physics.IgnoreCollision(GetComponent<Collider>(),ownCollider);
