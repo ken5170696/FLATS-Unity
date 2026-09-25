@@ -21,28 +21,53 @@ public sealed partial class ModuleManagementPage
 #endif
             restoreScroll=false;ShowDetail();return;}
         var cancel=browsing.Token;
-        ClearRows();ShowCatalogueLoading();notice.text="Loading mods — connecting to "+new Uri(source.Identity).Host;
-        detailTitle.text="Loading...";SetDescription("Retrieving catalogue details.");SetPrimary("Loading...",false);secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);crosshairPanel.SetActive(false);
+        var query=new CatalogQuery{Search=search.text,Category=categoryValue,Sort=sortValue,Compatible=compatible,Offset=offset};
+        string key=source.Identity+"|"+query.Search+"|"+query.Category+"|"+query.Sort+"|"+query.Compatible+"|"+query.Offset;
+        // Show the last result for this query at once and refresh it in the background.
+        bool cached=catalogueCache.TryGetValue(key,out var previous);
+        if(cached)RenderCatalogue(previous,source,true);
+        else
+        {
+            ClearRows();ShowCatalogueLoading();notice.text="Loading mods — connecting to "+new Uri(source.Identity).Host;
+            detailTitle.text="Loading...";SetDescription("Retrieving catalogue details.");SetPrimary("Loading...",false);secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);crosshairPanel.SetActive(false);
+        }
+        var timer=System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            var page=await source.Browse(new CatalogQuery{Search=search.text,Category=categoryValue,Sort=sortValue,Compatible=compatible,Offset=offset},cancel);
+            var page=await source.Browse(query,cancel);
+            Debug.Log("MOD_CATALOGUE_BROWSE ms="+timer.ElapsedMilliseconds+" items="+page.items.Length+" cached="+cached);
             if(this==null || cancel.IsCancellationRequested || generation!=viewGeneration || !isActiveAndEnabled)return;
-            catalog=page.items;categories=page.categories;RefreshFilters();foreach(var item in catalog)known[item.manifest.id]=item;
-            ClearRows();int i=0;
-            foreach(var item in catalog)AddRow(item.manifest.id,item.manifest.name,(item.manifest.description ?? "No description provided.")+"\n"+CatalogStatus(item),i++);
-            if(i==0)Empty(search.text.Length>0?"No results\nTry another search or filter.":"No mods in this category.");
-            Page(page.total);restoreScroll=false;notice.text="Source: "+new Uri(source.Identity).Host+" / "+page.total+" results";
-            if(!catalog.Any(c=>c.manifest.id==selectedId))selectedId="";
-            ShowDetail();
+            catalogueCache[key]=page;
+            RenderCatalogue(page,source,false);
         }
         catch(OperationCanceledException) { }
         catch(Exception)
         {
+            Debug.Log("MOD_CATALOGUE_BROWSE failed ms="+timer.ElapsedMilliseconds+" cached="+cached);
             if(this==null || !isActiveAndEnabled || generation!=viewGeneration)return;
+            // A cached page stays usable when the refresh fails.
+            if(cached){notice.text="Showing saved results. Check your connection, then retry.";return;}
             sourceFailed=true;ClearRows();Empty("Official service offline\nCheck your connection and retry. Your installed mods are still available.");
             detailTitle.text="Official service offline";SetDescription("Your installed mods remain available. Retry when your connection is available.");SetPrimary("Unavailable",false);
 
             notice.text="Check your connection, then retry.";Page(0);restoreScroll=false;
+        }
+    }
+    // Catalogue pages from this session, keyed by source and query.
+    static readonly Dictionary<string,CatalogPage> catalogueCache=new Dictionary<string,CatalogPage>();
+    void RenderCatalogue(CatalogPage page,IModSource source,bool stale)
+    {
+        {
+            // Precision Dot and Wide Ring are now presets of Custom Crosshair; the live
+            // catalogue keeps them for older builds, so this build hides them from Explore.
+            int retired=page.items.Count(i=>CrosshairSettingsSpec.PresetForRetiredPackage(i.manifest.id)!=null);
+            catalog=page.items.Where(i=>CrosshairSettingsSpec.PresetForRetiredPackage(i.manifest.id)==null).ToArray();categories=page.categories;RefreshFilters();foreach(var item in catalog)known[item.manifest.id]=item;
+            ClearRows();int i=0;
+            foreach(var item in catalog)AddRow(item.manifest.id,item.manifest.name,(item.manifest.description ?? "No description provided.")+"\n"+CatalogStatus(item),i++);
+            if(i==0)Empty(search.text.Length>0?"No results\nTry another search or filter.":"No mods in this category.");
+            Page(page.total);restoreScroll=false;notice.text="Source: "+new Uri(source.Identity).Host+" / "+(page.total-retired)+" results"+(stale?" (updating)":"");
+            if(!catalog.Any(c=>c.manifest.id==selectedId))selectedId="";
+            ShowDetail();
         }
     }
     string CatalogStatus(CatalogItem item)

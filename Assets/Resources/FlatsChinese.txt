@@ -910,3 +910,5 @@ This changes only this mod's draft. Save changes to apply it. Other mods and gam
 T shape	T 字形
 Changes enemy health, damage and speed for everyone in the room.	變更房間內所有人的敵人生命、傷害與速度。
 Data package for the game feature {0}. It contains no code.	遊戲功能 {0} 的資料套件，不含程式碼。
+Source: {0} / {1} results (updating)	來源：{0} / {1} 個結果（更新中）
+Showing saved results. Check your connection, then retry.	目前顯示已儲存的結果。請檢查網路連線後再試一次。
