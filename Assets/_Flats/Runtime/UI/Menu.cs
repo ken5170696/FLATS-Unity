@@ -197,6 +197,7 @@ public partial class Menu : MonoBehaviour
 	public static bool canOpen = true;
 
 	public static bool skipTitle = false;
+	private bool returningToMenu;
 
 	public static bool adFree = false;
 
@@ -987,6 +988,7 @@ public partial class Menu : MonoBehaviour
 		{
 			gameState = "Main";
 			current = "Main";
+			returningToMenu = skipTitle;
 			if (!skipTitle)
 			{
 				backgroundRenderer.sharedMaterial.color = new Color(0f, 0f, 0f, 1f);
@@ -1214,7 +1216,10 @@ public partial class Menu : MonoBehaviour
 			gameObject.AddComponent<FlatsDesktopSettings>().Initialize(settingsScreen.GetChild(3));
 		if (gameState == "Main")
 		{
-			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(5f));
+			// The original starts the menu music after the 5 s title. Returning from a
+			// match skips the title, so the music starts almost at once instead of
+			// leaving the menu silent for another 5 s.
+			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(returningToMenu ? 0.5f : 5f));
 			// Consume once per process, after saves, settings and UI have initialized.
 			// Returning from Tutorial must remain at the normal main menu.
 			if (!tutorialLaunchConsumed && Array.IndexOf(Environment.GetCommandLineArgs(), "-flats-tutorial") >= 0)
