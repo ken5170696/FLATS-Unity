@@ -28,12 +28,16 @@ public sealed class PointerFocusPolicy : MonoBehaviour
     Vector3 lastMouse;
     // The cursor position jumps when the window is created, placed or regains focus;
     // that is not the player moving the mouse.
+    // Counted from the first update after enabling or refocusing, not from OnEnable: a
+    // scene load can take longer than the window itself.
     float ignoreMoveUntil;
+    int ignoreMoveFrames;
+    bool restartIgnore;
     RectTransform focusFrame;
 
     void Awake() { events = GetComponent<EventSystem>(); }
-    void OnEnable() { lastMouse = Input.mousePosition; ignoreMoveUntil = Time.unscaledTime + .5f; }
-    void OnApplicationFocus(bool focused) { if (focused) ignoreMoveUntil = Time.unscaledTime + .5f; }
+    void OnEnable() { lastMouse = Input.mousePosition; restartIgnore = true; }
+    void OnApplicationFocus(bool focused) { if (focused) restartIgnore = true; }
     void OnDisable() { PointerActive = false; if (focusCanvas != null) focusCanvas.gameObject.SetActive(false); }
 
     // The frame lives on its own overlay canvas and follows the focused control's screen
@@ -95,7 +99,8 @@ public sealed class PointerFocusPolicy : MonoBehaviour
     void LateUpdate()
     {
         bool moved = Input.mousePresent && (Input.mousePosition - lastMouse).sqrMagnitude > pointerMoveThreshold * pointerMoveThreshold;
-        if (Time.unscaledTime < ignoreMoveUntil) moved = false;
+        if (restartIgnore) { restartIgnore = false; ignoreMoveUntil = Time.unscaledTime + .5f; ignoreMoveFrames = 10; }
+        if (ignoreMoveFrames > 0 || Time.unscaledTime < ignoreMoveUntil) { ignoreMoveFrames--; moved = false; }
         bool pointer = Input.touchCount > 0 || Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) || moved;
         lastMouse = Input.mousePosition;
         bool navigation = NavigationInput();
