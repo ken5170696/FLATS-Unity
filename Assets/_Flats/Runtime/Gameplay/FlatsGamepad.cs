@@ -5,8 +5,9 @@ using InControl;
 using UnityEngine;
 
 // Controller preferences: layout presets, look speed per axis, response curve,
-// stick deadzones, vibration and device-specific button names. Defaults keep the
-// original feel: linear response, 1x speeds, the device profile's own deadzones.
+// stick deadzones, vibration and device-specific button names. Defaults follow common
+// console FPS settings: Standard (exponential) response, 1x speeds, the device
+// profile's own deadzones and a short turn boost at full horizontal deflection.
 public static class FlatsGamepad
 {
     public const string LookHKey = "controls.v1.pad.lookH", LookVKey = "controls.v1.pad.lookV", CurveKey = "controls.v1.pad.curve",
@@ -20,17 +21,20 @@ public static class FlatsGamepad
     public static readonly int[] DeadzoneSteps = { -1, 0, 5, 10, 15, 20, 25, 30 };
     public static readonly int[] VibrationSteps = { 0, 25, 50, 75, 100 };
     const int DefaultVibration = 4;
+    const int DefaultCurve = 1;
 
     // Button per PadActions entry: Jump, Sprint, Fire, Aim, Reload, Change, Grenade, Scope.
     public static readonly string[] PresetNames = { "Default", "Tactical", "Bumper Jumper" };
     static readonly InputControlType[][] presets =
     {
+        // Common console FPS layout: grenade on the right bumper.
+        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton },
+        // Grenade on B, as in the earlier FLATS layout; the bumpers stay free.
         new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.Action2, InputControlType.RightStickButton },
-        // Grenade on the right stick click keeps the thumb on the look stick.
-        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightStickButton, InputControlType.Action2 },
-        // Jump on the left bumper lets players jump while aiming with the right stick.
-        new[] { InputControlType.LeftBumper, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.Action1, InputControlType.RightStickButton },
+        // Jump on the left bumper lets players jump without leaving the look stick.
+        new[] { InputControlType.LeftBumper, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton },
     };
+    public static InputControlType DefaultButton(int action) => presets[0][action];
 
     public static event Action Changed;
 
@@ -53,7 +57,7 @@ public static class FlatsGamepad
 
     public static int LookHIndex { get => Index(LookHKey, SpeedSteps.Length, DefaultSpeed); set => Store(LookHKey, value, SpeedSteps.Length); }
     public static int LookVIndex { get => Index(LookVKey, SpeedSteps.Length, DefaultSpeed); set => Store(LookVKey, value, SpeedSteps.Length); }
-    public static int CurveIndex { get => Index(CurveKey, Curves.Length, 0); set => Store(CurveKey, value, Curves.Length); }
+    public static int CurveIndex { get => Index(CurveKey, Curves.Length, DefaultCurve); set => Store(CurveKey, value, Curves.Length); }
     public static int LookDeadzoneIndex { get => Index(LookDeadzoneKey, DeadzoneSteps.Length, 0); set => Store(LookDeadzoneKey, value, DeadzoneSteps.Length); }
     public static int MoveDeadzoneIndex { get => Index(MoveDeadzoneKey, DeadzoneSteps.Length, 0); set => Store(MoveDeadzoneKey, value, DeadzoneSteps.Length); }
     public static int VibrationIndex { get => Index(VibrationKey, VibrationSteps.Length, DefaultVibration); set => Store(VibrationKey, value, VibrationSteps.Length); }
@@ -64,14 +68,32 @@ public static class FlatsGamepad
     public static string VibrationLabel(int index) => VibrationSteps[index] == 0 ? "OFF" : VibrationSteps[index] + "%";
 
     // Look stick after the deadzone: horizontal/vertical speed and the response curve
-    // on the stick's magnitude, so diagonal direction is kept.
-    public static Vector2 Look(Vector2 stick)
+    // on the stick's magnitude, so diagonal direction is kept. The result is per frame
+    // in LookRotationPolicy's gamepad units (2 degrees yaw, 1.5 pitch per camera
+    // sensitivity step), scaled by the frame time so the turn rate does not depend on
+    // the frame rate: at Normal sensitivity, full deflection turns 180 degrees/s and
+    // pitches 135 degrees/s.
+    public const float UnitsPerSecond = 45f;
+    // Holding the stick fully sideways ramps yaw up to TurnBoost x after a short delay,
+    // so large turns are quick while small corrections stay precise. Not while aiming.
+    public const float TurnBoost = 1.6f, TurnBoostDelay = .12f, TurnBoostRamp = .35f;
+    static float boostTime;
+    public static Vector2 Look(Vector2 stick, float deltaTime, bool aiming)
     {
         float magnitude = Mathf.Clamp01(stick.magnitude);
-        if (magnitude <= 0f) return Vector2.zero;
+        if (magnitude <= 0f) { boostTime = 0f; return Vector2.zero; }
+        deltaTime = Mathf.Min(deltaTime, .1f);
         float curved = Curve(magnitude, CurveIndex);
         var shaped = stick / stick.magnitude * curved;
-        return new Vector2(shaped.x * SpeedSteps[LookHIndex], shaped.y * SpeedSteps[LookVIndex]);
+        float boost = 1f;
+        if (!aiming && magnitude > .95f && Mathf.Abs(stick.x) > .85f * magnitude)
+        {
+            boostTime += deltaTime;
+            boost = 1f + (TurnBoost - 1f) * Mathf.SmoothStep(0f, 1f, (boostTime - TurnBoostDelay) / TurnBoostRamp);
+        }
+        else boostTime = 0f;
+        float scale = UnitsPerSecond * deltaTime;
+        return new Vector2(shaped.x * SpeedSteps[LookHIndex] * boost * scale, shaped.y * SpeedSteps[LookVIndex] * scale);
     }
     public static float Curve(float magnitude, int curve)
     {
@@ -196,7 +218,7 @@ public static class FlatsGamepad
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     // Profile deadzones are kept: a device that survives into the next session must not
     // record an already customised value as its "Auto" baseline.
-    static void ResetSession() { Changed = null; applied = null; rawTest = false; version++; }
+    static void ResetSession() { Changed = null; applied = null; rawTest = false; boostTime = 0f; version++; }
     // An imported save replaces preferences.
     public static void Reload() { version++; }
 }

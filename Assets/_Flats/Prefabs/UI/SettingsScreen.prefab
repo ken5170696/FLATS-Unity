@@ -33810,8 +33810,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PreviewTarget
   preview: {fileID: 5592935564487959731}
   title: Vertical look speed
-  description: How fast the right stick looks up and down. 1x keeps the original
-    speed.
+  description: 'How fast the right stick looks up and down. At 1x and Normal sensitivity a full push turns 135 degrees per second.'
   kind: 2
   action: 
 --- !u!1 &146819863824863742
@@ -36045,9 +36044,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PreviewTarget
   preview: {fileID: 5592935564487959731}
   title: Response curve
-  description: 'Linear: the view follows the stick directly, as before. Standard:
-    slower near the centre for fine aim. Dynamic: quick start, steady middle, fast
-    at the edge.'
+  description: 'Standard (default): slower near the centre for fine aim. Linear: the view follows the stick directly. Dynamic: quick start, steady middle, fast at the edge.'
   kind: 2
   action: 
 --- !u!114 &8440223392198178986
@@ -36142,8 +36139,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PreviewTarget
   preview: {fileID: 5592935564487959731}
   title: Horizontal look speed
-  description: How fast the right stick turns left and right. 1x keeps the original
-    speed.
+  description: 'How fast the right stick turns left and right. At 1x and Normal sensitivity a full push turns 180 degrees per second, and faster while held all the way.'
   kind: 2
   action: 
 --- !u!1 &2593003349577784814
@@ -37303,9 +37299,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PreviewTarget
   preview: {fileID: 5592935564487959731}
   title: Layout preset
-  description: 'Default: the original layout. Tactical: grenade on the right stick
-    click. Bumper Jumper: jump on the left bumper, so you can jump while aiming.
-    Changing any button makes the layout Custom.'
+  description: 'Default: grenade on the right bumper, as in most console shooters. Tactical: grenade on B / Circle. Bumper Jumper: jump on the left bumper, so you can jump without leaving the look stick. Changing any button makes the layout Custom.'
   kind: 0
   action: 
 --- !u!1 &4206609388976722547

@@ -33,8 +33,11 @@ Every Settings page uses one box model inside the 600×340 panel: 24 units of pa
 Settings content that does not fit the shared 340-unit page panel scrolls rather than paging or growing the panel. Examples are the binding lists and `ExtraSettings/ExtraScroll`. The pattern is a ScrollRect with a RectMask2D viewport, a top-pivoted `Content`, a thin auto-hiding scrollbar and `ScrollToSelection`. `ScrollToSelection` opens the list at the top and scrolls keyboard or controller selection into view. Menu controls draw with theme materials whose shader cannot be clipped. Inside a list, give each such Image a `ClippedThemeGraphic`: it draws the same theme colour, including the animated selected state, with the default UI material. Rows are found by name at any depth (`Menu.SettingValue`, `Menu.SettingsRow`).
 
 Controller settings follow current console FPS patterns in FLATS' flat style:
-- Layout presets: Default, Tactical and Bumper Jumper. Any other button change reports Custom.
-- Look speed per axis, a response curve (Linear keeps the original feel), stick deadzones (Auto keeps the controller profile's value) and vibration strength.
+- Layout presets: Default (grenade on RB), Tactical (grenade on B) and Bumper Jumper (jump on LB). Any other button change reports Custom. Each action has exactly one button; there are no hidden extra bindings.
+- Look speed per axis, a response curve (Standard by default), stick deadzones (Auto keeps the controller profile's value) and vibration strength.
+- `FlatsGamepad.Look` scales the look stick by frame time, so turn speed does not depend on frame rate: at Normal camera sensitivity and 1x, a full push turns 180 degrees/s and pitches 135 degrees/s. Holding the stick fully sideways ramps yaw up to `TurnBoost` (1.6x) when not aiming.
+- Jump fires on press. Clicking the sprint button (LS / L3) toggles sprint; it ends when forward input stops or the player aims.
+- Menu navigation uses the GameInterface EventSystem's `InControlInputModule`: `analogMoveThreshold`, `moveRepeatFirstDuration` and `moveRepeatDelayDuration` set how far to push the stick and how fast held input repeats. When focus is lost on the main menu, Menu restores the last focused tile.
 - A preview pane shows the white `ControllerFlat.png` with the bound button marked, or a live stick tester (`StickTesterGraphic`).
 - LB/RB jump between sections.
 

@@ -145,6 +145,8 @@ public partial class FPSController : MonoBehaviour
 
 	public static float holdTime = 0.2f;
 
+	private bool padSprint;
+
 	public static int sensitivity = 5;
 
 	public static bool edgeRendering = false;
@@ -817,37 +819,27 @@ public partial class FPSController : MonoBehaviour
 					num2 = activeDevice.LeftStickX;
 					if (enableCamRotate)
 					{
-						var look = FlatsGamepad.Look(new Vector2(activeDevice.RightStickX, activeDevice.RightStickY));
+						var look = FlatsGamepad.Look(new Vector2(activeDevice.RightStickX, activeDevice.RightStickY), Time.deltaTime, isZoom);
 						ApplyLook(Flats.Core.LookInput.Gamepad, look.x, look.y);
 					}
 					if (SessionPlaying)
 					{
-						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && FlatsControls.PadState("Jump"))
+						// Controller jump fires on press. Sprint toggles with a click (holding also
+						// works) and ends when forward input stops or the player aims.
+						if (FlatsControls.PadState("Jump", 1) && !jumping && isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
 						{
-							jumpPressTime += 1f * Time.deltaTime;
-							if (jumpPressTime > holdTime && num > 0f)
-							{
-								num *= 1.5f;
-								num2 /= 2f;
-							}
+							Y = mt.position.y;
+							jumping = true;
 						}
-						else if (FlatsControls.PadState("Jump", 2))
+						if (FlatsControls.PadState("Sprint", 1))
 						{
-							if (jumpPressTime <= holdTime && !jumping)
-							{
-								if (isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
-								{
-									Y = mt.position.y;
-									jumping = true;
-								}
-								jumpPressTime = 0f;
-							}
-							else
-							{
-								jumpPressTime = 0f;
-							}
+							padSprint = !padSprint;
 						}
-						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && FlatsControls.PadState("Sprint") && !FlatsControls.PadState("Jump"))
+						if (num <= 0.2f || isZoom)
+						{
+							padSprint = false;
+						}
+						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && (padSprint || FlatsControls.PadState("Sprint")))
 						{
 							num *= 1.5f;
 							num2 /= 2f;

@@ -8,7 +8,6 @@ public static class FlatsControls
     public static readonly string[] KeyboardActions = { "Forward", "Backward", "Left", "Right", "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Interact" };
     public static readonly string[] PadActions = { "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Scope" };
     static readonly KeyCode[] defaults = { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.LeftShift, KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.R, KeyCode.E, KeyCode.G, KeyCode.Q };
-    static readonly InputControlType[] padDefaults = { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.Action2, InputControlType.RightStickButton };
     public static event Action Changed;
     public static bool Capturing { get; set; }
     public static bool UsingGamepad { get; set; }
@@ -70,7 +69,7 @@ public static class FlatsControls
     {
         int index = Array.IndexOf(PadActions, action);
         if (index < 0) throw new ArgumentException(action);
-        return Enum.TryParse(FlatsPreferences.GetString(Key(action, true)), out InputControlType value) && Array.IndexOf(PadButtons, value) >= 0 ? value : padDefaults[index];
+        return Enum.TryParse(FlatsPreferences.GetString(Key(action, true)), out InputControlType value) && Array.IndexOf(PadButtons, value) >= 0 ? value : FlatsGamepad.DefaultButton(index);
     }
     static bool State(InputControl control, int edge) => edge == 1 ? control.WasPressed : edge == 2 ? control.WasReleased : control.IsPressed;
     public static bool PadState(string action, int edge = 0)
@@ -85,11 +84,7 @@ public static class FlatsControls
             if (binding.Contains("analog")) return edge == 2 ? Input.GetAxis(binding) < .8f : Input.GetAxis(binding) > .8f;
             return edge == 1 ? Input.GetButtonDown(binding) : edge == 2 ? Input.GetButtonUp(binding) : Input.GetButton(binding);
         }
-        bool result = State(device.GetControl(Pad(action)), edge);
-        if (action == "Fire") result |= State(device.RightBumper, edge);
-        if (action == "Aim") result |= State(device.LeftBumper, edge);
-        if (action == "Scope") result |= State(device.DPadUp, edge);
-        return result;
+        return State(device.GetControl(Pad(action)), edge);
     }
     public static string Label(string action, bool pad)
     {
@@ -103,14 +98,7 @@ public static class FlatsControls
         string legacy = action == "Grenade" ? "Pick" : action == "Aim" ? "Zoom" : action;
         if (!FlatsPreferences.HasKey(Key(action, true)) && Menu.customControlEnabled && Menu.customControl.TryGetValue(legacy, out string binding)) return binding;
         var style = FlatsGamepad.DeviceStyle(InputManager.ActiveDevice);
-        string label = FlatsGamepad.Glyph(Pad(action), style);
-        if (!FlatsPreferences.HasKey(Key(action, true)))
-        {
-            if (action == "Fire") label += " / " + FlatsGamepad.Glyph(InputControlType.RightBumper, style);
-            if (action == "Aim") label += " / " + FlatsGamepad.Glyph(InputControlType.LeftBumper, style);
-            if (action == "Scope") label += " / D-pad Up";
-        }
-        return label;
+        return FlatsGamepad.Glyph(Pad(action), style);
     }
     public static string PadLabel(InputControlType button)
     {

@@ -534,7 +534,7 @@ public partial class Menu : MonoBehaviour
 				Debug.Log("This is the first play.");
 				update.transform.GetChild(1).GetComponent<Text>().text = "FLATS " + text + " preview";
 				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller presets, curves, deadzones, stick test.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller: common FPS layout, steady look speed.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
 			}
 			else
 			{
@@ -595,7 +595,7 @@ public partial class Menu : MonoBehaviour
 				}
 				update.transform.GetChild(1).GetComponent<Text>().text = "Update Version " + text;
 				update.transform.GetChild(2).GetComponent<Text>().text = "Controls, settings and mobile play updates.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller presets, curves, deadzones, stick test.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller: common FPS layout, steady look speed.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
 			}
 			version = text;
 			FlatsPreferences.SetString("version", version);
@@ -1360,6 +1360,30 @@ public partial class Menu : MonoBehaviour
 		}
 	}
 
+	// Last main-menu tile that had focus, so controller focus comes back to it after a
+	// dialog, a pointer click or a return from another page.
+	private GameObject lastMainTile;
+
+	private void RememberMainTile()
+	{
+		var selected = EventSystem.current.currentSelectedGameObject;
+		if (selected == null || buttons == null) return;
+		foreach (Image tile in buttons)
+		{
+			if (tile != null && tile.transform.parent.gameObject == selected) { lastMainTile = selected; return; }
+		}
+	}
+
+	private GameObject MainTileToRestore()
+	{
+		if (lastMainTile != null && lastMainTile.activeInHierarchy)
+		{
+			var selectable = lastMainTile.GetComponent<Selectable>();
+			if (selectable != null && selectable.IsInteractable()) return lastMainTile;
+		}
+		return buttons[0].transform.parent.gameObject;
+	}
+
 	private void FramerateAlertIsChecked(bool result)
 	{
 		framerateAlertIsEnabled = false;
@@ -1375,6 +1399,7 @@ public partial class Menu : MonoBehaviour
 		{
 			return;
 		}
+		RememberMainTile();
 		if (current != "Playing" && (EventSystem.current.currentSelectedGameObject == null || !EventSystem.current.currentSelectedGameObject.activeInHierarchy))
 		{
 			if (Input.GetJoystickNames().Length > 0 && !PointerFocusPolicy.PointerActive)
@@ -1400,7 +1425,8 @@ public partial class Menu : MonoBehaviour
 				}
 				else if (current == "Main" || (current == "Map" && !voted))
 				{
-					EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);
+					// Return to the tile the player was on, not always the first one.
+					EventSystem.current.SetSelectedGameObject(MainTileToRestore());
 				}
 				else if (backButton.activeSelf)
 				{

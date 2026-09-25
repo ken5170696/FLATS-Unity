@@ -42173,9 +42173,9 @@ MonoBehaviour:
   m_ForceModuleActive: 0
   submitButton: 15
   cancelButton: 16
-  analogMoveThreshold: 0.9
-  moveRepeatFirstDuration: 0.8
-  moveRepeatDelayDuration: 0.1
+  analogMoveThreshold: 0.5
+  moveRepeatFirstDuration: 0.4
+  moveRepeatDelayDuration: 0.12
   forceModuleActive: 1
   allowMouseInput: 1
   focusOnMouseHover: 0
