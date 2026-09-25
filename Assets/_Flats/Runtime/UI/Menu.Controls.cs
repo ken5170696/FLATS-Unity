@@ -234,6 +234,11 @@ public partial class Menu
         restoreStandalone = standaloneModule.enabled;
         restoreInControl = inControlModule.enabled;
         standaloneModule.enabled = inControlModule.enabled = false;
+        // The EventSystem keeps processing its last module even when every module is
+        // disabled, and that module no longer updates its button state: the A press that
+        // opened capture kept submitting to this row every frame. Stop navigation and
+        // submit events until the capture's buttons are released.
+        EventSystem.current.sendNavigationEvents = false;
         captureButton.transform.Find("Label").GetComponent<Text>().text = FlatsLocalization.Translate("Press a button...");
         bindingStatus.text = "Release, then press a new binding. Esc / Start cancels.";
     }
@@ -255,6 +260,7 @@ public partial class Menu
                 releasePending = false;
                 standaloneModule.enabled = restoreStandalone;
                 inControlModule.enabled = restoreInControl;
+                EventSystem.current.sendNavigationEvents = true;
                 suppressControlFrame = Time.frameCount + 1;
             }
             return true;
