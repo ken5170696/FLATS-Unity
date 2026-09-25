@@ -18,12 +18,10 @@ public partial class Menu
     readonly List<Text> controllerLabels = new List<Text>();
     readonly List<Text> keyboardDetails = new List<Text>();
     readonly List<Text> controllerDetails = new List<Text>();
-    readonly GameObject[] bindingPages = new GameObject[4];
+    // Keyboard and controller bindings are two scrolling lists in SettingsScreen → Control → Bindings.
+    ScrollRect keyboardList, controllerList;
     Text controlCategoryLabel;
     int controlCategory;
-    Button bindingPrevious, bindingNext;
-    Text bindingPageLabel;
-    int bindingPage;
     Text bindingStatus;
     bool bindingPad;
     string captureAction;
@@ -48,16 +46,11 @@ public partial class Menu
         controlCategoryLabel = control.Find("ControlType").GetComponent<Text>();
         control.Find("PreviousControlType").GetComponent<Button>().onClick.AddListener(() => ChangeControlCategory(-1));
         control.Find("NextControlType").GetComponent<Button>().onClick.AddListener(() => ChangeControlCategory(1));
-        string[] pages = { "KeyboardPage1", "KeyboardPage2", "ControllerPage1", "ControllerPage2" };
-        for (int i = 0; i < pages.Length; i++) bindingPages[i] = bindingsPanel.transform.Find(pages[i]).gameObject;
-        for (int i = 0; i < FlatsControls.KeyboardActions.Length; i++) BindAuthoredRow(keyboardRows, keyboardLabels, keyboardDetails, i, i < 6 ? 0 : 1, i % 6);
-        for (int i = 0; i < FlatsControls.PadActions.Length; i++) BindAuthoredRow(controllerRows, controllerLabels, controllerDetails, i, i < 4 ? 2 : 3, i % 4);
+        keyboardList = bindingsPanel.transform.Find("KeyboardList").GetComponent<ScrollRect>();
+        controllerList = bindingsPanel.transform.Find("ControllerList").GetComponent<ScrollRect>();
+        for (int i = 0; i < FlatsControls.KeyboardActions.Length; i++) BindAuthoredRow(keyboardRows, keyboardLabels, keyboardDetails, i, keyboardList);
+        for (int i = 0; i < FlatsControls.PadActions.Length; i++) BindAuthoredRow(controllerRows, controllerLabels, controllerDetails, i, controllerList);
         bindingStatus = bindingsPanel.transform.Find("Status").GetComponent<Text>();
-        bindingPrevious = bindingsPanel.transform.Find("PreviousPage").GetComponent<Button>();
-        bindingPageLabel = bindingsPanel.transform.Find("Page").GetComponent<Text>();
-        bindingNext = bindingsPanel.transform.Find("NextPage").GetComponent<Button>();
-        bindingPrevious.onClick.AddListener(() => ChangeBindingPage(-1));
-        bindingNext.onClick.AddListener(() => ChangeBindingPage(1));
         bindingsPanel.transform.Find("ResetBindings").GetComponent<Button>().onClick.AddListener(() =>
         { FlatsControls.ResetBindings(bindingPad); RefreshBindings(); bindingStatus.text = "Default bindings restored."; });
         ShowBindings(!Application.isMobilePlatform, false);
@@ -107,9 +100,9 @@ public partial class Menu
         RefreshPersonalRows();
         return true;
     }
-    void BindAuthoredRow(List<Button> rows, List<Text> labels, List<Text> details, int actionIndex, int pageIndex, int slot)
+    void BindAuthoredRow(List<Button> rows, List<Text> labels, List<Text> details, int actionIndex, ScrollRect list)
     {
-        var row = bindingPages[pageIndex].transform.Find("Binding" + slot);
+        var row = list.content.Find("Binding" + actionIndex + "/Button");
         var button = row.GetComponent<Button>();
         rows.Add(button);
         labels.Add(row.Find("Action").GetComponent<Text>());
@@ -122,7 +115,6 @@ public partial class Menu
     {
         if (FlatsControls.Capturing) return;
         bindingPad = pad;
-        bindingPage = 0;
         bindingRows.Clear(); bindingLabels.Clear(); bindingDetails.Clear();
         bindingRows.AddRange(pad ? controllerRows : keyboardRows);
         bindingLabels.AddRange(pad ? controllerLabels : keyboardLabels);
@@ -164,16 +156,9 @@ public partial class Menu
             bindingDetails[i].text = bindingPad && action == "Jump" ? "Hold to sprint" : bindingPad && action == "Change" ? "Hold to pick up" :
                 !bindingPad && action == "Aim" ? (FlatsControls.HoldToAim ? "Hold to aim" : "Press to toggle") : "";
         }
-        for (int i = 0; i < bindingPages.Length; i++)
-            bindingPages[i].SetActive(i == (bindingPad ? 2 : 0) + bindingPage && bindingsPanel.activeSelf);
-        bindingPageLabel.text = (bindingPage + 1) + " / 2";
+        keyboardList.gameObject.SetActive(!bindingPad && bindingsPanel.activeSelf);
+        controllerList.gameObject.SetActive(bindingPad && bindingsPanel.activeSelf);
         bindingStatus.text = "Select a binding to change it.";
-    }
-    void ChangeBindingPage(int direction)
-    {
-        if (FlatsControls.Capturing || releasePending) return;
-        bindingPage = (bindingPage + direction + 2) % 2;
-        RefreshBindings();
     }
     void BeginBinding(int index)
     {

@@ -7,7 +7,7 @@ Open **FLATS → Project Overview** in Unity for scene and prefab shortcuts. Use
 | Intent | Authoring surface | Behavior |
 | --- | --- | --- |
 | Sound slider appearance | SettingsScreen prefab → Sound | Menu.Volume binds values and saves settings |
-| Keyboard/controller binding layout | SettingsScreen prefab → Control | Menu.Controls handles capture and conflicts |
+| Keyboard/controller binding layout | SettingsScreen prefab → Control → Bindings → KeyboardList / ControllerList | One scrolling list per device; Menu.Controls binds `Content/Binding<n>/Button` by action index and handles capture and conflicts |
 | Module page fixed controls and dialogs | ModulesScreen prefab | ModuleManagementPage binds its serialized view references to services |
 | Shared HUD and cameras | GameInterface and GameplayHUD prefabs | Menu composes game state; player presenters update HUD state |
 | Touch controls and notch clearance | GameplayHUD prefab (Fire, Reload, Jump, Zoom, Interact, OpenMenu) and its SafeAreaInsets list | EasyTouch buttons are read by axis name; FPSController shows Interact only when something can be picked up |
@@ -26,6 +26,8 @@ Weapon balance currently has a code authoring entry, not an Inspector definition
 `SafeAreaInsets` moves each listed edge-anchored element by the screen's safe-area inset (notches and rounded corners) plus its `margin`. The authored or code-set position stays the base, so handedness and saved touch layouts still work. Add a new edge control to the list when it should stay clear of a notch. Centre-anchored elements are not moved. Check touch layouts in the Device Simulator with a notched landscape device, in both handedness settings.
 
 The contextual `GameplayHUD` → `Interact` button uses the EasyTouch axis `Interact`. Its label reads Swap, Pick up or Drop, depending on the target. Keep it a direct child of the HUD canvas, because EasyTouch anchors controls to their parent canvas. Existing HUD children are also addressed by sibling index, so add new HUD children after them.
+
+Settings content that does not fit the shared 340-unit page panel scrolls rather than paging or growing the panel. Examples are the binding lists and `ExtraSettings/ExtraScroll`. The pattern is a ScrollRect with a RectMask2D viewport, a top-pivoted `Content`, a thin auto-hiding scrollbar and `ScrollToSelection`. `ScrollToSelection` opens the list at the top and scrolls keyboard or controller selection into view. Menu controls draw with theme materials whose shader cannot be clipped. Inside a list, give each such Image a `ClippedThemeGraphic`: it draws the same theme colour, including the animated selected state, with the default UI material. Rows are found by name at any depth (`Menu.SettingValue`, `Menu.SettingsRow`).
 
 Kill Cinematic (SettingsScreen → ExtraSettings → `KillCinematic`, preference `ui.v1.killCinematic`) controls the headshot and mortal-shot slow-motion camera. When it is OFF, `Supershot.PlayKill` plays only the authored text animation on the `EffectCamera` prefab canvas. Time scale, cameras, input and the pause menu are untouched. VIP and team-kill cinematics always play, because they end the round.
 

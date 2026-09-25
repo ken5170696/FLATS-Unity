@@ -17,7 +17,13 @@ public partial class Menu
 {
     // The value text of a Settings row. Pages keep their order; rows are found by the
     // names PlusMinus already relies on, so authored rows can be added to a page.
-    Text SettingValue(int page, string row) => settingsScreen.GetChild(page).Find(row).GetChild(1).GetComponent<Text>();
+    // Rows may sit inside a page's scrolling content, so look them up by name at any depth.
+    Text SettingValue(int page, string row)
+    {
+        foreach (var child in settingsScreen.GetChild(page).GetComponentsInChildren<Transform>(true))
+            if (child.name == row && child.Find("Plus") != null) return child.GetChild(1).GetComponent<Text>();
+        throw new System.ArgumentException("Missing settings row " + row);
+    }
 
 		public void NameInput(string newName)
 		{
