@@ -838,6 +838,7 @@ public partial class Menu : MonoBehaviour
 			ui.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
 			ui.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
 			ui.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
+			SetInteractAnchor(ui, ETCBase.RectAnchor.CenterRight);
 			ui.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(ui.GetChild(5).rectTransform().anchoredPosition3D.x), ui.GetChild(5).rectTransform().anchoredPosition3D.y, ui.GetChild(5).rectTransform().anchoredPosition3D.z);
 			ui.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(ui.GetChild(6).rectTransform().anchoredPosition3D.x), ui.GetChild(6).rectTransform().anchoredPosition3D.y, ui.GetChild(6).rectTransform().anchoredPosition3D.z);
 		}
@@ -848,6 +849,7 @@ public partial class Menu : MonoBehaviour
 			ui.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
 			ui.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
 			ui.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
+			SetInteractAnchor(ui, ETCBase.RectAnchor.CenterLeft);
 			ui.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(ui.GetChild(5).rectTransform().anchoredPosition3D.x), ui.GetChild(5).rectTransform().anchoredPosition3D.y, ui.GetChild(5).rectTransform().anchoredPosition3D.z);
 			ui.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(ui.GetChild(6).rectTransform().anchoredPosition3D.x), ui.GetChild(6).rectTransform().anchoredPosition3D.y, ui.GetChild(6).rectTransform().anchoredPosition3D.z);
 		}

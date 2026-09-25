@@ -82,6 +82,11 @@ public partial class FPSController : MonoBehaviour
 
 	private Transform ui;
 
+	// Contextual touch button (GameplayHUD/Interact); shown only when something can be picked up.
+	private ETCButton interactButton;
+
+	private Text interactLabel;
+
 	private Flats.UI.ICrosshairVisibility reticle;
 	private bool preferGamepad = true;
 
@@ -235,6 +240,19 @@ public partial class FPSController : MonoBehaviour
 		ikc = GetComponent<IKController>();
 		ptv = GetComponent<PhotonTransformView>();
 		ui = GameObject.Find("UICamera").transform;
+		if (MyView(base.gameObject))
+		{
+			var interact = ui.GetChild(1).Find("Interact");
+			interactButton = interact != null ? interact.GetComponent<ETCButton>() : null;
+			interactLabel = interact != null ? interact.GetComponentInChildren<Text>(true) : null;
+			ShowInteractButton(false, true);
+			// The press event is used rather than polling: EasyTouch may advance Down to
+			// Press before this controller's Update reads it.
+			if (interactButton != null)
+			{
+				interactButton.onDown.AddListener(OnInteractPressed);
+			}
+		}
         // Reuse the existing scene UI binding, without another global service lookup.
         var menu = ui.GetComponentInChildren<Menu>(true);
         if (menu != null) menu.BindGameplay(this);
@@ -398,6 +416,7 @@ public partial class FPSController : MonoBehaviour
 
 	private void OnDisable()
 	{
+		ShowInteractButton(false);
 		EasyTouch.On_SimpleTap -= On_SimpleTap;
 		EasyTouch.On_Swipe -= On_Swipe;
 		EasyTouch.On_LongTapStart -= On_LongTapStart;
@@ -427,6 +446,10 @@ public partial class FPSController : MonoBehaviour
 
 	private void OnDestroy()
 	{
+		if (interactButton != null)
+		{
+			interactButton.onDown.RemoveListener(OnInteractPressed);
+		}
 		EasyTouch.On_SimpleTap -= On_SimpleTap;
 		EasyTouch.On_Swipe -= On_Swipe;
 		EasyTouch.On_LongTapStart -= On_LongTapStart;
@@ -435,12 +458,113 @@ public partial class FPSController : MonoBehaviour
 
 	private void ApplyLook(Flats.Core.LookInput input, float x, float y)
 	{
-		var look = Flats.Core.LookRotationPolicy.Evaluate(input, x, y, sensitivity, invertY,
+		var look = Flats.Core.LookRotationPolicy.Evaluate(input, x, y, isZoom ? FlatsControls.AimSensitivity(sensitivity) : sensitivity, invertY,
 			isZoom, isZoom ? currentGun.zoom : 1f, headTracking, VRController.device == "cardboard",
 			headRotation.x, headRotation.y, SessionPlaying, testMode,
 			mct.localEulerAngles.x, mct.localEulerAngles.y);
 		mt.eulerAngles += new Vector3(0f, look.BodyYaw, 0f);
 		mct.localEulerAngles = new Vector3(look.CameraPitch, look.CameraYaw, 0f);
+	}
+
+	private bool CanInteract
+	{
+		get
+		{
+			if (grabbedObject != null && (enableFire || grabbing))
+			{
+				return true;
+			}
+			return droppedGun != null && enableFire && droppedGun.GetComponent<DroppedGun>().ready;
+		}
+	}
+
+	private void OnInteractPressed()
+	{
+		if (enabled && enableControl && touchControl && !overrideInputDevice && GameplayActive && CanInteract)
+		{
+			TryInteract();
+		}
+	}
+
+	private void ShowInteractButton(bool show, bool force = false)
+	{
+		if (interactButton == null || (!force && interactButton.visible == show))
+		{
+			return;
+		}
+		interactButton.visible = show;
+		interactButton.activated = show;
+		for (int i = 0; i < interactButton.transform.childCount; i++)
+		{
+			interactButton.transform.GetChild(i).gameObject.SetActive(show);
+		}
+	}
+
+	// Grab or drop an object, or exchange the weapon on the floor. Shared by the
+	// desktop Interact binding and the contextual touch Interact button.
+	private void TryInteract()
+	{
+		if (grabbedObject != null && enableFire)
+		{
+			if (SessionNetworkMode == 0)
+			{
+				int[] array5 = new int[2];
+				int[] receivedData4 = array5;
+				Grab(receivedData4);
+			}
+			else if (SessionNetworkMode != 1)
+			{
+				int[] array6 = new int[2]
+				{
+					0,
+					grabbedObject.gameObject.GetPhotonView().viewID
+				};
+				base.gameObject.GetPhotonView().RPC("Grab", PhotonTargets.AllBuffered, array6);
+			}
+		}
+		else if (grabbing && grabbedObject != null)
+		{
+			if (SessionNetworkMode == 0)
+			{
+				int[] receivedData5 = new int[2] { 1, 0 };
+				Grab(receivedData5);
+			}
+			else if (SessionNetworkMode != 1)
+			{
+				int[] array7 = new int[2]
+				{
+					1,
+					grabbedObject.gameObject.GetPhotonView().viewID
+				};
+				base.gameObject.GetPhotonView().RPC("Grab", PhotonTargets.AllBuffered, array7);
+			}
+		}
+		else if (droppedGun != null && enableFire)
+		{
+			DroppedGun component2 = droppedGun.GetComponent<DroppedGun>();
+			if (component2.ready)
+			{
+				if (SessionNetworkMode == 0)
+				{
+					int[] receivedData6 = new int[5] { component2.weaponIndex, component2.currentAmmo, component2.maxAmmo, component2.sight, 0 };
+					StartCoroutine(ExchangeWeapons(receivedData6));
+					UnityEngine.Object.Destroy(droppedGun.gameObject);
+				}
+				else if (SessionNetworkMode != 1 && base.gameObject.GetPhotonView().isMine)
+				{
+					int[] array8 = new int[5]
+					{
+						component2.weaponIndex,
+						component2.currentAmmo,
+						component2.maxAmmo,
+						component2.sight,
+						droppedGun.gameObject.GetPhotonView().viewID
+					};
+					base.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.All, array8);
+				}
+				droppedGun = null;
+			}
+		}
 	}
 
 	private void Update()
@@ -522,6 +646,16 @@ public partial class FPSController : MonoBehaviour
 			}
 			float num;
 			float num2;
+			bool canInteract = touchControl && !overrideInputDevice && GameplayActive && CanInteract;
+			ShowInteractButton(canInteract);
+			if (canInteract && interactLabel != null)
+			{
+				string label = grabbing ? "Drop" : (grabbedObject != null ? "Pick up" : "Swap");
+				if (interactLabel.text != label)
+				{
+					interactLabel.text = label;
+				}
+			}
             if (!GameplayActive)
             {
                 num = num2 = 0f;
@@ -940,67 +1074,7 @@ public partial class FPSController : MonoBehaviour
 					}
 					if (input.Interact)
 					{
-						if (grabbedObject != null && enableFire)
-						{
-							if (SessionNetworkMode == 0)
-							{
-								int[] array5 = new int[2];
-								int[] receivedData4 = array5;
-								Grab(receivedData4);
-							}
-							else if (SessionNetworkMode != 1)
-							{
-								int[] array6 = new int[2]
-								{
-									0,
-									grabbedObject.gameObject.GetPhotonView().viewID
-								};
-								base.gameObject.GetPhotonView().RPC("Grab", PhotonTargets.AllBuffered, array6);
-							}
-						}
-						else if (grabbing && grabbedObject != null)
-						{
-							if (SessionNetworkMode == 0)
-							{
-								int[] receivedData5 = new int[2] { 1, 0 };
-								Grab(receivedData5);
-							}
-							else if (SessionNetworkMode != 1)
-							{
-								int[] array7 = new int[2]
-								{
-									1,
-									grabbedObject.gameObject.GetPhotonView().viewID
-								};
-								base.gameObject.GetPhotonView().RPC("Grab", PhotonTargets.AllBuffered, array7);
-							}
-						}
-						else if (droppedGun != null && enableFire)
-						{
-							DroppedGun component2 = droppedGun.GetComponent<DroppedGun>();
-							if (component2.ready)
-							{
-								if (SessionNetworkMode == 0)
-								{
-									int[] receivedData6 = new int[5] { component2.weaponIndex, component2.currentAmmo, component2.maxAmmo, component2.sight, 0 };
-									StartCoroutine(ExchangeWeapons(receivedData6));
-									UnityEngine.Object.Destroy(droppedGun.gameObject);
-								}
-								else if (SessionNetworkMode != 1 && base.gameObject.GetPhotonView().isMine)
-								{
-									int[] array8 = new int[5]
-									{
-										component2.weaponIndex,
-										component2.currentAmmo,
-										component2.maxAmmo,
-										component2.sight,
-										droppedGun.gameObject.GetPhotonView().viewID
-									};
-									base.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.All, array8);
-								}
-								droppedGun = null;
-							}
-						}
+						TryInteract();
 					}
 					if (FlatsControls.HoldToAim)
 					{

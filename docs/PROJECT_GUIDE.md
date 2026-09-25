@@ -10,6 +10,9 @@ Open **FLATS → Project Overview** in Unity for scene and prefab shortcuts. Use
 | Keyboard/controller binding layout | SettingsScreen prefab → Control | Menu.Controls handles capture and conflicts |
 | Module page fixed controls and dialogs | ModulesScreen prefab | ModuleManagementPage binds its serialized view references to services |
 | Shared HUD and cameras | GameInterface and GameplayHUD prefabs | Menu composes game state; player presenters update HUD state |
+| Touch controls and notch clearance | GameplayHUD prefab (Fire, Reload, Jump, Zoom, Interact, OpenMenu) and its SafeAreaInsets list | EasyTouch buttons are read by axis name; FPSController shows Interact only when something can be picked up |
+| Spectator overlay | WatchCamera prefab → Canvas | WatchCamera switches players and its OpenMenu button opens pause and Settings |
+| General control rows (sensitivity, aim sensitivity, handedness) | SettingsScreen prefab → Control | Menu.Options and Menu.Controls update settings by row name |
 | Shared weapon balance | Runtime/Core/WeaponCatalog.cs | Immutable defaults feed GunInfo at startup; Gun holds per-instance ammunition and copied stats |
 | Map geometry, lights, spawn points | Individual map scene | Map and gameplay components |
 | Runtime rendering | URP assets and camera prefabs | See RENDERING.md before altering stacks or effects |
@@ -19,6 +22,12 @@ Open **FLATS → Project Overview** in Unity for scene and prefab shortcuts. Use
 The fixed module view is stored in `ModulesScreen.prefab`. Dynamic items instantiate `ModuleListRow`, `ModuleDownloadRow`, `ModuleCatalogueCard`, `ModuleProfileCard`, `ModuleFilterButton`, `ModuleLoadingCard` and `ModuleEmptyState` templates. Edit those templates for item typography and spacing. The page component owns the exposed responsive margins and split breakpoint; LayoutGroups own their child spacing. Consult those owners before changing a driven child RectTransform.
 
 Weapon balance currently has a code authoring entry, not an Inspector definition asset. For example, change the `reloadTime` argument of the intended `WeaponDefinition` in `WeaponCatalog`, then enter Training through MainMenu, fire and reload that weapon. `Gun.Start` copies defaults through `GunInfo`; changing the corresponding prefab's `Gun.reloadTime` is overwritten at startup. Runtime `currentAmmo` is an instance value, while the catalog's stable index is also a save/network contract. Do not reorder definitions to rearrange the menu.
+
+`SafeAreaInsets` moves each listed edge-anchored element by the screen's safe-area inset (notches and rounded corners) plus its `margin`. The authored or code-set position stays the base, so handedness and saved touch layouts still work. Add a new edge control to the list when it should stay clear of a notch. Centre-anchored elements are not moved. Check touch layouts in the Device Simulator with a notched landscape device, in both handedness settings.
+
+The contextual `GameplayHUD` → `Interact` button uses the EasyTouch axis `Interact`. Its label reads Swap, Pick up or Drop, depending on the target. Keep it a direct child of the HUD canvas, because EasyTouch anchors controls to their parent canvas. Existing HUD children are also addressed by sibling index, so add new HUD children after them.
+
+Aim sensitivity is a separate personal preference (`controls.v1.aimSensitivity`). "Match camera" keeps the camera sensitivity. The other values replace it while aimed, and weapon zoom still divides the result. It is included in save export and import.
 
 For aiming, `FPSController` keeps the world/projectile camera on the player camera rig and moves only Gun Camera toward the weapon's authored sight anchor. `FlatsSightTarget` aligns the lens camera to the same world aim while retaining the lens image roll and authored magnification. Script import execution order is intentional: IKController (0) poses the chest and camera rig, FPSController (50) positions the weapon camera, FlatsSightTarget (75) positions the lens, and Bullet (100) records the visible tracer. Preserve this order when editing Script Execution Order. Check a fixed target before/after aiming, firing, reloading, switching weapons and returning to MainMenu, including looking up and down. Do not reparent the world camera under a weapon or compensate a ray mismatch by moving the HUD crosshair.
 

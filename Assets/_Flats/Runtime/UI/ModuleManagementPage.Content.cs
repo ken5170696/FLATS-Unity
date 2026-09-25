@@ -233,7 +233,7 @@ public sealed partial class ModuleManagementPage
         string text=state+(Service.NeedsRestart(selectedId)?" — Restart FLATS to apply":"")+"\n"+PlayerProblem(m)+"\n"+(record?.Reason ?? "")+"\n"+(string.IsNullOrWhiteSpace(m.description)?"No description provided.":m.description)+"\n\nAbout this mod\n"+m.author+" / v"+m.version+" / "+m.category+
             "\nInstalled version: "+(p?.manifest.version ?? "none")+" / Running version: "+(record?.Active==true?running?.manifest.version:"none")+"\n\nTechnical details\nGame >="+m.gameMinimum+" <"+m.gameMaximum+"\nMod API >="+m.apiMinimum+" <"+m.apiMaximum+"\n"+m.scope+
             "\n\nDependencies\n"+(deps.Length>0?deps:"None")+"\n\nChanges\n"+(string.IsNullOrEmpty(m.changelog)?"No changelog provided.":m.changelog)+
-            "\n\nSource: "+(p?.source ?? Service.SourceUrl)+"\n"+(m.kind=="managed"?"Managed code runs with FLATS privileges. Restart to apply changes.":"Data module. Restart to apply changes.");
+            "\n\nSource: "+(p?.source ?? Service.SourceUrl)+"\n"+(m.kind=="managed"?"Managed code runs with FLATS privileges. Restart to apply changes.":ModRules.IsCrosshairProvider(m)&&m.scope=="ClientOnly"?"Crosshair module. Enabling and disabling apply immediately.":"Data module. Restart to apply changes.");
         SetDescription(text);
         bool downloading=Service.Downloads?.IsBusy(selectedId)==true;
         var item=known.TryGetValue(selectedId,out var found)?found:null;
@@ -313,10 +313,12 @@ public sealed partial class ModuleManagementPage
             notice.text="Checking dependency versions...";
             var plan=await Service.Plan(manifest,item,CancellationToken.None);
             if(this==null||!isActiveAndEnabled)return;
+            // Installed crosshairs only change this client's HUD; the service starts them immediately.
+            bool live=enablePlan && plan.Downloads.Length==0 && plan.Modules.All(m=>ModRules.IsCrosshairProvider(m) && m.scope=="ClientOnly");
             var changes=string.Join("\n",plan.Modules.Select(m=>m.id+"  "+m.version+(plan.Downloads.Any(d=>d.manifest.id==m.id)?" - download":" - installed")));
             Ask((enablePlan?"Enable ":"Install ")+PlayerName(manifest.name)+" and requirements?\n"+ScopeLabel(manifest)+
                 (manifest.scope=="ClientOnly"?"":"\nEveryone in the room needs the same version.")+"\n"+changes+"\nTotal download: "+(plan.Bytes/1024f).ToString("0.0")+" KB\nConflicts: none in this plan.\n"+
-                (plan.Downloads.Length>0?"Packages install together. New mods stay disabled; review Enable after downloading.":"The complete dependency set will be enabled in this profile.")+"\nRestart FLATS to apply.",()=>Run(()=>Service.ApplyPlan(plan,state,enablePlan)));
+                (plan.Downloads.Length>0?"Packages install together. New mods stay disabled; review Enable after downloading.":"The complete dependency set will be enabled in this profile.")+(live?"\nApplies immediately.":"\nRestart FLATS to apply."),()=>Run(()=>Service.ApplyPlan(plan,state,enablePlan)));
         },false);
     }
 

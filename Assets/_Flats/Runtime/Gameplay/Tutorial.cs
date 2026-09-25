@@ -539,7 +539,7 @@ public class Tutorial : MonoBehaviour
 				}
 				else
 				{
-					tutorialText.text = "Pick the sniper rifle on the floor.\nLong tap to pick up.";
+					tutorialText.text = "Pick the sniper rifle on the floor.\nTap Swap to pick it up.";
 				}
 				anim.Play("TextFadeIn");
 				DroppedGun[] enemyguns = UnityEngine.Object.FindObjectsOfType<DroppedGun>();

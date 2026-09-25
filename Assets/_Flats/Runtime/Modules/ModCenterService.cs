@@ -86,7 +86,7 @@ namespace Flats.Modules
                 owner.InitializeProfiles(root,Installed);ApplyProfileIntent(Installed);
                 Downloads=new DownloadQueue(Store,Source,runInline:platform.RunInline);Running=Installed;
                 activationStarted=true;
-                owner.AttachExternal(Running.Select(p=>p.manifest.id==CrosshairModule.Id && ModRules.IsCrosshairProvider(p.manifest) ? (IFirstPartyModule)owner.Crosshair.Bind(p.manifest) : new ExternalModule(p,Store.ContentPath(p))).ToArray(),Running.Where(p=>p.requested).Select(p=>p.manifest.id).ToArray());
+                owner.AttachExternal(Running.Select(CreateModule).ToArray(),Running.Where(p=>p.requested).Select(p=>p.manifest.id).ToArray());
                 Notice=string.Join("\n",Store.Notices.Distinct());
                 Ready=true;
                 if(Source==null)Notice+="\nOfficial mod service is unavailable in this build. Installed mods remain available.";
@@ -185,7 +185,8 @@ namespace Flats.Modules
             if(enable)
             {
                 if(plan.Enable.Any(id=>Downloads.IsBusy(id)))throw new InvalidOperationException("Wait for downloads before enabling this plan");
-                owner.SaveEnablePlan(plan.Enable);await RefreshInstalled();Notice="Enabled the complete dependency set in this profile. Restart FLATS to apply.";
+                owner.SaveEnablePlan(plan.Enable);await RefreshInstalled();
+                Notice=ApplyLiveCrosshair() && !Installed.Any(NeedsRestart)?"Enabled and applied.":"Enabled the complete dependency set in this profile. Restart FLATS to apply.";
             }
             else Notice="All planned versions are already installed.";
         }
@@ -200,7 +201,8 @@ namespace Flats.Modules
                 var problem=Problem(manifest);
                 if(problem.Length>0)throw new InvalidOperationException(problem);
             }
-            owner.SaveExternalIntent(id,requested,Installed.Single(p=>p.manifest.id==id).manifest.version);await RefreshInstalled();Notice="Saved. Restart FLATS to apply external module changes.";
+            owner.SaveExternalIntent(id,requested,Installed.Single(p=>p.manifest.id==id).manifest.version);await RefreshInstalled();
+            Notice=ApplyLiveCrosshair() && !NeedsRestart(id)?(requested?"Enabled and applied.":"Disabled and applied."):"Saved. Restart FLATS to apply external module changes.";
         }
         public async Task Remove(string id)
         {
@@ -249,10 +251,42 @@ namespace Flats.Modules
             }
             finally{artworkSlots.Release();}
         }
+        bool NeedsRestart(InstalledPackage p) { return NeedsRestart(p.manifest.id); }
         public bool NeedsRestart(string id)
         {
             var installed=Installed.FirstOrDefault(p=>p.manifest.id==id);var running=Running.FirstOrDefault(p=>p.manifest.id==id);
             return installed?.sha256!=running?.sha256 || (installed?.requested ?? false)!=(running?.requested ?? false);
+        }
+        // A crosshair only draws this client's HUD, so starting or stopping the same
+        // running package needs no restart. Other modules keep the restart gate.
+        IFirstPartyModule CreateModule(InstalledPackage p)
+        {
+            return p.manifest.id==CrosshairModule.Id && ModRules.IsCrosshairProvider(p.manifest) ? (IFirstPartyModule)owner.Crosshair.Bind(p.manifest) : new ExternalModule(p,Store.ContentPath(p));
+        }
+        bool ApplyLiveCrosshair()
+        {
+            var manager=owner.Manager;if(manager==null || owner.Profiles==null || owner.Profiles.RestartRequired)return false;
+            // A crosshair installed after startup joins the running set, inactive, so it can start now.
+            foreach(var p in Installed.Where(p=>p.requested && p.manifest.scope=="ClientOnly" && ModRules.IsCrosshairProvider(p.manifest) && !Running.Any(r=>r.manifest.id==p.manifest.id)))
+            {
+                try { manager.Register(CreateModule(p)); } catch(Exception) { continue; }
+                Running=Running.Concat(new[]{new InstalledPackage{schema=p.schema,manifest=p.manifest,directory=p.directory,sha256=p.sha256,source=p.source,imageUrl=p.imageUrl,requested=false}}).ToArray();
+            }
+            var active=manager.Installed.Where(r=>r.Active).Select(r=>r.Manifest.Id).ToList();var previous=active.ToArray();
+            var changed=new System.Collections.Generic.List<InstalledPackage>();
+            foreach(var running in Running)
+            {
+                var installed=Installed.FirstOrDefault(p=>p.manifest.id==running.manifest.id);
+                if(installed==null || installed.sha256!=running.sha256 || installed.requested==running.requested || !ModRules.IsCrosshairProvider(installed.manifest))continue;
+                var record=manager.Installed.FirstOrDefault(r=>r.Manifest.Id==running.manifest.id);
+                if(record==null || record.Manifest.Scope!=ModuleScope.ClientOnly)continue;
+                active.Remove(running.manifest.id);if(installed.requested)active.Add(running.manifest.id);
+                changed.Add(running);
+            }
+            if(changed.Count==0)return false;
+            if(!manager.Apply(active)){manager.Apply(previous);return false;}
+            foreach(var running in changed)running.requested=!running.requested;
+            return true;
         }
         public void Dispose()
         {

@@ -88,6 +88,13 @@ namespace Flats.Modules
             records = modules.Select(m => new ModuleRecord(m)).ToList(); Installed = records.AsReadOnly();
             Validate();
         }
+        // Adds a module installed after startup. It starts inactive; Apply decides activation.
+        public void Register(IFirstPartyModule module)
+        {
+            if (module == null) throw new ArgumentNullException(nameof(module));
+            if (records.Any(r => r.Manifest.Id == module.Manifest.Id)) throw new InvalidOperationException("Duplicate ID: " + module.Manifest.Id);
+            records.Add(new ModuleRecord(module)); Validate();
+        }
         string Inspect(ModuleRecord r, HashSet<ModuleRecord> visiting)
         {
             var m = r.Manifest;

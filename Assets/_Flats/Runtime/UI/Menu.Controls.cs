@@ -82,8 +82,16 @@ public partial class Menu
         }
         var aim = SettingsRow("AimMode");
         if (aim != null) aim.GetChild(1).GetComponent<Text>().text = FlatsControls.HoldToAim ? "Hold" : "Toggle";
+        var aimSensitivity = SettingsRow("AimSensitivity");
+        if (aimSensitivity != null) aimSensitivity.GetChild(1).GetComponent<Text>().text = FlatsControls.AimSensitivityNames[FlatsControls.AimSensitivityIndex];
     }
-    bool ChangePersonalRow(Transform row)
+    // The contextual touch Interact button follows the action buttons to the same side.
+    static void SetInteractAnchor(Transform hud, ETCBase.RectAnchor anchor)
+    {
+        var interact = hud.Find("Interact");
+        if (interact != null) interact.GetComponent<ETCButton>().anchor = anchor;
+    }
+    bool ChangePersonalRow(Transform row, int direction)
     {
         if (row.name == "Language")
         {
@@ -91,6 +99,7 @@ public partial class Menu
             RefreshLanguageButton();
         }
         else if (row.name == "AimMode") FlatsControls.HoldToAim = !FlatsControls.HoldToAim;
+        else if (row.name == "AimSensitivity") FlatsControls.AimSensitivityIndex += direction;
         else return false;
         RefreshPersonalRows();
         return true;

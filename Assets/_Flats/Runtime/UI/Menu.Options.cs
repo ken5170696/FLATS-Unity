@@ -44,7 +44,7 @@ public partial class Menu
 			Transform parent = EventSystem.current.currentSelectedGameObject.transform.parent;
 			int num = ((EventSystem.current.currentSelectedGameObject.name == "Plus") ? 1 : (-1));
 			if (parent.name.StartsWith("Desktop")) { GetComponent<FlatsDesktopSettings>().Change(parent,num); return; }
-			if (ChangePersonalRow(parent)) return;
+			if (ChangePersonalRow(parent, num)) return;
 			if (parent.name == "Rule")
 			{
 				rule += num;
@@ -358,6 +358,7 @@ public partial class Menu
 					child.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
 					child.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
 					child.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
+					SetInteractAnchor(child, ETCBase.RectAnchor.CenterRight);
 					child.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(child.GetChild(5).rectTransform().anchoredPosition3D.x), child.GetChild(5).rectTransform().anchoredPosition3D.y, child.GetChild(5).rectTransform().anchoredPosition3D.z);
 					child.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(child.GetChild(6).rectTransform().anchoredPosition3D.x), child.GetChild(6).rectTransform().anchoredPosition3D.y, child.GetChild(6).rectTransform().anchoredPosition3D.z);
 				}
@@ -368,6 +369,7 @@ public partial class Menu
 					child.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
 					child.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
 					child.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
+					SetInteractAnchor(child, ETCBase.RectAnchor.CenterLeft);
 					child.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(child.GetChild(5).rectTransform().anchoredPosition3D.x), child.GetChild(5).rectTransform().anchoredPosition3D.y, child.GetChild(5).rectTransform().anchoredPosition3D.z);
 					child.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(child.GetChild(6).rectTransform().anchoredPosition3D.x), child.GetChild(6).rectTransform().anchoredPosition3D.y, child.GetChild(6).rectTransform().anchoredPosition3D.z);
 				}

@@ -20,6 +20,34 @@ public static class FlatsControls
         get => FlatsPreferences.GetString(AimModeKey) == "hold";
         set { FlatsPreferences.SetString(AimModeKey, value ? "hold" : "toggle"); FlatsPreferences.Save(); Changed?.Invoke(); }
     }
+    public const string AimSensitivityKey = "controls.v1.aimSensitivity";
+    // Look sensitivity while aimed, on the camera sensitivity scale (Low 1, Normal 2, High 3).
+    // Index 0 follows the camera sensitivity, the original behaviour. Weapon zoom still slows it.
+    public static readonly float[] AimSensitivities = { 0f, 0.5f, 1f, 1.5f, 2f, 2.5f, 3f, 4f };
+    public static readonly string[] AimSensitivityNames = { "Match camera", "Very Low", "Low", "Low+", "Normal", "Normal+", "High", "Very High" };
+    static int aimSensitivityIndex = -1;
+    public static int AimSensitivityIndex
+    {
+        get
+        {
+            if (aimSensitivityIndex < 0)
+                aimSensitivityIndex = int.TryParse(FlatsPreferences.GetString(AimSensitivityKey), out int saved) && saved >= 0 && saved < AimSensitivities.Length ? saved : 0;
+            return aimSensitivityIndex;
+        }
+        set
+        {
+            aimSensitivityIndex = (value % AimSensitivities.Length + AimSensitivities.Length) % AimSensitivities.Length;
+            FlatsPreferences.SetString(AimSensitivityKey, aimSensitivityIndex.ToString());
+            FlatsPreferences.Save(); Changed?.Invoke();
+        }
+    }
+    // An imported save replaces preferences; read the stored value again on next use.
+    public static void ReloadAimSensitivity() { aimSensitivityIndex = -1; }
+    public static float AimSensitivity(float cameraSensitivity)
+    {
+        float aimed = AimSensitivities[AimSensitivityIndex];
+        return aimed > 0f ? aimed : cameraSensitivity;
+    }
     public static KeyCode Keyboard(string action)
     {
         int index = Array.IndexOf(KeyboardActions, action);
