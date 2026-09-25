@@ -808,6 +808,7 @@ public partial class FPSController : MonoBehaviour
 			else
 			{
 				InputDevice activeDevice = InputManager.ActiveDevice;
+				FlatsGamepad.EnsureApplied(activeDevice);
 				bool padUsed = activeDevice.AnyButtonIsPressed || Mathf.Abs(activeDevice.LeftStickX)>0.1f || Mathf.Abs(activeDevice.LeftStickY)>0.1f || Mathf.Abs(activeDevice.RightStickX)>0.1f || Mathf.Abs(activeDevice.RightStickY)>0.1f || activeDevice.LeftTrigger>0.1f || activeDevice.RightTrigger>0.1f;
 				if (padUsed) preferGamepad = true;
 				else if (Input.anyKey || Mathf.Abs(Input.GetAxisRaw("mouse x"))>0.01f || Mathf.Abs(Input.GetAxisRaw("mouse y"))>0.01f) preferGamepad = false;
@@ -818,7 +819,8 @@ public partial class FPSController : MonoBehaviour
 					num2 = activeDevice.LeftStickX;
 					if (enableCamRotate)
 					{
-						ApplyLook(Flats.Core.LookInput.Gamepad, activeDevice.RightStickX, activeDevice.RightStickY);
+						var look = FlatsGamepad.Look(new Vector2(activeDevice.RightStickX, activeDevice.RightStickY));
+						ApplyLook(Flats.Core.LookInput.Gamepad, look.x, look.y);
 					}
 					if (SessionPlaying)
 					{

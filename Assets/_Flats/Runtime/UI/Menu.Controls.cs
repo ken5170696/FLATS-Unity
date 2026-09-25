@@ -52,7 +52,12 @@ public partial class Menu
         for (int i = 0; i < FlatsControls.PadActions.Length; i++) BindAuthoredRow(controllerRows, controllerLabels, controllerDetails, i, controllerList);
         bindingStatus = bindingsPanel.transform.Find("Status").GetComponent<Text>();
         bindingsPanel.transform.Find("ResetBindings").GetComponent<Button>().onClick.AddListener(() =>
-        { FlatsControls.ResetBindings(bindingPad); RefreshBindings(); bindingStatus.text = "Default bindings restored."; });
+        {
+            FlatsControls.ResetBindings(bindingPad);
+            if (bindingPad) FlatsGamepad.Reset();
+            RefreshBindings(); RefreshPersonalRows();
+            bindingStatus.text = bindingPad ? "Default controller settings restored." : "Default bindings restored.";
+        });
         ShowBindings(!Application.isMobilePlatform, false);
         RefreshPersonalRows();
         // Language can also change outside this page, for example by importing a save.
@@ -81,6 +86,18 @@ public partial class Menu
         if (aimSensitivity != null) aimSensitivity.GetChild(1).GetComponent<Text>().text = FlatsControls.AimSensitivityNames[FlatsControls.AimSensitivityIndex];
         var killCinematic = SettingsRow("KillCinematic");
         if (killCinematic != null) killCinematic.GetChild(1).GetComponent<Text>().text = FlatsControls.KillCinematic ? "ON" : "OFF";
+        SetRowValue("PadPreset", FlatsGamepad.CurrentPreset() < 0 ? "Custom" : FlatsGamepad.PresetNames[FlatsGamepad.CurrentPreset()]);
+        SetRowValue("PadLookH", FlatsGamepad.SpeedLabel(FlatsGamepad.LookHIndex));
+        SetRowValue("PadLookV", FlatsGamepad.SpeedLabel(FlatsGamepad.LookVIndex));
+        SetRowValue("PadCurve", FlatsGamepad.Curves[FlatsGamepad.CurveIndex]);
+        SetRowValue("PadLookDeadzone", FlatsGamepad.DeadzoneLabel(FlatsGamepad.LookDeadzoneIndex));
+        SetRowValue("PadMoveDeadzone", FlatsGamepad.DeadzoneLabel(FlatsGamepad.MoveDeadzoneIndex));
+        SetRowValue("PadVibration", FlatsGamepad.VibrationLabel(FlatsGamepad.VibrationIndex));
+    }
+    void SetRowValue(string row, string value)
+    {
+        var t = SettingsRow(row);
+        if (t != null) t.GetChild(1).GetComponent<Text>().text = value;
     }
     // The contextual touch Interact button follows the action buttons to the same side.
     static void SetInteractAnchor(Transform hud, ETCBase.RectAnchor anchor)
@@ -98,6 +115,18 @@ public partial class Menu
         else if (row.name == "AimMode") FlatsControls.HoldToAim = !FlatsControls.HoldToAim;
         else if (row.name == "AimSensitivity") FlatsControls.AimSensitivityIndex += direction;
         else if (row.name == "KillCinematic") FlatsControls.KillCinematic = !FlatsControls.KillCinematic;
+        else if (row.name == "PadPreset")
+        {
+            int count = FlatsGamepad.PresetNames.Length, current = FlatsGamepad.CurrentPreset();
+            FlatsGamepad.ApplyPreset(current < 0 ? (direction > 0 ? 0 : count - 1) : (current + direction + count) % count);
+            if (bindingsPanel != null && bindingsPanel.activeSelf) RefreshBindings();
+        }
+        else if (row.name == "PadLookH") FlatsGamepad.LookHIndex += direction;
+        else if (row.name == "PadLookV") FlatsGamepad.LookVIndex += direction;
+        else if (row.name == "PadCurve") FlatsGamepad.CurveIndex += direction;
+        else if (row.name == "PadLookDeadzone") FlatsGamepad.LookDeadzoneIndex += direction;
+        else if (row.name == "PadMoveDeadzone") FlatsGamepad.MoveDeadzoneIndex += direction;
+        else if (row.name == "PadVibration") FlatsGamepad.VibrationIndex += direction;
         else return false;
         RefreshPersonalRows();
         return true;
@@ -160,7 +189,7 @@ public partial class Menu
         }
         keyboardList.gameObject.SetActive(!bindingPad && bindingsPanel.activeSelf);
         controllerList.gameObject.SetActive(bindingPad && bindingsPanel.activeSelf);
-        bindingStatus.text = "Select a binding to change it.";
+        bindingStatus.text = bindingPad && Input.GetJoystickNames().Length > 0 ? "LB / RB: next section. Select an option to change it." : "Select a binding to change it.";
     }
     void BeginBinding(int index)
     {
@@ -202,7 +231,16 @@ public partial class Menu
             return true;
         }
         if (bindingsPanel != null && bindingsPanel.activeInHierarchy && bindingLanguage != FlatsLocalization.Language) RefreshBindings();
-        if (captureAction == null) return Time.frameCount <= suppressControlFrame;
+        if (captureAction == null)
+        {
+            if (bindingPad && controllerList != null && controllerList.gameObject.activeInHierarchy)
+            {
+                var device = InputManager.ActiveDevice;
+                if (device.LeftBumper.WasPressed) JumpSection(-1);
+                else if (device.RightBumper.WasPressed) JumpSection(1);
+            }
+            return Time.frameCount <= suppressControlFrame;
+        }
         if (!bindingsPanel.activeInHierarchy || (bindingPad && captureDevice != InputDevice.Null && !captureDevice.IsAttached) || !Application.isFocused || Input.GetKeyDown(KeyCode.Escape) || InputManager.ActiveDevice.CommandWasPressed || Time.unscaledTime - captureStarted > 10)
         { FinishBinding("Binding cancelled. Previous binding kept."); return true; }
         if (!captureReady)
@@ -220,10 +258,33 @@ public partial class Menu
             if (FlatsControls.ValidKey(key) && Input.GetKeyDown(key)) { value = key.ToString(); break; }
         if (value != null)
         {
-            bool saved = FlatsControls.Bind(captureAction, value, bindingPad, out string conflict);
-            FinishBinding(saved ? "Binding saved." : FlatsLocalization.Translate("Already assigned to: ") + FlatsLocalization.Translate(ActionName(conflict ?? captureAction, bindingPad)));
+            bool saved = FlatsControls.Bind(captureAction, value, bindingPad, out string swapped);
+            FinishBinding(!saved ? "Binding not saved." : swapped == null ? "Binding saved." :
+                FlatsLocalization.Translate("Swapped with: ") + FlatsLocalization.Translate(ActionName(swapped, bindingPad)));
+            RefreshPersonalRows();
         }
         return true;
+    }
+    // Controller list sections start with rows named "Section…"; the bumpers select the
+    // first control of the previous or next section.
+    void JumpSection(int direction)
+    {
+        var content = controllerList.content;
+        var selected = EventSystem.current.currentSelectedGameObject;
+        int row = 0;
+        for (int i = 0; i < content.childCount; i++)
+            if (selected != null && selected.transform.IsChildOf(content.GetChild(i))) row = i;
+        var sections = new List<int>();
+        for (int i = 0; i < content.childCount; i++) if (content.GetChild(i).name.StartsWith("Section")) sections.Add(i);
+        if (sections.Count == 0) return;
+        int currentSection = 0;
+        for (int s = 0; s < sections.Count; s++) if (sections[s] <= row) currentSection = s;
+        int next = (currentSection + direction + sections.Count) % sections.Count;
+        for (int i = sections[next] + 1; i < content.childCount; i++)
+        {
+            var target = content.GetChild(i).GetComponentInChildren<Selectable>();
+            if (target != null && target.IsInteractable()) { EventSystem.current.SetSelectedGameObject(target.gameObject); PlayMenuSound(pressSE); return; }
+        }
     }
     bool HandleControlNavigation(int button)
     {

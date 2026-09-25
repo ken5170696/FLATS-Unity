@@ -928,3 +928,41 @@ Crosshair module. Enabling and disabling apply immediately unless another crossh
 Pick the sniper rifle on the floor.\nTap Swap to pick it up.	拾取地上的狙擊步槍。\n點擊「交換」即可拾取。
 Kill Cinematic	擊殺特寫
 Slow-motion camera on headshots and mortal shots. OFF shows only the text.	爆頭與致命一擊的慢動作鏡頭。關閉後只顯示文字。
+Swapped with: 	已與此動作交換：
+Binding not saved.	按鍵未儲存。
+Default controller settings restored.	已還原手把預設設定。
+LB / RB: next section. Select an option to change it.	LB / RB：切換區段。選擇選項即可變更。
+Button layout	按鍵配置
+Layout preset	配置預設
+Custom	自訂
+Tactical	戰術
+Bumper Jumper	肩鍵跳躍
+Look & sticks	視角與搖桿
+Horizontal look speed	水平視角速度
+Vertical look speed	垂直視角速度
+Response curve	反應曲線
+Linear	線性
+Standard	標準
+Dynamic	動態
+Look stick deadzone	視角搖桿死區
+Move stick deadzone	移動搖桿死區
+Auto	自動
+Feedback	回饋
+Vibration	震動
+Right stick: look	右搖桿：視角
+Left stick: move	左搖桿：移動
+Tap to jump. Hold while moving forward to sprint.	點一下跳躍。向前移動時按住可衝刺。
+Hold to run faster.	按住以加速奔跑。
+Shoot. Hold for automatic weapons.	射擊。自動武器請按住。
+Hold to aim down sights.	按住以開鏡瞄準。
+Reload the current weapon.	為目前的武器換彈。
+Tap to switch weapons. Hold to pick up or exchange a weapon on the floor.	點一下切換武器。按住可拾取或交換地上的武器。
+Throw a grenade.	投擲手榴彈。
+Aim down sights without holding a trigger.	不需按住板機即可開鏡瞄準。
+Default: the original layout. Tactical: grenade on the right stick click. Bumper Jumper: jump on the left bumper, so you can jump while aiming. Changing any button makes the layout Custom.	預設：原本的配置。戰術：手榴彈改到按下右搖桿。肩鍵跳躍：跳躍改到左肩鍵，瞄準時也能跳。變更任何按鍵後會變成「自訂」。
+How fast the right stick turns left and right. 1x keeps the original speed.	右搖桿左右轉動的速度。1x 為原本的速度。
+How fast the right stick looks up and down. 1x keeps the original speed.	右搖桿上下轉動的速度。1x 為原本的速度。
+Linear: the view follows the stick directly, as before. Standard: slower near the centre for fine aim. Dynamic: quick start, steady middle, fast at the edge.	線性：視角直接跟隨搖桿，與原本相同。標準：靠近中心較慢，方便微調瞄準。動態：起步快、中段穩、推到底時轉得快。
+Stick movement inside the circle is ignored. Raise it if the view drifts by itself. Auto uses the controller's own setting.	圓圈內的搖桿移動會被忽略。視角會自己飄移時請調高。「自動」使用手把本身的設定。
+Stick movement inside the circle is ignored. Raise it if you walk without touching the stick. Auto uses the controller's own setting.	圓圈內的搖桿移動會被忽略。沒碰搖桿卻會走動時請調高。「自動」使用手把本身的設定。
+Strength of controller vibration when firing. OFF turns it off.	射擊時手把震動的強度。「關閉」即不震動。

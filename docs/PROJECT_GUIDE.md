@@ -7,7 +7,8 @@ Open **FLATS → Project Overview** in Unity for scene and prefab shortcuts. Use
 | Intent | Authoring surface | Behavior |
 | --- | --- | --- |
 | Sound slider appearance | SettingsScreen prefab → Sound | Menu.Volume binds values and saves settings |
-| Keyboard/controller binding layout | SettingsScreen prefab → Control → Bindings → KeyboardList / ControllerList | One scrolling list per device; Menu.Controls binds `Content/Binding<n>/Button` by action index and handles capture and conflicts |
+| Keyboard/controller binding layout | SettingsScreen prefab → Control → Bindings → KeyboardList / ControllerList | One scrolling list per device; Menu.Controls binds `Content/Binding<n>/Button` by action index, handles capture, and swaps a button that is already used |
+| Controller settings page | SettingsScreen prefab → Control → Bindings → ControllerList and ControllerPreview | Sections (`Section…` rows) hold the layout preset, bindings, stick and feedback rows (`Pad…`). Each row's PreviewTarget holds the text shown in ControllerPreview. FlatsGamepad stores the preferences |
 | Module page fixed controls and dialogs | ModulesScreen prefab | ModuleManagementPage binds its serialized view references to services |
 | Shared HUD and cameras | GameInterface and GameplayHUD prefabs | Menu composes game state; player presenters update HUD state |
 | Touch controls and notch clearance | GameplayHUD prefab (Fire, Reload, Jump, Zoom, Interact, OpenMenu) and its SafeAreaInsets list | EasyTouch buttons are read by axis name; FPSController shows Interact only when something can be picked up |
@@ -28,6 +29,16 @@ Weapon balance currently has a code authoring entry, not an Inspector definition
 The contextual `GameplayHUD` → `Interact` button uses the EasyTouch axis `Interact`. Its label reads Swap, Pick up or Drop, depending on the target. Keep it a direct child of the HUD canvas, because EasyTouch anchors controls to their parent canvas. Existing HUD children are also addressed by sibling index, so add new HUD children after them.
 
 Settings content that does not fit the shared 340-unit page panel scrolls rather than paging or growing the panel. Examples are the binding lists and `ExtraSettings/ExtraScroll`. The pattern is a ScrollRect with a RectMask2D viewport, a top-pivoted `Content`, a thin auto-hiding scrollbar and `ScrollToSelection`. `ScrollToSelection` opens the list at the top and scrolls keyboard or controller selection into view. Menu controls draw with theme materials whose shader cannot be clipped. Inside a list, give each such Image a `ClippedThemeGraphic`: it draws the same theme colour, including the animated selected state, with the default UI material. Rows are found by name at any depth (`Menu.SettingValue`, `Menu.SettingsRow`).
+
+Controller settings follow current console FPS patterns in FLATS' flat style:
+- Layout presets: Default, Tactical and Bumper Jumper. Any other button change reports Custom.
+- Look speed per axis, a response curve (Linear keeps the original feel), stick deadzones (Auto keeps the controller profile's value) and vibration strength.
+- A preview pane shows the white `ControllerFlat.png` with the bound button marked, or a live stick tester (`StickTesterGraphic`).
+- LB/RB jump between sections.
+
+Edit row text and explanations on each row's PreviewTarget. Edit the marker positions on ControllerPreview → Points (0–1 over the controller image). Button names follow the connected controller family (Xbox or PlayStation). They are not translated.
+
+`PointerFocusPolicy` on GameInterface's EventSystem clears a selection left after a mouse or touch click. Menu buttons draw Selected like hover, so a clicked button otherwise stayed lit. Keyboard or controller input restores the remembered focus.
 
 Kill Cinematic (SettingsScreen → ExtraSettings → `KillCinematic`, preference `ui.v1.killCinematic`) controls the headshot and mortal-shot slow-motion camera. When it is OFF, `Supershot.PlayKill` plays only the authored text animation on the `EffectCamera` prefab canvas. Time scale, cameras, input and the pause menu are untouched. VIP and team-kill cinematics always play, because they end the round.
 

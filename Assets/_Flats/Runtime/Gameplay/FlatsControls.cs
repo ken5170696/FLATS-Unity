@@ -102,11 +102,12 @@ public static class FlatsControls
         }
         string legacy = action == "Grenade" ? "Pick" : action == "Aim" ? "Zoom" : action;
         if (!FlatsPreferences.HasKey(Key(action, true)) && Menu.customControlEnabled && Menu.customControl.TryGetValue(legacy, out string binding)) return binding;
-        string label = PadLabel(Pad(action));
+        var style = FlatsGamepad.DeviceStyle(InputManager.ActiveDevice);
+        string label = FlatsGamepad.Glyph(Pad(action), style);
         if (!FlatsPreferences.HasKey(Key(action, true)))
         {
-            if (action == "Fire") label += " / RB";
-            if (action == "Aim") label += " / LB";
+            if (action == "Fire") label += " / " + FlatsGamepad.Glyph(InputControlType.RightBumper, style);
+            if (action == "Aim") label += " / " + FlatsGamepad.Glyph(InputControlType.LeftBumper, style);
             if (action == "Scope") label += " / D-pad Up";
         }
         return label;
@@ -128,24 +129,35 @@ public static class FlatsControls
             default: return button.ToString();
         }
     }
-    public static bool Bind(string action, string value, bool pad, out string conflict)
+    // A button already used by another action is swapped: that action takes this
+    // action's previous button, so nothing is left unbound. `swapped` names it.
+    public static bool Bind(string action, string value, bool pad, out string swapped)
     {
-        conflict = null;
+        swapped = null;
         if (Array.IndexOf(pad ? PadActions : KeyboardActions, action) < 0) return false;
         if (pad ? !Enum.TryParse(value, out InputControlType p) || Array.IndexOf(PadButtons, p) < 0 : !Enum.TryParse(value, out KeyCode k) || !ValidKey(k)) return false;
+        string previous = pad ? Pad(action).ToString() : Keyboard(action).ToString();
         foreach (string other in pad ? PadActions : KeyboardActions)
         {
             if (other == action) continue;
-            if ((pad ? Pad(other).ToString() : Keyboard(other).ToString()) == value)
-            { conflict = other; return false; }
-            // Default secondary buttons remain active until their own action is customized.
-            if (pad && !FlatsPreferences.HasKey(Key(other, true)) &&
+            if ((pad ? Pad(other).ToString() : Keyboard(other).ToString()) == value) swapped = other;
+            // A default secondary button (RB fire, LB aim, D-pad up scope) is released by
+            // saving that action's primary button explicitly.
+            else if (pad && !FlatsPreferences.HasKey(Key(other, true)) &&
                 ((other == "Fire" && value == "RightBumper") || (other == "Aim" && value == "LeftBumper") || (other == "Scope" && value == "DPadUp")))
-            { conflict = other; return false; }
+                FlatsPreferences.SetString(Key(other, true), Pad(other).ToString());
         }
+        if (swapped != null && previous != value) FlatsPreferences.SetString(Key(swapped, pad), previous);
         FlatsPreferences.SetString(Key(action, pad), value);
         FlatsPreferences.Save(); Changed?.Invoke(); return true;
     }
+    // Used by layout presets; call NotifyChanged once afterwards.
+    public static void SetPad(string action, InputControlType button)
+    {
+        if (Array.IndexOf(PadActions, action) < 0 || Array.IndexOf(PadButtons, button) < 0) throw new ArgumentException(action);
+        FlatsPreferences.SetString(Key(action, true), button.ToString());
+    }
+    public static void NotifyChanged() { FlatsPreferences.Save(); Changed?.Invoke(); }
     public static void ResetBindings(bool pad)
     {
         foreach (string action in pad ? PadActions : KeyboardActions) FlatsPreferences.DeleteKey(Key(action, pad));

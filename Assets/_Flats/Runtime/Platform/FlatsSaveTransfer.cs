@@ -170,6 +170,7 @@ public static class FlatsSaveTransfer
         yield return FlatsControls.AimModeKey;
         yield return FlatsControls.AimSensitivityKey;
         yield return FlatsControls.KillCinematicKey;
+        foreach (string key in FlatsGamepad.Keys) yield return key;
         yield return "controllermapping";
         yield return "touchmapping";
     }
@@ -206,6 +207,7 @@ public static class FlatsSaveTransfer
         if (key == LanguageKey) return value == "en" || value == "zh-Hant";
         if (key == FlatsControls.AimModeKey) return value == "hold" || value == "toggle";
         if (key == FlatsControls.KillCinematicKey) return value == "on" || value == "off";
+        if (Array.IndexOf(FlatsGamepad.Keys, key) >= 0) return FlatsGamepad.Valid(key, value);
         if (key == FlatsControls.AimSensitivityKey)
             return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int level) && level < FlatsControls.AimSensitivities.Length;
         if (key.StartsWith("controls.v1.key.", StringComparison.Ordinal))
@@ -239,5 +241,6 @@ public static class FlatsSaveTransfer
         }
         FlatsPreferences.Save();
         FlatsControls.ReloadAimSensitivity();
+        FlatsGamepad.Reload();
     }
 }
