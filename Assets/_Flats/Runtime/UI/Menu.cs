@@ -1387,16 +1387,29 @@ public partial class Menu : MonoBehaviour
 		}
 	}
 
+	private GameObject FirstVisibleTile()
+	{
+		if (buttons == null) return null;
+		foreach (Image tile in buttons)
+		{
+			if (tile == null) continue;
+			var selectable = tile.transform.parent.GetComponent<Selectable>();
+			if (selectable != null && selectable.gameObject.activeInHierarchy && selectable.IsInteractable()) return selectable.gameObject;
+		}
+		return null;
+	}
+
 	private GameObject MainTileToRestore()
 	{
-		if (lastMainTile != null && lastMainTile.activeInHierarchy)
+		if (lastMainTile != null)
 		{
-			// While the menu fades back in the tiles are briefly not interactable; wait
-			// for the remembered tile instead of settling on the first one.
+			// While the menu returns, the tiles are briefly hidden or not interactable;
+			// wait for the remembered tile instead of settling on the first one.
 			var selectable = lastMainTile.GetComponent<Selectable>();
-			return selectable != null && selectable.IsInteractable() ? lastMainTile : null;
+			return lastMainTile.activeInHierarchy && selectable != null && selectable.IsInteractable() ? lastMainTile : null;
 		}
-		return buttons[0].transform.parent.gameObject;
+		var first = buttons[0].transform.parent.gameObject;
+		return first.activeInHierarchy ? first : null;
 	}
 
 	private void FramerateAlertIsChecked(bool result)
@@ -1449,6 +1462,12 @@ public partial class Menu : MonoBehaviour
 				{
 					// Return to the tile the player was on, not always the first one.
 					EventSystem.current.SetSelectedGameObject(MainTileToRestore());
+				}
+				else if (FirstVisibleTile() != null)
+				{
+					// Pages built from the menu tiles (Play, Singleplayer and so on) start on
+					// their first tile, not on Back, so A does not leave the page.
+					EventSystem.current.SetSelectedGameObject(FirstVisibleTile());
 				}
 				else if (backButton.activeSelf)
 				{

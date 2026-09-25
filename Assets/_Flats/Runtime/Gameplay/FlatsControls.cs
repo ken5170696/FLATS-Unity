@@ -65,6 +65,25 @@ public static class FlatsControls
     public static bool Down(string action) => !Capturing && Input.GetKeyDown(Keyboard(action));
     public static float Axis(string positive, string negative) => (Held(positive) ? 1 : 0) - (Held(negative) ? 1 : 0);
     public static readonly InputControlType[] PadButtons = { InputControlType.Action1, InputControlType.Action2, InputControlType.Action3, InputControlType.Action4, InputControlType.LeftBumper, InputControlType.RightBumper, InputControlType.LeftTrigger, InputControlType.RightTrigger, InputControlType.LeftStickButton, InputControlType.RightStickButton, InputControlType.DPadUp, InputControlType.DPadDown, InputControlType.DPadLeft, InputControlType.DPadRight };
+    // InControl counts only the face buttons as "buttons"; bumpers, stick clicks, the
+    // D-pad and Start/Back are separate controls. These helpers treat every bindable
+    // button as controller input.
+    public static bool AnyPadButtonHeld(InputDevice device)
+    {
+        if (device == null || device == InputDevice.Null) return false;
+        if (device.AnyButtonIsPressed || device.CommandIsPressed) return true;
+        foreach (var button in PadButtons) if (device.GetControl(button).IsPressed) return true;
+        return false;
+    }
+    // Input.anyKey also reports held joystick buttons; this is true only for a keyboard
+    // key or mouse button.
+    public static bool KeyboardOrMouseKeyHeld()
+    {
+        if (!Input.anyKey) return false;
+        for (var key = KeyCode.JoystickButton0; key <= KeyCode.Joystick8Button19; key++)
+            if (Input.GetKey(key)) return false;
+        return true;
+    }
     public static InputControlType Pad(string action)
     {
         int index = Array.IndexOf(PadActions, action);

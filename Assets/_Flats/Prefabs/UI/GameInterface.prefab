@@ -147,7 +147,7 @@ MonoBehaviour:
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0
-  m_ShouldActivateOnSelect: 1
+  m_ShouldActivateOnSelect: 0
 --- !u!114 &389617716547169164
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2298,7 +2298,7 @@ MonoBehaviour:
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0
-  m_ShouldActivateOnSelect: 1
+  m_ShouldActivateOnSelect: 0
 --- !u!114 &4150029147195342585
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11538,7 +11538,7 @@ MonoBehaviour:
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0
-  m_ShouldActivateOnSelect: 1
+  m_ShouldActivateOnSelect: 0
 --- !u!114 &7244743714577999801
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -25521,7 +25521,7 @@ MonoBehaviour:
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0
-  m_ShouldActivateOnSelect: 1
+  m_ShouldActivateOnSelect: 0
 --- !u!114 &8062515651339601203
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -30984,7 +30984,7 @@ MonoBehaviour:
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0
-  m_ShouldActivateOnSelect: 1
+  m_ShouldActivateOnSelect: 0
 --- !u!114 &1088507701780192640
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -41142,7 +41142,7 @@ MonoBehaviour:
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0
-  m_ShouldActivateOnSelect: 1
+  m_ShouldActivateOnSelect: 0
 --- !u!114 &2828507645686174773
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -52479,7 +52479,7 @@ MonoBehaviour:
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0
-  m_ShouldActivateOnSelect: 1
+  m_ShouldActivateOnSelect: 0
 --- !u!114 &1474384674863365149
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -52725,7 +52725,7 @@ MonoBehaviour:
   m_CaretBlinkRate: 0.85
   m_CaretWidth: 1
   m_ReadOnly: 0
-  m_ShouldActivateOnSelect: 1
+  m_ShouldActivateOnSelect: 0
 --- !u!1 &5559186586216045906
 GameObject:
   m_ObjectHideFlags: 0

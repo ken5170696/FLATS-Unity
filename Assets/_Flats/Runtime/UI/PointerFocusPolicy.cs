@@ -23,15 +23,20 @@ public sealed class PointerFocusPolicy : MonoBehaviour
     bool pointerMode;
     GameObject remembered;
     Vector3 lastMouse;
+    // The cursor position jumps when the window is created or regains focus; that is
+    // not the player moving the mouse.
+    int ignoreMoveFrames;
 
     void Awake() { events = GetComponent<EventSystem>(); }
-    void OnEnable() { lastMouse = Input.mousePosition; }
+    void OnEnable() { lastMouse = Input.mousePosition; ignoreMoveFrames = 3; }
+    void OnApplicationFocus(bool focused) { if (focused) ignoreMoveFrames = 3; }
     void OnDisable() { PointerActive = false; }
 
     void LateUpdate()
     {
-        bool pointer = Input.touchCount > 0 || Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) ||
-            (Input.mousePresent && (Input.mousePosition - lastMouse).sqrMagnitude > pointerMoveThreshold * pointerMoveThreshold);
+        bool moved = Input.mousePresent && (Input.mousePosition - lastMouse).sqrMagnitude > pointerMoveThreshold * pointerMoveThreshold;
+        if (ignoreMoveFrames > 0) { ignoreMoveFrames--; moved = false; }
+        bool pointer = Input.touchCount > 0 || Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) || moved;
         lastMouse = Input.mousePosition;
         bool navigation = NavigationInput();
         if (navigation) pointerMode = false;

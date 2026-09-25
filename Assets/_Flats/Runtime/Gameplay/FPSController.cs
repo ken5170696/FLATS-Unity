@@ -809,11 +809,11 @@ public partial class FPSController : MonoBehaviour
 			{
 				InputDevice activeDevice = InputManager.ActiveDevice;
 				FlatsGamepad.EnsureApplied(activeDevice);
-				bool padUsed = activeDevice.AnyButtonIsPressed || Mathf.Abs(activeDevice.LeftStickX)>0.1f || Mathf.Abs(activeDevice.LeftStickY)>0.1f || Mathf.Abs(activeDevice.RightStickX)>0.1f || Mathf.Abs(activeDevice.RightStickY)>0.1f || activeDevice.LeftTrigger>0.1f || activeDevice.RightTrigger>0.1f;
+				bool padUsed = FlatsControls.AnyPadButtonHeld(activeDevice) || Mathf.Abs(activeDevice.LeftStickX)>0.1f || Mathf.Abs(activeDevice.LeftStickY)>0.1f || Mathf.Abs(activeDevice.RightStickX)>0.1f || Mathf.Abs(activeDevice.RightStickY)>0.1f || activeDevice.LeftTrigger>0.1f || activeDevice.RightTrigger>0.1f;
 				if (padUsed) preferGamepad = true;
 				// Only a deliberate mouse move (over 3 pixels in a frame) hands control back; jitter of a resting
 				// mouse must not switch the controller off between stick inputs.
-				else if (Input.anyKey || new Vector2(Input.GetAxisRaw("mouse x"), Input.GetAxisRaw("mouse y")).sqrMagnitude > 9f) preferGamepad = false;
+				else if (FlatsControls.KeyboardOrMouseKeyHeld() || new Vector2(Input.GetAxisRaw("mouse x"), Input.GetAxisRaw("mouse y")).sqrMagnitude > 9f) preferGamepad = false;
 				FlatsControls.UsingGamepad = !overrideInputDevice && preferGamepad && activeDevice.Name != "None";
                 if (!overrideInputDevice && preferGamepad && Input.GetJoystickNames().Length > 0 && activeDevice.Name != "None")
 				{
