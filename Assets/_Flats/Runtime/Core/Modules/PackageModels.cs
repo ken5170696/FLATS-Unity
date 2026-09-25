@@ -96,7 +96,7 @@ namespace Flats.Modules
     public static class ModRules
     {
         // API 1.1.0 adds manifest schema 2 (data packages, settings, presets); 1.x packages still load.
-        public const string GameVersion = "5.4.2", ApiVersion = "1.1.0";
+        public const string GameVersion = "5.4.3", ApiVersion = "1.1.0";
         public const long MaxArchive = 64L * 1024 * 1024, MaxExpanded = 256L * 1024 * 1024;
         public static void Id(string id)
         {

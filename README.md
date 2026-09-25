@@ -4,7 +4,7 @@ A maintained Unity reconstruction of FLATS, the flat-colour first-person shooter
 
 ## Current player releases
 
-The [5.4.1 player release](https://github.com/ken5170696/flats-downloads/releases/tag/v5.4.1) uses source `4188b7a24806cb4c706e95aa082b6cbed6e8565a`. The [live release manifest](https://flats-site.tail2511fc.ts.net/data/releases.json) identifies each platform's exact source, package and validation scope. Windows, Linux, macOS and Android packages are available; iOS export is not an installable IPA. The current Web release is not yet runtime-verified according to its manifest. This branch develops the 5.4.2 candidate; source changes here do not update player downloads until a release is published.
+The [5.4.3 player release](https://github.com/ken5170696/flats-downloads/releases/tag/v5.4.3) is built from the [v5.4.3 source tag](https://github.com/ken5170696/FLATS-Unity/releases/tag/v5.4.3). The [live release manifest](https://flats-site.tail2511fc.ts.net/data/releases.json) identifies each platform's exact source, package and validation scope. Windows, Linux, macOS and Android packages are available; iOS export is not an installable IPA. Source changes after the tag do not update player downloads until another release is published.
 
 The [Mod SDK preview](docs/MOD_SDK.md) documents the API 1.1.0 contracts and data packages (a crosshair preset and an enemy tuning module) that you can author without modifying game code.
 
