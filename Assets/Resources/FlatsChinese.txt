@@ -924,5 +924,5 @@ Tap Swap to exchange	點擊「交換」更換武器
 Enabled and applied.	已啟用並立即套用。
 Disabled and applied.	已停用並立即套用。
 Applies immediately.	立即套用。
-Crosshair module. Enabling and disabling apply immediately.	準星模組。啟用與停用會立即套用。
+Crosshair module. Enabling and disabling apply immediately unless another crosshair is active.	準星模組。沒有其他準星啟用時，啟用與停用會立即套用。
 Pick the sniper rifle on the floor.\nTap Swap to pick it up.	拾取地上的狙擊步槍。\n點擊「交換」即可拾取。

@@ -570,6 +570,11 @@ public partial class FPSController : MonoBehaviour
 	private void Update()
 	{
 		movedWithGravity = false;
+		if (!enableControl)
+		{
+			// Cutscenes (for example the zombie bite) suspend control; the button returns afterwards.
+			ShowInteractButton(false);
+		}
 		if (MyView(base.gameObject) && enableControl)
 		{
             // Consume edge actions even while paused; never replay a queued press on resume.

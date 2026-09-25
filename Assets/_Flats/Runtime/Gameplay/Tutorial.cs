@@ -533,7 +533,7 @@ public class Tutorial : MonoBehaviour
 				{
 					tutorialText.text = "Pick the sniper rifle on the floor.\nPick up: {control:Interact}.";
 				}
-				else if (Input.mousePresent || mobileMouse)
+				else if ((!Application.isMobilePlatform && Input.mousePresent) || mobileMouse)
 				{
 					tutorialText.text = "Pick the sniper rifle on the floor.\nPick up: {control:Interact}.";
 				}

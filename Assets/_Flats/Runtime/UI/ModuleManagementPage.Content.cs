@@ -233,7 +233,7 @@ public sealed partial class ModuleManagementPage
         string text=state+(Service.NeedsRestart(selectedId)?" — Restart FLATS to apply":"")+"\n"+PlayerProblem(m)+"\n"+(record?.Reason ?? "")+"\n"+(string.IsNullOrWhiteSpace(m.description)?"No description provided.":m.description)+"\n\nAbout this mod\n"+m.author+" / v"+m.version+" / "+m.category+
             "\nInstalled version: "+(p?.manifest.version ?? "none")+" / Running version: "+(record?.Active==true?running?.manifest.version:"none")+"\n\nTechnical details\nGame >="+m.gameMinimum+" <"+m.gameMaximum+"\nMod API >="+m.apiMinimum+" <"+m.apiMaximum+"\n"+m.scope+
             "\n\nDependencies\n"+(deps.Length>0?deps:"None")+"\n\nChanges\n"+(string.IsNullOrEmpty(m.changelog)?"No changelog provided.":m.changelog)+
-            "\n\nSource: "+(p?.source ?? Service.SourceUrl)+"\n"+(m.kind=="managed"?"Managed code runs with FLATS privileges. Restart to apply changes.":ModRules.IsCrosshairProvider(m)&&m.scope=="ClientOnly"?"Crosshair module. Enabling and disabling apply immediately.":"Data module. Restart to apply changes.");
+            "\n\nSource: "+(p?.source ?? Service.SourceUrl)+"\n"+(m.kind=="managed"?"Managed code runs with FLATS privileges. Restart to apply changes.":ModRules.IsCrosshairProvider(m)&&m.scope=="ClientOnly"?"Crosshair module. Enabling and disabling apply immediately unless another crosshair is active.":"Data module. Restart to apply changes.");
         SetDescription(text);
         bool downloading=Service.Downloads?.IsBusy(selectedId)==true;
         var item=known.TryGetValue(selectedId,out var found)?found:null;
