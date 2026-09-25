@@ -1391,8 +1391,10 @@ public partial class Menu : MonoBehaviour
 	{
 		if (lastMainTile != null && lastMainTile.activeInHierarchy)
 		{
+			// While the menu fades back in the tiles are briefly not interactable; wait
+			// for the remembered tile instead of settling on the first one.
 			var selectable = lastMainTile.GetComponent<Selectable>();
-			if (selectable != null && selectable.IsInteractable()) return lastMainTile;
+			return selectable != null && selectable.IsInteractable() ? lastMainTile : null;
 		}
 		return buttons[0].transform.parent.gameObject;
 	}
