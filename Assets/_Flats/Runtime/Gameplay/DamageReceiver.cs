@@ -185,8 +185,6 @@ public class DamageReceiver : MonoBehaviour
 		{
 			return;
 		}
-		int network = Menu.network;
-		int num2 = 1;
 		if (!base.gameObject.activeSelf || invincibility)
 		{
 			return;

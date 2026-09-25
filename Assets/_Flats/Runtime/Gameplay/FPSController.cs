@@ -272,8 +272,6 @@ public partial class FPSController : MonoBehaviour
 
 	private void Start()
 	{
-		int network = Menu.network;
-		int num2 = 1;
 		if (MyView(base.gameObject))
 		{
 			camAnim = ct.GetComponent<Animator>();

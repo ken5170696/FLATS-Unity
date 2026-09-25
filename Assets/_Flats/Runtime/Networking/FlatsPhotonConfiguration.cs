@@ -23,7 +23,6 @@ public static class FlatsPhotonConfiguration
             var buffer = new byte[64];
             appId = FlatsPhotonAppId(buffer, buffer.Length) == 1 ? System.Text.Encoding.UTF8.GetString(buffer).TrimEnd('\0') : null;
             Source = "public-page-client-id";
-            string path = "the site's public Photon client configuration";
 #else
             appId = Environment.GetEnvironmentVariable("FLATS_PHOTON_APP_ID");
             if (!string.IsNullOrWhiteSpace(appId)) Source = "environment";

@@ -58,6 +58,21 @@ Before a local build, save your scene and Prefab Mode work. The build command re
 
 ## Hierarchy and references
 
+Map scenes share one root layout:
+
+| Root | Contents |
+| --- | --- |
+| `[Gameplay]` | Controllers, team bases, spawn, gun and way points. Most are instances of `Prefabs/Systems` |
+| `[Environment]` | Visible map geometry, lights and `Original`. `Original` has disabled renderers, but its enabled colliders are the map's collision |
+| `[Glass]` | Breakable glass: `GlassController<n>`, `GlassRoot<n>` and the combined `Glass_Baked<n>` renderer |
+| `[Baking]` | Mesh Baker objects used only to rebake combined meshes, tagged `EditorOnly` |
+| `[Services]` | Scene-level services |
+| `UICamera` | The GameInterface prefab instance |
+
+`[Glass]/GlassRootOriginal(ForEdit)` is the inactive authoring copy of the glass panes. It and the `[Baking]` bakers are tagged `EditorOnly`: they stay editable but are not built into players. Leave an object untagged if runtime code or another component uses it.
+
+Some system instance names differ from their prefab names on purpose (`WayPoints`, `PhaseSkippers`, `RedTeamBase`/`BlueTeamBase`, `GunPoints`). Runtime code finds them by name, so keep those names. The same applies to `UICamera`, the HUD instance `UI`, `Menu`, `Message` and `Sight` inside GameInterface. MainMenu's `InControl` and `ReignServices` call `DontDestroyOnLoad` and must stay scene roots.
+
 `RoomScreen/MatchingDetails/PlayerList` owns the waiting-room list's top alignment, padding and spacing through its VerticalLayoutGroup. `PlayerButton` owns each row's preferred height. `RoomPlayerListLayout` schedules one layout refresh after the animated screen becomes active, including when rows were added while hidden; it does not override these authored values.
 
 Group by responsibility, not by Unity component type: a screen owns its heading, navigation, content and modal presentation. A reusable prefab owns a coherent editable feature. Avoid extracting every decorative rectangle into its own prefab.

@@ -245,8 +245,6 @@ public partial class Menu : MonoBehaviour
 
 	public static bool backWithCancel = false;
 
-	private bool resetCustomizing;
-
 	private float resetTime;
 
 	public static Dictionary<string, string> customControl = new Dictionary<string, string>();
@@ -276,8 +274,6 @@ public partial class Menu : MonoBehaviour
 	public GameObject ipButton;
 
 	private Text[] roomTexts;
-
-	private string url;
 
 	private bool fireTV;
 
@@ -996,12 +992,6 @@ public partial class Menu : MonoBehaviour
 			{
 				backgroundRenderer.sharedMaterial.color = new Color(0f, 0f, 0f, 1f);
 				mainUI.color = new Color(0.5f, 0.5f, 0.5f, mainUI.color.a);
-				if (Application.platform == RuntimePlatform.MetroPlayerX86)
-				{
-					titleHeading.GetComponent<Image>().enabled = false;
-					titleHeading.GetChild(0).GetComponent<Text>()
-						.enabled = false;
-				}
 				yield return new WaitForSeconds(0.2f);
 				anim.SetBool("Title", true);
 			}
@@ -1373,11 +1363,6 @@ public partial class Menu : MonoBehaviour
 	private void FramerateAlertIsChecked(bool result)
 	{
 		framerateAlertIsEnabled = false;
-	}
-
-	private void ResetCustomMapping(bool result)
-	{
-		resetCustomizing = false;
 	}
 
 	private void LateUpdate()
@@ -1901,7 +1886,6 @@ public partial class Menu : MonoBehaviour
                 vote.Add(new Map { mapKey = i });
 			syncData = "";
 			roomTexts = new Text[5];
-			url = "https://dl.dropboxusercontent.com/s/ahx0zuddx9t4gre/News.txt";
 			invitedRules = new List<int>();
 			roomList = new RoomInfo[0];
 			framerateLimit = 20f;
