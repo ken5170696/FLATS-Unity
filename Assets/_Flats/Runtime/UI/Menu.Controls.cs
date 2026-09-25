@@ -190,6 +190,8 @@ public partial class Menu
             bindingLabels[i].text = ActionName(action, false);
             bindingDetails[i].text = bindingPad && action == "Jump" ? "Hold to sprint" : bindingPad && action == "Change" ? "Hold to pick up" :
                 !bindingPad && action == "Aim" ? (FlatsControls.HoldToAim ? "Hold to aim" : "Press to toggle") : "";
+            // The action name fills the row height: centred alone, at the top above a hint line.
+            bindingLabels[i].alignment = bindingDetails[i].text.Length > 0 ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft;
         }
         keyboardList.gameObject.SetActive(!bindingPad && bindingsPanel.activeSelf);
         controllerList.gameObject.SetActive(bindingPad && bindingsPanel.activeSelf);
