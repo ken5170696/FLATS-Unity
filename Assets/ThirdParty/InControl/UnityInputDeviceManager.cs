@@ -48,6 +48,13 @@ namespace InControl
 			customDeviceProfiles = new List<UnityInputDeviceProfileBase>();
 
 			AddSystemDeviceProfiles();
+			foreach (UnityInputDeviceProfileBase profile in systemDeviceProfiles)
+			{
+				if (profile is XboxOneWin10AEProfile || profile is XboxOneWin10Profile || profile is XboxOneWinProfile || profile is Xbox360WinProfile)
+				{
+					UseSeparateTriggerAxes((UnityInputDeviceProfile)profile);
+				}
+			}
 			QueryJoystickInfo();
 			AttachDevices();
 		}
@@ -88,40 +95,51 @@ namespace InControl
 			}
 		}
 
-		// The Xbox profile reads each trigger from its own axis (9th LT, 10th RT) and
+		// The Xbox profiles read each trigger from its own axis (9th LT, 10th RT) and
 		// also from the shared 3rd axis (LT positive, RT negative), keeping the larger
-		// value. Some controllers report the shared axis with the opposite sign, so LT
-		// also pulled RT and aiming fired. Once either separate trigger axis has moved,
-		// this profile ignores the shared axis. One instance per attached device.
+		// value. Some controllers (a Bluetooth Xbox Series controller among them)
+		// report the shared axis with the opposite sign, so LT also pulled RT and aiming
+		// fired. Once either separate trigger axis of a device has moved, the shared
+		// axis is ignored for that device.
 		private sealed class UnnamedXInputProfile : XboxOneWin10AEProfile
 		{
 			public UnnamedXInputProfile()
 			{
-				var shared = new SharedTriggerSource();
-				foreach (InputControlMapping mapping in AnalogMappings)
+				UseSeparateTriggerAxes(this);
+			}
+		}
+
+		private static void UseSeparateTriggerAxes(UnityInputDeviceProfile profile)
+		{
+			var shared = new SharedTriggerSource();
+			foreach (InputControlMapping mapping in profile.AnalogMappings)
+			{
+				var analog = mapping.Source as UnityAnalogSource;
+				if (analog != null && analog.AnalogIndex == 2 &&
+					(mapping.Target == InputControlType.LeftTrigger || mapping.Target == InputControlType.RightTrigger))
 				{
-					var analog = mapping.Source as UnityAnalogSource;
-					if (analog != null && analog.AnalogIndex == 2 &&
-						(mapping.Target == InputControlType.LeftTrigger || mapping.Target == InputControlType.RightTrigger))
-					{
-						mapping.Source = shared;
-					}
+					mapping.Source = shared;
 				}
 			}
 		}
 
 		private sealed class SharedTriggerSource : InputControlSource
 		{
-			private bool separateAxesSeen;
+			private readonly HashSet<InputDevice> separateAxesSeen = new HashSet<InputDevice>();
 
 			public float GetValue(InputDevice inputDevice)
 			{
 				var device = (UnityInputDevice)inputDevice;
-				if (!separateAxesSeen && (Mathf.Abs(device.ReadRawAnalogValue(8)) > 0.05f || Mathf.Abs(device.ReadRawAnalogValue(9)) > 0.05f))
+				if (separateAxesSeen.Contains(device))
 				{
-					separateAxesSeen = true;
+					return 0f;
 				}
-				return separateAxesSeen ? 0f : device.ReadRawAnalogValue(2);
+				if (Mathf.Abs(device.ReadRawAnalogValue(8)) > 0.05f || Mathf.Abs(device.ReadRawAnalogValue(9)) > 0.05f)
+				{
+					separateAxesSeen.Add(device);
+					return 0f;
+				}
+				return device.ReadRawAnalogValue(2);
 			}
 
 			public bool GetState(InputDevice inputDevice)
@@ -147,7 +165,7 @@ namespace InControl
 			// Left and right stick axes; triggers rest at a nonzero value on some drivers.
 			foreach (int analog in new[] { 0, 1, 3, 4 })
 			{
-				if (Mathf.Abs(Input.GetAxisRaw("joystick " + id + " analog " + analog)) > 0.5f)
+				if (Mathf.Abs(Input.GetAxisRaw("joystick " + id + " analog " + analog)) > 0.3f)
 				{
 					return true;
 				}

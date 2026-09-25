@@ -1256,7 +1256,7 @@ public partial class Menu : MonoBehaviour
             Fade(-1);
             return;
         }
-		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || (current != "Main" && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
+		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
 		{
 			Fade(-1);
 		}
@@ -1400,14 +1400,21 @@ public partial class Menu : MonoBehaviour
 			return;
 		}
 		RememberMainTile();
+		// Pick the input module from the device in use every frame, not only when focus is
+		// empty: a controller press restores focus first, which used to leave the pointer
+		// module active for controller navigation.
+		bool controllerNavigation = current != "Playing" && Input.GetJoystickNames().Length > 0 && !PointerFocusPolicy.PointerActive;
+		if (current != "Playing" && inControlModule.enabled != controllerNavigation)
+		{
+			standaloneModule.submitButton = "Submit";
+			standaloneModule.cancelButton = "Cancel";
+			standaloneModule.enabled = !controllerNavigation;
+			inControlModule.enabled = controllerNavigation;
+		}
 		if (current != "Playing" && (EventSystem.current.currentSelectedGameObject == null || !EventSystem.current.currentSelectedGameObject.activeInHierarchy))
 		{
-			if (Input.GetJoystickNames().Length > 0 && !PointerFocusPolicy.PointerActive)
+			if (controllerNavigation)
 			{
-				standaloneModule.submitButton = "Submit";
-                standaloneModule.cancelButton = "Cancel";
-                standaloneModule.enabled = false;
-                inControlModule.enabled = true;
 				if (errorMessage.activeSelf)
 				{
 					Selectable component = errorMessage.transform.GetChild(2).GetComponent<Selectable>();
@@ -1432,11 +1439,6 @@ public partial class Menu : MonoBehaviour
 				{
 					EventSystem.current.SetSelectedGameObject(backButton);
 				}
-			}
-			else if ((bool)standaloneModule)
-			{
-				standaloneModule.enabled = true;
-				inControlModule.enabled = false;
 			}
 		}
 		else if (framerateAlertIsEnabled)

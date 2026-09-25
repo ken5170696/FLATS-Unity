@@ -227,11 +227,12 @@ public class WatchCamera : MonoBehaviour
 			}
 		}
 		InputDevice activeDevice = InputManager.ActiveDevice;
-		if (activeDevice.RightTrigger.WasPressed || activeDevice.RightBumper.WasPressed)
+		// Switching the watched player belongs to the spectator view, not to an open menu.
+		if (Menu.current == "Playing" && (activeDevice.RightTrigger.WasPressed || activeDevice.RightBumper.WasPressed))
 		{
 			ChangeCamera(1);
 		}
-		else if (activeDevice.LeftTrigger.WasPressed || activeDevice.LeftBumper.WasPressed)
+		else if (Menu.current == "Playing" && (activeDevice.LeftTrigger.WasPressed || activeDevice.LeftBumper.WasPressed))
 		{
 			ChangeCamera(-1);
 		}
