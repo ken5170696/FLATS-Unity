@@ -79,8 +79,8 @@ public static class FlatsGamepad
         {
             // Slower near the centre for fine aim, full speed at the edge.
             case 1: return magnitude * magnitude;
-            // Quick start, steadier middle, fast edge.
-            case 2: return magnitude < .5f ? .5f * Mathf.Pow(magnitude * 2f, .8f) : 1f - .5f * Mathf.Pow((1f - magnitude) * 2f, 1.6f);
+            // Quick start, steadier middle, fast edge: slope 1.4, 0.6, 1.4 at 0, 0.5, 1, smooth throughout.
+            case 2: return magnitude + .4f * Mathf.Sin(2f * Mathf.PI * magnitude) / (2f * Mathf.PI);
             default: return magnitude;
         }
     }
@@ -185,7 +185,9 @@ public static class FlatsGamepad
     }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetSession() { Changed = null; profileDeadzones.Clear(); applied = null; version++; }
+    // Profile deadzones are kept: a device that survives into the next session must not
+    // record an already customised value as its "Auto" baseline.
+    static void ResetSession() { Changed = null; applied = null; version++; }
     // An imported save replaces preferences.
     public static void Reload() { version++; }
 }

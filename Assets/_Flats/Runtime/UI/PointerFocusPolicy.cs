@@ -13,7 +13,11 @@ using UnityEngine.UI;
 public sealed class PointerFocusPolicy : MonoBehaviour
 {
     [Tooltip("Mouse movement, in pixels per frame, that counts as switching to the pointer.")]
-    [SerializeField] float pointerMoveThreshold = 2f;
+    [SerializeField] float pointerMoveThreshold = 4f;
+
+    // Menu's controller watchdog selects a control when nothing is selected; it waits
+    // while the pointer is in use instead of fighting this policy every frame.
+    public static bool PointerActive { get; private set; }
 
     EventSystem events;
     bool pointerMode;
@@ -22,6 +26,7 @@ public sealed class PointerFocusPolicy : MonoBehaviour
 
     void Awake() { events = GetComponent<EventSystem>(); }
     void OnEnable() { lastMouse = Input.mousePosition; }
+    void OnDisable() { PointerActive = false; }
 
     void LateUpdate()
     {
@@ -31,6 +36,7 @@ public sealed class PointerFocusPolicy : MonoBehaviour
         bool navigation = NavigationInput();
         if (navigation) pointerMode = false;
         else if (pointer) pointerMode = true;
+        PointerActive = pointerMode;
 
         var selected = events.currentSelectedGameObject;
         if (!pointerMode)

@@ -1392,7 +1392,7 @@ public partial class Menu : MonoBehaviour
 		}
 		if (current != "Playing" && (EventSystem.current.currentSelectedGameObject == null || !EventSystem.current.currentSelectedGameObject.activeInHierarchy))
 		{
-			if (Input.GetJoystickNames().Length > 0)
+			if (Input.GetJoystickNames().Length > 0 && !PointerFocusPolicy.PointerActive)
 			{
 				standaloneModule.submitButton = "Submit";
                 standaloneModule.cancelButton = "Cancel";

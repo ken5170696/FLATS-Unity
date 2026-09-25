@@ -55142,4 +55142,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c3ffbb953dc043ecbfbb3691fdfcaee5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PointerFocusPolicy
-  pointerMoveThreshold: 2
+  pointerMoveThreshold: 4
