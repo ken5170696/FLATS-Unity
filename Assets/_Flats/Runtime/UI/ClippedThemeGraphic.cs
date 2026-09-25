@@ -18,6 +18,8 @@ public sealed class ClippedThemeGraphic : MonoBehaviour
 
     void LateUpdate()
     {
+        // A row created before it was parented under the menu finds it later.
+        if (menu == null) menu = GetComponentInParent<Menu>(true);
         if (menu == null) return;
         var current = graphic.material;
         if (current != null && current != graphic.defaultMaterial) theme = current;

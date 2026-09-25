@@ -344,6 +344,7 @@ public partial class Menu : MonoBehaviour
 	{
 		if (Current == this) Current = null;
         if (captureAction != null) FlatsControls.Capturing = false;
+        FlatsLocalization.Changed -= RefreshPersonalRows;
         if (localDiscovery != null) localDiscovery.Stop();
         Canvas.preWillRenderCanvases -= BindThemeMaterials;
 		if (runtimeBackgroundMaterial != null) Destroy(runtimeBackgroundMaterial);

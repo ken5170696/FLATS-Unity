@@ -40,6 +40,8 @@ namespace Flats.UI
                 scroll.StopMovement();
                 scroll.content.anchoredPosition = new Vector2(scroll.content.anchoredPosition.x, 0f);
                 if (scroll.verticalScrollbar != null) scroll.verticalScrollbar.SetValueWithoutNotify(1f);
+                // A control selected while the page opened is revealed again after the reset.
+                last = null;
                 yield return null;
             }
         }
@@ -52,14 +54,22 @@ namespace Flats.UI
             last = selected;
             if (selected == null || scroll.content == null || !selected.transform.IsChildOf(scroll.content)) return;
             var viewport = scroll.viewport != null ? scroll.viewport : (RectTransform)scroll.transform;
-            var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, selected.transform);
             var view = viewport.rect;
+            // Reveal the whole option (label, value and explanation), not only the selected
+            // button, when that option fits; otherwise reveal the button itself.
+            var option = selected.transform;
+            while (option.parent != null && option.parent != scroll.content) option = option.parent;
+            var bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, option);
+            if (bounds.size.y + padding * 2f > view.height)
+                bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(viewport, selected.transform);
             float delta = 0f;
             if (bounds.max.y + padding > view.yMax) delta = bounds.max.y + padding - view.yMax;
             else if (bounds.min.y - padding < view.yMin) delta = bounds.min.y - padding - view.yMin;
             if (Mathf.Approximately(delta, 0f)) return;
             scroll.StopMovement();
-            scroll.content.anchoredPosition -= new Vector2(0f, delta);
+            float limit = Mathf.Max(0f, scroll.content.rect.height - view.height);
+            var position = scroll.content.anchoredPosition;
+            scroll.content.anchoredPosition = new Vector2(position.x, Mathf.Clamp(position.y - delta, 0f, limit));
         }
     }
 }

@@ -55,6 +55,8 @@ public partial class Menu
         { FlatsControls.ResetBindings(bindingPad); RefreshBindings(); bindingStatus.text = "Default bindings restored."; });
         ShowBindings(!Application.isMobilePlatform, false);
         RefreshPersonalRows();
+        // Language can also change outside this page, for example by importing a save.
+        FlatsLocalization.Changed += RefreshPersonalRows;
     }
     // Authored settings rows (Index/Count/Plus/Minus) whose Plus and Minus call PlusMinus.
     // They are looked up by name so they can be placed on any Settings page.
