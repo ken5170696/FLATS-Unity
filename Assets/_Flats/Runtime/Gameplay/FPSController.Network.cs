@@ -159,7 +159,7 @@ public partial class FPSController
 				transform.GetComponent<Collider>().enabled = false;
 				transform.SetParent(primaryWeapons.parent);
 				primaryWeapon.gameObject.SetActive(false);
-				enableFire = false;
+				enableFire = false; firing = false;
 				grabbing = true;
 				transform.GetComponent<Rigidbody>().isKinematic = true;
 				transform.localPosition = new Vector3(-0.58f, 0.12f, -0.07f);
@@ -208,7 +208,7 @@ public partial class FPSController
 					transform.GetComponent<Collider>().enabled = false;
 					transform.SetParent(primaryWeapons.parent);
 					primaryWeapon.gameObject.SetActive(false);
-					enableFire = false;
+					enableFire = false; firing = false;
 					grabbing = true;
 					transform.GetComponent<Rigidbody>().isKinematic = true;
 					transform.localPosition = new Vector3(0f, 0.07f, 0.12f);
@@ -260,7 +260,7 @@ public partial class FPSController
 			transform.SetParent(null);
 			grabbedObject = null;
 			primaryWeapon.gameObject.SetActive(true);
-			enableFire = true;
+			enableFire = true; firing = false;
 			grabbing = false;
 			transform.GetComponent<Rigidbody>().isKinematic = false;
 			transform.eulerAngles = Vector3.zero;
@@ -311,7 +311,7 @@ public partial class FPSController
 				PhotonNetwork.Destroy(gun);
 			}
 		}
-		enableFire = false;
+		enableFire = false; firing = false;
 		anim.SetBool("Change", true);
 		yield return new WaitForSeconds(0.2f);
 		ikc.leftIK = false;
@@ -358,7 +358,7 @@ public partial class FPSController
 		yield return new WaitForSeconds(0.4f);
 		ikc.leftIK = true;
 		yield return new WaitForSeconds(0.1f);
-		enableFire = true;
+		enableFire = true; firing = false;
 		if (MyView(base.gameObject))
 		{
 			reticle.SetVisible(true);
@@ -447,7 +447,7 @@ public partial class FPSController
 		anim.SetBool("Reload", false);
 		anim.SetBool("Change", false);
 		anim.SetBool("Jump", false);
-		enableFire = true;
+		enableFire = true; firing = false;
 		if (zombieID == -1)
 		{
 			enableCamRotate = false;

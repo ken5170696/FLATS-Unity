@@ -73,6 +73,10 @@ public partial class FPSController : MonoBehaviour
 	// toggling must treat that transition as aiming, or reload, weapon change,
 	// grenade or sprint started mid-transition would finish aimed afterwards.
 	private bool Aiming => isZoom || startZooming;
+	// True only during Shoot's cooldown. Aiming may start or stop while the fire
+	// button is held; reload, weapon change, grenades and melee still block it.
+	private bool firing;
+	private bool CanStartAim => (enableFire || firing) && !anim.GetBool("Run");
 
 	private Vector3 aimEyeLocalPosition;
 
@@ -360,7 +364,7 @@ public partial class FPSController : MonoBehaviour
 			savedFOV = 0f;
 			enableCamRotate = true;
 			enableControl = true;
-			enableFire = true;
+			enableFire = true; firing = false;
 		}
 		else
 		{
@@ -606,7 +610,7 @@ public partial class FPSController : MonoBehaviour
 				{
 					if (zoomPressTime <= holdTime)
 					{
-						if (!Aiming && enableFire && !anim.GetBool("Run"))
+						if (!Aiming && CanStartAim)
 						{
 							Zoom(true);
 						}
@@ -852,7 +856,7 @@ public partial class FPSController : MonoBehaviour
 							}
 							picking = false;
 						}
-						if (FlatsControls.PadState("Aim", 0) && grabbedObject == null && enableFire && !grabbing && !Aiming && enableFire && !anim.GetBool("Run"))
+						if (FlatsControls.PadState("Aim", 0) && grabbedObject == null && !grabbing && !Aiming && CanStartAim)
 						{
 							Zoom(true);
 						}
@@ -877,7 +881,7 @@ public partial class FPSController : MonoBehaviour
 							{
 								Zoom(false);
 							}
-							else if (enableFire && !anim.GetBool("Run"))
+							else if (CanStartAim)
 							{
 								Zoom(true);
 							}
@@ -1001,7 +1005,7 @@ public partial class FPSController : MonoBehaviour
 					if (FlatsControls.HoldToAim)
 					{
 						// Holding re-enters aim once a reload, sprint or weapon change ends.
-						if (input.AimHeld && !Aiming && enableFire && !anim.GetBool("Run"))
+						if (input.AimHeld && !Aiming && CanStartAim)
 						{
 							Zoom(true);
 						}
@@ -1016,7 +1020,7 @@ public partial class FPSController : MonoBehaviour
 						{
 							Zoom(false);
 						}
-						else if (enableFire && !anim.GetBool("Run"))
+						else if (CanStartAim)
 						{
 							Zoom(true);
 						}

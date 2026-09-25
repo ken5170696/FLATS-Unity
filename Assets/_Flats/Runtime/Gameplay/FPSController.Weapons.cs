@@ -131,7 +131,7 @@ public partial class FPSController
 			{
 				Zoom(false);
 			}
-			enableFire = false;
+			enableFire = false; firing = false;
 			float damage = 500f * (1f + (float)Menu.myCharacter.attack * 0.1f);
 			if (grabbing)
 			{
@@ -157,7 +157,7 @@ public partial class FPSController
 			yield return new WaitForSeconds(0.1f);
 			if (!grabbing)
 			{
-				enableFire = true;
+				enableFire = true; firing = false;
 			}
 		}
 	}
@@ -184,7 +184,7 @@ public partial class FPSController
 			{
 				yield break;
 			}
-			enableFire = false;
+			enableFire = false; firing = true;
 			if (anim.GetBool("Run"))
 			{
 				yield return new WaitForSeconds(0.2f);
@@ -241,7 +241,7 @@ public partial class FPSController
 				yield return new WaitForSeconds(0.1f);
 				anim.SetInteger("Burst", 0);
 				yield return new WaitForSeconds(60f / currentGun.rpm - 0.1f);
-				enableFire = true;
+				enableFire = true; firing = false;
 				if (currentGun.currentAmmo <= 0)
 				{
 					if (Menu.network == 0)
@@ -294,7 +294,7 @@ public partial class FPSController
 			}
 			anim.SetInteger("Burst", 0);
 			yield return new WaitForSeconds(60f / currentGun.rpm - 0.1f);
-			enableFire = true;
+			enableFire = true; firing = false;
 			if (currentGun.currentAmmo <= 0)
 			{
 				if (Menu.network == 0)
@@ -323,7 +323,7 @@ public partial class FPSController
 		{
 			Zoom(false);
 		}
-		enableFire = false;
+		enableFire = false; firing = false;
 		base.GetComponent<AudioSource>().PlayOneShot(reloadStartSE);
 		anim.SetBool("Reload", true);
 		yield return new WaitForSeconds(0.1f);
@@ -351,7 +351,7 @@ public partial class FPSController
 		ikc.leftIK = true;
 		currentGun.currentAmmo = current;
 		currentGun.maxAmmo = max;
-		enableFire = true;
+		enableFire = true; firing = false;
 		yield return new WaitForSeconds(0.1f);
 	}
 
@@ -387,7 +387,7 @@ public partial class FPSController
 		{
 			reticle.SetVisible(false);
 		}
-		enableFire = false;
+		enableFire = false; firing = false;
 		anim.SetBool("Change", true);
 		yield return new WaitForSeconds(0.1f);
 		ikc.leftIK = false;
@@ -436,7 +436,7 @@ public partial class FPSController
 		ikc.leftIK = true;
 		currentGun = primaryWeapon.GetComponent<Gun>();
 		yield return new WaitForSeconds(0.1f);
-		enableFire = true;
+		enableFire = true; firing = false;
 		if (MyView(base.gameObject))
 		{
 			reticle.SetVisible(true);
@@ -473,7 +473,7 @@ public partial class FPSController
 				base.gameObject.GetPhotonView().RPC("Grab", PhotonTargets.AllBuffered, array);
 			}
 		}
-		enableFire = false;
+		enableFire = false; firing = false;
 		anim.SetBool("Grenade", true);
 		yield return new WaitForSeconds(0.1f);
 		ikc.leftIK = false;
@@ -493,7 +493,7 @@ public partial class FPSController
 		ikc.leftIK = true;
 		anim.SetBool("Grenade", false);
 		yield return new WaitForSeconds(0.1f);
-		enableFire = true;
+		enableFire = true; firing = false;
 	}
 
 	public Vector3 GetBulletTrailOrigin()
