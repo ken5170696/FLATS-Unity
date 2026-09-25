@@ -366,6 +366,14 @@ public class DamageReceiver : MonoBehaviour
 		}
 		else if (Menu.network != 1)
 		{
+			// Every client simulates every bullet, so each copy of a hit would report it
+			// and the target would take the damage once per client. Only the shooter's
+			// owner reports (the master client for AI shooters).
+			var shooterView = shooter != null ? shooter.gameObject.GetPhotonView() : null;
+			if (shooterView == null || !shooterView.isMine)
+			{
+				return;
+			}
 			array[0] = (int)damage;
 			array[1] = headshot;
 			array[2] = shooter.gameObject.GetPhotonView().viewID;
@@ -409,6 +417,7 @@ public class DamageReceiver : MonoBehaviour
 		else
 		{
 			UnityEngine.Object.Destroy(myAI);
+			if (Menu.network != 0 && GetComponent<DeadAIRpcSink>() == null) base.gameObject.AddComponent<DeadAIRpcSink>();
 		}
 		UnityEngine.Object.Destroy(GetComponent<CharacterController>());
 		for (int j = 0; j < mt.childCount; j++)
