@@ -97,7 +97,7 @@ public static class FlatsGamepad
         for (int i = 0; i < sides.Length; i++)
         {
             int step = DeadzoneSteps[i < 4 ? MoveDeadzoneIndex : LookDeadzoneIndex];
-            sides[i].LowerDeadZone = step < 0 ? original[i] : step / 100f;
+            sides[i].LowerDeadZone = rawTest ? 0f : step < 0 ? original[i] : step / 100f;
         }
     }
     public static void ApplyDeadzones() { foreach (var device in InputManager.Devices) ApplyDeadzones(device); applied = null; }
@@ -118,12 +118,21 @@ public static class FlatsGamepad
         if (device == null || device == InputDevice.Null) return 0f;
         return profileDeadzones.TryGetValue(device, out var original) ? original[look ? 4 : 0] : (look ? device.RightStickLeft : device.LeftStickLeft).LowerDeadZone;
     }
-    // Stick position before the deadzone, for the menu tester.
+    // While the menu stick tester is shown, InControl's lower deadzone is 0, so the stick
+    // value is the raw sample rescaled by the upper deadzone; RawStick undoes that scale.
+    // Gameplay never runs with the tester open.
+    static bool rawTest;
+    public static bool RawTest
+    {
+        get => rawTest;
+        set { if (rawTest == value) return; rawTest = value; version++; }
+    }
     public static Vector2 RawStick(InputDevice device, bool look)
     {
         if (device == null || device == InputDevice.Null) return Vector2.zero;
-        return look ? new Vector2(device.RightStickRight.RawValue - device.RightStickLeft.RawValue, device.RightStickUp.RawValue - device.RightStickDown.RawValue)
-                    : new Vector2(device.LeftStickRight.RawValue - device.LeftStickLeft.RawValue, device.LeftStickUp.RawValue - device.LeftStickDown.RawValue);
+        var stick = look ? device.RightStick.Vector : device.LeftStick.Vector;
+        float upper = look ? device.RightStickLeft.UpperDeadZone : device.LeftStickLeft.UpperDeadZone;
+        return stick.magnitude >= 1f ? stick : stick * upper;
     }
 
     public static void Vibrate(InputDevice device, float intensity)
@@ -187,7 +196,7 @@ public static class FlatsGamepad
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
     // Profile deadzones are kept: a device that survives into the next session must not
     // record an already customised value as its "Auto" baseline.
-    static void ResetSession() { Changed = null; applied = null; version++; }
+    static void ResetSession() { Changed = null; applied = null; rawTest = false; version++; }
     // An imported save replaces preferences.
     public static void Reload() { version++; }
 }

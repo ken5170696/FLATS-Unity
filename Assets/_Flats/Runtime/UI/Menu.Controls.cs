@@ -20,6 +20,8 @@ public partial class Menu
     readonly List<Text> controllerDetails = new List<Text>();
     // Keyboard and controller bindings are two scrolling lists in SettingsScreen → Control → Bindings.
     ScrollRect keyboardList, controllerList;
+    GameObject controllerPreview;
+    FlatsGamepad.Style bindingStyle;
     Text controlCategoryLabel;
     int controlCategory;
     Text bindingStatus;
@@ -48,6 +50,8 @@ public partial class Menu
         control.Find("NextControlType").GetComponent<Button>().onClick.AddListener(() => ChangeControlCategory(1));
         keyboardList = bindingsPanel.transform.Find("KeyboardList").GetComponent<ScrollRect>();
         controllerList = bindingsPanel.transform.Find("ControllerList").GetComponent<ScrollRect>();
+        var preview = bindingsPanel.transform.Find("ControllerPreview");
+        controllerPreview = preview != null ? preview.gameObject : null;
         for (int i = 0; i < FlatsControls.KeyboardActions.Length; i++) BindAuthoredRow(keyboardRows, keyboardLabels, keyboardDetails, i, keyboardList);
         for (int i = 0; i < FlatsControls.PadActions.Length; i++) BindAuthoredRow(controllerRows, controllerLabels, controllerDetails, i, controllerList);
         bindingStatus = bindingsPanel.transform.Find("Status").GetComponent<Text>();
@@ -189,6 +193,8 @@ public partial class Menu
         }
         keyboardList.gameObject.SetActive(!bindingPad && bindingsPanel.activeSelf);
         controllerList.gameObject.SetActive(bindingPad && bindingsPanel.activeSelf);
+        if (controllerPreview != null) controllerPreview.SetActive(bindingPad && bindingsPanel.activeSelf);
+        bindingStyle = FlatsGamepad.DeviceStyle(InputManager.ActiveDevice);
         bindingStatus.text = bindingPad && Input.GetJoystickNames().Length > 0 ? "LB / RB: next section. Select an option to change it." : "Select a binding to change it.";
     }
     void BeginBinding(int index)
@@ -230,7 +236,8 @@ public partial class Menu
             }
             return true;
         }
-        if (bindingsPanel != null && bindingsPanel.activeInHierarchy && bindingLanguage != FlatsLocalization.Language) RefreshBindings();
+        if (bindingsPanel != null && bindingsPanel.activeInHierarchy &&
+            (bindingLanguage != FlatsLocalization.Language || (bindingPad && bindingStyle != FlatsGamepad.DeviceStyle(InputManager.ActiveDevice)))) RefreshBindings();
         if (captureAction == null)
         {
             if (bindingPad && controllerList != null && controllerList.gameObject.activeInHierarchy)

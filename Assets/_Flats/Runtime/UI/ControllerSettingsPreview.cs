@@ -40,6 +40,7 @@ public sealed class ControllerSettingsPreview : MonoBehaviour
         title.text = target.title;
         description.text = target.description;
         bool stick = target.kind == Kind.LookStick || target.kind == Kind.MoveStick;
+        FlatsGamepad.RawTest = stick;
         controllerGroup.SetActive(!stick);
         testerGroup.SetActive(stick);
         if (stick) testerLabel.text = target.kind == Kind.LookStick ? "Right stick: look" : "Left stick: move";
@@ -47,6 +48,7 @@ public sealed class ControllerSettingsPreview : MonoBehaviour
     }
 
     void OnEnable() { lastSelected = null; }
+    void OnDisable() { FlatsGamepad.RawTest = false; }
 
     void Update()
     {

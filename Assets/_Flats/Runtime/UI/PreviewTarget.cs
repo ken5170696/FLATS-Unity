@@ -12,5 +12,7 @@ public sealed class PreviewTarget : MonoBehaviour, IPointerEnterHandler
     [Tooltip("Controller action (FlatsControls.PadActions) for Button rows.")]
     public string action;
 
-    public void OnPointerEnter(PointerEventData eventData) { if (preview != null) preview.Show(this); }
+    // A list that scrolls under a resting pointer must not take the preview from the
+    // keyboard or controller selection; only a pointer in use does.
+    public void OnPointerEnter(PointerEventData eventData) { if (preview != null && PointerFocusPolicy.PointerActive) preview.Show(this); }
 }
