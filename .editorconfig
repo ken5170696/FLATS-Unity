@@ -1,0 +1,17 @@
+root = true
+
+# Apply when writing or substantively editing first-party code. Do not reformat
+# recovered/vendor code or Unity-serialized assets as part of behavior changes.
+[Assets/_Flats/Editor/*.cs]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+
+[tools/*.{py,ps1}]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true

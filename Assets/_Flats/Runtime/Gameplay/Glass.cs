@@ -16,7 +16,9 @@ public class Glass : MonoBehaviour
 	private void Start()
 	{
 		mt = base.transform;
-		gc = mt.root.GetComponent<GlassController>();
+		// The owning controller is an ancestor. Looking it up from the scene root
+		// would break as soon as the controller is grouped under a container.
+		gc = mt.GetComponentInParent<GlassController>(true);
 		glassMat = GetComponent<Renderer>().sharedMaterial;
 	}
 

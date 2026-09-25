@@ -32,22 +32,68 @@ public partial class Menu
         }
     }
 
+    private IEnumerator WaitForLocalModules(int operation)
+    {
+        float deadline = Time.realtimeSinceStartup + 15f;
+        while (operation == multiplayerOperation)
+        {
+            var host = Flats.Modules.BuiltinModules.Instance;
+            var center = host != null ? host.Center : null;
+            if (center == null)
+            {
+                multiplayerFailure = "The local module service is unavailable. Return to the main menu and restart FLATS after restoring module storage.";
+                yield break;
+            }
+            if (center.Ready) yield break;
+            if (center.InitializationComplete)
+            {
+                multiplayerFailure = "Local modules could not start. " + center.Notice +
+                    "\nOpen MOD from the main menu to inspect storage recovery and retry. Multiplayer has not started.";
+                yield break;
+            }
+            if (Time.realtimeSinceStartup >= deadline)
+            {
+                multiplayerFailure = "Local module initialization did not finish within 15 seconds. Return to the main menu and check MOD, then retry multiplayer. No room was joined.";
+                yield break;
+            }
+            yield return null;
+        }
+    }
+
     private IEnumerator EnsureMultiplayerConnection()
     {
-        while (!Flats.Modules.BuiltinModules.Instance.Center.Ready) yield return null;
-        PhotonNetwork.SetPlayerCustomProperties(new ExitGames.Client.Photon.Hashtable { { Flats.Modules.SessionModules.Property, Flats.Modules.BuiltinModules.Instance.Center.Agreement() } });
-        multiplayerReady = false;
         if (multiplayerConnecting) yield break;
-        if (PhotonNetwork.connectedAndReady && !PhotonNetwork.offlineMode && !PhotonNetwork.inRoom)
-        { multiplayerReady = true; yield break; }
+        multiplayerReady = false;
         multiplayerConnecting = true;
         int operation = multiplayerOperation;
         multiplayerFailure = null;
         pleaseWait.SetActive(true);
         backButton.SetActive(true);
+        yield return StartCoroutine(WaitForLocalModules(operation));
+        if (operation != multiplayerOperation)
+        { multiplayerConnecting = false; multiplayerReady = false; pleaseWait.SetActive(false); yield break; }
+        if (multiplayerFailure != null)
+        {
+            multiplayerConnecting = false;
+            pleaseWait.SetActive(false);
+            fliping = false;
+            anim.SetBool("Fade", false);
+            ShowConfirm("Local modules need attention", multiplayerFailure, null, "OK", null);
+            yield break;
+        }
+        PhotonNetwork.SetPlayerCustomProperties(new ExitGames.Client.Photon.Hashtable { { Flats.Modules.SessionModules.Property, Flats.Modules.BuiltinModules.Instance.Center.Agreement() } });
+        if (PhotonNetwork.connectedAndReady && !PhotonNetwork.offlineMode && !PhotonNetwork.inRoom)
+        {
+            multiplayerReady = true;
+            multiplayerConnecting = false;
+            pleaseWait.SetActive(false);
+            yield break;
+        }
         float deadline = Time.realtimeSinceStartup + 20f;
         if (PhotonNetwork.inRoom) PhotonNetwork.LeaveRoom();
-        while (PhotonNetwork.inRoom && Time.realtimeSinceStartup < deadline) yield return null;
+        while (PhotonNetwork.inRoom && Time.realtimeSinceStartup < deadline && operation == multiplayerOperation) yield return null;
+        if (operation != multiplayerOperation)
+        { multiplayerConnecting = false; pleaseWait.SetActive(false); yield break; }
         if (PhotonNetwork.offlineMode) PhotonNetwork.offlineMode = false;
         if (!PhotonNetwork.connected) Connect();
         while (!PhotonNetwork.connectedAndReady && multiplayerFailure == null && Time.realtimeSinceStartup < deadline && operation == multiplayerOperation)
@@ -69,6 +115,7 @@ public partial class Menu
     private void OnConnectionFail(DisconnectCause cause)
     {
         multiplayerFailure = "Photon connection lost: " + cause;
+        LocalRoomFailed(multiplayerFailure);
         pleaseWait.SetActive(false);
         fliping = false;
         anim.SetBool("Fade", false);

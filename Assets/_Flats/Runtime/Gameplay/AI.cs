@@ -132,7 +132,8 @@ public class AI : MonoBehaviour
 	private IEnumerator Start()
 	{
 		int network = Menu.network;
-		defaultSpeed = agent.speed;
+		defaultSpeed = agent.speed * Flats.Core.EnemyTuning.Speed;
+		agent.speed = defaultSpeed;
 		agent.autoBraking = false;
 		StartCoroutine("SyncAnimation");
 		primaryWeaponIndex = UnityEngine.Random.Range(0, 14);
@@ -447,7 +448,7 @@ public class AI : MonoBehaviour
 		{
 			yield return new WaitForSeconds(3f);
 			enableBite = true;
-			agent.speed = 20f;
+			agent.speed = 20f * Flats.Core.EnemyTuning.Speed;
 			defaultSpeed = agent.speed;
 			attackRange = 7f;
 		}
@@ -1013,18 +1014,18 @@ public class AI : MonoBehaviour
 				{
 					if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8)
 					{
-						num = 1f / (float)Singleplayer.enemy;
+						num = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.enemy);
 					}
 					else if (Singleplayer.rule == 1 || Singleplayer.rule == 3)
 					{
-						num = 1f / (float)Singleplayer.respawnEnemy;
+						num = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.respawnEnemy);
 					}
 					if (num < 0.5f)
 					{
 						num = 0.5f;
 					}
 				}
-				component.damage = currentGun.damage * (1f + (float)stats_Attack * 0.1f) * num;
+				component.damage = currentGun.damage * (1f + (float)stats_Attack * 0.1f) * num * Flats.Core.EnemyTuning.Damage;
 				rigidbody.gameObject.layer = base.gameObject.layer + 2;
 				rigidbody.linearVelocity = velocity;
 				currentGun.currentAmmo--;
@@ -1067,18 +1068,18 @@ public class AI : MonoBehaviour
 			{
 				if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8)
 				{
-					damagePerEnemy = 1f / (float)Singleplayer.enemy;
+					damagePerEnemy = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.enemy);
 				}
 				else if (Singleplayer.rule == 1 || Singleplayer.rule == 3)
 				{
-					damagePerEnemy = 1f / (float)Singleplayer.respawnEnemy;
+					damagePerEnemy = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.respawnEnemy);
 				}
 				if (damagePerEnemy < 0.5f)
 				{
 					damagePerEnemy = 0.5f;
 				}
 			}
-			bb.damage = currentGun.damage * (1f + (float)stats_Attack * 0.1f) * damagePerEnemy;
+			bb.damage = currentGun.damage * (1f + (float)stats_Attack * 0.1f) * damagePerEnemy * Flats.Core.EnemyTuning.Damage;
 			b.gameObject.layer = base.gameObject.layer + 2;
 			b.linearVelocity = dir;
 			anim.SetInteger("Burst", currentBurstCount);
@@ -1339,9 +1340,9 @@ public class AI : MonoBehaviour
 		if (primaryWeapon != null) primaryWeapon.gameObject.SetActive(!value);
 		if (secondaryWeapon != null) secondaryWeapon.gameObject.SetActive(!value);
 		attackRange = value ? 7f : 100f;
-		defaultSpeed = value ? 20f : 15f;
+		defaultSpeed = (value ? 20f : 15f) * Flats.Core.EnemyTuning.Speed;
 		agent.speed = defaultSpeed;
-		GetComponent<DamageReceiver>().hitPoints = value ? 6000f : 100f;
+		GetComponent<DamageReceiver>().hitPoints = (value ? 6000f : 100f) * Flats.Core.EnemyTuning.Health;
 		foreach (var renderer in GetComponentsInChildren<SkinnedMeshRenderer>())
 		{
 			renderer.gameObject.layer = gameObject.layer;

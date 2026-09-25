@@ -14,6 +14,20 @@ using UnityEngine.UI;
 
 public partial class Menu : MonoBehaviour
 {
+    // Compatibility boundary while legacy modes still write these public fields.
+    private sealed class GameplaySession : Flats.Core.IGameSessionContext
+    {
+        public bool IsPlaying { get { return current == "Playing"; } }
+        public int NetworkMode { get { return network; } }
+    }
+    private readonly Flats.Core.IGameSessionContext gameplaySession = new GameplaySession();
+    private readonly Flats.Core.PauseNavigationSession pauseNavigation = new Flats.Core.PauseNavigationSession();
+
+    public void BindGameplay(FPSController player)
+    {
+        player.ConfigureGameplay(gameplaySession, new Flats.Gameplay.UnityDesktopPlayerInput(), false);
+    }
+
 	public bool resetData;
 
 	public static int network = 0; private static readonly bool offlineNotifications = false;
@@ -183,6 +197,7 @@ public partial class Menu : MonoBehaviour
 	public static bool canOpen = true;
 
 	public static bool skipTitle = false;
+	private bool returningToMenu;
 
 	public static bool adFree = false;
 
@@ -327,6 +342,9 @@ public partial class Menu : MonoBehaviour
     }
 	private void OnDestroy()
 	{
+		if (Current == this) Current = null;
+        if (captureAction != null) FlatsControls.Capturing = false;
+        if (localDiscovery != null) localDiscovery.Stop();
         Canvas.preWillRenderCanvases -= BindThemeMaterials;
 		if (runtimeBackgroundMaterial != null) Destroy(runtimeBackgroundMaterial);
         if (runtimeMainUI != null) Destroy(runtimeMainUI);
@@ -335,6 +353,7 @@ public partial class Menu : MonoBehaviour
 
 	private void Awake()
 	{
+		Current = this;
 		// The authored menu clips are quiet and the legacy source was at half
 		// volume. Keep this gain on the UI source, separate from weapon audio.
 		AudioSource menuSound = GetComponent<AudioSource>();
@@ -375,6 +394,15 @@ public partial class Menu : MonoBehaviour
 		}
 		mt = base.transform;
 		InitializeSaveTransfer();
+        var syncExplanation = mt.Find("Character/Sync/Explanation");
+        if (syncExplanation != null)
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            syncExplanation.GetComponent<Text>().text = "Save files: Export on source; Import old save here.\nPreview before replacing the current save.\n\nBrowsers cannot use UDP LAN Sync.\nUse save files to transfer your progress.\n\nLegacy cloud restoration is unavailable.\nThe ID/Receive entry cannot recover old cloud data.";
+#else
+            syncExplanation.GetComponent<Text>().text = "Save files: Export on source; Import old save here.\nPreview before replacing the current save.\n\nLAN Sync (native builds, same network):\nOpen source first, then receiver; confirm scores.\nOnly ID + scores transfer, not gameplay.\n\nLegacy cloud restoration is unavailable.\nThe ID/Receive entry cannot recover old cloud data.";
+#endif
+        }
 		anim = GetComponent<Animator>();
 		Time.timeScale = 1f;
 		Application.targetFrameRate = 60;
@@ -393,7 +421,7 @@ public partial class Menu : MonoBehaviour
 			version = "";
 		}
 		Debug.Log("version:" + version);
-		string text = "5.4.1";
+		string text = Flats.Modules.ModRules.GameVersion;
 		if (version != text)
 		{
 			if (version == "" || int.Parse(version.Substring(0, 1)) < 5)
@@ -507,9 +535,9 @@ public partial class Menu : MonoBehaviour
 				version = text;
 				SaveDataController.Save();
 				Debug.Log("This is the first play.");
-				update.transform.GetChild(1).GetComponent<Text>().text = "Flats version 5";
-				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to Flats.\n\nFlats is a simple cross-platform FPS.\nYou can play single & multiplayer mode.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Added new game mode and new system.\n- Added LAN multiplayer mode for Android and iOS devices.\n- Now available on Windows 8.1 or later.\n\nNote for updaters from version 4:Your score is taken over,\nbut singleplayer score is limited to 100000\nalso kill and death are halved and limited to 300.";
+				update.transform.GetChild(1).GetComponent<Text>().text = "FLATS " + text + " preview";
+				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.";
 			}
 			else
 			{
@@ -569,8 +597,8 @@ public partial class Menu : MonoBehaviour
 					SaveDataController.Save();
 				}
 				update.transform.GetChild(1).GetComponent<Text>().text = "Update Version " + text;
-				update.transform.GetChild(2).GetComponent<Text>().text = "Bug fixes and adjustment.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Save import and export have a clearer layout and messages.\n- Android touch controls and game loading fades are improved.";
+				update.transform.GetChild(2).GetComponent<Text>().text = "Core stability, save transfer and module updates.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.";
 			}
 			version = text;
 			FlatsPreferences.SetString("version", version);
@@ -585,7 +613,7 @@ public partial class Menu : MonoBehaviour
 		Array.Resize(ref bt, 6);
 		for (int i = 0; i < buttons.Length; i++)
 		{
-			bt[i] = buttons[i].transform.parent.GetChild(1).GetComponent<Text>();
+			bt[i] = tileArtwork.labels[i];
             // Main sprite rectangles and padding now match the original 512px assets.
             // Preserve the authored Image RectTransform instead of a tight-crop workaround.
 		}
@@ -596,245 +624,11 @@ public partial class Menu : MonoBehaviour
 		stick.transform.SetAsFirstSibling();
 	}
 
-	private void OnJoinedLobby()
-	{
-		if (!(current != "Multiplayer") || !(current != "Matching"))
-		{
-			return;
-		}
-		Debug.Log("Joined lobby");
-		invitedRules = new List<int>();
-		if (roomList == null || roomList.Length <= 0)
-		{
-			return;
-		}
-		for (int i = 0; i < roomList.Length; i++)
-		{
-			if (roomList[i].IsOpen)
-			{
-				int item = (int)roomList[i].CustomProperties["R"];
-				invitedRules.Add(item);
-			}
-		}
-	}
-
-	private void OnReceivedRoomListUpdate()
-	{
-		if (!PhotonNetwork.inRoom && current != "Multiplayer" && current != "Matching")
-		{
-			roomList = PhotonNetwork.GetRoomList();
-			if (mySettings.extra_notification == 1)
-			{
-				PhotonNetwork.Disconnect();
-			}
-		}
-	}
-
-	private IEnumerator ReceiveInvitation()
-	{
-		while (true)
-		{
-			yield return new WaitForSeconds(10f);
-			if (offlineNotifications && network == 0 && canOpen && !waitBackground && current != "Matching")
-			{
-				if (PhotonNetwork.inRoom)
-				{
-					Debug.Log("You are in matchmaking, stop receiving invitation.");
-				}
-				else
-				{
-					gettingRoomList = true;
-					Connect();
-					Debug.Log("Called Connect() to get room list.");
-				}
-				yield return new WaitForSeconds(10f);
-				if (!PhotonNetwork.connected && invitedRules.Count > 0)
-				{
-					int r = (currentInvitedRule = invitedRules[UnityEngine.Random.Range(0, invitedRules.Count)]);
-					Debug.Log("Send invitation.");
-					if (Input.GetJoystickNames().Length > 0)
-					{
-						notification.transform.GetChild(0).GetChild(1).GetComponent<Text>()
-							.text = ruleTitleText[r] + "\nHold reload button to join";
-					}
-					else if (!Application.isMobilePlatform && Input.mousePresent)
-					{
-						notification.transform.GetChild(0).GetChild(1).GetComponent<Text>()
-							.text = ruleTitleText[r] + "\nPress enter key to join";
-					}
-					else
-					{
-						notification.transform.GetChild(0).GetChild(1).GetComponent<Text>()
-							.text = ruleTitleText[r] + "\nTap here to join";
-					}
-					Animator notificationAnim = notification.GetComponent<Animator>();
-					notification.gameObject.SetActive(true);
-					notificationAnim.Play("Invitation_On");
-					yield return new WaitForSeconds(4f);
-					notificationAnim.Play("Invitation_Off");
-					yield return new WaitForSeconds(1f);
-					notification.gameObject.SetActive(false);
-				}
-			}
-			yield return new WaitForSeconds(0f);
-		}
-	}
-
-	public void AcceptInvitation()
-	{
-		rule = currentInvitedRule;
-		StopCoroutine("ReceiveInvitation");
-		if (current == "Playing")
-		{
-			OpenMenu();
-		}
-		StartCoroutine("JoinFromInvitation");
-	}
-
-	private IEnumerator JoinFromInvitation()
-	{
-        while (!Flats.Modules.BuiltinModules.Instance.Center.Ready) yield return null;
-		stayRoom.gameObject.SetActive(true);
-		ipButton.SetActive(false);
-		roomTexts[0].text = ruleTitleText[rule];
-		roomTexts[1].text = ruleExpText[rule];
-		roomTexts[2].text = "Objective: " + objectiveText[rule + "-" + objective];
-		roomTexts[3].text = "Player Count: " + playerCount;
-		roomTexts[4].text = "Searching for a room...";
-		myButton = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-		myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
-			.GetComponent<Image>()
-			.color;
-		myButton.transform.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(0).GetChild(0)
-			.GetChild(0)
-			.GetComponent<Image>()
-			.sprite;
-		myButton.transform.GetChild(1).GetComponent<Text>().text = myCharacter.name;
-		DetailInformation di = myButton.GetComponent<DetailInformation>();
-		di.canvas = mt;
-		di.backgroundColor = myButton.GetComponent<Image>().color;
-		di.comment = myCharacter.comment;
-		di.kill = myCharacter.kill;
-		di.death = myCharacter.death;
-		myButton.transform.SetParent(multiplayerList, false);
-		Texture2D icon = new Texture2D(128, 128)
-		{
-			filterMode = FilterMode.Bilinear
-		};
-		byte[] bytes = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
-		icon.LoadImage(bytes);
-		ExitGames.Client.Photon.Hashtable playerProps = new ExitGames.Client.Photon.Hashtable();
-		playerProps["K"] = myCharacter.kill;
-		playerProps["D"] = myCharacter.death;
-		playerProps["TC"] = myCharacter.color;
-		playerProps["C"] = myCharacter.comment;
-		playerProps["I"] = bytes;
-        PublishRoomModules(playerProps);
-		PhotonNetwork.SetPlayerCustomProperties(playerProps);
-		PhotonNetwork.player.NickName = myCharacter.name;
-		anim.SetBool("Fade", true);
-		yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-		if (currentDetail != null)
-		{
-			currentDetail.SetActive(false);
-		}
-		quitButton.SetActive(false);
-		anim.SetBool("Matching", true);
-		anim.SetBool("Detail", false);
-		anim.SetTrigger("SkipToMatching");
-		current = "Matching";
-		if (!PhotonNetwork.connected)
-		{
-			Connect();
-		}
-		if (PhotonNetwork.inRoom)
-		{
-			while (PhotonNetwork.inRoom)
-			{
-				yield return new WaitForSeconds(0f);
-			}
-		}
-		while (!PhotonNetwork.connectedAndReady)
-		{
-			yield return new WaitForSeconds(0f);
-		}
-		ExitGames.Client.Photon.Hashtable customProps = new ExitGames.Client.Photon.Hashtable();
-		if (rule != 0)
-		{
-			customProps["R"] = rule;
-		}
-		PhotonNetwork.JoinRandomRoom(customProps, 0);
-		preCheckToStayRoom = true;
-	}
-
-	public void OnDrag(int btn)
-	{
-		string text = "";
-		switch (btn)
-		{
-		case 1:
-			text = "Fire Button";
-			break;
-		case 2:
-			text = "Reload Button";
-			break;
-		case 3:
-			text = "Action Button";
-			break;
-		case 4:
-			text = "Grenade&Aim Button";
-			break;
-		}
-		RectTransform rectTransform = currentDetail.transform.GetChild(1).GetChild(1).GetChild(btn)
-			.rectTransform();
-		rectTransform.position = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
-		currentDetail.transform.GetChild(1).GetChild(0).GetChild(2)
-			.GetComponent<Text>()
-			.text = text + "  X:" + rectTransform.anchoredPosition.x.ToString("F0") + " Y:" + rectTransform.anchoredPosition.y.ToString("F0");
-		picking += 1f;
-		Debug.Log("Picking..." + UnityEngine.Random.Range(0, 10));
-	}
-
-	public void OnClickedUp(int btn)
-	{
-		if (picking < 1f)
-		{
-			RectTransform rectTransform = currentDetail.transform.GetChild(1).GetChild(1).GetChild(btn)
-				.rectTransform();
-			if (rectTransform.localScale.x == 1f)
-			{
-				rectTransform.localScale = new Vector3(1.5f, 1.5f, rectTransform.localScale.z);
-			}
-			else if (rectTransform.localScale.x == 1.5f)
-			{
-				rectTransform.localScale = new Vector3(2f, 2f, rectTransform.localScale.z);
-			}
-			else
-			{
-				rectTransform.localScale = new Vector3(1f, 1f, rectTransform.localScale.z);
-			}
-		}
-		else
-		{
-			Debug.Log("Just dragged...");
-		}
-		picking = 0f;
-	}
-
-	private void Connect()
-    {
-        PhotonNetwork.automaticallySyncScene = false;
-        PhotonNetwork.BackgroundTimeout = 60f;
-        if (!FlatsPhotonConfiguration.Apply(out multiplayerFailure)) return;
-        PhotonNetwork.offlineMode = false;
-        if (!PhotonNetwork.ConnectUsingSettings(version.Substring(0, 3)))
-            multiplayerFailure = "Photon rejected the connection request: " + PhotonNetwork.connectionStateDetailed;
-    }
-
 	private static bool tutorialLaunchConsumed;
 
 	private IEnumerator Start()
 	{
+        InitializeLanguageButton();
         StartCoroutine(ShowPendingModuleRejection());
 		SocialDesc desc = new SocialDesc
 		{
@@ -911,14 +705,14 @@ public partial class Menu : MonoBehaviour
 			bytes2 = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
 			icon.LoadImage(bytes2);
 		}
-		mt.GetChild(5).GetChild(0).GetChild(0)
+		characterScreen.GetChild(0).GetChild(0)
 			.GetChild(0)
 			.GetComponent<Image>()
 			.sprite = Sprite.Create(icon, new Rect(0f, 0f, 128f, 128f), new Vector2(0.5f, 0.5f));
-		mt.GetChild(5).GetChild(0).GetChild(1)
+		characterScreen.GetChild(0).GetChild(1)
 			.GetComponent<InputField>()
 			.text = myCharacter.name;
-		mt.GetChild(5).GetChild(0).GetChild(2)
+		characterScreen.GetChild(0).GetChild(2)
 			.GetComponent<InputField>()
 			.text = myCharacter.comment;
 		if (myCharacter.death == 0)
@@ -931,58 +725,58 @@ public partial class Menu : MonoBehaviour
 		}
 		singleScore = ((float)((myCharacter.survivalScore + myCharacter.assortmentScore + myCharacter.headshotScore) / 3)).ToString("F0");
 		totalScore = ((float.Parse(multiScore) + 1f) * float.Parse(singleScore) / 2f).ToString("F0");
-		mt.GetChild(5).GetChild(2).GetChild(1)
+		characterScreen.GetChild(2).GetChild(1)
 			.GetComponent<Text>()
 			.text = totalScore;
-		mt.GetChild(5).GetChild(2).GetChild(3)
+		characterScreen.GetChild(2).GetChild(3)
 			.GetComponent<Text>()
 			.text = multiScore;
-		mt.GetChild(5).GetChild(2).GetChild(5)
+		characterScreen.GetChild(2).GetChild(5)
 			.GetComponent<Text>()
 			.text = myCharacter.kill.ToString();
-		mt.GetChild(5).GetChild(2).GetChild(7)
+		characterScreen.GetChild(2).GetChild(7)
 			.GetComponent<Text>()
 			.text = myCharacter.death.ToString();
-		mt.GetChild(5).GetChild(2).GetChild(9)
+		characterScreen.GetChild(2).GetChild(9)
 			.GetComponent<Text>()
 			.text = singleScore;
-		mt.GetChild(5).GetChild(2).GetChild(11)
+		characterScreen.GetChild(2).GetChild(11)
 			.GetComponent<Text>()
 			.text = myCharacter.survivalScore.ToString();
-		mt.GetChild(5).GetChild(2).GetChild(13)
+		characterScreen.GetChild(2).GetChild(13)
 			.GetComponent<Text>()
 			.text = myCharacter.assortmentScore.ToString();
-		mt.GetChild(5).GetChild(2).GetChild(15)
+		characterScreen.GetChild(2).GetChild(15)
 			.GetComponent<Text>()
 			.text = myCharacter.headshotScore.ToString();
-		mt.GetChild(5).GetChild(3).GetChild(0)
+		characterScreen.GetChild(3).GetChild(0)
 			.GetChild(1)
 			.GetComponent<Image>()
-			.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+			.sprite = characterScreen.GetChild(3).GetChild(2)
 			.GetChild(myCharacter.primaryWeapon)
 			.GetChild(0)
 			.GetComponent<Image>()
 			.sprite;
-		mt.GetChild(5).GetChild(3).GetChild(0)
+		characterScreen.GetChild(3).GetChild(0)
 			.GetChild(2)
 			.GetComponent<Text>()
-			.text = mt.GetChild(5).GetChild(3).GetChild(2)
+			.text = characterScreen.GetChild(3).GetChild(2)
 			.GetChild(myCharacter.primaryWeapon)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text;
-		mt.GetChild(5).GetChild(3).GetChild(1)
+		characterScreen.GetChild(3).GetChild(1)
 			.GetChild(1)
 			.GetComponent<Image>()
-			.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
+			.sprite = characterScreen.GetChild(3).GetChild(2)
 			.GetChild(myCharacter.secondaryWeapon)
 			.GetChild(0)
 			.GetComponent<Image>()
 			.sprite;
-		mt.GetChild(5).GetChild(3).GetChild(1)
+		characterScreen.GetChild(3).GetChild(1)
 			.GetChild(2)
 			.GetComponent<Text>()
-			.text = mt.GetChild(5).GetChild(3).GetChild(2)
+			.text = characterScreen.GetChild(3).GetChild(2)
 			.GetChild(myCharacter.secondaryWeapon)
 			.GetChild(1)
 			.GetComponent<Text>()
@@ -993,88 +787,47 @@ public partial class Menu : MonoBehaviour
 		sightDictionary[3] = "4x sight";
 		sightDictionary[4] = "6x sight";
 		sightDictionary[5] = "8x sight";
-		mt.GetChild(5).GetChild(4).GetChild(1)
+		characterScreen.GetChild(4).GetChild(1)
 			.GetComponent<Text>()
 			.text = myCharacter.attack + myCharacter.defense + "/10";
-		mt.GetChild(5).GetChild(4).GetChild(2)
+		characterScreen.GetChild(4).GetChild(2)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = myCharacter.attack.ToString();
-		mt.GetChild(5).GetChild(4).GetChild(3)
+		characterScreen.GetChild(4).GetChild(3)
 			.GetChild(1)
 			.GetComponent<Text>()
 			.text = myCharacter.defense.ToString();
-		mt.GetChild(5).GetChild(5).GetChild(0)
+		characterScreen.GetChild(5).GetChild(0)
 			.GetComponent<Text>()
 			.text = "ID:" + myCharacter.id;
-		bgm1.volume = (float)mySettings.sound_bgm / 10f;
-		if (Singleplayer.chance)
-		{
-			bgm2.volume = (float)mySettings.sound_bgm / 10f;
-		}
-		else
-		{
-			bgm2.volume = 0f;
-		}
-		mt.GetChild(6).GetChild(0).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = mySettings.sound_bgm.ToString();
-		if (current == "Playing")
-		{
-			AudioListener.volume = (float)mySettings.sound_all / 10f;
-		}
-		else
-		{
-			AudioListener.volume = (float)mySettings.sound_all / 20f;
-		}
-		mt.GetChild(6).GetChild(0).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = mySettings.sound_all.ToString();
+        InitializeVolumeSliders();
+        InitializeControls();
 		aaText[0] = "OFF";
 		aaText[1] = "ON";
 		FPSController.aa = IntToBool(mySettings.graphics_aa);
-		mt.GetChild(6).GetChild(1).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = aaText[mySettings.graphics_aa];
+		SettingValue(1, "Anti-Aliasing").text = aaText[mySettings.graphics_aa];
 		dofText[0] = "OFF";
 		dofText[1] = "ON";
 		FPSController.dof = IntToBool(mySettings.graphics_dof);
-		mt.GetChild(6).GetChild(1).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = dofText[mySettings.graphics_dof];
+		SettingValue(1, "DepthOfField").text = dofText[mySettings.graphics_dof];
 		motionBlurText[0] = "OFF";
 		motionBlurText[1] = "ON";
 		FPSController.motionBlur = IntToBool(mySettings.graphics_motionBlur);
-		mt.GetChild(6).GetChild(1).GetChild(2)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = motionBlurText[mySettings.graphics_motionBlur];
+		SettingValue(1, "MotionBlur").text = motionBlurText[mySettings.graphics_motionBlur];
 		edgeRenderingText[0] = "OFF";
 		edgeRenderingText[1] = "ON";
 		FPSController.edgeRendering = IntToBool(mySettings.graphics_edgeRendering);
-		mt.GetChild(6).GetChild(1).GetChild(3)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = edgeRenderingText[mySettings.graphics_edgeRendering];
+		SettingValue(1, "EdgeRendering").text = edgeRenderingText[mySettings.graphics_edgeRendering];
 		saturationFilterText[0] = "OFF";
 		saturationFilterText[1] = "ON";
 		FPSController.saturationFilter = IntToBool(mySettings.graphics_saturationFilter);
-		mt.GetChild(6).GetChild(1).GetChild(4)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = saturationFilterText[mySettings.graphics_saturationFilter];
+		SettingValue(1, "SaturationFilter").text = saturationFilterText[mySettings.graphics_saturationFilter];
 		sensitivityText[0] = "Low";
 		sensitivityText[1] = "Normal";
 		sensitivityText[2] = "High";
 		FPSController.sensitivity = mySettings.control_sensitivity + 1;
-		mt.GetChild(6).GetChild(2).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = sensitivityText[mySettings.control_sensitivity];
+		SettingValue(2, "CameraSensitivity").text = sensitivityText[mySettings.control_sensitivity];
 		handednessText[0] = "Right";
 		handednessText[1] = "Left";
 		Transform ui = mt.parent.GetChild(1);
@@ -1099,31 +852,19 @@ public partial class Menu : MonoBehaviour
 			ui.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(ui.GetChild(6).rectTransform().anchoredPosition3D.x), ui.GetChild(6).rectTransform().anchoredPosition3D.y, ui.GetChild(6).rectTransform().anchoredPosition3D.z);
 		}
 		FPSController.handedness = mySettings.control_handedness;
-		mt.GetChild(6).GetChild(2).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = handednessText[mySettings.control_handedness];
+		SettingValue(2, "Handedness").text = handednessText[mySettings.control_handedness];
 		yAxisText[0] = "Regular";
 		yAxisText[1] = "Inverted";
 		FPSController.invertY = IntToBool(mySettings.control_yAxis);
-		mt.GetChild(6).GetChild(2).GetChild(2)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = yAxisText[mySettings.control_yAxis];
+		SettingValue(2, "Y-Axis").text = yAxisText[mySettings.control_yAxis];
 		autoAimText[0] = "OFF";
 		autoAimText[1] = "ON";
 		FPSController.autoAim = IntToBool(mySettings.control_autoAim);
-		mt.GetChild(6).GetChild(2).GetChild(3)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = autoAimText[mySettings.control_autoAim];
+		SettingValue(2, "AutoAim").text = autoAimText[mySettings.control_autoAim];
 		tapFiringText[0] = "OFF";
 		tapFiringText[1] = "ON";
 		FPSController.tapFiring = IntToBool(mySettings.control_tapFiring);
-		mt.GetChild(6).GetChild(2).GetChild(4)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = tapFiringText[mySettings.control_tapFiring];
+		SettingValue(2, "TapFiring").text = tapFiringText[mySettings.control_tapFiring];
 		resolutionText[0] = "Low";
 		resolutionText[1] = "Normal";
 		resolutionText[2] = "High";
@@ -1143,35 +884,20 @@ public partial class Menu : MonoBehaviour
 		{
 			bool flag = VRController.device == "oculus";
 		}
-		mt.GetChild(6).GetChild(3).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = resolutionText[mySettings.vr_resolution];
+		SettingValue(3, "Resolution").text = resolutionText[mySettings.vr_resolution];
 		string eyeDistanceText = ((mySettings.vr_eyeDistance != 0) ? ("+" + (float)mySettings.vr_eyeDistance * 0.5f) : "Default");
 		VRController.offset = (float)mySettings.vr_eyeDistance * 0.5f;
-		mt.GetChild(6).GetChild(3).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = eyeDistanceText;
+		SettingValue(3, "EyeDistance").text = eyeDistanceText;
 		headRotationText[0] = "OFF";
 		headRotationText[1] = "ON";
-		mt.GetChild(6).GetChild(3).GetChild(2)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = headRotationText[mySettings.vr_headRotation];
+		SettingValue(3, "HeadRotation").text = headRotationText[mySettings.vr_headRotation];
 		batteryText[0] = "OFF";
 		batteryText[1] = "ON";
 		Application.targetFrameRate = 60 - 30 * mySettings.extra_batterySaver;
-		mt.GetChild(6).GetChild(5).GetChild(0)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = batteryText[mySettings.extra_batterySaver];
+		SettingValue(5, "BatterySaver").text = batteryText[mySettings.extra_batterySaver];
 		notificationText[0] = "OFF";
 		notificationText[1] = "ON";
-		mt.GetChild(6).GetChild(5).GetChild(1)
-			.GetChild(1)
-			.GetComponent<Text>()
-			.text = notificationText[mySettings.extra_notification];
+		SettingValue(5, "Notification").text = notificationText[mySettings.extra_notification];
 		fireButtonPosition = new Vector2(Mathf.Abs(mt.parent.GetChild(1).GetChild(1).rectTransform()
 			.anchoredPosition.x), mt.parent.GetChild(1).GetChild(1).rectTransform()
 			.anchoredPosition.y);
@@ -1217,7 +943,7 @@ public partial class Menu : MonoBehaviour
 		{
 			string text2 = FlatsPreferences.GetString("controllermapping");
 			string[] array2 = text2.Split(new string[1] { "$" }, StringSplitOptions.None);
-			if (Input.GetJoystickNames()[0] == array2[0])
+			if (array2.Length == 7 && Input.GetJoystickNames()[0] == array2[0])
 			{
 				customControl["ControllerName"] = array2[0];
 				customControl["Jump"] = "joystick 1 " + array2[1];
@@ -1230,9 +956,6 @@ public partial class Menu : MonoBehaviour
 			}
 			else
 			{
-				ShowConfirm("Detected another controller.", "Your custom button mapping has been deleted.", null, "OK", null);
-				FlatsPreferences.DeleteKey("controllermapping");
-				FlatsPreferences.Save();
 				customControlEnabled = false;
 			}
 		}
@@ -1240,25 +963,15 @@ public partial class Menu : MonoBehaviour
 		{
 			customControlEnabled = false;
 		}
-		mt.GetChild(7).GetChild(0).GetChild(3)
+		leaderboardScreen.GetChild(0).GetChild(3)
 			.GetComponent<Text>()
 			.text = totalScore;
 		if (Input.GetJoystickNames().Length > 0)
 		{
-			if (customControlEnabled)
-			{
-				standaloneModule.submitButton = customControl["Jump"];
-				standaloneModule.cancelButton = customControl["Pick"];
-				standaloneModule.enabled = false;
-				inControlModule.enabled = true;
-			}
-			else
-			{
-				standaloneModule.submitButton = "Submit";
-				standaloneModule.cancelButton = "Cancel";
-				standaloneModule.enabled = true;
-				inControlModule.enabled = false;
-			}
+			standaloneModule.submitButton = "Submit";
+                standaloneModule.cancelButton = "Cancel";
+                standaloneModule.enabled = false;
+                inControlModule.enabled = true;
 		}
 		else
 		{
@@ -1268,21 +981,22 @@ public partial class Menu : MonoBehaviour
 		}
         // Original shared materials retained their theme across scenes. Restore
         // owned instances here, after Start has loaded the saved character.
-        Color savedTheme = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color).GetComponent<Image>().color;
+        Color savedTheme = characterScreen.GetChild(1).GetChild(myCharacter.color).GetComponent<Image>().color;
         mainUI.color = MainThemeColor(savedTheme);
         selected.color = savedTheme;
 		if (Application.loadedLevel == 0)
 		{
 			gameState = "Main";
 			current = "Main";
+			returningToMenu = skipTitle;
 			if (!skipTitle)
 			{
 				backgroundRenderer.sharedMaterial.color = new Color(0f, 0f, 0f, 1f);
 				mainUI.color = new Color(0.5f, 0.5f, 0.5f, mainUI.color.a);
 				if (Application.platform == RuntimePlatform.MetroPlayerX86)
 				{
-					mt.GetChild(1).GetComponent<Image>().enabled = false;
-					mt.GetChild(1).GetChild(0).GetComponent<Text>()
+					titleHeading.GetComponent<Image>().enabled = false;
+					titleHeading.GetChild(0).GetComponent<Text>()
 						.enabled = false;
 				}
 				yield return new WaitForSeconds(0.2f);
@@ -1341,7 +1055,7 @@ public partial class Menu : MonoBehaviour
 		skipTitle = false;
 		for (int i = 0; i < 5; i++)
 		{
-			roomTexts[i] = mt.GetChild(9).GetChild(0).GetChild(i)
+			roomTexts[i] = matchingScreen.GetChild(0).GetChild(i)
 				.GetComponent<Text>();
 		}
 		ruleTitleText = new Dictionary<int, string>();
@@ -1435,19 +1149,19 @@ public partial class Menu : MonoBehaviour
 				if (rule == 1 || rule == 6 || rule == 8)
 				{
 					int index = (int)photonPlayer.CustomProperties["TC"];
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(index)
+					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(index)
 						.GetComponent<Image>()
 						.color;
 				}
 				else if (photonPlayer.GetTeam() == PunTeams.Team.red)
 				{
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
+					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(9)
 						.GetComponent<Image>()
 						.color;
 				}
 				else
 				{
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
+					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(7)
 						.GetComponent<Image>()
 						.color;
 				}
@@ -1499,10 +1213,13 @@ public partial class Menu : MonoBehaviour
 			}
 		}
 		if (!Application.isMobilePlatform && !VRmode && GetComponent<FlatsDesktopSettings>() == null)
-			gameObject.AddComponent<FlatsDesktopSettings>().Initialize(mt.GetChild(6).GetChild(3));
+			gameObject.AddComponent<FlatsDesktopSettings>().Initialize(settingsScreen.GetChild(3));
 		if (gameState == "Main")
 		{
-			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(5f));
+			// The original starts the menu music after the 5 s title. Returning from a
+			// match skips the title, so the music starts almost at once instead of
+			// leaving the menu silent for another 5 s.
+			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(returningToMenu ? 0.5f : 5f));
 			// Consume once per process, after saves, settings and UI have initialized.
 			// Returning from Tutorial must remain at the normal main menu.
 			if (!tutorialLaunchConsumed && Array.IndexOf(Environment.GetCommandLineArgs(), "-flats-tutorial") >= 0)
@@ -1515,6 +1232,7 @@ public partial class Menu : MonoBehaviour
 				yield break;
 			}
 			ambient.GetComponent<AudioSource>().Play();
+			mainMenuInitialized = true;
 			if (current == "Main")
 			{
 				quitButton.SetActive(true);
@@ -1530,14 +1248,22 @@ public partial class Menu : MonoBehaviour
 		mt.parent.GetChild(1).GetComponent<Canvas>().enabled = true;
 		Debug.Log("Player Spawn!");
 		StartCoroutine("BackgroundColor", "FadeOut");
-	
+
 
     }
 
 	private void Update()
 	{
+        if (TickBindingCapture()) return;
+        TickLocalMatch();
 		InputDevice activeDevice = InputManager.ActiveDevice;
-		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || (current != "Main" && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && ((!customControlEnabled && activeDevice.Action2.WasPressed) || (customControlEnabled && Input.GetButtonDown(customControl["Pick"]))))) && canOpen && !confirm.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main"))
+        if (multiplayerConnecting && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed ||
+            activeDevice.Action2.WasPressed))
+        {
+            Fade(-1);
+            return;
+        }
+		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || (current != "Main" && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
 		{
 			Fade(-1);
 		}
@@ -1549,25 +1275,7 @@ public partial class Menu : MonoBehaviour
 		{
 			anim.enabled = true;
 		}
-		if (customControlEnabled && !resetCustomizing && Input.GetButton(customControl["Jump"]) && Input.GetButton(customControl["Pick"]) && Input.GetButton(customControl["Reload"]) && Input.GetButton(customControl["Change"]))
-		{
-			resetTime += Time.unscaledDeltaTime;
-			if (resetTime > 5f)
-			{
-				resetCustomizing = true;
-				resetTime = 0f;
-				FlatsPreferences.DeleteKey("controllermapping");
-				FlatsPreferences.Save();
-				customControlEnabled = false;
-				standaloneModule.enabled = false;
-				inControlModule.enabled = true;
-				standaloneModule.submitButton = "Submit";
-				standaloneModule.cancelButton = "Cancel";
-				ShowConfirm("Disabled custom mapping", "Your custom controller mapping was disabled.", ResetCustomMapping, "OK", null);
-				Selectable component = confirm.transform.GetChild(3).GetComponent<Selectable>();
-				component.Select();
-			}
-		}
+
 		if (mySettings != null && (mySettings.graphics_aa != 0 || mySettings.graphics_dof != 0 || mySettings.graphics_motionBlur != 0 || mySettings.graphics_saturationFilter != 0 || mySettings.graphics_edgeRendering != 0))
 		{
 			deltaTime += (Time.deltaTime - deltaTime) * 0.1f;
@@ -1586,46 +1294,31 @@ public partial class Menu : MonoBehaviour
 				{
 					mySettings.graphics_aa = 0;
 					FPSController.aa = IntToBool(mySettings.graphics_aa);
-					mt.GetChild(6).GetChild(1).GetChild(0)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = aaText[mySettings.graphics_aa];
+					SettingValue(1, "Anti-Aliasing").text = aaText[mySettings.graphics_aa];
 				}
 				if (mySettings.graphics_dof != 0)
 				{
 					mySettings.graphics_dof = 0;
 					FPSController.dof = IntToBool(mySettings.graphics_dof);
-					mt.GetChild(6).GetChild(1).GetChild(1)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = dofText[mySettings.graphics_dof];
+					SettingValue(1, "DepthOfField").text = dofText[mySettings.graphics_dof];
 				}
 				if (mySettings.graphics_motionBlur != 0)
 				{
 					mySettings.graphics_motionBlur = 0;
 					FPSController.motionBlur = IntToBool(mySettings.graphics_motionBlur);
-					mt.GetChild(6).GetChild(1).GetChild(2)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = motionBlurText[mySettings.graphics_motionBlur];
+					SettingValue(1, "MotionBlur").text = motionBlurText[mySettings.graphics_motionBlur];
 				}
 				if (mySettings.graphics_edgeRendering != 0)
 				{
 					mySettings.graphics_edgeRendering = 0;
 					FPSController.edgeRendering = IntToBool(mySettings.graphics_edgeRendering);
-					mt.GetChild(6).GetChild(1).GetChild(3)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = edgeRenderingText[mySettings.graphics_edgeRendering];
+					SettingValue(1, "EdgeRendering").text = edgeRenderingText[mySettings.graphics_edgeRendering];
 				}
 				if (mySettings.graphics_saturationFilter != 0)
 				{
 					mySettings.graphics_saturationFilter = 0;
 					FPSController.saturationFilter = IntToBool(mySettings.graphics_saturationFilter);
-					mt.GetChild(6).GetChild(1).GetChild(4)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text = saturationFilterText[mySettings.graphics_saturationFilter];
+					SettingValue(1, "SaturationFilter").text = saturationFilterText[mySettings.graphics_saturationFilter];
 				}
 				SaveDataController.Save();
 				changedSettings = true;
@@ -1633,7 +1326,7 @@ public partial class Menu : MonoBehaviour
 				framerateAlertIsEnabled = true;
 			}
 		}
-		if (notification.gameObject.activeSelf && ((!customControlEnabled && activeDevice.Action3.IsPressed) || (customControlEnabled && Input.GetButton(customControl["Reload"]))))
+		if (notification.gameObject.activeSelf && FlatsControls.PadState("Reload"))
 		{
 			accepting += Time.unscaledDeltaTime;
 			if (accepting > 1f && canOpen)
@@ -1686,6 +1379,9 @@ public partial class Menu : MonoBehaviour
 
 	private void LateUpdate()
 	{
+        RefreshControlTile();
+        if (FlatsControls.Capturing || releasePending || Time.frameCount <= suppressControlFrame) return;
+        RefreshLanguageButton();
         CheckMultiplayerDeadline();
 		if ((current == "Playing" && !framerateAlertIsEnabled) || VRmode || standaloneModule == null || inControlModule == null)
 		{
@@ -1695,18 +1391,10 @@ public partial class Menu : MonoBehaviour
 		{
 			if (Input.GetJoystickNames().Length > 0)
 			{
-				if (customControlEnabled)
-				{
-					standaloneModule.enabled = true;
-					inControlModule.enabled = false;
-					standaloneModule.submitButton = customControl["Jump"];
-					standaloneModule.cancelButton = customControl["Pick"];
-				}
-				else
-				{
-					standaloneModule.enabled = false;
-					inControlModule.enabled = true;
-				}
+				standaloneModule.submitButton = "Submit";
+                standaloneModule.cancelButton = "Cancel";
+                standaloneModule.enabled = false;
+                inControlModule.enabled = true;
 				if (errorMessage.activeSelf)
 				{
 					Selectable component = errorMessage.transform.GetChild(2).GetComponent<Selectable>();
@@ -1714,7 +1402,7 @@ public partial class Menu : MonoBehaviour
 				}
 				else if (confirm.activeSelf)
 				{
-					Selectable selectable = ((!confirm.transform.GetChild(5).gameObject.activeSelf) ? confirm.transform.GetChild(3).GetComponent<Selectable>() : confirm.transform.GetChild(5).GetComponent<Selectable>());
+					Selectable selectable = (confirm.GetComponent<ConfirmationDialogView>().alert.gameObject.activeSelf ? confirm.GetComponent<ConfirmationDialogView>().alert : confirm.GetComponent<ConfirmationDialogView>().negative);
 					selectable.Select();
 				}
 				else if (roomCreation.activeSelf)
@@ -1739,7 +1427,7 @@ public partial class Menu : MonoBehaviour
 		}
 		else if (framerateAlertIsEnabled)
 		{
-			Selectable selectable2 = ((!confirm.transform.GetChild(5).gameObject.activeSelf) ? confirm.transform.GetChild(3).GetComponent<Selectable>() : confirm.transform.GetChild(5).GetComponent<Selectable>());
+			Selectable selectable2 = (confirm.GetComponent<ConfirmationDialogView>().alert.gameObject.activeSelf ? confirm.GetComponent<ConfirmationDialogView>().alert : confirm.GetComponent<ConfirmationDialogView>().negative);
 			selectable2.Select();
 		}
 		if (update.activeSelf)
@@ -1750,193 +1438,14 @@ public partial class Menu : MonoBehaviour
 		}
 	}
 
-	private void BackToMainMenu()
-	{
-		if (gameState == "Multiplayer")
-		{
-			bt[0].text = "Resume";
-			bt[1].text = "Singleplayer";
-		}
-		else if (gameState == "Singleplayer")
-		{
-			bt[0].text = "Multiplayer";
-			bt[1].text = "Resume";
-		}
-		else
-		{
-			bt[0].text = "Multiplayer";
-			bt[1].text = "Singleplayer";
-		}
-		if (waitBackground)
-		{
-			bt[0].text = "Matchmaking...";
-		}
-		bt[2].text = "Character";
-		bt[3].text = "Settings";
-		bt[4].text = "Leaderboard";
-		bt[5].text = "Information";
-		buttons[0].sprite = images[0];
-		buttons[1].sprite = images[1];
-		buttons[2].sprite = images[2];
-		buttons[3].sprite = images[3];
-		buttons[4].sprite = images[4];
-		buttons[5].sprite = images[5];
-		anim.SetBool("Fade", false);
-		current = "Main";
-	}
-
-	public void OpenMenu()
-	{
-		anim.SetTrigger("OpenMenu");
-		current = "Main";
-		AudioListener.volume /= 2f;
-		StartCoroutine("BackgroundColor", "OpenMenu");
-		mt.parent.GetChild(1).GetComponent<Canvas>().enabled = false;
-		mt.parent.GetChild(2).GetComponent<Canvas>().enabled = false;
-		if (!VRmode)
-		{
-			FPSController.enableCamRotate = false;
-		}
-		if (gameState != "Multiplayer")
-		{
-			if (Singleplayer.rule == 1 && Singleplayer.currentAssortmentRule == 4)
-			{
-				GameObject grabbedObject = GameObject.Find("BlueTeamBase").GetComponent<TeamBase>().grabbedObject;
-				if (grabbedObject != null && grabbedObject != null)
-				{
-					grabbedObject.transform.GetChild(1).gameObject.SetActive(false);
-					grabbedObject.transform.GetChild(2).gameObject.SetActive(false);
-				}
-			}
-			savedTimeScale = Time.timeScale;
-			Time.timeScale = 0f;
-		}
-		if ((Application.isMobilePlatform || !Input.mousePresent) && Input.GetJoystickNames().Length == 0)
-		{
-			EasyTouch.SetEnabled(false);
-			ETCInput.SetControlActivated("Joystick", false);
-			ETCInput.ResetAxis("Horizontal");
-			ETCInput.ResetAxis("Vertical");
-		}
-		Selectable component = buttons[0].transform.parent.GetComponent<Selectable>();
-		if (Input.GetJoystickNames().Length > 0)
-		{
-			component.Select();
-		}
-		if (!Application.isMobilePlatform && Input.mousePresent)
-		{
-			Screen.lockCursor = false;
-			UnityEngine.Cursor.visible = true;
-		}
-		if (!VRmode)
-		{
-			return;
-		}
-		if (Camera.main.gameObject != null)
-		{
-			mt.position = Camera.main.transform.position + Camera.main.transform.forward * 2.1f;
-			mt.eulerAngles = new Vector3(Camera.main.transform.eulerAngles.x, Camera.main.transform.eulerAngles.y, 0f);
-		}
-		if ((bool)Camera.main.transform.GetChild(0).GetComponent<Camera>())
-		{
-			GameObject gameObject = Camera.main.transform.root.gameObject;
-			if (gameObject.tag != "Player")
-			{
-				gameObject = Camera.main.transform.Find("Player").gameObject;
-			}
-			gameObject.GetComponent<IKController>().enabled = false;
-			Camera.main.transform.GetChild(0).gameObject.SetActive(false);
-		}
-	}
-
-	public void CloseMenu()
-	{
-		anim.SetTrigger("CloseMenu");
-		anim.SetBool("Fade", false);
-		current = "Playing";
-		AudioListener.volume *= 2f;
-		StartCoroutine("BackgroundColor", "CloseMenu");
-		Time.timeScale = savedTimeScale;
-		FPSController.enableCamRotate = true;
-		EventSystem.current.SetSelectedGameObject(null);
-		mt.parent.GetChild(1).GetComponent<Canvas>().enabled = true;
-		mt.parent.GetChild(2).GetComponent<Canvas>().enabled = true;
-		if (Singleplayer.rule == 1 && Singleplayer.currentAssortmentRule == 4)
-		{
-			GameObject grabbedObject = GameObject.Find("BlueTeamBase").GetComponent<TeamBase>().grabbedObject;
-			if (grabbedObject != null)
-			{
-				grabbedObject.transform.GetChild(1).gameObject.SetActive(true);
-				grabbedObject.transform.GetChild(2).gameObject.SetActive(true);
-			}
-		}
-		if (!Application.isMobilePlatform && Input.mousePresent)
-		{
-			Screen.lockCursor = true;
-			UnityEngine.Cursor.visible = false;
-		}
-		if ((Application.isMobilePlatform || !Input.mousePresent) && Input.GetJoystickNames().Length == 0)
-		{
-			EasyTouch.SetEnabled(true);
-			ETCInput.SetControlActivated("Joystick", true);
-		}
-		ETCInput.ResetAxis("Vertical");
-		ETCInput.ResetAxis("Horizontal");
-		if (VRmode)
-		{
-			GameObject gameObject = Camera.main.transform.root.gameObject;
-			if (gameObject.tag != "Player")
-			{
-				gameObject = Camera.main.transform.Find("Player").gameObject;
-			}
-			gameObject.GetComponent<IKController>().enabled = true;
-			Camera.main.transform.GetChild(0).gameObject.SetActive(true);
-			Camera.main.BroadcastMessage("UpdateStereoValues", SendMessageOptions.DontRequireReceiver);
-		}
-	}
+    private void ApplyListenerVolume()
+    {
+        AudioListener.volume = Flats.Core.PauseNavigationSession.ListenerVolume(mySettings.sound_all / 10f, current == "Playing");
+    }
 
 	public void PlayMenuSound(AudioClip clip)
 	{
 		if (clip != null) GetComponent<AudioSource>().PlayOneShot(clip, 3f);
-	}
-
-	public void Fade(int button)
-	{
-        if (HandleModNavigation(button)) return;
-        if (button == -1 && current == "Multiplayer" && anim.GetBool("RoomCreation"))
-        {
-            SetRoomCreationVisible(false); anim.SetBool("Detail", true);
-            anim.Play("Detail Fade In", 0, 0f);
-            if (currentDetail != null) currentDetail.SetActive(true);
-            backButton.SetActive(true); fliping = false; return;
-        }
-        if (button == -1 && multiplayerConnecting)
-        { ++multiplayerOperation; multiplayerFailure = "Connection cancelled"; PhotonNetwork.Disconnect(); }
-        Debug.Log("FLATS_MENU_ACTION current=" + current + " button=" + button);
-        if (current == "Main" && button == 90 && Array.IndexOf(Environment.GetCommandLineArgs(), "-flats-bot-sandbox") >= 0)
-        { rule = 1; objective = 1; botCount = 3; current = "OfflineMatch"; backButton.SetActive(true); RefreshOfflineMatch(); return; }
-        if (current == "OfflineMatch")
-        {
-            if (!fliping) StartCoroutine(OfflineMatchMenu(button));
-            return;
-        }
-
-		if (button <= 5 && button >= -1 && current != "Playing" && (current == "Main" || current == "Multiplayer" || current == "Singleplayer" || current == "Character" || current == "Settings") && current != "Map" && (!(current == "Singleplayer") || button != 5) && (!(gameState == "Main") || !(current == "Main") || button != -1))
-		{
-			anim.SetBool("Fade", true);
-		}
-		if (button != -1 || current != "Playing" || canOpen)
-		{
-			StartCoroutine("MenuController", button);
-		}
-		if (button == -1)
-		{
-			PlayMenuSound(cancelSE);
-		}
-		else
-		{
-			PlayMenuSound(pressSE);
-		}
 	}
 
     private static void DetachSceneTargets()
@@ -2005,1455 +1514,10 @@ public partial class Menu : MonoBehaviour
         LoadOfflineScene(OfflineMaps[offlineMap]);
     }
 
-	public IEnumerator MenuController(int button)
-	{
-        if (current == "Multiplayer" && (button == 3 || button == 10 || button == 11 || button == 15))
-        {
-            if (button == 11 && string.IsNullOrWhiteSpace(invitationRoomName.text))
-            { ShowConfirm("Invitation Match", "Enter a room name.", null, "OK", null); yield break; }
-            yield return StartCoroutine(EnsureMultiplayerConnection());
-            if (!multiplayerReady) { fliping = false; anim.SetBool("Fade", false); yield break; }
-            pendingRoomDeadline = Time.realtimeSinceStartup + 25f;
-        }
-
-		if (current != "Playing")
-		{
-			fliping = true;
-		}
-		if (current == "Playing")
-		{
-			if (button == -1)
-			{
-				OpenMenu();
-			}
-		}
-		else if (current == "Main")
-		{
-			switch (button)
-			{
-			case -1:
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				if (gameState != "Main")
-				{
-					CloseMenu();
-				}
-				else
-				{
-					ShowConfirm("Quit Application", "Quit Flats.", Quit, "OK", "Cancel");
-				}
-				break;
-			case 0:
-			{
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				if (gameState == "Multiplayer")
-				{
-					CloseMenu();
-					break;
-				}
-				if (waitBackground)
-				{
-					anim.SetBool("Matching", true);
-					backButton.SetActive(true);
-					anim.SetTrigger("SkipToMatching");
-					current = "Matching";
-					break;
-				}
-				bt[0].text = "Open Match";
-				bt[1].text = "Invitation Match";
-				bt[2].text = "Local Match";
-				bt[3].text = "Chat Room";
-				bt[4].text = "Server Region";
-				bt[5].text = "Online Version: " + version.Substring(0, 3);
-				buttons[0].sprite = images[36];
-				buttons[1].sprite = images[37];
-				buttons[2].sprite = images[38];
-				buttons[3].sprite = images[39];
-				buttons[4].sprite = images[40];
-				buttons[5].sprite = images[41];
-				backButton.SetActive(true);
-				EventSystem.current.SetSelectedGameObject(null);
-				anim.SetBool("Fade", false);
-				current = "Multiplayer";
-				Texture2D texture2D = new Texture2D(128, 128);
-				texture2D.filterMode = FilterMode.Bilinear;
-				byte[] array = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
-				texture2D.LoadImage(array);
-				ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
-				hashtable["K"] = myCharacter.kill;
-				hashtable["D"] = myCharacter.death;
-				hashtable["TC"] = myCharacter.color;
-				hashtable["C"] = myCharacter.comment;
-				hashtable["I"] = array;
-                PublishRoomModules(hashtable);
-				PhotonNetwork.SetPlayerCustomProperties(hashtable);
-				PhotonNetwork.player.NickName = myCharacter.name;
-				break;
-			}
-			case 1:
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				if (gameState == "Singleplayer")
-				{
-					CloseMenu();
-					break;
-				}
-				bt[0].text = "Survival";
-				bt[1].text = "Assortment";
-				bt[2].text = "Headshot Challenge";
-				bt[3].text = "Training";
-				bt[4].text = "Tutorial";
-				bt[5].text = "Stage Select";
-				buttons[0].sprite = images[18];
-				buttons[1].sprite = images[19];
-				buttons[2].sprite = images[20];
-				buttons[3].sprite = images[21];
-				buttons[4].sprite = images[22];
-				buttons[5].sprite = images[23];
-				backButton.SetActive(true);
-				EventSystem.current.SetSelectedGameObject(null);
-				anim.SetBool("Fade", false);
-				current = "Singleplayer";
-				break;
-			case 2:
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				bt[0].text = "Profile";
-				bt[1].text = "Color";
-				bt[2].text = "Score";
-				bt[3].text = "Weapons";
-				bt[4].text = "Stats";
-				bt[5].text = "Sync";
-				buttons[0].sprite = images[24];
-				buttons[1].sprite = images[25];
-				buttons[2].sprite = images[26];
-				buttons[3].sprite = images[27];
-				buttons[4].sprite = images[28];
-				buttons[5].sprite = images[29];
-				backButton.SetActive(true);
-				EventSystem.current.SetSelectedGameObject(null);
-				anim.SetBool("Fade", false);
-				current = "Character";
-				break;
-			case 3:
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				bt[0].text = "Sound";
-				bt[1].text = "Graphics";
-				bt[2].text = "Control";
-				bt[3].text = VRmode ? "VR Image" : "Display";
-				bt[4].text = "Button Mapping";
-				bt[5].text = "Extra Settings";
-				buttons[0].sprite = images[30];
-				buttons[1].sprite = images[31];
-				buttons[2].sprite = images[32];
-				buttons[3].sprite = images[33];
-				buttons[4].sprite = images[34];
-				buttons[5].sprite = images[35];
-				backButton.SetActive(true);
-				EventSystem.current.SetSelectedGameObject(null);
-				anim.SetBool("Fade", false);
-				current = "Settings";
-				break;
-			case 4:
-				leaderboardLoading.SetActive(true);
-				StartCoroutine("Leaderboard", false);
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				currentDetail = mt.GetChild(7).GetChild(0).gameObject;
-				currentDetail.SetActive(true);
-				backButton.SetActive(true);
-				anim.SetBool("Detail", true);
-				current = "Leaderboard";
-				break;
-			case 5:
-				StartCoroutine("Information");
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				currentDetail = mt.GetChild(8).GetChild(0).gameObject;
-				currentDetail.SetActive(true);
-				backButton.SetActive(true);
-				anim.SetBool("Detail", true);
-				current = "Information";
-				break;
-			case -2:
-				if (VRController.device == "cardboard")
-				{
-					ShowConfirm("Cardboard mode", "Use gamepads to play VR mode.", EnableVR, "Enable", "Disable");
-				}
-				break;
-			case -3:
-				ShowConfirm("Reset", "Exit from current game and reboot.", Reset, "OK", "Cancel");
-				break;
-			case -4:
-				ShowConfirm("Quit Application", "Quit Flats.", Quit, "OK", "Cancel");
-				break;
-			}
-			if (button >= 0)
-			{
-				page = button + 3;
-			}
-		}
-		else if (current == "Multiplayer" || current == "Singleplayer" || current == "Character" || current == "Settings" || current == "Leaderboard" || current == "Information")
-		{
-			switch (button)
-			{
-			case -1:
-				if (currentDetail == null && current != "Leaderboard" && current != "Information")
-				{
-					backButton.SetActive(false);
-					yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-					EventSystem.current.SetSelectedGameObject(null);
-					bool returnToPlay = gameState == "Main" && (current == "Singleplayer" || current == "Multiplayer");
-					BackToMainMenu();
-                    if (returnToPlay) { current="Play"; backButton.SetActive(true); RefreshPlayTiles(); EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject); }
-					break;
-				}
-				if (current == "Multiplayer")
-				{
-					if (currentDetail.name == "ChatRoom")
-					{
-						if (PhotonNetwork.inRoom)
-						{
-							base.gameObject.GetPhotonView().RPC("Chat", PhotonTargets.MasterClient, PhotonNetwork.player.NickName + " left chat.");
-						}
-						foreach (Transform item in currentDetail.transform.GetChild(4))
-						{
-							UnityEngine.Object.Destroy(item.gameObject);
-						}
-						currentDetail.transform.GetChild(2).GetComponent<InputField>().text = "";
-						currentDetail.transform.GetChild(3).GetComponent<Button>().interactable = false;
-						currentDetail.transform.GetChild(5).gameObject.SetActive(true);
-						PhotonNetwork.LeaveRoom();
-					}
-				}
-				else if (current == "Character")
-				{
-					SaveDataController.Save();
-					if (FlatsLocalProfile.LastSaveSucceeded) MonoBehaviour.print("Character data has been saved.");
-				}
-				else if (current == "Settings")
-				{
-					if (currentDetail.name == "ButtonMapping" && Input.GetJoystickNames().Length == 0)
-					{
-						Vector2[] array2 = new Vector2[4];
-						float[] array3 = new float[4];
-						for (int i = 1; i < 5; i++)
-						{
-							array2[i - 1] = new Vector2(Mathf.Abs(currentDetail.transform.GetChild(1).GetChild(1).GetChild(i)
-								.rectTransform()
-								.anchoredPosition.x) - mt.parent.GetChild(1).GetChild(i).rectTransform()
-								.sizeDelta.x / 2f, currentDetail.transform.GetChild(1).GetChild(1).GetChild(i)
-								.rectTransform()
-								.anchoredPosition.y);
-							mt.parent.GetChild(1).GetChild(i).GetComponent<ETCButton>()
-								.anchorOffet = array2[i - 1];
-							Vector3 localScale = currentDetail.transform.GetChild(1).GetChild(1).GetChild(i)
-								.rectTransform()
-								.localScale;
-							array3[i - 1] = localScale.x;
-							mt.parent.GetChild(1).GetChild(i).rectTransform()
-								.localScale = new Vector3(localScale.x, localScale.y, localScale.z);
-						}
-						FlatsPreferences.SetString("touchmapping", array2[0].x.ToString("F0") + "$" + array2[0].y.ToString("F0") + "$" + array2[1].x.ToString("F0") + "$" + array2[1].y.ToString("F0") + "$" + array2[2].x.ToString("F0") + "$" + array2[2].y.ToString("F0") + "$" + array2[3].x.ToString("F0") + "$" + array2[3].y.ToString("F0") + "$" + array3[0] + "$" + array3[1] + "$" + array3[2] + "$" + array3[3]);
-						FlatsPreferences.Save();
-						Debug.Log("Touch mapping has been saved.");
-					}
-					SaveDataController.Save();
-					changedSettings = true;
-					if (FlatsLocalProfile.LastSaveSucceeded) MonoBehaviour.print("Settings data has been saved.");
-				}
-				else if (current == "Leaderboard" || current == "Information")
-				{
-					current = "Main";
-					backButton.SetActive(false);
-					EventSystem.current.SetSelectedGameObject(null);
-				}
-				uploadButton.SetActive(false);
-				leaderboardLoading.SetActive(false);
-				anim.SetBool("Detail", false);
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				if (currentDetail != null)
-				{
-					currentDetail.SetActive(false);
-				}
-				currentDetail = null;
-				anim.SetBool("Fade", false);
-				break;
-			case 0:
-			case 1:
-			case 2:
-			case 3:
-			case 4:
-			case 5:
-			{
-				if (current == "Multiplayer")
-				{
-					if (button == 0)
-					{
-						rule = 0;
-						objective = 0;
-						playerCount = 0;
-						botCount = 0;
-						mt.GetChild(3).GetChild(0).GetChild(0)
-							.GetChild(1)
-							.GetComponent<Text>()
-							.text = ruleTitleText[rule];
-						mt.GetChild(3).GetChild(0).GetChild(1)
-							.GetChild(1)
-							.GetComponent<Text>()
-							.text = objectiveText[rule + "-" + objective];
-						mt.GetChild(3).GetChild(0).GetChild(2)
-							.GetChild(1)
-							.GetComponent<Text>()
-							.text = "Any";
-					}
-					if (button == 1)
-					{
-						rule = 0;
-						objective = 0;
-						playerCount = 0;
-						botCount = 0;
-					}
-					if (button == 2)
-					{
-						ShowConfirm("This function is not available", "Sorry, you can't use this function\non Windows devices.", null, "OK", null);
-					}
-					if (button == 3)
-					{
-						foreach (Transform item2 in chat.GetChild(4))
-						{
-							UnityEngine.Object.Destroy(item2.gameObject);
-						}
-						if (!PhotonNetwork.connected)
-						{
-							Connect();
-						}
-						if (PhotonNetwork.inRoom)
-						{
-							while (PhotonNetwork.inRoom)
-							{
-								yield return new WaitForSeconds(0f);
-							}
-						}
-						while (!PhotonNetwork.connectedAndReady)
-						{
-							yield return new WaitForSeconds(0f);
-						}
-						ExitGames.Client.Photon.Hashtable customProps = new ExitGames.Client.Photon.Hashtable();
-						customProps["R"] = -1;
-						PhotonNetwork.JoinOrCreateRoom("ChatRoom", new RoomOptions
-						{
-							IsVisible = false,
-							CustomRoomProperties = customProps,
-							CustomRoomPropertiesForLobby = new string[1] { "R" }
-						}, null);
-					}
-					int num2 = button;
-				}
-				if (current != "Singleplayer")
-				{
-					if (current == "Multiplayer" && button == 2)
-					{
-						anim.SetBool("Detail", false);
-						yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-						backButton.SetActive(true);
-						anim.SetBool("Fade", false);
-					}
-					else
-					{
-						yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-						currentDetail = mt.GetChild(page).GetChild(button).gameObject;
-						currentDetail.SetActive(true);
-						RefreshRegionLabel();
-						backButton.SetActive(true);
-						anim.SetBool("Detail", true);
-					}
-				}
-				if (!(current == "Settings") || button != 4)
-				{
-					break;
-				}
-				if ((!Application.isMobilePlatform && Input.mousePresent) || Input.GetJoystickNames().Length > 0)
-				{
-					currentDetail.GetComponent<Image>().enabled = true;
-					currentDetail.transform.GetChild(0).gameObject.SetActive(true);
-					break;
-				}
-				currentDetail.GetComponent<Image>().enabled = false;
-				currentDetail.transform.GetChild(1).gameObject.SetActive(true);
-				currentDetail.transform.GetChild(1).GetChild(0).GetChild(2)
-					.GetComponent<Text>()
-					.text = "";
-				RectTransform rectTransform = currentDetail.transform.GetChild(1).GetChild(0).rectTransform();
-				RectTransform rectTransform2 = currentDetail.transform.GetChild(1).GetChild(1).rectTransform();
-				if (mySettings.control_handedness == 0)
-				{
-					rectTransform.anchoredPosition = new Vector2(0f - Mathf.Abs(rectTransform.anchoredPosition.x), rectTransform.anchoredPosition.y);
-					rectTransform2.anchoredPosition = new Vector2(Mathf.Abs(rectTransform2.anchoredPosition.x), rectTransform2.anchoredPosition.y);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-						.rectTransform()
-						.anchorMin = new Vector2(1f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-						.rectTransform()
-						.anchorMax = new Vector2(1f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-						.rectTransform()
-						.anchorMin = new Vector2(1f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-						.rectTransform()
-						.anchorMax = new Vector2(1f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-						.rectTransform()
-						.anchorMin = new Vector2(1f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-						.rectTransform()
-						.anchorMax = new Vector2(1f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-						.rectTransform()
-						.anchorMin = new Vector2(1f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-						.rectTransform()
-						.anchorMax = new Vector2(1f, 0.5f);
-				}
-				else
-				{
-					rectTransform.anchoredPosition = new Vector2(Mathf.Abs(rectTransform.anchoredPosition.x), rectTransform.anchoredPosition.y);
-					rectTransform2.anchoredPosition = new Vector2(0f - Mathf.Abs(rectTransform2.anchoredPosition.x), rectTransform2.anchoredPosition.y);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-						.rectTransform()
-						.anchorMin = new Vector2(0f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-						.rectTransform()
-						.anchorMax = new Vector2(0f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-						.rectTransform()
-						.anchorMin = new Vector2(0f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-						.rectTransform()
-						.anchorMax = new Vector2(0f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-						.rectTransform()
-						.anchorMin = new Vector2(0f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-						.rectTransform()
-						.anchorMax = new Vector2(0f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-						.rectTransform()
-						.anchorMin = new Vector2(0f, 0.5f);
-					currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-						.rectTransform()
-						.anchorMax = new Vector2(0f, 0.5f);
-				}
-				currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-					.rectTransform()
-					.anchoredPosition = mt.parent.GetChild(1).GetChild(1).rectTransform()
-					.anchoredPosition;
-				currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-					.rectTransform()
-					.anchoredPosition = mt.parent.GetChild(1).GetChild(2).rectTransform()
-					.anchoredPosition;
-				currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-					.rectTransform()
-					.anchoredPosition = mt.parent.GetChild(1).GetChild(3).rectTransform()
-					.anchoredPosition;
-				currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-					.rectTransform()
-					.anchoredPosition = mt.parent.GetChild(1).GetChild(4).rectTransform()
-					.anchoredPosition;
-				currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-					.rectTransform()
-					.localScale = mt.parent.GetChild(1).GetChild(1).rectTransform()
-					.localScale;
-				currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-					.rectTransform()
-					.localScale = mt.parent.GetChild(1).GetChild(2).rectTransform()
-					.localScale;
-				currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-					.rectTransform()
-					.localScale = mt.parent.GetChild(1).GetChild(3).rectTransform()
-					.localScale;
-				currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-					.rectTransform()
-					.localScale = mt.parent.GetChild(1).GetChild(4).rectTransform()
-					.localScale;
-				break;
-			}
-			}
-			if (current == "Multiplayer")
-			{
-				switch (button)
-				{
-				case 10:
-				{
-					stayRoom.gameObject.SetActive(true);
-					ipButton.SetActive(false);
-					roomTexts[0].text = ruleTitleText[rule];
-					roomTexts[1].text = ruleExpText[rule];
-					roomTexts[2].text = "Objective: " + objectiveText[rule + "-" + objective];
-					roomTexts[3].text = "Player Count: " + playerCount;
-					roomTexts[4].text = "Searching for a room...";
-					myButton = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-					myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
-						.GetComponent<Image>()
-						.color;
-					myButton.transform.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(0).GetChild(0)
-						.GetChild(0)
-						.GetComponent<Image>()
-						.sprite;
-					myButton.transform.GetChild(1).GetComponent<Text>().text = PhotonNetwork.player.NickName;
-					DetailInformation di2 = myButton.GetComponent<DetailInformation>();
-					di2.canvas = mt;
-					di2.backgroundColor = myButton.GetComponent<Image>().color;
-					di2.comment = myCharacter.comment;
-					di2.kill = myCharacter.kill;
-					di2.death = myCharacter.death;
-					myButton.transform.SetParent(multiplayerList, false);
-					anim.SetBool("Detail", false);
-					yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-					if (currentDetail != null)
-					{
-						currentDetail.SetActive(false);
-					}
-					anim.SetBool("Matching", true);
-					if (!PhotonNetwork.connected)
-					{
-						Connect();
-					}
-					if (PhotonNetwork.inRoom)
-					{
-						while (PhotonNetwork.inRoom)
-						{
-							yield return new WaitForSeconds(0f);
-						}
-					}
-					while (!PhotonNetwork.connectedAndReady)
-					{
-						yield return new WaitForSeconds(0f);
-					}
-					ExitGames.Client.Photon.Hashtable customProps3 = new ExitGames.Client.Photon.Hashtable();
-					if (rule != 0)
-					{
-						customProps3["R"] = rule;
-					}
-					if (objective != 0)
-					{
-						customProps3["O"] = objective;
-					}
-					PhotonNetwork.JoinRandomRoom(customProps3, (byte)playerCount);
-					break;
-				}
-				case 11:
-					stayRoom.gameObject.SetActive(true);
-					ipButton.SetActive(false);
-					if (!(invitationRoomName.text != ""))
-					{
-						break;
-					}
-					anim.SetBool("Detail", false);
-					backButton.SetActive(false);
-					yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-					if (currentDetail != null)
-					{
-						currentDetail.SetActive(false);
-					}
-					pleaseWait.SetActive(true);
-					if (!PhotonNetwork.connected)
-					{
-						Connect();
-					}
-					if (PhotonNetwork.inRoom)
-					{
-						while (PhotonNetwork.inRoom)
-						{
-							yield return new WaitForSeconds(0f);
-						}
-					}
-					while (!PhotonNetwork.connectedAndReady)
-					{
-						yield return new WaitForSeconds(0f);
-					}
-					PhotonNetwork.JoinRoom(invitationRoomName.text);
-					break;
-				case 15:
-					if (currentDetail.name == "InvitationMatch")
-					{
-						roomTexts[0].text = ruleTitleText[rule];
-						roomTexts[1].text = ruleExpText[rule];
-						roomTexts[2].text = "Objective: " + objectiveText[rule + "-" + objective];
-						roomTexts[3].text = "Player Count: " + playerCount;
-						roomTexts[4].text = "Matchmaking... Wait or press Start Now.";
-						myButton = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-						myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
-							.GetComponent<Image>()
-							.color;
-						myButton.transform.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(0).GetChild(0)
-							.GetChild(0)
-							.GetComponent<Image>()
-							.sprite;
-						myButton.transform.GetChild(1).GetComponent<Text>().text = PhotonNetwork.player.NickName;
-						DetailInformation di = myButton.GetComponent<DetailInformation>();
-						di.canvas = mt;
-						di.backgroundColor = myButton.GetComponent<Image>().color;
-						di.comment = myCharacter.comment;
-						di.kill = myCharacter.kill;
-						di.death = myCharacter.death;
-						myButton.transform.SetParent(multiplayerList, false);
-						SetRoomCreationVisible(false);
-						backButton.SetActive(false);
-						yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-						pleaseWait.SetActive(true);
-						ExitGames.Client.Photon.Hashtable customProps2 = new ExitGames.Client.Photon.Hashtable();
-						customProps2["R"] = rule;
-						customProps2["O"] = objective;
-                        PublishRoomModules(customProps2);
-						RoomOptions options = new RoomOptions
-						{
-							MaxPlayers = (byte)playerCount,
-							CustomRoomProperties = customProps2,
-							CustomRoomPropertiesForLobby = new string[2] { "R", "O" },
-							IsVisible = false
-						};
-						string roomName = invitationRoomName.text;
-						PhotonNetwork.CreateRoom(roomName, options, null);
-					}
-					else if (!(currentDetail.name == "LocalMatch"))
-					{
-					}
-					break;
-				case 16:
-				{
-					string text = PhotonNetwork.player.NickName + ":" + mt.GetChild(3).GetChild(3).GetChild(2)
-						.GetComponent<InputField>()
-						.text;
-					base.gameObject.GetPhotonView().RPC("Chat", PhotonTargets.MasterClient, text);
-					mt.GetChild(3).GetChild(3).GetChild(2)
-						.GetComponent<InputField>()
-						.text = "";
-					break;
-				}
-				}
-			}
-			else if (current == "Singleplayer")
-			{
-				if (button >= 0 && button != 5)
-				{
-					backButton.SetActive(false);
-					if (!waitBackground && PhotonNetwork.connected)
-					{
-						PhotonNetwork.Disconnect();
-					}
-					anim.SetBool("Detail", false);
-					yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-					StartCoroutine("BackgroundColor", "FadeIn");
-					yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
-					if (button != 4)
-					{
-						if (stage == -1)
-						{
-							stage = UnityEngine.Random.Range(2, 8);
-						}
-						else
-						{
-							stage += 2;
-						}
-					}
-				}
-				else if (button != 5)
-				{
-					stage = -1;
-				}
-				switch (button)
-				{
-				case 0:
-					Singleplayer.rule = 0;
-					LoadOfflineScene(stage);
-					gameState = "Singleplayer";
-					break;
-				case 1:
-					Singleplayer.rule = 1;
-					LoadOfflineScene(stage);
-					gameState = "Singleplayer";
-					break;
-				case 2:
-					Singleplayer.rule = 2;
-					LoadOfflineScene(stage);
-					gameState = "Singleplayer";
-					break;
-				case 3:
-					Singleplayer.rule = 3;
-					LoadOfflineScene(stage);
-					gameState = "Singleplayer";
-					break;
-				case 4:
-					Singleplayer.rule = 4;
-					LoadOfflineScene("Tutorial");
-					gameState = "Singleplayer";
-					break;
-				case 5:
-					stage++;
-					if (stage > 5)
-					{
-						stage = 0;
-					}
-					else if (stage < 0)
-					{
-						stage = 5;
-					}
-					buttons[5].sprite = images[stage + 12];
-					bt[5].text = stageName[stage];
-					break;
-				}
-			}
-			else if (current == "Character")
-			{
-				switch (button)
-				{
-				case 10:
-					StreamManager.LoadFileDialog(FolderLocations.Pictures, new string[3] { ".png", ".jpg", ".jpeg" }, imageLoadedCallback);
-					break;
-				case 11:
-					myCharacter.color = IntParseFast(EventSystem.current.currentSelectedGameObject.name.Replace("Color", ""));
-					StartCoroutine("BackgroundColor", "Change");
-					if (Application.loadedLevel == 0)
-					{
-						Color color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
-							.GetComponent<Image>()
-							.color;
-						ParticleSystem particleSystem = GameObject.Find("BackgroundParticle").GetComponent<ParticleSystem>();
-						particleSystem.startColor = color;
-					}
-					break;
-				case 12:
-				{
-					int primaryWeapon = myCharacter.primaryWeapon;
-					Transform child = mt.GetChild(5).GetChild(3).GetChild(3)
-						.GetChild(0);
-					child.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(primaryWeapon)
-						.GetChild(0)
-						.GetComponent<Image>()
-						.sprite;
-					child.GetChild(1).GetComponent<Text>().text = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(primaryWeapon)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text;
-					if (child.GetChild(1).GetComponent<Text>().text.Contains("Shotgun"))
-					{
-						child.GetChild(2).GetComponent<Text>().text = GunInfo.damage[primaryWeapon] + " x " + GunInfo.burstCount[primaryWeapon];
-					}
-					else if (child.GetChild(1).GetComponent<Text>().text.Contains("Grenade"))
-					{
-						child.GetChild(2).GetComponent<Text>().text = GunInfo.damage[primaryWeapon] + " + explosion";
-					}
-					else
-					{
-						child.GetChild(2).GetComponent<Text>().text = GunInfo.damage[primaryWeapon].ToString();
-					}
-					child.GetChild(3).GetComponent<Text>().text = GunInfo.rpm[primaryWeapon].ToString();
-					child.GetChild(4).GetComponent<Text>().text = GunInfo.limitAmmo[primaryWeapon].ToString();
-					child.GetChild(5).GetComponent<Text>().text = GunInfo.limitMaxAmmo[primaryWeapon].ToString();
-					child.GetChild(6).GetComponent<Text>().text = GunInfo.accuracy[primaryWeapon] + "%";
-					child.GetChild(7).GetComponent<Text>().text = GunInfo.reloadTime[primaryWeapon] + 1.2f + "sec";
-					child.GetChild(8).GetComponent<Text>().text = GunInfo.headshotBonus[primaryWeapon] + "x";
-					child.GetChild(9).GetComponent<Text>().text = sightDictionary[myCharacter.sightList[myCharacter.primaryWeapon]];
-					if (myCharacter.sightList[myCharacter.primaryWeapon] == 0)
-					{
-						child.GetChild(13).GetChild(0).GetComponent<Text>()
-							.text = "Sight: " + sightDictionary[myCharacter.sightList[myCharacter.primaryWeapon]] + "\n(reload speed bonus)";
-					}
-					else
-					{
-						child.GetChild(13).GetChild(0).GetComponent<Text>()
-							.text = "Sight: " + sightDictionary[myCharacter.sightList[myCharacter.primaryWeapon]];
-					}
-					child.parent.gameObject.SetActive(true);
-					EventSystem.current.SetSelectedGameObject(child.GetChild(11).gameObject);
-					savedWeapon = primaryWeapon;
-					break;
-				}
-				case 13:
-				{
-					int secondaryWeapon = myCharacter.secondaryWeapon;
-					Transform child3 = mt.GetChild(5).GetChild(3).GetChild(3)
-						.GetChild(0);
-					child3.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(secondaryWeapon)
-						.GetChild(0)
-						.GetComponent<Image>()
-						.sprite;
-					child3.GetChild(1).GetComponent<Text>().text = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(secondaryWeapon)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text;
-					if (child3.GetChild(1).GetComponent<Text>().text.Contains("Shotgun"))
-					{
-						child3.GetChild(2).GetComponent<Text>().text = GunInfo.damage[secondaryWeapon] + " x " + GunInfo.burstCount[secondaryWeapon];
-					}
-					else if (child3.GetChild(1).GetComponent<Text>().text.Contains("Grenade"))
-					{
-						child3.GetChild(2).GetComponent<Text>().text = GunInfo.damage[secondaryWeapon] + " + explosion";
-					}
-					else
-					{
-						child3.GetChild(2).GetComponent<Text>().text = GunInfo.damage[secondaryWeapon].ToString();
-					}
-					child3.GetChild(3).GetComponent<Text>().text = GunInfo.rpm[secondaryWeapon].ToString();
-					child3.GetChild(4).GetComponent<Text>().text = GunInfo.limitAmmo[secondaryWeapon].ToString();
-					child3.GetChild(5).GetComponent<Text>().text = GunInfo.limitMaxAmmo[secondaryWeapon].ToString();
-					child3.GetChild(6).GetComponent<Text>().text = GunInfo.accuracy[secondaryWeapon] + "%";
-					child3.GetChild(7).GetComponent<Text>().text = GunInfo.reloadTime[secondaryWeapon] + 1.2f + "sec";
-					child3.GetChild(8).GetComponent<Text>().text = GunInfo.headshotBonus[secondaryWeapon] + "x";
-					child3.GetChild(9).GetComponent<Text>().text = sightDictionary[myCharacter.sightList[myCharacter.secondaryWeapon]];
-					if (myCharacter.sightList[myCharacter.secondaryWeapon] == 0)
-					{
-						child3.GetChild(13).GetChild(0).GetComponent<Text>()
-							.text = "Sight: " + sightDictionary[myCharacter.sightList[myCharacter.secondaryWeapon]] + "\n(reload speed bonus)";
-					}
-					else
-					{
-						child3.GetChild(13).GetChild(0).GetComponent<Text>()
-							.text = "Sight: " + sightDictionary[myCharacter.sightList[myCharacter.secondaryWeapon]];
-					}
-					child3.parent.gameObject.SetActive(true);
-					EventSystem.current.SetSelectedGameObject(child3.GetChild(11).gameObject);
-					savedWeapon = secondaryWeapon;
-					break;
-				}
-				case 14:
-				{
-					int num = IntParseFast(EventSystem.current.currentSelectedGameObject.name.Replace("Weapon", ""));
-					Debug.Log("picked weapon:" + num);
-					Transform child2 = mt.GetChild(5).GetChild(3).GetChild(3)
-						.GetChild(0);
-					child2.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(num)
-						.GetChild(0)
-						.GetComponent<Image>()
-						.sprite;
-					child2.GetChild(1).GetComponent<Text>().text = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(num)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text;
-					if (child2.GetChild(1).GetComponent<Text>().text.Contains("Shotgun"))
-					{
-						child2.GetChild(2).GetComponent<Text>().text = GunInfo.damage[num] + " x " + GunInfo.burstCount[num];
-					}
-					else if (child2.GetChild(1).GetComponent<Text>().text.Contains("Grenade"))
-					{
-						child2.GetChild(2).GetComponent<Text>().text = GunInfo.damage[num] + " + explosion";
-					}
-					else
-					{
-						child2.GetChild(2).GetComponent<Text>().text = GunInfo.damage[num].ToString();
-					}
-					child2.GetChild(3).GetComponent<Text>().text = GunInfo.rpm[num].ToString();
-					child2.GetChild(4).GetComponent<Text>().text = GunInfo.limitAmmo[num].ToString();
-					child2.GetChild(5).GetComponent<Text>().text = GunInfo.limitMaxAmmo[num].ToString();
-					child2.GetChild(6).GetComponent<Text>().text = GunInfo.accuracy[num] + "%";
-					child2.GetChild(7).GetComponent<Text>().text = GunInfo.reloadTime[num] + 2f + "sec";
-					child2.GetChild(8).GetComponent<Text>().text = GunInfo.headshotBonus[num] + "x";
-					child2.GetChild(9).GetComponent<Text>().text = sightDictionary[myCharacter.sightList[num]];
-					if (myCharacter.sightList[num] == 0)
-					{
-						child2.GetChild(13).GetChild(0).GetComponent<Text>()
-							.text = "Sight: " + sightDictionary[myCharacter.sightList[num]] + "\n(reload speed bonus)";
-					}
-					else
-					{
-						child2.GetChild(13).GetChild(0).GetComponent<Text>()
-							.text = "Sight: " + sightDictionary[myCharacter.sightList[num]];
-					}
-					child2.parent.gameObject.SetActive(true);
-					EventSystem.current.SetSelectedGameObject(child2.GetChild(11).gameObject);
-					savedWeapon = num;
-					break;
-				}
-				case 15:
-					if (myCharacter.secondaryWeapon == savedWeapon)
-					{
-						myCharacter.secondaryWeapon = myCharacter.primaryWeapon;
-						mt.GetChild(5).GetChild(3).GetChild(1)
-							.GetChild(1)
-							.GetComponent<Image>()
-							.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
-							.GetChild(myCharacter.secondaryWeapon)
-							.GetChild(0)
-							.GetComponent<Image>()
-							.sprite;
-						mt.GetChild(5).GetChild(3).GetChild(1)
-							.GetChild(2)
-							.GetComponent<Text>()
-							.text = mt.GetChild(5).GetChild(3).GetChild(2)
-							.GetChild(myCharacter.secondaryWeapon)
-							.GetChild(1)
-							.GetComponent<Text>()
-							.text;
-					}
-					myCharacter.primaryWeapon = savedWeapon;
-					mt.GetChild(5).GetChild(3).GetChild(0)
-						.GetChild(1)
-						.GetComponent<Image>()
-						.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(myCharacter.primaryWeapon)
-						.GetChild(0)
-						.GetComponent<Image>()
-						.sprite;
-					mt.GetChild(5).GetChild(3).GetChild(0)
-						.GetChild(2)
-						.GetComponent<Text>()
-						.text = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(myCharacter.primaryWeapon)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text;
-					break;
-				case 16:
-					if (myCharacter.primaryWeapon == savedWeapon)
-					{
-						myCharacter.primaryWeapon = myCharacter.secondaryWeapon;
-						mt.GetChild(5).GetChild(3).GetChild(0)
-							.GetChild(1)
-							.GetComponent<Image>()
-							.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
-							.GetChild(myCharacter.primaryWeapon)
-							.GetChild(0)
-							.GetComponent<Image>()
-							.sprite;
-						mt.GetChild(5).GetChild(3).GetChild(0)
-							.GetChild(2)
-							.GetComponent<Text>()
-							.text = mt.GetChild(5).GetChild(3).GetChild(2)
-							.GetChild(myCharacter.primaryWeapon)
-							.GetChild(1)
-							.GetComponent<Text>()
-							.text;
-					}
-					myCharacter.secondaryWeapon = savedWeapon;
-					mt.GetChild(5).GetChild(3).GetChild(1)
-						.GetChild(1)
-						.GetComponent<Image>()
-						.sprite = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(myCharacter.secondaryWeapon)
-						.GetChild(0)
-						.GetComponent<Image>()
-						.sprite;
-					mt.GetChild(5).GetChild(3).GetChild(1)
-						.GetChild(2)
-						.GetComponent<Text>()
-						.text = mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(myCharacter.secondaryWeapon)
-						.GetChild(1)
-						.GetComponent<Text>()
-						.text;
-					break;
-				case 17:
-					if (myCharacter.sightList[savedWeapon] < GunInfo.zoom[savedWeapon])
-					{
-						myCharacter.sightList[savedWeapon] = myCharacter.sightList[savedWeapon] + 1;
-					}
-					else
-					{
-						myCharacter.sightList[savedWeapon] = 0;
-					}
-					if (myCharacter.sightList[savedWeapon] == 0)
-					{
-						mt.GetChild(5).GetChild(3).GetChild(3)
-							.GetChild(0)
-							.GetChild(13)
-							.GetChild(0)
-							.GetComponent<Text>()
-							.text = sightDictionary[myCharacter.sightList[savedWeapon]] + "\n(reload speed bonus)";
-					}
-					else
-					{
-						mt.GetChild(5).GetChild(3).GetChild(3)
-							.GetChild(0)
-							.GetChild(13)
-							.GetChild(0)
-							.GetComponent<Text>()
-							.text = sightDictionary[myCharacter.sightList[savedWeapon]];
-					}
-					mt.GetChild(5).GetChild(3).GetChild(3)
-						.GetChild(0)
-						.GetChild(9)
-						.GetComponent<Text>()
-						.text = sightDictionary[myCharacter.sightList[savedWeapon]];
-					break;
-				case 18:
-					EventSystem.current.SetSelectedGameObject(mt.GetChild(5).GetChild(3).GetChild(2)
-						.GetChild(savedWeapon)
-						.gameObject);
-						mt.GetChild(5).GetChild(3).GetChild(3)
-							.gameObject.SetActive(false);
-						break;
-					default:
-						switch (button)
-						{
-						case 18:
-						{
-							if (network == 1 || network == 2 || waitBackground)
-							{
-								ShowConfirm("Quit multiplayer mode or matchmaking!", "You can't use this function while playing multiplayer mode.", null, "OK", null);
-								break;
-							}
-							WWW www = new WWW(string.Concat(str3: currentDetail.transform.GetChild(2).GetComponent<InputField>().text, str0: "http://dreamlo.com/lb/", str1: dl.publicCode, str2: "/pipe-get/user-"));
-							yield return www;
-							if (!www.isDone)
-							{
-								break;
-							}
-							if (!string.IsNullOrEmpty(www.error))
-							{
-								Debug.Log("Sync data does not exist.");
-								break;
-							}
-							string[] array5 = www.text.Split(new char[1] { '|' }, StringSplitOptions.None);
-							dreamloLeaderBoard.Score score = new dreamloLeaderBoard.Score
-							{
-								playerName = array5[0],
-								score = 0,
-								seconds = 0,
-								shortText = "",
-								dateString = ""
-							};
-							if (array5.Length > 1)
-							{
-								score.score = int.Parse(array5[1]);
-							}
-							if (array5.Length > 2)
-							{
-								score.seconds = int.Parse(array5[2]);
-							}
-							if (array5.Length > 3)
-							{
-								score.shortText = array5[3];
-							}
-							if (array5.Length > 4)
-							{
-								score.dateString = array5[4];
-							}
-							if (array5.Length > 3)
-							{
-								string id = score.playerName.Replace("user-", "");
-								myCharacter.id = id;
-								string[] array6 = score.shortText.Split(new string[1] { "$" }, StringSplitOptions.None);
-								if (array6.Length >= 6)
-								{
-									myCharacter.kill = IntParseFast(array6[1]);
-									myCharacter.death = IntParseFast(array6[2]);
-									myCharacter.survivalScore = IntParseFast(array6[3]);
-									myCharacter.assortmentScore = IntParseFast(array6[4]);
-									myCharacter.headshotScore = IntParseFast(array6[5]);
-									SaveDataController.Save();
-									ShowConfirm("Sync succeeded.", "You have to reboot Flats.", Reset, "OK", null);
-								}
-								else
-								{
-									ShowConfirm("Sync failed.", "Something wrong with your data...", null, "OK", null);
-								}
-							}
-							else
-							{
-								ShowConfirm("Sync failed.", "There isn't your data on leaderboard.", null, "OK", null);
-							}
-							break;
-						}
-						case 19:
-						{
-							if (network == 1 || network == 2 || waitBackground)
-							{
-								ShowConfirm("Quit multiplayer mode or matchmaking!", "You can't use this function while playing multiplayer mode.", null, "OK", null);
-								break;
-							}
-							pleaseWait.SetActive(true);
-							LocalNetwork ln = GetComponent<LocalNetwork>();
-							ln.masterIP = "Searching...";
-							ln.StartReceivingDataForSync();
-							float trial = 0f;
-							while (true)
-							{
-								trial += Time.unscaledDeltaTime;
-								if (trial >= 3f || ln.masterIP != "Searching...")
-								{
-									break;
-								}
-								yield return new WaitForSeconds(0f);
-							}
-							ln.StopAllCoroutines();
-							ln.CloseReceiver();
-							pleaseWait.SetActive(false);
-							if (ln.masterIP == "Searching...")
-							{
-								Debug.Log("There is no sender, be a sender.");
-								syncing = true;
-								ln.StartCoroutine("StartSendingDataForSync");
-								ShowConfirm("Sending my data...", "Sending my data (ID:" + myCharacter.id + ")\nand waiting for a receiver...\nYou must close this after syncing.", SyncDataConfirm, "Close", null);
-							}
-							else
-							{
-								syncing = false;
-								syncData = ln.masterIP;
-								string[] array4 = syncData.Split(new string[1] { "$" }, StringSplitOptions.None);
-								string text2 = array4[0];
-								ShowConfirm("Received data!", "Received data from ID:" + text2 + "\nOverwrite your current data\nand reboot Flats.", SyncDataConfirm, "Overwrite", "Cancel");
-							}
-							break;
-						}
-						}
-						break;
-					}
-					InputDevice inputDevice = InputManager.ActiveDevice;
-					if (mt.GetChild(5).GetChild(3).GetChild(3)
-						.gameObject.activeSelf && (Input.GetKeyUp(KeyCode.Escape) || inputDevice.CommandWasPressed || (!customControlEnabled && inputDevice.Action2.WasPressed) || (customControlEnabled && Input.GetButtonDown(customControl["Pick"]))))
-					{
-						mt.GetChild(5).GetChild(3).GetChild(3)
-							.gameObject.SetActive(false);
-						backButton.SetActive(true);
-						MonoBehaviour.print("Back with B");
-					}
-				}
-				else if (current == "Settings")
-				{
-					if (button == 10)
-					{
-						Debug.Log("Touch button mapping has been reset.");
-						currentDetail.transform.GetChild(1).GetChild(0).GetChild(2)
-							.GetComponent<Text>()
-							.text = "";
-						if (mySettings.control_handedness == 0)
-						{
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-								.rectTransform()
-								.anchorMin = new Vector2(1f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-								.rectTransform()
-								.anchorMax = new Vector2(1f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-								.rectTransform()
-								.anchorMin = new Vector2(1f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-								.rectTransform()
-								.anchorMax = new Vector2(1f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-								.rectTransform()
-								.anchorMin = new Vector2(1f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-								.rectTransform()
-								.anchorMax = new Vector2(1f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-								.rectTransform()
-								.anchorMin = new Vector2(1f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-								.rectTransform()
-								.anchorMax = new Vector2(1f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-								.rectTransform()
-								.anchoredPosition = new Vector2(0f - fireButtonPosition.x, fireButtonPosition.y);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-								.rectTransform()
-								.anchoredPosition = new Vector2(0f - reloadButtonPosition.x, reloadButtonPosition.y);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-								.rectTransform()
-								.anchoredPosition = new Vector2(0f - actionButtonPosition.x, actionButtonPosition.y);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-								.rectTransform()
-								.anchoredPosition = new Vector2(0f - grenadeButtonPosition.x, grenadeButtonPosition.y);
-						}
-						else
-						{
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-								.rectTransform()
-								.anchorMin = new Vector2(0f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-								.rectTransform()
-								.anchorMax = new Vector2(0f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-								.rectTransform()
-								.anchorMin = new Vector2(0f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-								.rectTransform()
-								.anchorMax = new Vector2(0f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-								.rectTransform()
-								.anchorMin = new Vector2(0f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-								.rectTransform()
-								.anchorMax = new Vector2(0f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-								.rectTransform()
-								.anchorMin = new Vector2(0f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-								.rectTransform()
-								.anchorMax = new Vector2(0f, 0.5f);
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-								.rectTransform()
-								.anchoredPosition = fireButtonPosition;
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-								.rectTransform()
-								.anchoredPosition = reloadButtonPosition;
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-								.rectTransform()
-								.anchoredPosition = actionButtonPosition;
-							currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-								.rectTransform()
-								.anchoredPosition = grenadeButtonPosition;
-						}
-						currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-							.rectTransform()
-							.localScale = new Vector3(1f, 1f, currentDetail.transform.GetChild(1).GetChild(1).GetChild(1)
-							.rectTransform()
-							.localScale.z);
-						currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-							.rectTransform()
-							.localScale = new Vector3(1f, 1f, currentDetail.transform.GetChild(1).GetChild(1).GetChild(2)
-							.rectTransform()
-							.localScale.z);
-						currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-							.rectTransform()
-							.localScale = new Vector3(1f, 1f, currentDetail.transform.GetChild(1).GetChild(1).GetChild(3)
-							.rectTransform()
-							.localScale.z);
-						currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-							.rectTransform()
-							.localScale = new Vector3(1f, 1f, currentDetail.transform.GetChild(1).GetChild(1).GetChild(4)
-							.rectTransform()
-							.localScale.z);
-					}
-				}
-				else if (current == "Leaderboard")
-				{
-					if (button == 10)
-					{
-						leaderboardLoading.SetActive(true);
-						StartCoroutine("Leaderboard", true);
-					}
-				}
-				else if (current == "Information")
-				{
-					switch (button)
-					{
-					case 10:
-						if (!VRmode)
-						{
-							string text3 = "Android: bit.ly/1Dn3fpL";
-							string text4 = "iOS: apple.co/1Ke5yO2";
-							string text5 = "Windows: bit.ly/1W0SGjR";
-							string desc = ((Application.platform == RuntimePlatform.Android) ? ("#Flats \n" + text3 + "\n" + text4 + "\n" + text5 + "\n\n") : ((Application.platform != RuntimePlatform.IPhonePlayer) ? ("#Flats \n" + text5 + "\n" + text3 + "\n" + text4 + "\n\n") : ("#Flats \n" + text4 + "\n" + text3 + "\n" + text5 + "\n\n")));
-							byte[] data = flatsLogo.texture.EncodeToPNG();
-							string sharePath = System.IO.Path.Combine((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath),"Flats-Share.png");
-							System.IO.File.WriteAllBytes(sharePath,data);
-							GUIUtility.systemCopyBuffer = "Flats - offline desktop edition";
-							ShowConfirm("Share saved", "Text copied to clipboard. Image saved to:\n"+sharePath, null, "OK", null);
-						}
-						else
-						{
-							ShowConfirm("This option is unavailable.", "Sorry, currently this option is not supported in VR mode.", null, "OK", null);
-						}
-						break;
-					case 11:
-					{
-						aboutUs.SetActive(true);
-						Selectable component = aboutUs.transform.GetChild(4).GetComponent<Selectable>();
-						if (Input.GetJoystickNames().Length > 0)
-						{
-							component.Select();
-						}
-						break;
-					}
-					case 12:
-						if (VRController.device == "oculus")
-						{
-							ShowConfirm("Not available", "Sorry, currently not available.", null, "OK", null);
-							break;
-						}
-						if (fireTV)
-						{
-							ShowConfirm("Not available from TV", "Sorry, currently this option is unavalable.", null, "OK", null);
-							break;
-						}
-						if (adFree)
-						{
-							GetComponent<InAppPurchase>().Buy("beer");
-						}
-						else
-						{
-							GetComponent<InAppPurchase>().Buy("adremover");
-						}
-						Debug.Log("Opening in-app purchase...");
-						break;
-					case 13:
-					{
-						MarketingDesc marketingDesc = new MarketingDesc();
-						marketingDesc.Editor_URL = "http://foliagegames.com/";
-						marketingDesc.Win8_PackageFamilyName = "FoliageGamesLLC.Flats_arh4z6sc73q8a";
-						marketingDesc.WP8_AppID = "9wzdncrdh8vm";
-						marketingDesc.iOS_AppID = "833603987";
-						marketingDesc.BB10_AppID = "";
-						marketingDesc.Android_MarketingStore = MarketingStores.GooglePlay;
-						marketingDesc.Android_GooglePlay_BundleID = "com.foliagegames.flats";
-						marketingDesc.Android_Amazon_BundleID = "com.foliagegames.flats";
-						marketingDesc.Android_Samsung_BundleID = "com.foliagegames.flats";
-						MarketingManager.OpenStoreForReview(marketingDesc);
-						break;
-					}
-					case 14:
-						Application.OpenURL("http://foliagegames.com");
-						break;
-					case 15:
-						Application.OpenURL("https://www.facebook.com/foliagegames");
-						break;
-					case 16:
-						Application.OpenURL("https://twitter.com/foliagegames");
-						break;
-					case 17:
-						Application.OpenURL("https://plus.google.com/107882397860279823163");
-						break;
-					}
-				}
-			}
-			else if (current == "Matching")
-			{
-				switch (button)
-				{
-				case -1:
-					anim.SetBool("Matching", false);
-					yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-					if (stayRoom.isOn)
-					{
-						waitBackground = true;
-						backButton.SetActive(false);
-						BackToMainMenu();
-						break;
-					}
-					bt[0].text = "Open Match";
-					bt[1].text = "Invitation Match";
-					bt[2].text = "Local Match";
-					bt[3].text = "Chat Room";
-					bt[4].text = "Server Region";
-					bt[5].text = "Online Version: " + version.Substring(0, 3);
-					buttons[0].sprite = images[36];
-					buttons[1].sprite = images[37];
-					buttons[2].sprite = images[38];
-					buttons[3].sprite = images[39];
-					buttons[4].sprite = images[40];
-					buttons[5].sprite = images[41];
-					waitBackground = false;
-					stayRoom.interactable = false;
-					startNow.interactable = false;
-					UnityEngine.Object.Destroy(myButton);
-					wasInRoom = false;
-					PhotonNetwork.Disconnect();
-					currentDetail = null;
-					anim.SetBool("Detail", false);
-					anim.SetBool("Fade", false);
-					current = "Multiplayer";
-					break;
-				case 10:
-					if (!startNowPressed)
-					{
-						base.gameObject.GetPhotonView().RPC("StartNow", PhotonTargets.AllBuffered);
-						startNowPressed = true;
-					}
-					break;
-				case 12:
-					if (!VRmode)
-					{
-						if (!PhotonNetwork.inRoom)
-						{
-						}
-					}
-					else
-					{
-						ShowConfirm("This option is unavailable.", "Sorry, currently this option is not supported in VR mode.", null, "OK", null);
-					}
-					break;
-				}
-			}
-			else if (current == "Map")
-			{
-				if (!voted)
-				{
-					base.gameObject.GetPhotonView().RPC("VoteMap", PhotonTargets.AllBuffered, button);
-					voted = true;
-				}
-			}
-			else if (current == "Result" && button == -1)
-			{
-				backButton.SetActive(false);
-				Time.timeScale = 1f;
-				if (gameState == "Multiplayer")
-				{
-					wasInRoom = false;
-					PhotonNetwork.Disconnect();
-				}
-				if (adForWin != null && adForWin.Visible)
-				{
-					adForWin.Visible = false;
-				}
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				anim.SetBool("Fade", false);
-				mt.GetChild(10).gameObject.SetActive(false);
-				StartCoroutine("BackgroundColor", "FadeIn");
-			}
-			if (current == "Main")
-			{
-				quitButton.SetActive(true);
-			}
-			else
-			{
-				quitButton.SetActive(false);
-			}
-			if (currentDetail != null)
-			{
-				Debug.Log("current:" + current + " currentDetail:" + currentDetail.name);
-			}
-			else
-			{
-				Debug.Log("current:" + current + " currentDetail: null");
-			}
-			fliping = false;
-		}
-
-		private void SyncDataConfirm(bool result)
-		{
-			LocalNetwork component = GetComponent<LocalNetwork>();
-			if (result)
-			{
-				if (syncing)
-				{
-					component.StopAllCoroutines();
-					component.CloseSender();
-					syncing = false;
-					syncData = "";
-				}
-				else if (syncData != "" && syncData != "Searching...")
-				{
-					string[] array = syncData.Split(new string[1] { "$" }, StringSplitOptions.None);
-					myCharacter.id = array[0];
-					myCharacter.kill = IntParseFast(array[1]);
-					myCharacter.death = IntParseFast(array[2]);
-					myCharacter.survivalScore = IntParseFast(array[3]);
-					myCharacter.assortmentScore = IntParseFast(array[4]);
-					myCharacter.headshotScore = IntParseFast(array[5]);
-					SaveDataController.Save();
-					LoadOfflineScene(0);
-				}
-				else
-				{
-					Debug.Log("Synced but no data, something wrong!");
-					LoadOfflineScene(0);
-				}
-			}
-			else
-			{
-				component.StopAllCoroutines();
-				component.CloseSender();
-				syncing = false;
-				syncData = "";
-			}
-		}
-
 		[PunRPC]
 		private void StartNow()
 		{
+            if (readyStarted || !PhotonNetwork.inRoom) return;
 			startNowPlayer++;
 			Debug.Log("Current start now player: " + startNowPlayer);
 			int num = playerCount;
@@ -3500,6 +1564,7 @@ public partial class Menu : MonoBehaviour
 		{
 			if (result)
 			{
+                ResetMatchReadiness();
                 bool disconnect = gameState == "Multiplayer";
                 gameState = "Main";
                 wasInRoom = false;
@@ -3521,503 +1586,8 @@ public partial class Menu : MonoBehaviour
 			}
 		}
 
-		private IEnumerator Ready()
-		{
-			MonoBehaviour.print("Start syncing...");
-			roomTexts[4].text = "Syncing... up to a minute.";
-			PhotonNetwork.room.IsOpen = false;
-			PhotonNetwork.room.IsVisible = false;
-			if (waitBackground && current != "Matching")
-			{
-				ShowConfirm("Multiplayer Ready", "If you are playing singleplayer, current score will be saved.", null, "OK", null);
-				Time.timeScale = 0f;
-				if (gameState == "Singleplayer")
-				{
-					myCurrent.survival_Score = currentSurvivalScore;
-					myCurrent.survival_Phase = currentSurvivalPhase;
-					myCurrent.assortment_Score = currentAssortmentScore;
-					myCurrent.assortment_Phase = currentAssortmentPhase;
-					myCurrent.headshot_Score = currentHeadshotScore;
-					myCurrent.headshot_Chain = currentHeadshotChain;
-					SaveDataController.Save();
-				}
-				waitBackground = false;
-			}
-			else
-			{
-				backButton.SetActive(false);
-				startNow.interactable = false;
-				Debug.Log("Stopped start now function.");
-			}
-			syncedPlayer = 0;
-			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(5f));
-			base.gameObject.GetPhotonView().RPC("Sync", PhotonTargets.AllBuffered);
-			while (true)
-			{
-				if (PhotonNetwork.isMasterClient && syncedPlayer >= PhotonNetwork.room.PlayerCount)
-				{
-					Debug.Log("I'm the master");
-					base.gameObject.GetPhotonView().RPC("DecideMap", PhotonTargets.AllBuffered);
-					break;
-				}
-				if (!(gameState == "Multiplayer"))
-				{
-					yield return new WaitForSeconds(0f);
-					continue;
-				}
-				break;
-			}
-		}
-
-		[PunRPC]
-		private void Sync()
-		{
-			syncedPlayer++;
-		}
-
-		[PunRPC]
-		private IEnumerator DecideMap()
-		{
-			if (current != "Matching")
-			{
-				backButton.SetActive(false);
-				anim.SetTrigger("SkipToMatching");
-				current = "Matching";
-			}
-			if (rule != 1 && rule != 6 && rule != 8)
-			{
-				roomTexts[4].text = "Adjusting team members...";
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-			}
-			if (PhotonNetwork.isMasterClient && PunTeams.PlayersPerTeam[PunTeams.Team.red].Count != PunTeams.PlayersPerTeam[PunTeams.Team.blue].Count)
-			{
-				Debug.Log("Adjusting team count...");
-				if (PunTeams.PlayersPerTeam[PunTeams.Team.red].Count < PunTeams.PlayersPerTeam[PunTeams.Team.blue].Count)
-				{
-					PhotonPlayer player = PunTeams.PlayersPerTeam[PunTeams.Team.blue][0];
-					player.SetTeam(PunTeams.Team.red);
-				}
-				else
-				{
-					PhotonPlayer player2 = PunTeams.PlayersPerTeam[PunTeams.Team.red][0];
-					player2.SetTeam(PunTeams.Team.blue);
-				}
-			}
-			waitBackground = false;
-			anim.SetBool("Matching", false);
-			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-			anim.SetBool("Fade", false);
-			current = "Map";
-			gameState = "Multiplayer";
-			voteMap.text = "Vote map";
-			voteMap.gameObject.SetActive(true);
-			int time = 10;
-			while (time > 0)
-			{
-				voteMap.text = "Vote map " + time;
-				bt[0].text = stageName[0] + " : " + vote[0].mapValue;
-				bt[1].text = stageName[1] + " : " + vote[1].mapValue;
-				bt[2].text = stageName[2] + " : " + vote[2].mapValue;
-				bt[3].text = stageName[3] + " : " + vote[3].mapValue;
-				bt[4].text = stageName[4] + " : " + vote[4].mapValue;
-				bt[5].text = stageName[5] + " : " + vote[5].mapValue;
-				buttons[0].sprite = images[12];
-				buttons[1].sprite = images[13];
-				buttons[2].sprite = images[14];
-				buttons[3].sprite = images[15];
-				buttons[4].sprite = images[16];
-				buttons[5].sprite = images[17];
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(1f));
-				time--;
-				if (time <= 0)
-				{
-					break;
-				}
-				yield return new WaitForSeconds(0f);
-			}
-			anim.SetBool("Fade", true);
-			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-			voteMap.gameObject.SetActive(false);
-			network = 2;
-			Debug.Log("Network mode:" + network);
-			while (!PhotonNetwork.isMasterClient)
-			{
-				yield return new WaitForSeconds(0f);
-			}
-			vote.Sort((Map x, Map y) => y.mapValue.CompareTo(x.mapValue));
-			int num;
-			if (vote[0].mapValue == 0)
-			{
-				num = vote[UnityEngine.Random.Range(0, 6)].mapKey + 2;
-			}
-			else
-			{
-				int num2 = 0;
-				for (int num3 = 1; num3 < vote.Count; num3++)
-				{
-					if (vote[num3].mapValue == vote[0].mapValue)
-					{
-						num2 = num3;
-					}
-				}
-				num = ((num2 != 0) ? (vote[UnityEngine.Random.Range(0, num2 + 1)].mapKey + 2) : (vote[0].mapKey + 2));
-			}
-			base.gameObject.GetPhotonView().RPC("LoadMap", PhotonTargets.AllBuffered, num);
-		}
-
-		[PunRPC]
-		private void VoteMap(int map)
-		{
-			vote[map].mapValue++;
-		}
-
-		[PunRPC]
-		private IEnumerator LoadMap(int map)
-		{
-			StartCoroutine("BackgroundColor", "FadeIn");
-			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
-			LoadOfflineScene(map);
-		}
-
-		private void OnJoinedRoom()
-		{
-            pendingRoomDeadline = 0;
-            if (startingOfflineMatch) return;
-            if (!CheckRoomModules()) return;
-			Debug.Log("Joined!");
-			if ((int)PhotonNetwork.room.CustomProperties["R"] == -1)
-			{
-				chat.GetChild(5).gameObject.SetActive(false);
-				chat.GetChild(3).GetComponent<Button>().interactable = true;
-				base.gameObject.GetPhotonView().RPC("Chat", PhotonTargets.MasterClient, PhotonNetwork.player.NickName + " joined chat.");
-				return;
-			}
-			wasInRoom = true;
-			pleaseWait.SetActive(false);
-			backButton.SetActive(true);
-			anim.SetBool("Matching", true);
-			current = "Matching";
-			stayRoom.interactable = true;
-			startNow.interactable = true;
-			rule = (int)PhotonNetwork.room.CustomProperties["R"];
-			objective = (int)PhotonNetwork.room.CustomProperties["O"];
-			playerCount = PhotonNetwork.room.MaxPlayers;
-			roomTexts[0].text = ruleTitleText[rule];
-			roomTexts[1].text = ruleExpText[rule];
-			roomTexts[2].text = "Objective: " + objectiveText[rule + "-" + objective];
-			roomTexts[3].text = "Player Count: " + playerCount;
-			roomTexts[4].text = "Matchmaking... Wait or press Start Now.";
-			int num = playerCount;
-			if (num % 2 == 1)
-			{
-				num++;
-			}
-			if (num <= 2)
-			{
-				num = 4;
-			}
-			if (playerCount <= 2 || rule == 1 || rule == 6 || rule == 8)
-			{
-				startNow.transform.GetChild(0).GetComponent<Text>().text = "Start Now! " + startNowPlayer + "/" + num / 2;
-			}
-			else
-			{
-				startNow.transform.GetChild(0).GetComponent<Text>().text = "Add bot and Start Now! " + startNowPlayer + "/" + num / 2;
-			}
-			if (myButton == null)
-			{
-				myButton = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-				myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
-					.GetComponent<Image>()
-					.color;
-				myButton.transform.GetChild(0).GetComponent<Image>().sprite = mt.GetChild(5).GetChild(0).GetChild(0)
-					.GetChild(0)
-					.GetComponent<Image>()
-					.sprite;
-				myButton.transform.GetChild(1).GetComponent<Text>().text = PhotonNetwork.player.NickName;
-				DetailInformation component = myButton.GetComponent<DetailInformation>();
-				component.canvas = mt;
-				component.backgroundColor = myButton.GetComponent<Image>().color;
-				component.comment = myCharacter.comment;
-				component.kill = myCharacter.kill;
-				component.death = myCharacter.death;
-				myButton.transform.SetParent(multiplayerList, false);
-			}
-			if (rule == 1 || rule == 6 || rule == 8)
-			{
-				PhotonNetwork.player.SetTeam(PunTeams.Team.none);
-			}
-			else if ((bool)myButton)
-			{
-				if (PunTeams.PlayersPerTeam[PunTeams.Team.red].Count <= PunTeams.PlayersPerTeam[PunTeams.Team.blue].Count)
-				{
-					PhotonNetwork.player.SetTeam(PunTeams.Team.red);
-					myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
-						.GetComponent<Image>()
-						.color;
-				}
-				else
-				{
-					PhotonNetwork.player.SetTeam(PunTeams.Team.blue);
-					myButton.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
-						.GetComponent<Image>()
-						.color;
-				}
-				if (preCheckToStayRoom)
-				{
-					stayRoom.isOn = true;
-				}
-			}
-			else
-			{
-				stayRoom.interactable = false;
-				startNow.interactable = false;
-				PhotonNetwork.Disconnect();
-			}
-			MonoBehaviour.print("Red Team:" + PunTeams.PlayersPerTeam[PunTeams.Team.red].Count + " Blue Team:" + PunTeams.PlayersPerTeam[PunTeams.Team.blue].Count);
-			PhotonPlayer[] otherPlayers = PhotonNetwork.otherPlayers;
-			foreach (PhotonPlayer photonPlayer in otherPlayers)
-			{
-				byte[] data = (byte[])photonPlayer.CustomProperties["I"];
-				Texture2D texture2D = new Texture2D(128, 128);
-				texture2D.LoadImage(data);
-				GameObject gameObject = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-				if (rule == 1 || rule == 6 || rule == 8)
-				{
-					int index = (int)photonPlayer.CustomProperties["TC"];
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(index)
-						.GetComponent<Image>()
-						.color;
-				}
-				else if (photonPlayer.GetTeam() == PunTeams.Team.red)
-				{
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
-						.GetComponent<Image>()
-						.color;
-				}
-				else
-				{
-					gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
-						.GetComponent<Image>()
-						.color;
-				}
-				gameObject.transform.GetChild(0).GetComponent<Image>().sprite = Sprite.Create(texture2D, new Rect(0f, 0f, 128f, 128f), new Vector2(0.5f, 0.5f));
-				gameObject.transform.GetChild(1).GetComponent<Text>().text = photonPlayer.NickName;
-				DetailInformation component2 = gameObject.GetComponent<DetailInformation>();
-				component2.canvas = base.transform;
-				component2.backgroundColor = gameObject.GetComponent<Image>().color;
-				component2.comment = (string)photonPlayer.CustomProperties["C"];
-				component2.kill = (int)photonPlayer.CustomProperties["K"];
-				component2.death = (int)photonPlayer.CustomProperties["D"];
-				component2.id = photonPlayer.ID;
-				gameObject.transform.SetParent(multiplayerList, false);
-				if (photonPlayer.GetTeam() == PunTeams.Team.red)
-				{
-					gameObject.transform.SetAsFirstSibling();
-				}
-			}
-			if (PhotonNetwork.room.PlayerCount >= PhotonNetwork.room.MaxPlayers)
-			{
-				PhotonNetwork.SetMasterClient(PhotonNetwork.player);
-				StartCoroutine("Ready");
-			}
-		}
-
-		private void OnPhotonPlayerConnected(PhotonPlayer newPlayer)
-		{
-            if (PhotonNetwork.isMasterClient && !CheckPeerModules(newPlayer)) return;
-			if ((int)PhotonNetwork.room.CustomProperties["R"] == -1)
-			{
-				chat.GetChild(5).gameObject.SetActive(false);
-				chat.GetChild(3).GetComponent<Button>().interactable = true;
-				return;
-			}
-			Debug.Log("Someone joined!");
-			byte[] data = (byte[])newPlayer.CustomProperties["I"];
-			Texture2D texture2D = new Texture2D(128, 128);
-			texture2D.LoadImage(data);
-			GameObject gameObject = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-			if (rule == 1 || rule == 6 || rule == 8)
-			{
-				int index = (int)newPlayer.CustomProperties["TC"];
-				gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(index)
-					.GetComponent<Image>()
-					.color;
-			}
-			else if (newPlayer.GetTeam() == PunTeams.Team.red)
-			{
-				gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
-					.GetComponent<Image>()
-					.color;
-			}
-			else
-			{
-				gameObject.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
-					.GetComponent<Image>()
-					.color;
-			}
-			gameObject.transform.GetChild(0).GetComponent<Image>().sprite = Sprite.Create(texture2D, new Rect(0f, 0f, 128f, 128f), new Vector2(0.5f, 0.5f));
-			gameObject.transform.GetChild(1).GetComponent<Text>().text = newPlayer.NickName;
-			DetailInformation component = gameObject.GetComponent<DetailInformation>();
-			component.canvas = base.transform;
-			component.backgroundColor = gameObject.GetComponent<Image>().color;
-			component.comment = (string)newPlayer.CustomProperties["C"];
-			component.kill = (int)newPlayer.CustomProperties["K"];
-			component.death = (int)newPlayer.CustomProperties["D"];
-			component.id = newPlayer.ID;
-			gameObject.transform.SetParent(multiplayerList, false);
-			if (newPlayer.GetTeam() == PunTeams.Team.red)
-			{
-				gameObject.transform.SetAsFirstSibling();
-			}
-			if (PhotonNetwork.room.PlayerCount >= PhotonNetwork.room.MaxPlayers)
-			{
-				PhotonNetwork.SetMasterClient(newPlayer);
-				StartCoroutine("Ready");
-			}
-		}
-
-		private void OnPhotonPlayerDisconnected(PhotonPlayer otherPlayer)
-		{
-			foreach (Transform multiplayer in multiplayerList)
-			{
-				if (multiplayer.GetComponent<DetailInformation>().id == otherPlayer.ID)
-				{
-					UnityEngine.Object.Destroy(multiplayer.gameObject);
-				}
-			}
-			PunTeams.PlayersPerTeam[otherPlayer.GetTeam()].Remove(otherPlayer);
-			otherPlayer.CustomProperties["team"] = (byte)PunTeams.Team.none;
-		}
-
-		private void OnPhotonCreateRoomFailed(object[] codeAndMsg)
-		{
-            pendingRoomDeadline = 0;
-			pleaseWait.SetActive(false);
-			errorMessage.SetActive(true);
-			Selectable component = errorMessage.transform.GetChild(2).GetComponent<Selectable>();
-			if (Input.GetJoystickNames().Length > 0)
-			{
-				component.Select();
-			}
-		}
-
-		private void OnPhotonRandomJoinFailed(object[] codeAndMsg)
-		{
-			Debug.Log("There is no room that matches your conditions. Created a new room instead.");
-			if (rule == 0)
-			{
-				rule = UnityEngine.Random.Range(1, 8);
-			}
-			if (objective == 0)
-			{
-				objective = 1;
-			}
-			if (playerCount == 0)
-			{
-				playerCount = 4;
-			}
-			roomTexts[0].text = ruleTitleText[rule];
-			roomTexts[1].text = ruleExpText[rule];
-			roomTexts[2].text = "Objective: " + objectiveText[rule + "-" + objective];
-			roomTexts[3].text = "Player Count: " + playerCount;
-			roomTexts[4].text = "Matchmaking... Wait or press Start Now.";
-			ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
-			hashtable["R"] = rule;
-			hashtable["O"] = objective;
-            PublishRoomModules(hashtable);
-			RoomOptions roomOptions = new RoomOptions();
-			roomOptions.MaxPlayers = (byte)playerCount;
-			roomOptions.CustomRoomProperties = hashtable;
-			roomOptions.CustomRoomPropertiesForLobby = new string[2] { "R", "O" };
-			string roomName = "pub-" + StringUtils.GeneratePassword(8);
-			PhotonNetwork.CreateRoom(roomName, roomOptions, null);
-		}
-
-		private void OnPhotonJoinRoomFailed(object[] codeAndMsg)
-		{
-            pendingRoomDeadline = 0;
-            if (currentDetail == null) return;
-            backButton.SetActive(true);
-			if (currentDetail.name != "ChatRoom")
-			{
-				Debug.Log("There is no room that matches your room name.");
-				pleaseWait.SetActive(false);
-				rule = 1;
-				objective = 1;
-				playerCount = 4;
-				roomCreation.transform.GetChild(0).GetChild(1).GetComponent<Text>()
-					.text = ruleTitleText[rule];
-				roomCreation.transform.GetChild(1).GetChild(1).GetComponent<Text>()
-					.text = objectiveText[rule + "-" + objective];
-				roomCreation.transform.GetChild(2).GetChild(1).GetComponent<Text>()
-					.text = playerCount.ToString();
-				SetRoomCreationVisible(true);
-				Selectable component = roomCreation.transform.GetChild(3).GetComponent<Selectable>();
-				if (Input.GetJoystickNames().Length > 0)
-				{
-					component.Select();
-				}
-			}
-		}
-
-		private void OnDisconnectedFromPhoton()
-		{
-			if (gettingRoomList)
-			{
-				Debug.Log("I got the room list, disconnected from Photon.");
-				gettingRoomList = false;
-				return;
-			}
-			if (wasInRoom)
-			{
-				errorMessage.SetActive(true);
-				Selectable component = errorMessage.transform.GetChild(2).GetComponent<Selectable>();
-				if (Input.GetJoystickNames().Length > 0)
-				{
-					component.Select();
-				}
-			}
-			if (network == 2)
-			{
-				network = 0;
-			}
-			startNowPlayer = 0;
-			startNowPressed = false;
-			wasInRoom = false;
-			waitBackground = false;
-			stayRoom.isOn = false;
-			stayRoom.interactable = false;
-			startNow.interactable = false;
-            PhotonNetwork.player.CustomProperties["team"] = (byte)PunTeams.Team.none;
-			if (multiplayerList.childCount > 0)
-			{
-				foreach (Transform multiplayer in multiplayerList)
-				{
-					UnityEngine.Object.Destroy(multiplayer.gameObject);
-				}
-			}
-			if (gameState == "Multiplayer" && current != "Singleplayer" && current != "Result")
-			{
-				LoadOfflineScene(0);
-			}
-		}
-
-		private void OnFailedToConnectToPhoton(DisconnectCause cause)
-		{
-            multiplayerFailure = "Photon connection failed: " + cause;
-            if (multiplayerConnecting) return;
-			if (!gettingRoomList)
-			{
-				errorMessage.SetActive(true);
-				pleaseWait.SetActive(false);
-				Selectable component = errorMessage.transform.GetChild(2).GetComponent<Selectable>();
-				if (Input.GetJoystickNames().Length > 0)
-				{
-					component.Select();
-				}
-			}
-		}
+        private bool readyStarted;
+        private int readyOperation;
 
 		private bool multiplayerWasSuspended;
 		private void OnApplicationPause(bool pause)
@@ -4050,113 +1620,6 @@ public partial class Menu : MonoBehaviour
 			stayRoom.isOn = false;
 		}
 
-		private IEnumerator Leaderboard(bool upload)
-		{
-			foreach (Transform item in leaderboardScroll.GetChild(0))
-			{
-				UnityEngine.Object.Destroy(item.gameObject);
-			}
-			if (myCharacter != null)
-			{
-				if (myCharacter.name == "" || myCharacter.name == null)
-				{
-					myCharacter.name = "No Name";
-				}
-				float kd = myCharacter.death == 0 ? myCharacter.kill : (float)myCharacter.kill / myCharacter.death;
-				int average = (myCharacter.survivalScore + myCharacter.assortmentScore + myCharacter.headshotScore) / 3;
-				int num = Mathf.RoundToInt((kd + 1f) * average / 2f);
-                totalScore = num.ToString();
-                mt.GetChild(7).GetChild(0).GetChild(3).GetComponent<Text>().text = totalScore;
-				string shortText = myCharacter.name + "$" + myCharacter.kill + "$" + myCharacter.death + "$" + myCharacter.survivalScore + "$" + myCharacter.assortmentScore + "$" + myCharacter.headshotScore;
-				dl.AddScore("user-" + myCharacter.id, num, 0, shortText);
-			}
-			dl.LoadScores();
-			if (!upload)
-			{
-				uploadButton.SetActive(false);
-			}
-			List<dreamloLeaderBoard.Score> playerList = new List<dreamloLeaderBoard.Score>();
-			int maxToDisplay = 20;
-			int count = 0;
-			yield return null;
-			playerList = dl.ToListHighToLow();
-			foreach (dreamloLeaderBoard.Score item2 in playerList)
-			{
-				GameObject gameObject = (GameObject)UnityEngine.Object.Instantiate(leaderboardContent);
-				gameObject.transform.SetParent(leaderboardScroll.GetChild(0), false);
-				Text component = gameObject.transform.GetChild(0).GetComponent<Text>();
-				Text component2 = gameObject.transform.GetChild(1).GetComponent<Text>();
-				Text component3 = gameObject.transform.GetChild(2).GetComponent<Text>();
-				if (item2.shortText != "")
-				{
-					count++;
-					component.text = count.ToString();
-					string[] array = item2.shortText.Split(new string[1] { "$" }, StringSplitOptions.None);
-					component2.text = array[0].Replace("+", " ");
-					int score2 = item2.score;
-					component3.text = score2.ToString();
-				}
-				if (count >= maxToDisplay || count >= playerList.Count)
-				{
-					break;
-				}
-			}
-			leaderboardLoading.SetActive(false);
-		}
-
-        private IEnumerator Information()
-        {
-            purchaseButton.text = "Store purchases unavailable";
-#if UNITY_WEBGL && !UNITY_EDITOR
-            news.text = "FLATS Web\nOnline play uses the site's configured Photon service.\nBuilt-in crosshair settings and data presets are supported.\nDownloaded DLL mods require desktop Mono.\nBrowser saves may be cleared by the browser.\n\nOriginal game: © Foliage Games LLC";
-#else
-            news.text = "Windows reconstruction\nScores and settings are saved on this PC.\nOnline multiplayer uses your configured Photon app.\nStore purchase verification is unavailable.\n\nOriginal game: © Foliage Games LLC";
-#endif
-            yield break;
-        }
-
-		private void imageLoadedCallback(Stream stream, bool succeeded)
-		{
-			if (!succeeded)
-			{
-				if (stream != null)
-				{
-					stream.Dispose();
-				}
-				return;
-			}
-			try
-			{
-				byte[] array = new byte[stream.Length];
-				stream.Read(array, 0, array.Length);
-				Texture2D texture2D = new Texture2D(128, 128);
-				texture2D.LoadImage(array);
-				texture2D.Apply();
-				if (texture2D.width < 128 || texture2D.height < 128)
-				{
-					ShowConfirm("Image size error", "Image scale must be larger than 128x128.", null, "OK", null);
-					return;
-				}
-				array = texture2D.EncodeToPNG();
-				System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", array);
-				mt.GetChild(5).GetChild(0).GetChild(0)
-					.GetChild(0)
-					.GetComponent<Image>()
-					.sprite = Sprite.Create(texture2D, new Rect(0f, 0f, 128f, 128f), new Vector2(0.5f, 0.5f));
-			}
-			catch (Exception ex)
-			{
-				Debug.Log(ex.Message);
-			}
-			finally
-			{
-				if (stream != null)
-				{
-					stream.Dispose();
-				}
-			}
-		}
-
         private Color MainThemeColor(Color color)
         {
             return new Color(color.r * .5f + .25f, color.g * .5f + .25f, color.b * .5f + .25f, mainUI.color.a);
@@ -4164,7 +1627,7 @@ public partial class Menu : MonoBehaviour
 		public IEnumerator BackgroundColor(string command)
 		{
 			float alpha = 0.2f;
-			Color backgroundThemeColor = mt.GetChild(5).GetChild(1).GetChild(myCharacter.color)
+			Color backgroundThemeColor = characterScreen.GetChild(1).GetChild(myCharacter.color)
 				.GetComponent<Image>()
 				.color;
 			Color mainColor = MainThemeColor(backgroundThemeColor);
@@ -4333,442 +1796,17 @@ public partial class Menu : MonoBehaviour
 			}
 		}
 
-		public void ReadyForAd()
-		{ /* Advertising disabled in the standalone offline recovery. */ }
-
-		private void adCreatedCallback(bool succeeded)
-		{
-			if (succeeded && current == "Result")
-			{
-				adForWin.Visible = true;
-			}
-		}
-
-		private static void eventCallback(AdEvents adEvent, string eventMessage)
-		{
-		}
-
-		private IEnumerator GameOver()
-		{
-			if (gameState == "Singleplayer" || (gameState == "Multiplayer" && Multiplayer.rule == 8))
-			{
-				GameObject[] array = GameObject.FindGameObjectsWithTag("Enemy");
-				GameObject[] array2 = array;
-				foreach (GameObject gameObject in array2)
-				{
-					if ((bool)gameObject.GetComponent<AI>())
-					{
-						gameObject.GetComponent<AI>().StopAllCoroutines();
-					}
-				}
-			}
-			canOpen = false;
-			EasyTouch.SetEnabled(false);
-			stick.transform.parent.gameObject.SetActive(false);
-			Text phaseText = GameObject.Find("Message").transform.GetChild(0).GetComponent<Text>();
-			phaseText.enabled = true;
-			phaseText.text = "Game Over";
-			if (gameState == "Singleplayer")
-			{
-				if (Singleplayer.rule == 0)
-				{
-					myCurrent.survival_Score = 0;
-					myCurrent.survival_Phase = 0;
-				}
-				else if (Singleplayer.rule == 1)
-				{
-					myCurrent.assortment_Score = 0;
-					myCurrent.assortment_Phase = 0;
-				}
-				else if (Singleplayer.rule == 2)
-				{
-					myCurrent.headshot_Score = 0;
-					myCurrent.headshot_Chain = 0;
-				}
-				SaveDataController.Save();
-			}
-			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(1.5f));
-			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(1f));
-			Time.timeScale = 0f;
-			if (gameState == "Multiplayer" && Multiplayer.rule != 8)
-			{
-				List<GameObject> list = new List<GameObject>();
-				if (network == 1)
-				{
-					foreach (PlayerInfo localNetworkPlayer in localNetworkPlayerList)
-					{
-						GameObject gameObject2 = (GameObject)UnityEngine.Object.Instantiate(result);
-						if (Multiplayer.rule == 1 || Multiplayer.rule == 6)
-						{
-							int color = localNetworkPlayer.color;
-							gameObject2.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(color)
-								.GetComponent<Image>()
-								.color;
-						}
-						else if (localNetworkPlayer.team == "red")
-						{
-							gameObject2.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
-								.GetComponent<Image>()
-								.color;
-						}
-						else
-						{
-							gameObject2.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
-								.GetComponent<Image>()
-								.color;
-						}
-						gameObject2.transform.GetChild(1).GetComponent<Text>().text = localNetworkPlayer.name;
-						int kill = localNetworkPlayer.kill;
-						int death = localNetworkPlayer.death;
-						gameObject2.transform.GetChild(2).GetComponent<Text>().text = kill.ToString();
-						gameObject2.transform.GetChild(3).GetComponent<Text>().text = death.ToString();
-						if (Multiplayer.rule >= 3)
-						{
-							gameObject2.transform.GetChild(4).GetComponent<Text>().text = "--";
-						}
-						else if (death == 0)
-						{
-							gameObject2.transform.GetChild(4).GetComponent<Text>().text = ((float)kill).ToString("F2");
-						}
-						else
-						{
-							gameObject2.transform.GetChild(4).GetComponent<Text>().text = ((float)kill / (float)death).ToString("F2");
-						}
-						gameObject2.transform.SetParent(multiplayerResultList, false);
-						list.Add(gameObject2);
-					}
-				}
-				else
-				{
-					PhotonPlayer[] playerList = PhotonNetwork.playerList;
-					foreach (PhotonPlayer photonPlayer in playerList)
-					{
-						GameObject gameObject3 = (GameObject)UnityEngine.Object.Instantiate(result);
-						if (Multiplayer.rule == 1 || Multiplayer.rule == 6)
-						{
-							int index = (int)photonPlayer.CustomProperties["TC"];
-							gameObject3.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(index)
-								.GetComponent<Image>()
-								.color;
-						}
-						else if (photonPlayer.GetTeam() == PunTeams.Team.red)
-						{
-							gameObject3.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
-								.GetComponent<Image>()
-								.color;
-						}
-						else
-						{
-							gameObject3.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
-								.GetComponent<Image>()
-								.color;
-						}
-						gameObject3.transform.GetChild(1).GetComponent<Text>().text = photonPlayer.NickName;
-						int num = (int)photonPlayer.CustomProperties["K"];
-						int num2 = (int)photonPlayer.CustomProperties["D"];
-						gameObject3.transform.GetChild(2).GetComponent<Text>().text = num.ToString();
-						gameObject3.transform.GetChild(3).GetComponent<Text>().text = num2.ToString();
-						if (Multiplayer.rule >= 3)
-						{
-							gameObject3.transform.GetChild(4).GetComponent<Text>().text = "--";
-						}
-						else if (num2 == 0)
-						{
-							gameObject3.transform.GetChild(4).GetComponent<Text>().text = ((float)num).ToString("F2");
-						}
-						else
-						{
-							gameObject3.transform.GetChild(4).GetComponent<Text>().text = ((float)num / (float)num2).ToString("F2");
-						}
-						gameObject3.transform.SetParent(multiplayerResultList, false);
-						list.Add(gameObject3);
-						if (Multiplayer.rule <= 2 && photonPlayer.IsLocal)
-						{
-							myCharacter.kill += num;
-							myCharacter.death += num2;
-							SaveDataController.Save();
-						}
-					}
-				}
-				if (Multiplayer.rule < 3)
-				{
-					if (PhotonNetwork.offlineMode)
-						foreach (var botScore in FlatsOfflineScores.Bots)
-						{
-							var row=(GameObject)UnityEngine.Object.Instantiate(result);
-							row.GetComponent<Image>().color=mt.GetChild(5).GetChild(1).GetChild(botScore.team==0?9:7).GetComponent<Image>().color;
-							row.transform.GetChild(1).GetComponent<Text>().text=botScore.name;
-							row.transform.GetChild(2).GetComponent<Text>().text=botScore.kills.ToString();
-							row.transform.GetChild(3).GetComponent<Text>().text=botScore.deaths.ToString();
-							row.transform.GetChild(4).GetComponent<Text>().text=((float)botScore.kills/Mathf.Max(1,botScore.deaths)).ToString("F2");
-							row.transform.SetParent(multiplayerResultList,false);list.Add(row);
-						}
-					list.Sort((GameObject x, GameObject y) => float.Parse(y.transform.GetChild(2).GetComponent<Text>().text).CompareTo(float.Parse(x.transform.GetChild(2).GetComponent<Text>().text)));
-				}
-				int rs = Multiplayer.redTeamScore;
-				int bs = Multiplayer.blueTeamScore;
-				if (Multiplayer.rule != 1 && Multiplayer.rule != 6)
-				{
-					if (rs >= bs)
-					{
-						for (int num3 = list.Count - 1; num3 > -1; num3--)
-						{
-							if (list[num3].GetComponent<Image>().color == mt.GetChild(5).GetChild(1).GetChild(9)
-								.GetComponent<Image>()
-								.color)
-							{
-								list[num3].transform.SetAsFirstSibling();
-							}
-						}
-					}
-					else
-					{
-						for (int num4 = list.Count - 1; num4 > -1; num4--)
-						{
-							if (list[num4].GetComponent<Image>().color == mt.GetChild(5).GetChild(1).GetChild(7)
-								.GetComponent<Image>()
-								.color)
-							{
-								list[num4].transform.SetAsFirstSibling();
-							}
-						}
-					}
-					if (rs > bs)
-					{
-						resultIndex.text = "Winner:Red Team";
-					}
-					else if (bs > rs)
-					{
-						resultIndex.text = "Winner:Blue Team";
-					}
-					else
-					{
-						resultIndex.text = "Draw";
-					}
-				}
-				else if (rule == 6)
-				{
-					for (int num5 = list.Count - 1; num5 > -1; num5--)
-					{
-						list[num5].transform.SetAsFirstSibling();
-					}
-					resultIndex.text = "Result";
-					if (Multiplayer.rule == 6)
-					{
-						if (rs > bs)
-						{
-							resultIndex.text = "Winner:Survivors";
-						}
-						else if (bs > rs)
-						{
-							resultIndex.text = "Winner:Zombies";
-						}
-						else
-						{
-							resultIndex.text = "Draw";
-						}
-					}
-				}
-				else
-				{
-					for (int num6 = list.Count - 1; num6 > -1; num6--)
-					{
-						list[num6].transform.SetAsFirstSibling();
-					}
-				}
-				for (int num7 = 0; num7 < multiplayerResultList.childCount; num7++)
-				{
-					multiplayerResultList.GetChild(num7).GetChild(0).GetComponent<Text>()
-						.text = (num7 + 1).ToString();
-				}
-				if (Multiplayer.rule != 1 && Multiplayer.rule != 6)
-				{
-					GameObject gameObject4 = (GameObject)UnityEngine.Object.Instantiate(result);
-					gameObject4.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(9)
-						.GetComponent<Image>()
-						.color;
-					for (int num8 = 0; num8 < gameObject4.transform.childCount; num8++)
-					{
-						switch (num8)
-						{
-						case 1:
-							gameObject4.transform.GetChild(num8).GetComponent<Text>().text = "Red Team";
-							break;
-						case 4:
-							gameObject4.transform.GetChild(num8).GetComponent<Text>().text = rs.ToString();
-							break;
-						default:
-							gameObject4.transform.GetChild(num8).GetComponent<Text>().text = "";
-							break;
-						}
-					}
-					GameObject gameObject5 = (GameObject)UnityEngine.Object.Instantiate(result);
-					gameObject5.GetComponent<Image>().color = mt.GetChild(5).GetChild(1).GetChild(7)
-						.GetComponent<Image>()
-						.color;
-					for (int num9 = 0; num9 < gameObject5.transform.childCount; num9++)
-					{
-						switch (num9)
-						{
-						case 1:
-							gameObject5.transform.GetChild(num9).GetComponent<Text>().text = "Blue Team";
-							break;
-						case 4:
-							gameObject5.transform.GetChild(num9).GetComponent<Text>().text = bs.ToString();
-							break;
-						default:
-							gameObject5.transform.GetChild(num9).GetComponent<Text>().text = "";
-							break;
-						}
-					}
-					gameObject4.transform.SetParent(multiplayerResultList, false);
-					gameObject5.transform.SetParent(multiplayerResultList, false);
-					if (rs >= bs)
-					{
-						gameObject4.transform.SetAsFirstSibling();
-						int siblingIndex = 0;
-						for (int num10 = 0; num10 < multiplayerResultList.childCount; num10++)
-						{
-							if (multiplayerResultList.GetChild(num10).GetComponent<Image>().color == mt.GetChild(5).GetChild(1).GetChild(7)
-								.GetComponent<Image>()
-								.color)
-							{
-								siblingIndex = num10;
-								break;
-							}
-						}
-						gameObject5.transform.SetSiblingIndex(siblingIndex);
-					}
-					else
-					{
-						gameObject5.transform.SetAsFirstSibling();
-						int siblingIndex2 = 0;
-						for (int num11 = 0; num11 < multiplayerResultList.childCount; num11++)
-						{
-							if (multiplayerResultList.GetChild(num11).GetComponent<Image>().color == mt.GetChild(5).GetChild(1).GetChild(9)
-								.GetComponent<Image>()
-								.color)
-							{
-								siblingIndex2 = num11;
-								break;
-							}
-						}
-						gameObject4.transform.SetSiblingIndex(siblingIndex2);
-					}
-				}
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
-				if (!Application.isMobilePlatform && Input.mousePresent)
-				{
-					Screen.lockCursor = false;
-					UnityEngine.Cursor.visible = true;
-				}
-				AudioSource[] sources = ambient.GetComponents<AudioSource>();
-				AudioSource[] array3 = sources;
-				foreach (AudioSource audioSource in array3)
-				{
-					audioSource.Stop();
-				}
-				phaseText.text = "";
-				phaseText.enabled = false;
-				anim.Play("Multiplayer Result");
-				current = "Result";
-				canOpen = true;
-				skipTitle = true;
-				backButton.SetActive(true);
-			}
-			else if (gameState == "Singleplayer" || Multiplayer.rule == 8)
-			{
-				int myScore = 0;
-				if (Singleplayer.rule == 0 || Multiplayer.rule == 8)
-				{
-					resultIndex.text = "Result";
-					singleplayerResult.GetChild(0).GetComponent<Text>().text = "Score: " + currentSurvivalScore + "\nDied at Phase " + currentSurvivalPhase;
-					myScore = currentSurvivalScore;
-				}
-				else if (Singleplayer.rule == 1)
-				{
-					resultIndex.text = "Result";
-					singleplayerResult.GetChild(0).GetComponent<Text>().text = "Score: " + currentAssortmentScore + "\nDied at Phase " + currentAssortmentPhase;
-					myScore = currentAssortmentScore;
-				}
-				else if (Singleplayer.rule == 2)
-				{
-					resultIndex.text = "Result";
-					singleplayerResult.GetChild(0).GetComponent<Text>().text = "Score: " + currentHeadshotScore + "\nMax Headshot Chain: " + currentHeadshotChain;
-					myScore = currentHeadshotScore;
-				}
-				string comment = ((myScore < 5000) ? "Beginner" : ((myScore < 10000) ? "Good Shooter" : ((myScore < 20000) ? "Survivor" : ((myScore < 50000) ? "Tough Guy" : ((myScore < 80000) ? "Gun Devil" : ((myScore < 100000) ? "Ninja" : ((myScore < 150000) ? "Crazy Killer" : ((myScore < 200000) ? "FPS Zombie" : ((myScore >= 300000) ? "Day Dreamer" : "Fribbler")))))))));
-				string highscored = "";
-				if (Singleplayer.rule == 0 && myScore > myCharacter.survivalScore)
-				{
-					myCharacter.survivalScore = myScore;
-					highscored = "Highscore!!\n\n";
-				}
-				else if (Singleplayer.rule == 1 && myScore > myCharacter.assortmentScore)
-				{
-					myCharacter.assortmentScore = myScore;
-					highscored = "Highscore!!\n\n";
-				}
-				else if (Singleplayer.rule == 2 && myScore > myCharacter.headshotScore)
-				{
-					myCharacter.headshotScore = myScore;
-					highscored = "Highscore!!\n\n";
-				}
-				if (highscored != "")
-				{
-					SaveDataController.Save();
-				}
-				singleplayerResult.GetChild(1).GetComponent<Text>().text = highscored + "Your level is...\n" + comment;
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
-				StartCoroutine("BackgroundColor", "OpenMenu");
-				if (!Application.isMobilePlatform && Input.mousePresent)
-				{
-					Screen.lockCursor = false;
-					UnityEngine.Cursor.visible = true;
-				}
-				AudioSource[] sources2 = ambient.GetComponents<AudioSource>();
-				AudioSource[] array4 = sources2;
-				foreach (AudioSource audioSource2 in array4)
-				{
-					audioSource2.Stop();
-				}
-				phaseText.text = "";
-				phaseText.enabled = false;
-				anim.Play("Singleplayer Result");
-				current = "Result";
-				canOpen = true;
-				skipTitle = true;
-				backButton.SetActive(true);
-			}
-			if (VRmode)
-			{
-				Debug.Log("VR dead.");
-				base.transform.parent.GetChild(6).gameObject.SetActive(false);
-				Time.timeScale = 0f;
-				Vector3 deadCamPos = Camera.main.transform.position + Vector3.up * 4f;
-				Camera.main.gameObject.SetActive(false);
-				GameObject deadVrCam = (GameObject)UnityEngine.Object.Instantiate(Resources.Load("DeadVRCamera"));
-				deadVrCam.transform.position = deadCamPos;
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(0.1f));
-				mt.parent.localPosition = deadVrCam.transform.position + deadVrCam.transform.forward * 2.1f;
-				mt.parent.eulerAngles = new Vector3(deadVrCam.transform.eulerAngles.x, deadVrCam.transform.eulerAngles.y, 0f);
-				mt.GetComponent<Canvas>().worldCamera = deadVrCam.GetComponent<Camera>();
-			}
-			if (!adFree && VRController.device == "cardboard")
-			{
-				ReadyForAd();
-			}
-		}
-
 		private void EnableVR(bool result)
 		{
 			if (result)
 			{
 				VRmode = true;
 				FPSController.enableCamRotate = true;
+				GetComponent<FlatsDesktopSettings>()?.ShowDesktopRows(false);
 				return;
 			}
 			VRmode = false;
+			GetComponent<FlatsDesktopSettings>()?.ShowDesktopRows(true);
 			if (Application.loadedLevel != 0)
 			{
 				GameObject gameObject = Camera.main.transform.root.gameObject;
@@ -4791,503 +1829,9 @@ public partial class Menu : MonoBehaviour
         // Retained public entry points for persistent UnityEvents and existing callers.
         public void ShowConfirm(string title, string message, UnityAction<bool> action, string positiveBtnText, string negativeBtnText)
         {
-            Confirmation.ShowConfirm(mt.GetChild(0).GetComponent<Image>().color, title, message, action, positiveBtnText, negativeBtnText);
+            Confirmation.ShowConfirm(backControl.GetComponent<Image>().color, title, message, action, positiveBtnText, negativeBtnText);
         }
         public void OnClickedConfirm() { Confirmation.OnClickedConfirm(); }
-
-		public void NameInput(string newName)
-		{
-			newName = newName.Replace("$", "");
-			newName = newName.Replace("|", "");
-			newName = newName.Replace("*", "");
-			newName = newName.Replace("/", "");
-			myCharacter.name = newName;
-			Debug.Log("New name: " + myCharacter.name);
-		}
-
-		public void CommentInput(string newComment)
-		{
-			newComment = newComment.Replace("$", "");
-			newComment = newComment.Replace("|", "");
-			newComment = newComment.Replace("*", "");
-			newComment = newComment.Replace("/", "");
-			myCharacter.comment = newComment;
-			Debug.Log("New comment: " + myCharacter.comment);
-		}
-
-		public void PlusMinus()
-		{
-			Transform parent = EventSystem.current.currentSelectedGameObject.transform.parent;
-			int num = ((EventSystem.current.currentSelectedGameObject.name == "Plus") ? 1 : (-1));
-			if (parent.name.StartsWith("Desktop")) { GetComponent<FlatsDesktopSettings>().Change(parent,num); return; }
-			if (parent.name == "Rule")
-			{
-				rule += num;
-				if (parent.parent.name == "RoomCreation")
-				{
-					if (rule < 1)
-					{
-						rule = ruleTitleText.Count - 1;
-					}
-					else if (rule > ruleTitleText.Count - 1)
-					{
-						rule = 1;
-					}
-				}
-				else if (rule < 0)
-				{
-					rule = ruleTitleText.Count - 1;
-				}
-				else if (rule > ruleTitleText.Count - 1)
-				{
-					rule = 0;
-				}
-				parent.GetChild(1).GetComponent<Text>().text = ruleTitleText[rule];
-				if (parent.parent.name == "RoomCreation")
-				{
-					objective = 1;
-				}
-				else
-				{
-					objective = 0;
-				}
-				parent.parent.GetChild(1).GetChild(1).GetComponent<Text>()
-					.text = objectiveText[rule + "-" + objective];
-				if (parent.parent.name == "RoomCreation")
-				{
-					playerCount = 4;
-					parent.parent.GetChild(2).GetChild(1).GetComponent<Text>()
-						.text = "4";
-				}
-				else
-				{
-					playerCount = 0;
-					parent.parent.GetChild(2).GetChild(1).GetComponent<Text>()
-						.text = "Any";
-				}
-			}
-			else if (parent.name == "Objective")
-			{
-				if (rule < 1)
-				{
-					objective = 0;
-				}
-				else
-				{
-					objective += num;
-					if (parent.parent.name == "RoomCreation")
-					{
-						if (objective < 1)
-						{
-							objective = 3;
-						}
-						else if (objective > 3)
-						{
-							objective = 1;
-						}
-					}
-					else if (objective < 0)
-					{
-						objective = 3;
-					}
-					else if (objective > 3)
-					{
-						objective = 0;
-					}
-				}
-				parent.GetChild(1).GetComponent<Text>().text = objectiveText[rule + "-" + objective];
-			}
-			else if (parent.name == "PlayerCount")
-			{
-				playerCount += num;
-				if (playerCount == 1)
-				{
-					if (num < 0)
-					{
-						playerCount = 0;
-					}
-					else
-					{
-						playerCount = 2;
-					}
-				}
-				if (parent.parent.name == "RoomCreation")
-				{
-					if (playerCount < 2)
-					{
-						playerCount = 8;
-					}
-					else if (playerCount > 8)
-					{
-						playerCount = 2;
-					}
-				}
-				else if (playerCount < 0)
-				{
-					playerCount = 8;
-				}
-				else if (playerCount > 8)
-				{
-					playerCount = 0;
-				}
-				if (rule != 1 && rule != 6 && rule != 8)
-				{
-					if (num < 0)
-					{
-						if (playerCount == 3)
-						{
-							playerCount = 2;
-						}
-						else if (playerCount == 5)
-						{
-							playerCount = 4;
-						}
-						else if (playerCount == 7)
-						{
-							playerCount = 6;
-						}
-					}
-					else if (playerCount == 3)
-					{
-						playerCount = 4;
-					}
-					else if (playerCount == 5)
-					{
-						playerCount = 6;
-					}
-					else if (playerCount == 7)
-					{
-						playerCount = 8;
-					}
-				}
-				if (playerCount == 0)
-				{
-					parent.GetChild(1).GetComponent<Text>().text = "Any";
-				}
-				else
-				{
-					parent.GetChild(1).GetComponent<Text>().text = playerCount.ToString();
-				}
-			}
-			else if (parent.name == "Region")
-			{
-                if (PhotonNetwork.inRoom)
-                { ShowConfirm("Server Region", "Leave the current room before changing region.", null, "OK", null); return; }
-				if (PhotonNetwork.PhotonServerSettings.PreferredRegion == CloudRegionCode.us)
-				{
-					if (num > 0)
-					{
-						PhotonNetwork.PhotonServerSettings.PreferredRegion = CloudRegionCode.eu;
-					}
-					else
-					{
-						PhotonNetwork.PhotonServerSettings.PreferredRegion = CloudRegionCode.asia;
-					}
-				}
-				else if (PhotonNetwork.PhotonServerSettings.PreferredRegion == CloudRegionCode.eu)
-				{
-					if (num > 0)
-					{
-						PhotonNetwork.PhotonServerSettings.PreferredRegion = CloudRegionCode.asia;
-					}
-					else
-					{
-						PhotonNetwork.PhotonServerSettings.PreferredRegion = CloudRegionCode.us;
-					}
-				}
-				else if (PhotonNetwork.PhotonServerSettings.PreferredRegion == CloudRegionCode.asia)
-				{
-					if (num > 0)
-					{
-						PhotonNetwork.PhotonServerSettings.PreferredRegion = CloudRegionCode.us;
-					}
-					else
-					{
-						PhotonNetwork.PhotonServerSettings.PreferredRegion = CloudRegionCode.eu;
-					}
-				}
-				parent.GetChild(1).GetComponent<Text>().text = PhotonNetwork.PhotonServerSettings.PreferredRegion.ToString().ToUpper();
-                if (PhotonNetwork.connected) PhotonNetwork.Disconnect();
-			}
-			else if (parent.name == "Attack")
-			{
-				if ((num < 0 && myCharacter.attack > 0) || (num > 0 && myCharacter.attack + myCharacter.defense < 10))
-				{
-					myCharacter.attack += num;
-				}
-				parent.GetChild(1).GetComponent<Text>().text = myCharacter.attack.ToString();
-				parent.parent.GetChild(1).GetComponent<Text>().text = myCharacter.attack + myCharacter.defense + "/10";
-			}
-			else if (parent.name == "Defense")
-			{
-				if ((num < 0 && myCharacter.defense > 0) || (num > 0 && myCharacter.attack + myCharacter.defense < 10))
-				{
-					myCharacter.defense += num;
-				}
-				parent.GetChild(1).GetComponent<Text>().text = myCharacter.defense.ToString();
-				parent.parent.GetChild(1).GetComponent<Text>().text = myCharacter.attack + myCharacter.defense + "/10";
-			}
-			else if (parent.name == "Volume-BGM")
-			{
-				if ((num < 0 && mySettings.sound_bgm > 0) || (num > 0 && mySettings.sound_bgm < 10))
-				{
-					mySettings.sound_bgm += num;
-				}
-				bgm1.volume = (float)mySettings.sound_bgm / 10f;
-				if (Singleplayer.chance)
-				{
-					bgm2.volume = (float)mySettings.sound_bgm / 10f;
-				}
-				else
-				{
-					bgm2.volume = 0f;
-				}
-				parent.GetChild(1).GetComponent<Text>().text = mySettings.sound_bgm.ToString();
-			}
-			else if (parent.name == "Volume-All")
-			{
-				if ((num < 0 && mySettings.sound_all > 0) || (num > 0 && mySettings.sound_all < 10))
-				{
-					mySettings.sound_all += num;
-				}
-				AudioListener.volume = (float)mySettings.sound_all / 10f;
-				parent.GetChild(1).GetComponent<Text>().text = mySettings.sound_all.ToString();
-			}
-			else if (parent.name == "Anti-Aliasing")
-			{
-				if (mySettings.graphics_aa == 0)
-				{
-					mySettings.graphics_aa = 1;
-				}
-				else
-				{
-					mySettings.graphics_aa = 0;
-				}
-				FPSController.aa = IntToBool(mySettings.graphics_aa);
-				parent.GetChild(1).GetComponent<Text>().text = aaText[mySettings.graphics_aa];
-			}
-			else if (parent.name == "DepthOfField")
-			{
-				if (mySettings.graphics_dof == 0)
-				{
-					mySettings.graphics_dof = 1;
-				}
-				else
-				{
-					mySettings.graphics_dof = 0;
-				}
-				FPSController.dof = IntToBool(mySettings.graphics_dof);
-				parent.GetChild(1).GetComponent<Text>().text = dofText[mySettings.graphics_dof];
-			}
-			else if (parent.name == "MotionBlur")
-			{
-				if (mySettings.graphics_motionBlur == 0)
-				{
-					mySettings.graphics_motionBlur = 1;
-				}
-				else
-				{
-					mySettings.graphics_motionBlur = 0;
-				}
-				FPSController.motionBlur = IntToBool(mySettings.graphics_motionBlur);
-				parent.GetChild(1).GetComponent<Text>().text = motionBlurText[mySettings.graphics_motionBlur];
-			}
-			else if (parent.name == "EdgeRendering")
-			{
-				if (mySettings.graphics_edgeRendering == 0)
-				{
-					mySettings.graphics_edgeRendering = 1;
-				}
-				else
-				{
-					mySettings.graphics_edgeRendering = 0;
-				}
-				FPSController.edgeRendering = IntToBool(mySettings.graphics_edgeRendering);
-				parent.GetChild(1).GetComponent<Text>().text = edgeRenderingText[mySettings.graphics_edgeRendering];
-			}
-			else if (parent.name == "SaturationFilter")
-			{
-				if (mySettings.graphics_saturationFilter == 0)
-				{
-					mySettings.graphics_saturationFilter = 1;
-				}
-				else
-				{
-					mySettings.graphics_saturationFilter = 0;
-				}
-				FPSController.saturationFilter = IntToBool(mySettings.graphics_saturationFilter);
-				parent.GetChild(1).GetComponent<Text>().text = saturationFilterText[mySettings.graphics_saturationFilter];
-			}
-			else if (parent.name == "CameraSensitivity")
-			{
-				mySettings.control_sensitivity += num;
-				if (mySettings.control_sensitivity > 2)
-				{
-					mySettings.control_sensitivity = 0;
-				}
-				else if (mySettings.control_sensitivity < 0)
-				{
-					mySettings.control_sensitivity = 2;
-				}
-				FPSController.sensitivity = mySettings.control_sensitivity + 1;
-				parent.GetChild(1).GetComponent<Text>().text = sensitivityText[mySettings.control_sensitivity];
-			}
-			else if (parent.name == "Handedness")
-			{
-				mySettings.control_handedness += num;
-				if (mySettings.control_handedness > 1)
-				{
-					mySettings.control_handedness = 0;
-				}
-				else if (mySettings.control_handedness < 0)
-				{
-					mySettings.control_handedness = 1;
-				}
-				Transform child = mt.parent.GetChild(1);
-				if (mySettings.control_handedness == 0)
-				{
-					stick.joystickArea = ETCJoystick.JoystickArea.Left;
-					child.GetChild(1).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
-					child.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
-					child.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
-					child.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterRight;
-					child.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(child.GetChild(5).rectTransform().anchoredPosition3D.x), child.GetChild(5).rectTransform().anchoredPosition3D.y, child.GetChild(5).rectTransform().anchoredPosition3D.z);
-					child.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(0f - Mathf.Abs(child.GetChild(6).rectTransform().anchoredPosition3D.x), child.GetChild(6).rectTransform().anchoredPosition3D.y, child.GetChild(6).rectTransform().anchoredPosition3D.z);
-				}
-				else
-				{
-					stick.joystickArea = ETCJoystick.JoystickArea.Right;
-					child.GetChild(1).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
-					child.GetChild(2).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
-					child.GetChild(3).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
-					child.GetChild(4).GetComponent<ETCButton>().anchor = ETCBase.RectAnchor.CenterLeft;
-					child.GetChild(5).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(child.GetChild(5).rectTransform().anchoredPosition3D.x), child.GetChild(5).rectTransform().anchoredPosition3D.y, child.GetChild(5).rectTransform().anchoredPosition3D.z);
-					child.GetChild(6).rectTransform().anchoredPosition3D = new Vector3(Mathf.Abs(child.GetChild(6).rectTransform().anchoredPosition3D.x), child.GetChild(6).rectTransform().anchoredPosition3D.y, child.GetChild(6).rectTransform().anchoredPosition3D.z);
-				}
-				FPSController.handedness = mySettings.control_handedness;
-				parent.GetChild(1).GetComponent<Text>().text = handednessText[mySettings.control_handedness];
-			}
-			else if (parent.name == "Y-Axis")
-			{
-				if (mySettings.control_yAxis == 0)
-				{
-					mySettings.control_yAxis = 1;
-				}
-				else
-				{
-					mySettings.control_yAxis = 0;
-				}
-				FPSController.invertY = IntToBool(mySettings.control_yAxis);
-				parent.GetChild(1).GetComponent<Text>().text = yAxisText[mySettings.control_yAxis];
-			}
-			else if (parent.name == "AutoAim")
-			{
-				if (mySettings.control_autoAim == 0)
-				{
-					mySettings.control_autoAim = 1;
-				}
-				else
-				{
-					mySettings.control_autoAim = 0;
-				}
-				FPSController.autoAim = IntToBool(mySettings.control_autoAim);
-				parent.GetChild(1).GetComponent<Text>().text = autoAimText[mySettings.control_autoAim];
-			}
-			else if (parent.name == "TapFiring")
-			{
-				if (mySettings.control_tapFiring == 0)
-				{
-					mySettings.control_tapFiring = 1;
-				}
-				else
-				{
-					mySettings.control_tapFiring = 0;
-				}
-				FPSController.tapFiring = IntToBool(mySettings.control_tapFiring);
-				parent.GetChild(1).GetComponent<Text>().text = tapFiringText[mySettings.control_tapFiring];
-			}
-			else if (parent.name == "Resolution")
-			{
-				mySettings.vr_resolution += num;
-				if (mySettings.vr_resolution > 2)
-				{
-					mySettings.vr_resolution = 0;
-				}
-				else if (mySettings.vr_resolution < 0)
-				{
-					mySettings.vr_resolution = 2;
-				}
-				if (mySettings.vr_resolution == 2)
-				{
-					if (VRmode && !(VRController.device == "cardboard") && !(VRController.device == "oculus"))
-					{
-					}
-				}
-				else if (mySettings.vr_resolution == 1)
-				{
-					if (VRmode && !(VRController.device == "cardboard") && !(VRController.device == "oculus"))
-					{
-					}
-				}
-				else if (VRmode && !(VRController.device == "cardboard"))
-				{
-					bool flag = VRController.device == "oculus";
-				}
-				parent.GetChild(1).GetComponent<Text>().text = resolutionText[mySettings.vr_resolution];
-			}
-			else if (parent.name == "EyeDistance")
-			{
-				mySettings.vr_eyeDistance += num;
-				if (mySettings.vr_eyeDistance > 2)
-				{
-					mySettings.vr_eyeDistance = 0;
-				}
-				else if (mySettings.vr_eyeDistance < 0)
-				{
-					mySettings.vr_eyeDistance = 2;
-				}
-				string text = ((mySettings.vr_eyeDistance != 0) ? ("+" + (float)mySettings.vr_eyeDistance * 0.5f) : "Default");
-				VRController.offset = (float)mySettings.vr_eyeDistance * 0.5f;
-				parent.GetChild(1).GetComponent<Text>().text = text;
-			}
-			else if (parent.name == "HeadRotation")
-			{
-				if (mySettings.vr_headRotation == 0)
-				{
-					mySettings.vr_headRotation = 1;
-				}
-				else
-				{
-					mySettings.vr_headRotation = 0;
-				}
-				parent.GetChild(1).GetComponent<Text>().text = headRotationText[mySettings.vr_headRotation];
-			}
-			else if (parent.name == "BatterySaver")
-			{
-				if (mySettings.extra_batterySaver == 0)
-				{
-					mySettings.extra_batterySaver = 1;
-				}
-				else
-				{
-					mySettings.extra_batterySaver = 0;
-				}
-				Application.targetFrameRate = 60 - 30 * mySettings.extra_batterySaver;
-				parent.GetChild(1).GetComponent<Text>().text = batteryText[mySettings.extra_batterySaver];
-			}
-			else if (parent.name == "Notification")
-			{
-				if (mySettings.extra_notification == 0)
-				{
-					mySettings.extra_notification = 1;
-				}
-				else
-				{
-					mySettings.extra_notification = 0;
-				}
-				parent.GetChild(1).GetComponent<Text>().text = notificationText[mySettings.extra_notification];
-			}
-		}
 
 		public static int IntParseFast(string value)
 		{

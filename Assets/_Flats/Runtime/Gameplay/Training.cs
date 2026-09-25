@@ -36,6 +36,12 @@ public class Training : MonoBehaviour
 		AudioSource[] components = gameObject.GetComponents<AudioSource>();
 		components[1].clip = singleplayerBGM2;
 		components[1].Play();
+        if (spawnPoints == null || spawnPoints.childCount == 0)
+        {
+            Debug.LogError("Training requires at least one enemy spawn point.", this);
+            enabled = false;
+            return;
+        }
 		Array.Resize(ref spawnPoint, spawnPoints.childCount);
 		for (int i = 0; i < spawnPoint.Length; i++)
 		{
@@ -47,67 +53,67 @@ public class Training : MonoBehaviour
 	private IEnumerator ResetEnemies()
 	{
 		enemy = 8;
-		int lastPoint = 0;
-		int ram = UnityEngine.Random.Range(0, spawnPoint.Length - 1);
+		int lastPoint = -1;
+		int ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 		if (ram == lastPoint)
 		{
-			ram = ((ram != spawnPoint.Length) ? (ram + 1) : 0);
+			ram = ((ram + 1) % spawnPoint.Length);
 		}
 		UnityEngine.Object.Instantiate(enemy1, spawnPoint[ram].position, Quaternion.identity);
 		lastPoint = ram;
 		yield return new WaitForSeconds(0.5f);
-		ram = UnityEngine.Random.Range(0, spawnPoint.Length - 1);
+		ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 		if (ram == lastPoint)
 		{
-			ram = ((ram != spawnPoint.Length) ? (ram + 1) : 0);
+			ram = ((ram + 1) % spawnPoint.Length);
 		}
 		UnityEngine.Object.Instantiate(enemy1, spawnPoint[ram].position, Quaternion.identity);
 		lastPoint = ram;
 		yield return new WaitForSeconds(0.5f);
-		ram = UnityEngine.Random.Range(0, spawnPoint.Length - 1);
+		ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 		if (ram == lastPoint)
 		{
-			ram = ((ram < spawnPoint.Length - 1) ? (ram + 1) : 0);
+			ram = ((ram + 1) % spawnPoint.Length);
 		}
 		UnityEngine.Object.Instantiate(enemy1, spawnPoint[ram].position, Quaternion.identity);
 		lastPoint = ram;
 		yield return new WaitForSeconds(0.5f);
-		ram = UnityEngine.Random.Range(0, spawnPoint.Length - 1);
+		ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 		if (ram == lastPoint)
 		{
-			ram = ((ram < spawnPoint.Length - 1) ? (ram + 1) : 0);
+			ram = ((ram + 1) % spawnPoint.Length);
 		}
 		UnityEngine.Object.Instantiate(enemy2, spawnPoint[ram].position, Quaternion.identity);
 		lastPoint = ram;
 		yield return new WaitForSeconds(0.5f);
-		ram = UnityEngine.Random.Range(0, spawnPoint.Length - 1);
+		ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 		if (ram == lastPoint)
 		{
-			ram = ((ram < spawnPoint.Length - 1) ? (ram + 1) : 0);
+			ram = ((ram + 1) % spawnPoint.Length);
 		}
 		UnityEngine.Object.Instantiate(enemy2, spawnPoint[ram].position, Quaternion.identity);
 		lastPoint = ram;
 		yield return new WaitForSeconds(0.5f);
-		ram = UnityEngine.Random.Range(0, spawnPoint.Length - 1);
+		ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 		if (ram == lastPoint)
 		{
-			ram = ((ram < spawnPoint.Length - 1) ? (ram + 1) : 0);
+			ram = ((ram + 1) % spawnPoint.Length);
 		}
 		UnityEngine.Object.Instantiate(enemy3, spawnPoint[ram].position, Quaternion.identity);
 		lastPoint = ram;
 		yield return new WaitForSeconds(0.5f);
-		ram = UnityEngine.Random.Range(0, spawnPoint.Length - 1);
+		ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 		if (ram == lastPoint)
 		{
-			ram = ((ram < spawnPoint.Length - 1) ? (ram + 1) : 0);
+			ram = ((ram + 1) % spawnPoint.Length);
 		}
 		UnityEngine.Object.Instantiate(enemy3, spawnPoint[ram].position, Quaternion.identity);
 		lastPoint = ram;
 		yield return new WaitForSeconds(0.5f);
-		ram = UnityEngine.Random.Range(0, spawnPoint.Length - 1);
+		ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 		if (ram == lastPoint)
 		{
-			ram = ((ram < spawnPoint.Length - 1) ? (ram + 1) : 0);
+			ram = ((ram + 1) % spawnPoint.Length);
 		}
 		UnityEngine.Object.Instantiate(enemy4, spawnPoint[ram].position, Quaternion.identity);
 		lastPoint = ram;
@@ -116,10 +122,10 @@ public class Training : MonoBehaviour
 		{
 			if (enemy < 8)
 			{
-				ram = UnityEngine.Random.Range(0, spawnPoint.Length - 1);
+				ram = UnityEngine.Random.Range(0, spawnPoint.Length);
 				if (ram == lastPoint)
 				{
-					ram = ((ram < spawnPoint.Length - 1) ? (ram + 1) : 0);
+					ram = ((ram + 1) % spawnPoint.Length);
 				}
 				UnityEngine.Object original = new UnityEngine.Object();
 				switch (UnityEngine.Random.Range(1, 5))

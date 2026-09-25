@@ -4,7 +4,9 @@ A maintained Unity reconstruction of FLATS, the flat-colour first-person shooter
 
 ## Current player releases
 
-The [Windows 5.3.5-parity test ZIP](https://github.com/ken5170696/flats-downloads/releases/tag/v5.3.5-parity.20260923) was built from `36d97d2f73fc35e32d1cbc05e5e94c3a307bf979`. The extracted ZIP passed startup only; gameplay input on that ZIP, multiplayer and full platform acceptance have not been verified. It is unsigned. The [Web single-player preview](https://flats-site.tail2511fc.ts.net/play) uses the older `2fa10e6f6acbdd48794c3dd6305ad8606488ec07` source with bounded public-browser gameplay checks. The newer Web candidate timed out during public loading, so the older preview remains deployed. The [live release manifest](https://flats-site.tail2511fc.ts.net/data/releases.json) identifies each artifact's actual source and validation scope. This repository's `main` is the Built-in pipeline source baseline; development branches may contain unaccepted changes and are not player releases.
+The [5.4.3 player release](https://github.com/ken5170696/flats-downloads/releases/tag/v5.4.3) is built from the [v5.4.3 source tag](https://github.com/ken5170696/FLATS-Unity/releases/tag/v5.4.3). The [live release manifest](https://flats-site.tail2511fc.ts.net/data/releases.json) identifies each platform's exact source, package and validation scope. Windows, Linux, macOS and Android packages are available; iOS export is not an installable IPA. Source changes after the tag do not update player downloads until another release is published.
+
+The [Mod SDK preview](docs/MOD_SDK.md) documents the API 1.1.0 contracts and data packages (a crosshair preset and an enemy tuning module) that you can author without modifying game code.
 
 ## Open and play
 
@@ -31,10 +33,13 @@ Close the Editor using this project, then run from the repository root:
 
 ```powershell
 $unity = '<Unity installation>/6000.3.24f1/Editor/Unity.exe'
+python tools/check_source.py
 ./tools/unity.ps1 -UnityEditor $unity -Task Windows
 ```
 
 Output: `Builds/Portal/Windows/FLATS.exe`. Keep the complete folder, including `FLATS_Data`, `UnityPlayer.dll` and the Mono runtime. Other tasks are `Import`, `Web`, `Linux`, `Mac`, `Android` and `IOS`. Local build products and logs are ignored by Git. Build availability does not establish full gameplay support on every platform.
+
+Install Python 3 (3.12 is used in CI) and make `python` available on PATH. The command runs source integrity before starting Unity, including new untracked assets. Save Scene and Prefab Mode changes explicitly before building from the Editor; the build refuses unsaved scene/prefab state. A dirty Git working tree is allowed for local candidates: `source-snapshot.json` records each source hash, and `build-provenance.json` distinguishes that snapshot from its base commit. `packed-assets.json` lists packed source assets by size for investigating build contents; it is not a runtime-memory or compressed-download measurement. Detailed build reporting adds diagnostic build overhead. None of these commands publishes a release.
 
 ## Project layout
 

@@ -21,28 +21,53 @@ public sealed partial class ModuleManagementPage
 #endif
             restoreScroll=false;ShowDetail();return;}
         var cancel=browsing.Token;
-        ClearRows();ShowCatalogueLoading();notice.text="Loading mods — connecting to "+new Uri(source.Identity).Host;
-        detailTitle.text="Loading...";SetDescription("Retrieving catalogue details.");SetPrimary("Loading...",false);secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);crosshairPanel.SetActive(false);
+        var query=new CatalogQuery{Search=search.text,Category=categoryValue,Sort=sortValue,Compatible=compatible,Offset=offset};
+        string key=source.Identity+"|"+query.Search+"|"+query.Category+"|"+query.Sort+"|"+query.Compatible+"|"+query.Offset;
+        // Show the last result for this query at once and refresh it in the background.
+        bool cached=catalogueCache.TryGetValue(key,out var previous);
+        if(cached)RenderCatalogue(previous,source,true);
+        else
+        {
+            ClearRows();ShowCatalogueLoading();notice.text="Loading mods — connecting to "+new Uri(source.Identity).Host;
+            detailTitle.text="Loading...";SetDescription("Retrieving catalogue details.");SetPrimary("Loading...",false);secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);crosshairPanel.SetActive(false);
+        }
+        var timer=System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            var page=await source.Browse(new CatalogQuery{Search=search.text,Category=categoryValue,Sort=sortValue,Compatible=compatible,Offset=offset},cancel);
-            if(cancel.IsCancellationRequested || generation!=viewGeneration || !isActiveAndEnabled)return;
-            catalog=page.items;categories=page.categories;RefreshFilters();foreach(var item in catalog)known[item.manifest.id]=item;
-            ClearRows();int i=0;
-            foreach(var item in catalog)AddRow(item.manifest.id,item.manifest.name,(item.manifest.description ?? "No description provided.")+"\n"+CatalogStatus(item),i++);
-            if(i==0)Empty(search.text.Length>0?"No results\nTry another search or filter.":"No mods in this category.");
-            Page(page.total);restoreScroll=false;notice.text="Source: "+new Uri(source.Identity).Host+" / "+page.total+" results";
-            if(!catalog.Any(c=>c.manifest.id==selectedId))selectedId="";
-            ShowDetail();
+            var page=await source.Browse(query,cancel);
+            Debug.Log("MOD_CATALOGUE_BROWSE ms="+timer.ElapsedMilliseconds+" items="+page.items.Length+" cached="+cached);
+            if(this==null || cancel.IsCancellationRequested || generation!=viewGeneration || !isActiveAndEnabled)return;
+            catalogueCache[key]=page;
+            RenderCatalogue(page,source,false);
         }
         catch(OperationCanceledException) { }
         catch(Exception)
         {
-            if(generation!=viewGeneration)return;
+            Debug.Log("MOD_CATALOGUE_BROWSE failed ms="+timer.ElapsedMilliseconds+" cached="+cached);
+            if(this==null || !isActiveAndEnabled || generation!=viewGeneration)return;
+            // A cached page stays usable when the refresh fails.
+            if(cached){notice.text="Showing saved results. Check your connection, then retry.";return;}
             sourceFailed=true;ClearRows();Empty("Official service offline\nCheck your connection and retry. Your installed mods are still available.");
             detailTitle.text="Official service offline";SetDescription("Your installed mods remain available. Retry when your connection is available.");SetPrimary("Unavailable",false);
 
             notice.text="Check your connection, then retry.";Page(0);restoreScroll=false;
+        }
+    }
+    // Catalogue pages from this session, keyed by source and query.
+    static readonly Dictionary<string,CatalogPage> catalogueCache=new Dictionary<string,CatalogPage>();
+    void RenderCatalogue(CatalogPage page,IModSource source,bool stale)
+    {
+        {
+            // Precision Dot and Wide Ring are now presets of Custom Crosshair; the live
+            // catalogue keeps them for older builds, so this build hides them from Explore.
+            int retired=page.items.Count(i=>CrosshairSettingsSpec.PresetForRetiredPackage(i.manifest.id)!=null);
+            catalog=page.items.Where(i=>CrosshairSettingsSpec.PresetForRetiredPackage(i.manifest.id)==null).ToArray();categories=page.categories;RefreshFilters();foreach(var item in catalog)known[item.manifest.id]=item;
+            ClearRows();int i=0;
+            foreach(var item in catalog)AddRow(item.manifest.id,item.manifest.name,(item.manifest.description ?? "No description provided.")+"\n"+CatalogStatus(item),i++);
+            if(i==0)Empty(search.text.Length>0?"No results\nTry another search or filter.":"No mods in this category.");
+            Page(page.total);restoreScroll=false;notice.text="Source: "+new Uri(source.Identity).Host+" / "+(page.total-retired)+" results"+(stale?" (updating)":"");
+            if(!catalog.Any(c=>c.manifest.id==selectedId))selectedId="";
+            ShowDetail();
         }
     }
     string CatalogStatus(CatalogItem item)
@@ -79,14 +104,6 @@ public sealed partial class ModuleManagementPage
         if(sortValue=="name")entries=entries.OrderBy(e=>e.Item2,StringComparer.OrdinalIgnoreCase).ToList();
         if(sortValue=="name-desc")entries=entries.OrderByDescending(e=>e.Item2,StringComparer.OrdinalIgnoreCase).ToList();
         int row=0;foreach(var e in entries.Skip(offset).Take(20))AddRow(e.Item1,e.Item2,e.Item3,row++);
-        if(tab=="Installed"&&Service.Installed.Length==0&&localFilter=="All"&&search.text.Length==0)
-        {
-            var hint=ui.Text("NoDownloadedMods",listContent,"Your installed mods are available offline.\nExplore the official catalogue when connected.",0,-rowY-50,ListWidth-40,72,18,ModCenterWidgets.Muted);
-            hint.rectTransform.anchorMin=hint.rectTransform.anchorMax=new Vector2(.5f,1);
-            var browse=ui.Button("BrowseMore",listContent,"Explore mods",-ListWidth/2+125,-rowY-118,210,44,()=>Switch("Explore"));
-            ((RectTransform)browse.transform).anchorMin=((RectTransform)browse.transform).anchorMax=new Vector2(.5f,1);
-            listContent.sizeDelta=new Vector2(0,Mathf.Max(listScroll.viewport.rect.height,rowY+150));
-        }
         if(entries.Count==0)Empty(tab=="Installed"&&Service.Installed.Length==0&&search.text.Length==0&&localFilter=="All"?"No mods installed\nOpen Explore to download your first mod.":tab=="Downloads"?(search.text.Length>0?"No matching downloads\nClear your search to see the queue.":"No downloads\nYour queue will appear here."):"No matching mods\nTry another search or filter.");
         if(!entries.Any(e=>e.Item1==selectedId))selectedId=entries.FirstOrDefault()?.Item1??"";
         Page(entries.Count);restoreScroll=false;RefreshQuick();ShowDetail();
@@ -94,9 +111,9 @@ public sealed partial class ModuleManagementPage
     string InstalledStatus(InstalledPackage package)
     {
         string id=package.manifest.id;
-        var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==id);
+        var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==id);
         string state=Service.NeedsRestart(id)?(package.requested?"Restart required":record?.Active==true?"Disable on restart":"Disabled"):(record?.Active==true?"Active now":package.requested?"Enabled / not active":"Disabled");
-        if(Service.Problem(package.manifest).Length>0||!string.IsNullOrEmpty(record?.Reason))state="Needs attention / "+state;
+        if(Service.Problem(package.manifest).Length>0||!string.IsNullOrEmpty(record?.Reason))state="Needs attention / "+FlatsLocalization.Translate(state);
         if(known.TryGetValue(id,out var item)&&ModRules.Version(item.manifest.version)>ModRules.Version(package.manifest.version))state="Update available / "+state;
         return state;
     }
@@ -111,8 +128,8 @@ public sealed partial class ModuleManagementPage
     bool MatchesFilter(string id)
     {
         if(id=="storage-report")return localFilter=="All"||localFilter=="Problems";
-        var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);var r=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
-        bool requested=p?.requested ?? BuiltinModules.Instance.Requested(id);
+        var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);var r=Host.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
+        bool requested=p?.requested ?? Host.Requested(id);
         return localFilter=="All" || (localFilter=="Enabled" && requested) || (localFilter=="Disabled" && !requested) ||
             (localFilter=="Problems" && (!string.IsNullOrEmpty(r?.Reason) || (p!=null && Service.Problem(p.manifest).Length>0))) || (localFilter=="Updates" && p!=null && known.TryGetValue(id,out var c) && ModRules.Version(c.manifest.version)>ModRules.Version(p.manifest.version));
     }
@@ -126,51 +143,59 @@ public sealed partial class ModuleManagementPage
     void Empty(string message)
     {
         float h=Mathf.Max(180,listScroll.viewport.rect.height);bool compact=h<280;
-        var panel=ui.Panel("EmptyPanel",listContent,0,-h/2,ListWidth-16,h,ModCenterWidgets.Paper);
-        panel.rectTransform.anchorMin=panel.rectTransform.anchorMax=new Vector2(.5f,1);
-        var icon=ui.Rect("ModIcon",panel.transform,0,80,64,64).gameObject.AddComponent<ModTileGraphic>();icon.color=ModCenterWidgets.Accent;icon.raycastTarget=false;icon.gameObject.SetActive(!compact);
+        var view=Instantiate(emptyStatePrefab,listContent,false);view.name="EmptyPanel";
+        var panel=(RectTransform)view.transform;panel.anchoredPosition=new Vector2(0,-h/2);panel.sizeDelta=new Vector2(ListWidth-16,h);
+        view.icon.SetActive(!compact);
         var parts=message.Split(new[]{'\n'},2);
-        var title=ui.Text("EmptyTitle",panel.transform,parts[0],0,compact?h/2-32:-4,Mathf.Min(760,ListWidth-80),42,compact?24:30);title.alignment=TextAnchor.MiddleCenter;
-        var t=ui.Text("EmptyState",panel.transform,parts.Length>1?parts[1]:"",0,compact?h/2-78:-60,Mathf.Min(760,ListWidth-80),48,18,ModCenterWidgets.Muted);t.alignment=TextAnchor.MiddleCenter;
-        if(message.StartsWith("Loading")){Page(0);return;}
+        view.title.text=parts[0];view.message.text=parts.Length>1?parts[1]:"";
+        if(message.StartsWith("Loading")){view.primary.gameObject.SetActive(false);view.secondary.gameObject.SetActive(false);Page(0);return;}
         bool query=search.text.Length>0||localFilter!="All"||categoryValue.Length>0;
         string label;Action action;
         if(tab=="Explore"&&Service.Source==null){label="Try again";action=Reload;}
         else if(query){label="Clear filters";action=()=>{localFilter="All";categoryValue="";compatible=true;offset=0;Reload();};}
         else if(tab=="Explore"){label="Try again";action=Reload;}
         else {label="Explore mods";action=()=>Switch("Explore");}
-        ui.Button("EmptyAction",panel.transform,label,-145,-h/2+28,260,46,action,ModCenterWidgets.Accent);
-        ui.Button("EmptySecondary",panel.transform,query?"Clear search":"Go to installed",155,-h/2+28,260,46,()=>{if(query){search.text="";Reload();}else Switch("Installed");});
+        view.primary.GetComponentInChildren<Text>().text=label;Listen(view.primary,action);
+        view.secondary.GetComponentInChildren<Text>().text=query?"Clear search":"Go to installed";
+        view.secondary.gameObject.SetActive(query||tab!="Installed");
+        Listen(view.secondary,()=>{if(query){search.text="";Reload();}else Switch("Installed");});
         Page(0);
     }
     static string PlayerName(string value) { return string.Join(" ",(value ?? "Unnamed mod").Split(new[]{' ' ,'\n','\r','\t'},StringSplitOptions.RemoveEmptyEntries)); }
     void AddRow(string id,string name,string subtitle,int index)
     {
         if(tab=="Explore"){AddCard(id,name,subtitle,index);return;}
-        float width=ListWidth-16,height=tab=="Downloads"?108:68;
-        var b=ui.Button("Mod-"+id,listContent,"",0,0,width,height,()=>SelectRow(id),id==selectedId?ModCenterWidgets.Tint:ModCenterWidgets.Paper);
-        var r=(RectTransform)b.transform;r.anchorMin=r.anchorMax=new Vector2(.5f,1);r.pivot=new Vector2(.5f,1);r.anchoredPosition=new Vector2(0,-rowY);
-        var icon=ui.Rect("ModIcon",r,-width/2+34,-height/2,40,40).gameObject.AddComponent<ModTileGraphic>();icon.color=ModCenterWidgets.Accent;icon.raycastTarget=false;
-        var title=ui.Text("Name",r,PlayerName(name),-width/2+68+width*.16f,-25,width*.32f,44,18);title.alignment=TextAnchor.MiddleLeft;
-        var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
+        bool downloading=tab=="Downloads";
+        var view=Instantiate(downloading?downloadRowPrefab:installedRowPrefab,listContent,false);
+        view.name="Mod-"+id;view.scroll=listScroll;
+        var rect=(RectTransform)view.transform;
+        rect.sizeDelta=new Vector2(ListWidth-16,rect.sizeDelta.y);
+        rect.anchoredPosition=new Vector2(0,-rowY);
+        view.select.image.color=id==selectedId?ModCenterWidgets.Tint:ModCenterWidgets.Paper;
+        Listen(view.select,()=>SelectRow(id));
+        view.title.translate=id==CrosshairModule.Id;view.SetTitle(PlayerName(name));
+        var record=Host.Manager.Installed.FirstOrDefault(x=>x.Manifest.Id==id);
         var package=Service.Installed.FirstOrDefault(x=>x.manifest.id==id);
-        var version=package?.manifest.version??record?.Manifest.Version.ToString()??"";
-        ui.Text("Scope",r,id==CrosshairModule.Id?"Client-only":package?.manifest.scope??"", -width/2+68+width*.16f,-55,width*.32f,24,14,ModCenterWidgets.Muted);
-        ui.Text("Version",r,version,-width*.06f,-height/2,100,36,16);
-        var state=ui.Text("State",r,subtitle.Split('\n').Last(),width*.14f,-height/2,width*.27f,60,15,ModCenterWidgets.Muted);
-        if(tab=="Installed"&&(package!=null||record!=null))
+        view.scope.text=package==null?"":package.manifest.scope=="ClientOnly"?"Your screen only":"Multiplayer mod";
+        view.version.text=package?.manifest.version??record?.Manifest.Version.ToString()??"";
+        view.state.text=subtitle.Split('\n').Last();
+        bool installedRow=!downloading&&(package!=null||record!=null);
+        view.toggle.gameObject.SetActive(installedRow);view.details.gameObject.SetActive(installedRow);
+        if(installedRow)
         {
-            bool requested=package?.requested??BuiltinModules.Instance.Requested(id);
-            var toggle=ui.Button("Toggle-"+id,r,"",width/2-122,-height/2,72,44,()=>ToggleRow(id),Color.clear);
-            var track=ui.Panel("Switch",toggle.transform,0,0,58,30,requested?ModCenterWidgets.Accent:new Color(.7f,.68f,.7f));toggle.targetGraphic=track;
-            ui.Panel("Thumb",track.transform,requested?14:-14,0,22,22,Color.white).raycastTarget=false;
-            ui.Button("Details-"+id,r,"...",width/2-44,-height/2,60,44,()=>{selectedId=id;OpenDetail();});
-            ui.Panel("Rule",r,0,-height+1,width,1,ModCenterWidgets.Line);
+            view.toggle.name="Toggle-"+id;view.details.name="Details-"+id;
+            view.SetRequested(package?.requested??Host.Requested(id));
+            Listen(view.toggle,()=>ToggleRow(id));
+            Listen(view.details,()=>{selectedId=id;OpenDetail();});
         }
-        foreach(Transform t in r)((RectTransform)t).anchorMin=((RectTransform)t).anchorMax=new Vector2(.5f,1);
-        b.gameObject.AddComponent<ModScrollFocus>().Scroll=listScroll;
-        rowY+=height;listContent.sizeDelta=new Vector2(0,Mathf.Max(listScroll.viewport.rect.height,rowY));
-        if(b.name==pendingFocusName&&!detailOpen)Focus(b);
+        if(downloading)
+        {
+            Listen(view.queueAction,()=>QueueAction(id));
+            Listen(view.queueCancel,()=>Service.Downloads.Cancel(id));
+        }
+        rowY+=rect.rect.height;
+        listContent.sizeDelta=new Vector2(0,Mathf.Max(listScroll.viewport.rect.height,rowY+listBottomPadding));
+        if(view.name==pendingFocusName&&!detailOpen)Focus(view.select);
     }
     void Page(int total)
     {
@@ -184,17 +209,19 @@ public sealed partial class ModuleManagementPage
         ApplyView();if(!detailOpen)return;
         overviewTab.gameObject.SetActive(false);versionsTab.gameObject.SetActive(false);dependenciesTab.gameObject.SetActive(false);atGlance.gameObject.SetActive(false);glanceScroll.gameObject.SetActive(false);
         artworkGeneration++;detailArtwork.gameObject.SetActive(false);
+        ((FlatsLocalizedText)detailTitle).translate=selectedId==CrosshairModule.Id || selectedId=="storage-report";
+        ((FlatsLocalizedText)description).translate=selectedId==CrosshairModule.Id || selectedId=="storage-report" || tab=="Downloads";
         crosshairPanel.SetActive(settingsOpen);secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);enable.interactable=false;
         foreach(Transform row in listContent){var b=row.GetComponent<Button>();if(b!=null)b.image.color=row.name=="Mod-"+selectedId?ModCenterWidgets.Accent:ModCenterWidgets.PanelColor;}
         if(tab=="Downloads"){UpdateDownloadDetail();return;}
-        var record=BuiltinModules.Instance.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
+        var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
         if(selectedId=="storage-report"){detailTitle.text="Storage recovery report";SetDescription(string.Join("\n\n",Service.Store.Notices.Distinct()));SetPrimary("Read only",false);return;}
         if(tab!="Explore" && selectedId==CrosshairModule.Id && Service.Installed.Any(x=>x.manifest.id==selectedId))
         {
             detailTitle.text="Custom Crosshair";
             SetDescription("Choose the shape and size of your aiming reticle.\n\nClient-only · Your screen only\n"+InstalledStatus(Service.Installed.First(x=>x.manifest.id==selectedId))+"\n\nConfigure a draft and preview changes before saving.\n"+(record?.Reason??""));
             secondary.gameObject.SetActive(true);secondary.GetComponentInChildren<Text>().text="Configure";secondary.interactable=true;
-            SetPrimary(BuiltinModules.Instance.Requested(CrosshairModule.Id)?"Disable":"Enable",!BuiltinModules.Instance.ReadOnly);remove.gameObject.SetActive(true);remove.interactable=!busy;return;
+            SetPrimary(Host.Requested(CrosshairModule.Id)?"Disable":"Enable",!Host.ReadOnly);remove.gameObject.SetActive(true);remove.interactable=!busy;return;
         }
         var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==selectedId);
         var m=tab=="Explore"?catalog.FirstOrDefault(x=>x.manifest.id==selectedId)?.manifest:p?.manifest ?? Service.Running.FirstOrDefault(x=>x.manifest.id==selectedId)?.manifest;
@@ -232,19 +259,14 @@ public sealed partial class ModuleManagementPage
         catch(Exception) { SetPrimary("Desktop required",false); }
 #endif
     }
-    void SetDescription(string text,float height=200)
+    void SetDescription(string text)
     {
-        float width=ContentWidth-96;
         detailScroll.gameObject.SetActive(true);
-        float panelHeight=((RectTransform)detailPanel.transform).rect.height;
-        float titleHeight=Mathf.Clamp(detailTitle.preferredHeight+6,54,100);
-        Place(detailTitle.transform,0,panelHeight/2-20-titleHeight/2,width,titleHeight);
-        height=panelHeight-titleHeight-114;
-        Place(detailScroll.transform,0,panelHeight/2-34-titleHeight-height/2,width,height);detailScroll.viewport.sizeDelta=new Vector2(width-12,height);
         description.text=text;description.rectTransform.anchoredPosition=Vector2.zero;
-        description.rectTransform.sizeDelta=new Vector2(width-28,height);
-        description.rectTransform.sizeDelta=new Vector2(width-28,Mathf.Max(height,description.preferredHeight+12));
-        detailContent.sizeDelta=new Vector2(0,description.rectTransform.sizeDelta.y);
+        Canvas.ForceUpdateCanvases();
+        float height=Mathf.Max(detailScroll.viewport.rect.height,description.preferredHeight+12);
+        description.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,height);
+        detailContent.sizeDelta=new Vector2(0,height);
     }
     void SetPrimary(string label,bool allowed) { enable.GetComponentInChildren<Text>().text=label;enable.interactable=allowed; }
     string PlayerProblem(PackageManifest manifest)
@@ -292,7 +314,8 @@ public sealed partial class ModuleManagementPage
             var plan=await Service.Plan(manifest,item,CancellationToken.None);
             if(this==null||!isActiveAndEnabled)return;
             var changes=string.Join("\n",plan.Modules.Select(m=>m.id+"  "+m.version+(plan.Downloads.Any(d=>d.manifest.id==m.id)?" - download":" - installed")));
-            Ask((enablePlan?"Enable ":"Install ")+PlayerName(manifest.name)+" and requirements?\n"+changes+"\nTotal download: "+(plan.Bytes/1024f).ToString("0.0")+" KB\nConflicts: none in this plan.\n"+
+            Ask((enablePlan?"Enable ":"Install ")+PlayerName(manifest.name)+" and requirements?\n"+ScopeLabel(manifest)+
+                (manifest.scope=="ClientOnly"?"":"\nEveryone in the room needs the same version.")+"\n"+changes+"\nTotal download: "+(plan.Bytes/1024f).ToString("0.0")+" KB\nConflicts: none in this plan.\n"+
                 (plan.Downloads.Length>0?"Packages install together. New mods stay disabled; review Enable after downloading.":"The complete dependency set will be enabled in this profile.")+"\nRestart FLATS to apply.",()=>Run(()=>Service.ApplyPlan(plan,state,enablePlan)));
         },false);
     }
@@ -308,7 +331,8 @@ public sealed partial class ModuleManagementPage
     {
         if(show){if(busy)return;busy=true;category.interactable=false;ShowDetail();}
         try{await action();if(this!=null && isActiveAndEnabled){if(tab!="Explore")RenderLocal();else ShowDetail();if(show)notice.text=Service.Notice;}}
-        catch(Exception e){if(this!=null){notice.text="Could not complete the action. "+e.Message;}Debug.LogWarning("MOD_CENTER_ACTION "+e.GetType().Name);}
+        catch(OperationCanceledException) { }
+        catch(Exception e){if(this!=null && isActiveAndEnabled){notice.text="Could not complete the action. "+e.Message;}Debug.LogWarning("MOD_CENTER_ACTION "+e.GetType().Name);}
         finally{if(show){busy=false;if(this!=null && isActiveAndEnabled){category.interactable=tab=="Explore" || tab=="Installed"&&Service.Source!=null;ShowDetail();}}}
     }
     async void LoadArtwork(RawImage image,string url,int generation)

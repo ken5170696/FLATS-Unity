@@ -23,3 +23,7 @@ Thumbs.db
 /Assets/Resources/FlatsModCatalogue.txt*
 Assets/Resources/FlatsPhotonClient.txt
 Assets/Resources/FlatsPhotonClient.txt.meta
+
+# Engine screenshot output; local only, never an authored asset.
+/Assets/Screenshots/
+/Assets/Screenshots.meta

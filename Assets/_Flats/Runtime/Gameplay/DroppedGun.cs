@@ -162,12 +162,12 @@ public class DroppedGun : MonoBehaviour
 			if (Input.GetJoystickNames().Length > 0)
 			{
 				message.GetChild(1).GetChild(3).GetComponent<Text>()
-					.text = "Hold change button to exchange";
+					.text = "Exchange weapon: {control:Interact}.";
 			}
 			else if (Input.mousePresent)
 			{
 				message.GetChild(1).GetChild(3).GetComponent<Text>()
-					.text = "Press Q key to exchange";
+					.text = "Exchange weapon: {control:Interact}.";
 			}
 			else
 			{

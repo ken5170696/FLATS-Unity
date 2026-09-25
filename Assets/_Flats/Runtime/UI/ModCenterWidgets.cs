@@ -20,9 +20,10 @@ public sealed class ModCenterWidgets
     }
     public Image Panel(string name,Transform parent,float x,float y,float width,float height,Color color)
     { var r=Rect(name,parent,x,y,width,height);var i=r.gameObject.AddComponent<Image>();i.color=color;return i; }
-    public Text Text(string name,Transform parent,string value,float x,float y,float width,float height,int size=18,Color? color=null)
+    public Text Text(string name,Transform parent,string value,float x,float y,float width,float height,int size=18,Color? color=null,bool localize=true)
     {
-        var t=Rect(name,parent,x,y,width,height).gameObject.AddComponent<Text>();t.font=font;t.fontSize=size;t.color=color ?? Ink;
+        var t=Rect(name,parent,x,y,width,height).gameObject.AddComponent<FlatsLocalizedText>();t.font=font;t.fontSize=size;t.color=color ?? Ink;
+        t.translate=localize;
         t.text=value;t.supportRichText=false;t.alignment=TextAnchor.MiddleLeft;t.raycastTarget=false;
         t.horizontalOverflow=HorizontalWrapMode.Wrap;t.verticalOverflow=VerticalWrapMode.Truncate;return t;
     }

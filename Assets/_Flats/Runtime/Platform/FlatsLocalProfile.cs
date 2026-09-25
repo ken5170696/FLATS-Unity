@@ -6,24 +6,63 @@ public static class FlatsLocalProfile
 {
     [Serializable] public class Profile { public int schema=1; public string character,settings,current; }
     private static bool prepared,blocked;
+    private static Profile pendingMirror;
     public static bool LastSaveSucceeded { get; private set; }
     public static string FilePath { get { return Path.Combine(FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath,"profile-v1.json"); } }
     public static void Validate(string json)
     {
-        var p=JsonUtility.FromJson<Profile>(json);
-        if(p==null || p.schema!=1)throw new InvalidDataException("Unsupported profile format");
-        if(p.character==null||p.settings==null||p.current==null)throw new InvalidDataException("Incomplete profile");
-        var c=p.character.Split('$');if(c.Length!=14)throw new InvalidDataException("Invalid character field count");
-        for(int i=3;i<13;i++)int.Parse(c[i]);
-        foreach(var sight in c[13].Split(','))int.Parse(sight);
-        var settings=p.settings.Split('$');if(settings.Length!=17)throw new InvalidDataException("Invalid settings field count");
-        foreach(var value in settings)int.Parse(value);
-        var current=p.current.Split('$');if(current.Length!=6)throw new InvalidDataException("Invalid progress field count");
-        foreach(var value in current)int.Parse(value);
+        var p = JsonUtility.FromJson<Profile>(json);
+        // Do not recover an older generation over a save written by a newer game.
+        if (p != null && p.schema > 1) throw new NotSupportedException("Newer profile schema; refusing downgrade");
+        if (p == null || p.schema != 1) throw new InvalidDataException("Unsupported profile format");
+        if (p.character == null || p.settings == null || p.current == null) throw new InvalidDataException("Incomplete profile");
+        var character = p.character.Split('$');
+        if (character.Length != 14) throw new InvalidDataException("Invalid character field count");
+        // GameInterface contains Color0..11 and one loadout entry per catalog weapon.
+        RequireRange(character[3], 0, 11, "character color");
+        for (int i = 4; i <= 8; i++) int.Parse(character[i]); // Preserve earned counters without an invented score cap.
+        int weaponCount = Flats.Core.WeaponCatalog.Count;
+        RequireRange(character[9], 0, weaponCount - 1, "primary weapon");
+        RequireRange(character[10], 0, weaponCount - 1, "secondary weapon");
+        int attack = RequireRange(character[11], 0, 10, "attack");
+        int defense = RequireRange(character[12], 0, 10, "defense");
+        if (attack + defense > 10) throw new InvalidDataException("Attack and defense exceed the 10 point allocation");
+        var sights = character[13].Split(',');
+        if (sights.Length < weaponCount) throw new InvalidDataException("Missing weapon sight selections");
+        for (int i = 0; i < sights.Length; i++)
+        {
+            // Retain trailing legacy values, but prevent invalid sight dictionary indexes.
+            int maximum = i < weaponCount ? Flats.Core.WeaponCatalog.GetDefault(i).zoom : 5;
+            RequireRange(sights[i], 0, maximum, "weapon sight " + i);
+        }
+        var settings = p.settings.Split('$');
+        if (settings.Length != 17) throw new InvalidDataException("Invalid settings field count");
+        for (int i = 0; i < settings.Length; i++)
+        {
+            // Matches the menu's discrete option lists and PlusMinus limits.
+            int maximum = i < 2 ? 10 : (i == 7 || i == 12 || i == 13 ? 2 : 1);
+            RequireRange(settings[i], 0, maximum, "setting " + i);
+        }
+        var current = p.current.Split('$');
+        if (current.Length != 6) throw new InvalidDataException("Invalid progress field count");
+        foreach (var value in current) int.Parse(value);
+    }
+
+    static int RequireRange(string text, int minimum, int maximum, string field)
+    {
+        int value;
+        if (!int.TryParse(text, out value) || value < minimum || value > maximum)
+            throw new InvalidDataException("Invalid " + field + "; expected " + minimum + ".." + maximum);
+        return value;
     }
     public static bool Prepare()
     {
-        if(prepared)return !blocked;prepared=true;
+        if (prepared)
+        {
+            if (!blocked) RetryPreferenceMirror();
+            return !blocked;
+        }
+        prepared = true;
         try
         {
             string recovery;string json=FlatsAtomicRecord.Read(FilePath,Validate,out recovery);
@@ -37,25 +76,70 @@ public static class FlatsLocalProfile
                 using(var f=new FileStream(legacy,FileMode.CreateNew,FileAccess.Write))using(var w=new StreamWriter(f)){w.Write(json);w.Flush();f.Flush(true);}
                 Validate(json);FlatsAtomicRecord.Write(FilePath,json,Validate);
             }
-            var profile=JsonUtility.FromJson<Profile>(json);
-            FlatsPreferences.SetString("characterData",profile.character);FlatsPreferences.SetString("settingsData",profile.settings);FlatsPreferences.SetString("currentData",profile.current);
+            pendingMirror = JsonUtility.FromJson<Profile>(json);
+            RetryPreferenceMirror();
             if(recovery!=null)FlatsStorageNotice.Show(recovery,false);
             return true;
         }
         catch(Exception e) { blocked=true;FlatsStorageNotice.Show("Profile could not be loaded. No defaults were written.\n"+e.Message+"\n"+FilePath,true);return false; }
     }
-    public static bool Commit(string character,string settings,string current)
+    // Readers use the atomic record, not the best-effort legacy preference mirror.
+    public static Profile ReadAuthoritative()
     {
-        LastSaveSucceeded=false;if(blocked)return false;
+        string recovery;
+        string json = FlatsAtomicRecord.Read(FilePath, Validate, out recovery);
+        return json == null ? null : JsonUtility.FromJson<Profile>(json);
+    }
+
+    static void RetryPreferenceMirror()
+    {
+        if (pendingMirror == null) return;
         try
         {
-            string json=JsonUtility.ToJson(new Profile{character=character,settings=settings,current=current});
-            FlatsAtomicRecord.Write(FilePath,json,Validate);
-            FlatsPreferences.SetString("characterData",character);FlatsPreferences.SetString("settingsData",settings);FlatsPreferences.SetString("currentData",current);FlatsPreferences.Save();
-            LastSaveSucceeded=true;return true;
+            FlatsPreferences.SetString("characterData", pendingMirror.character);
+            FlatsPreferences.SetString("settingsData", pendingMirror.settings);
+            FlatsPreferences.SetString("currentData", pendingMirror.current);
+            FlatsPreferences.Save();
+            pendingMirror = null;
         }
-        catch(Exception e){FlatsStorageNotice.Show("Save failed; previous profile retained.\n"+e.Message,false);return false;}
+        catch (Exception error)
+        {
+            // The authoritative record remains valid; retry on the next load/save.
+            FlatsStorageNotice.Show("Profile saved. Legacy preference copy could not be updated; it will be retried.\n" + error.Message, false);
+        }
     }
+
+    public static bool Commit(string character, string settings, string current)
+    {
+        LastSaveSucceeded = false;
+        if (blocked) return false;
+        var profile = new Profile { character = character, settings = settings, current = current };
+        string json = JsonUtility.ToJson(profile);
+        try { FlatsAtomicRecord.Write(FilePath, json, Validate); }
+        catch (Exception error)
+        {
+            // A backup write can fail after the atomic replacement has committed.
+            // Confirm the actual record before describing this as a failed save.
+            bool committed = false;
+            try
+            {
+                string recovery;
+                committed = FlatsAtomicRecord.Read(FilePath, Validate, out recovery) == json;
+            }
+            catch (Exception) { }
+            if (!committed)
+            {
+                FlatsStorageNotice.Show("Save could not be confirmed. Existing recovery records were retained.\n" + error.Message, false);
+                return false;
+            }
+            FlatsStorageNotice.Show("Profile saved, but recovery-copy maintenance reported a problem.\n" + error.Message, false);
+        }
+        LastSaveSucceeded = true;
+        pendingMirror = profile;
+        RetryPreferenceMirror();
+        return true;
+    }
+
 }
 
 public class FlatsStorageNotice : MonoBehaviour
@@ -70,10 +154,16 @@ public class FlatsStorageNotice : MonoBehaviour
     }
     private void OnGUI()
     {
+        // Immediate-mode GUI bypasses FlatsLocalizedText. Translate here and use the
+        // bundled Chinese font, which Web builds need because they have no OS fallback.
+        // Exception messages and paths have no catalogue entry and stay as data.
+        Font font = FlatsLocalization.IsChinese ? FlatsLocalization.ChineseFont : null;
+        GUIStyle label = new GUIStyle(GUI.skin.label) { wordWrap = true }, button = new GUIStyle(GUI.skin.button);
+        if (font != null) label.font = button.font = font;
         GUI.depth=-1000;GUILayout.BeginArea(new Rect(30,30,Mathf.Min(Screen.width-60,780),300),GUI.skin.box);
-        GUILayout.Label(message);
-        if(fatal){if(GUILayout.Button("Quit without overwriting data"))Application.Quit();}
-        else if(GUILayout.Button("Close"))Destroy(gameObject);
+        GUILayout.Label(FlatsLocalization.Translate(message), label);
+        if(fatal){if(GUILayout.Button(FlatsLocalization.Translate("Quit without overwriting data"), button))Application.Quit();}
+        else if(GUILayout.Button(FlatsLocalization.Translate("Close"), button))Destroy(gameObject);
         GUILayout.EndArea();
     }
 }

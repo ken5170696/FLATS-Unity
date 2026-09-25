@@ -7,6 +7,30 @@ public sealed class FlatsSightTarget : MonoBehaviour
     RenderTexture target;
     Camera sightCamera;
     RawImage[] displays;
+    Camera aimCamera;
+    float imageRoll;
+    void Start()
+    {
+        var owner = GetComponentInParent<FPSController>();
+        if (owner == null || owner.myCamera == null || sightCamera == null) return;
+        aimCamera = owner.myCamera.GetComponentInChildren<Camera>();
+        if (aimCamera == null || !aimCamera.enabled) { aimCamera = null; return; }
+        // Recovered scope canvases can face backwards. Retain their image roll,
+        // but use the world camera's origin and forward direction for all lenses.
+        // Measure the roll against the sight anchor this sight is mounted on, which
+        // is the eye pose while aiming. The live world camera would make the result
+        // depend on the weapon's pose at spawn: a holstered secondary or a sight
+        // created mid weapon-change then showed the lens image upside down.
+        Transform anchor = transform.parent != null ? transform.parent : aimCamera.transform;
+        imageRoll = Vector3.Dot(sightCamera.transform.up, anchor.up) < 0 ? 180f : 0f;
+    }
+    void LateUpdate()
+    {
+        // Script import order 75 observes the final eye pose from FPSController.
+        if (aimCamera != null && sightCamera != null)
+            sightCamera.transform.SetPositionAndRotation(aimCamera.transform.position,
+                aimCamera.transform.rotation * Quaternion.AngleAxis(imageRoll, Vector3.forward));
+    }
     public static GameObject Create(string path)
     {
         var sight = (GameObject)Instantiate(Resources.Load(path));

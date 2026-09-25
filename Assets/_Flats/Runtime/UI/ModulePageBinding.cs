@@ -6,36 +6,34 @@ public sealed class ModulePageBinding : MonoBehaviour
 {
     public ModuleManagementPage page;
     Menu menu;
-    GameObject icon;
-    readonly System.Collections.Generic.List<Image> tileSurfaces=new System.Collections.Generic.List<Image>();
+    [SerializeField] MenuTileArtwork tiles;
+    void Awake()
+    {
+        menu=GetComponentInChildren<Menu>(true);
+        var host=Flats.Modules.BuiltinModules.Instance;
+        page.Bind(host,host.Center,menu);
+    }
     System.Collections.IEnumerator Start()
     {
-        menu=GetComponentInChildren<Menu>(true);page.Initialize();
-        // Let the legacy Menu cache its original icon/text children before adding decoration.
+        page.Initialize();
         yield return null;
-        foreach(var label in menu.buttons)
-        {
-            var surface=new GameObject("TileReadingSurface",typeof(RectTransform),typeof(CanvasRenderer),typeof(Image));surface.layer=label.gameObject.layer;surface.transform.SetParent(label.transform.parent,false);surface.transform.SetAsFirstSibling();var surfaceRect=(RectTransform)surface.transform;surfaceRect.anchorMin=Vector2.zero;surfaceRect.anchorMax=Vector2.one;surfaceRect.offsetMin=surfaceRect.offsetMax=Vector2.zero;var image=surface.GetComponent<Image>();image.raycastTarget=false;tileSurfaces.Add(image);
-        }
-        icon=new GameObject("ModIcon",typeof(RectTransform),typeof(CanvasRenderer));icon.layer=menu.buttons[1].gameObject.layer;
-        var rect=(RectTransform)icon.transform;rect.SetParent(menu.buttons[1].transform.parent,false);rect.anchoredPosition=new Vector2(-42,10);rect.sizeDelta=new Vector2(80,80);
-        var graphic=icon.AddComponent<ModTileGraphic>();graphic.color=Color.white;graphic.raycastTarget=false;
     }
     void LateUpdate()
     {
         // Legacy menu animation controls only its original six buttons, not newly added controls.
         if(page.entry!=null)page.entry.gameObject.SetActive(false);
         if(menu!=null)menu.RefreshMainModLabels();
-        if(icon!=null)
+        if(tiles!=null && tiles.modIcon!=null)
         {
-            bool show=Menu.current=="Main"&&Menu.gameState=="Main";icon.SetActive(show);menu.buttons[1].enabled=!show;
+            bool show=Menu.current=="Main"&&Menu.gameState=="Main";tiles.modIcon.SetActive(show);menu.buttons[1].enabled=!show;
         }
         KeepParticlesOutsideButtons();
     }
     void KeepParticlesOutsideButtons()
     {
-        bool show=Menu.gameState=="Main"&&(Menu.current=="Main"||Menu.current=="Play");
-        foreach(var surface in tileSurfaces)
+        if(tiles==null)return;
+        bool show=menu.buttons[0].transform.parent.gameObject.activeInHierarchy;
+        foreach(var surface in tiles.readingSurfaces)
         {
             surface.gameObject.SetActive(show);if(!show)continue;
             var source=surface.transform.parent.GetComponent<Image>();if(source==null)continue;

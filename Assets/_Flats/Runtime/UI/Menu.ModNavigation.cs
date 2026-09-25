@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using Flats.Modules;
@@ -28,7 +29,7 @@ public partial class Menu
     {
         fliping=true;PlayMenuSound(pressSE);anim.SetBool("Fade",true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-        current="Play";backButton.SetActive(true);anim.SetBool("Fade",false);fliping=false;
+        current="Play";quitButton.SetActive(false);backButton.SetActive(true);anim.SetBool("Fade",false);fliping=false;
         RefreshPlayTiles();EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);
     }
     IEnumerator LeavePlay(int legacyButton)
@@ -36,7 +37,7 @@ public partial class Menu
         fliping=true;PlayMenuSound(legacyButton<0?cancelSE:pressSE);anim.SetBool("Fade",true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
         RestorePlayTiles();BackToMainMenu();backButton.SetActive(false);fliping=false;
-        if(legacyButton<0) { EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);yield break; }
+        if(legacyButton<0) { quitButton.SetActive(true);EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject);yield break; }
         enteringLegacyMode=true;Fade(legacyButton);enteringLegacyMode=false;
     }
     internal void RefreshPlayTiles()
@@ -62,9 +63,34 @@ public partial class Menu
     }
     void PublishRoomModules(ExitGames.Client.Photon.Hashtable properties)
     {
-        properties[SessionModules.Property]=BuiltinModules.Instance.Center.Agreement();
+        string agreement=BuiltinModules.Instance.Center.Agreement();
+        properties[SessionModules.Property]=agreement;
+        properties[SessionModules.DigestProperty]=SessionModules.Digest(agreement);
+    }
+    // Random matchmaking only offers rooms whose required modules match ours; the full
+    // FM1 comparison on join remains the authoritative check.
+    void RequireRoomModules(ExitGames.Client.Photon.Hashtable expected)
+    {
+        expected[SessionModules.DigestProperty]=SessionModules.Digest(BuiltinModules.Instance.Center.Agreement());
     }
     static string pendingModuleRejection;
+    // First room-required module this client is not running in the exact version and
+    // content: missing, a different version, or installed but disabled. "Open Mod" goes
+    // straight to it in Explore, where the normal review installs or enables it.
+    static string roomRequirement;
+    static string FirstMissingRequirement(object agreement)
+    {
+        try
+        {
+            // The same test as this client's own agreement: a running package that is active.
+            var owner=BuiltinModules.Instance;
+            foreach(var r in SessionModules.Requirements(agreement as string))
+                if(!owner.Center.Running.Any(p=>p.manifest.id==r.Id && p.manifest.version==r.Version && p.sha256==r.Sha256) ||
+                   !owner.Manager.Installed.Any(m=>m.Manifest.Id==r.Id && m.Active))return r.Id;
+        }
+        catch(System.Exception){}
+        return null;
+    }
     readonly RoomModuleCoordinator roomModules=new RoomModuleCoordinator();
     bool CheckPeerModules(PhotonPlayer player)
     {
@@ -84,6 +110,7 @@ public partial class Menu
     }
     void RejectRoomModules(string error)
     {
+        roomRequirement=PhotonNetwork.room!=null?FirstMissingRequirement(PhotonNetwork.room.CustomProperties[SessionModules.Property]):null;
         if(gameState=="Multiplayer" && UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex!=0)
         {
             // Use the normal scene-exit cleanup. A room rejection during a round
@@ -114,6 +141,8 @@ public partial class Menu
         while(PhotonNetwork.inRoom)yield return null;
         if(currentDetail!=null){currentDetail.SetActive(false);currentDetail=null;}
         anim.SetBool("Detail",false);SetRoomCreationVisible(false);BackToMainMenu();backButton.SetActive(false);
-        GetComponentInParent<ModulePageBinding>().page.Open();
+        var page=GetComponentInParent<ModulePageBinding>().page;
+        if(!string.IsNullOrEmpty(roomRequirement))page.OpenRoomRequirement(roomRequirement);else page.Open();
+        roomRequirement=null;
     }
 }

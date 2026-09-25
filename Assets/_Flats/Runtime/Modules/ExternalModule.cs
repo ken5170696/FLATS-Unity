@@ -18,12 +18,13 @@ namespace Flats.Modules
             package=p;path=directory;
             var m=p.manifest.Validate();
             var conflicts=m.Conflicts.ToList();
-            if(p.manifest.kind=="crosshair")conflicts.Add(CrosshairModule.Id);
+            if(ModRules.IsCrosshairProvider(p.manifest))conflicts.Add(CrosshairModule.Id);
             Manifest=new ModuleManifest(m.Id,m.Version.ToString(),m.DisplayName,m.Description,m.Scope,m.ApiVersions,m.GameVersions,m.Dependencies.ToArray(),conflicts.Distinct().ToArray());
         }
         public void Initialize(ModuleLifetime lifetime)
         {
-            if(package.manifest.kind=="crosshair")return;
+            // Crosshair presets and data packages carry no code.
+            if(package.manifest.kind=="crosshair" || package.manifest.kind=="data")return;
 #if ENABLE_IL2CPP && !UNITY_EDITOR
             throw new PlatformNotSupportedException("Downloaded managed DLL modules require a Mono desktop build. This AOT player cannot load executable modules.");
 #else
@@ -44,9 +45,29 @@ namespace Flats.Modules
         public void Enable(ModuleLifetime lifetime)
         {
             if(package.manifest.kind=="managed") { implementation.Enable(lifetime);return; }
+            if(package.manifest.kind=="data" && package.manifest.adapter==Flats.Core.EnemyTuning.Adapter) { EnableEnemyTuning(lifetime);return; }
+            if(!ModRules.IsCrosshairProvider(package.manifest))
+                throw new NotSupportedException("No game handler for "+package.manifest.adapter);
             if(CrosshairPresentation.Appearance!=null)throw new InvalidOperationException("Disable the other crosshair module first");
             lifetime.Own(()=>CrosshairPresentation.Appearance=null);
-            CrosshairPresentation.Appearance=new CrosshairSettings { style=(CrosshairStyle)package.manifest.crosshairStyle,size=package.manifest.crosshairSize };
+            // A legacy preset keeps the thickness and gap the original renderer derived from its size;
+            // a crosshair@2 data package uses its first preset.
+            var settings=new CrosshairSettings();
+            if(package.manifest.kind=="crosshair")settings.Values=CrosshairSettingsSpec.FromLegacy(package.manifest.crosshairStyle,package.manifest.crosshairSize);
+            else if(package.manifest.presets!=null && package.manifest.presets.Length>0)settings.Values=ModuleSettingsSchema.Apply(CrosshairSettingsSpec.Specs(),settings.Values,package.manifest.presets[0]);
+            CrosshairPresentation.Appearance=settings;
+        }
+        void EnableEnemyTuning(ModuleLifetime lifetime)
+        {
+            // The payload is part of the hashed package, so every player in the room applies the same values.
+            if(string.IsNullOrEmpty(package.manifest.payload))throw new InvalidDataException("Enemy tuning packages require a payload");
+            string file=Path.GetFullPath(Path.Combine(path,package.manifest.payload));
+            if(!file.StartsWith(Path.GetFullPath(path),StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Payload path escapes the package");
+            var info=new FileInfo(file);if(!info.Exists || info.Length>16*1024)throw new InvalidDataException("Enemy tuning payload is missing or too large");
+            var payload=UnityEngine.JsonUtility.FromJson<Flats.Core.EnemyTuningPayload>(File.ReadAllText(file));
+            if(payload==null)throw new InvalidDataException("Invalid enemy tuning payload");
+            Flats.Core.EnemyTuning.Apply(payload);
+            lifetime.Own(Flats.Core.EnemyTuning.Reset);
         }
         public void Disable() { implementation?.Disable(); }
     }

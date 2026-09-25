@@ -1,0 +1,31 @@
+{
+  "schema": 2,
+  "id": "example.author-ring",
+  "version": "1.0.0",
+  "name": "Author Ring",
+  "author": "Your name",
+  "description": "A green outlined ring. Disable other crosshair providers before enabling.",
+  "category": "HUD",
+  "changelog": "First release.",
+  "apiMinimum": "1.1.0",
+  "apiMaximum": "2.0.0",
+  "scope": "ClientOnly",
+  "kind": "data",
+  "adapter": "crosshair@2",
+  "presets": [
+    {
+      "id": "authorRing",
+      "name": "Author Ring",
+      "values": [
+        { "id": "style", "value": "ring" },
+        { "id": "size", "value": "30" },
+        { "id": "thickness", "value": "2.5" },
+        { "id": "color", "value": "#4cff7a" },
+        { "id": "outline", "value": "true" },
+        { "id": "outlineColor", "value": "#000000" }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "conflicts": []
+}

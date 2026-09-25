@@ -1,0 +1,914 @@
+Play	開始遊戲
+Play / Matchmaking	開始 / 配對中
+Mod	模組
+Modules	模組
+MOD	模組
+Singleplayer	單人遊戲
+Multiplayer	多人遊戲
+Character	角色
+Settings	設定
+Leaderboard	排行榜
+Information	資訊
+Resume	繼續遊戲
+Back	返回
+Cancel	取消
+Close	關閉
+OK	確定
+Continue	繼續
+Confirm	確認
+Yes	是
+No	否
+Exit	離開
+Quit	離開遊戲
+Start	開始
+New Game	新遊戲
+Restart	重新開始
+Retry	重試
+Reset	重設
+Default	預設
+None	無
+none	無
+Normal	一般
+Normal (x2)	一般（x2）
+ON	開啟
+OFF	關閉
+On	開啟
+Off	關閉
+Enable	啟用
+Disable	停用
+Enabled	已啟用
+Disabled	已停用
+Any	不限
+Full	全滿
+4 or Less	4 人以下
+Loading...	載入中…
+Please wait...	請稍候…
+Wait...	請稍候…
+Matchmaking...	配對中…
+Start Matchmaking	開始配對
+Open Match	公開配對
+Private Match	私人對戰
+Local Match	區域網路對戰
+Offline	離線
+Online	線上
+Create the Room	建立房間
+Join or create this room	加入或建立房間
+Enter the room name...	輸入房間名稱…
+Enter the room name within 20 letters.	請輸入 20 個字元以內的房間名稱。
+Enter host's IP address...	輸入主機 IP 位址…
+Connect via Local Network	透過區域網路連線
+Connect Automatically (recommended)	自動連線（建議）
+Connect Manually (use this if you can't join the room)	手動連線（無法加入時使用）
+Be Client	加入主機
+Show my IP address	顯示我的 IP 位址
+Server Region	伺服器地區
+Player Count	玩家人數
+Player Count:	玩家人數：
+Rule	規則
+Stage	地圖
+Vote map	投票選地圖
+Invite	邀請
+Chat	聊天
+Message	訊息
+Enter text...	輸入訊息…
+Enter name...	輸入名稱…
+Enter comment...	輸入留言…
+Name	名稱
+Comment:	留言：
+Upload	上傳
+Enter	輸入
+Stats	能力值
+Attack	攻擊
+Defense	防禦
+Bot Stats	電腦玩家能力值
+Level (Bonus)	等級（加成）
+Score	分數
+Your Score	你的分數
+Result	結果
+Total Score:	總分：
+Singleplayer Score:	單人分數：
+Multiplayer Score:	多人分數：
+Multiplayer Score: 0	多人分數：0
+Kill:	擊殺：
+Death:	死亡：
+Survival:	生存：
+Headshot Challenge:	爆頭挑戰：
+Assortment:	綜合挑戰：
+Objective:	目標：
+Objective	目標
+Survival	生存模式
+Headshot Challenge	爆頭挑戰
+Assortment	綜合挑戰
+Deathmatch	死亡競賽
+Team Deathmatch	團隊死亡競賽
+Capture the Flag	奪旗模式
+Training	訓練
+Tutorial	教學
+Training mode.	練習操作與射擊。
+Let's walk around the stages.	自由探索各個地圖。
+Phase	階段
+Wait until the next phase...	等待下一階段…
+Long tap to exchange	長按交換武器
+Gun Name	武器名稱
+Damage	傷害
+Headshot Bonus	爆頭加成
+Magazine Size	彈匣容量
+Max Ammo Count	最大彈藥量
+Reload Time	裝填時間
+Accuracy	精準度
+RPM	每分鐘射速
+Primary	主武器
+Secondary	副武器
+Set as Primary	設為主武器
+Set as Secondary	設為副武器
+Sight	準心
+Assault Rifle typeA	突擊步槍 A 型
+Assault Rifle typeB	突擊步槍 B 型
+Assault Rifle typeC	突擊步槍 C 型
+Assault Rifle typeD	突擊步槍 D 型
+SMG typeA	衝鋒槍 A 型
+SMG typeB	衝鋒槍 B 型
+SMG typeC	衝鋒槍 C 型
+SMG typeD	衝鋒槍 D 型
+Handgun typeA	手槍 A 型
+Handgun typeB	手槍 B 型
+Shotgun typeA	霰彈槍 A 型
+Shotgun typeB	霰彈槍 B 型
+Sniper Rifle typeA	狙擊步槍 A 型
+Sniper Rifle typeB	狙擊步槍 B 型
+Light Machinegun	輕機槍
+Grenade Launcher	榴彈發射器
+All Volumes	主音量
+BGM Volume	背景音樂音量
+Sound	音效
+Graphics	畫面
+Controls	操作
+Control	操作
+Extra	其他
+Anti-Aliasing	反鋸齒
+DoF Effect	景深效果
+Motion Blur	動態模糊
+Edge Rendering	邊緣描線
+Saturation Filter	飽和度濾鏡
+Cam Sensitivity	視角靈敏度
+Handedness	慣用手
+Right	右手
+Left	左手
+Y-Axis	垂直視角
+Inverted	反轉
+Auto-Aim	自動瞄準
+Tap Firing	點按射擊
+Control Method	操作方式
+Touch	觸控
+Controller	控制器
+Keyboard & Mouse	鍵盤與滑鼠
+Controller Name	控制器名稱
+Connect a controller and press enable button.	連接控制器後，按下啟用按鈕。
+No controller detected.	未偵測到控制器。
+Release the button.	請放開按鈕。
+Learn how to control your current control device.	了解目前操作裝置的使用方式。
+Resolution	解析度
+Eye Distance	瞳距
+Head Rotation	頭部旋轉
+Battery Saver	省電模式
+Match Notification	配對通知
+Low	低
+Medium	中
+High	高
+Very High	非常高
+Fast	快速
+Slow	慢速
+Fullscreen	全螢幕
+Windowed	視窗模式
+Display	顯示
+Quality	畫質
+About	關於
+News	最新消息
+New Features and Fixes	新功能與修正
+Please visit and follow us.	歡迎造訪並追蹤我們。
+Share	分享
+Share This App	分享遊戲
+Rate This App	評價遊戲
+Open Store	開啟商店
+Remove Ads	移除廣告
+Explanation	說明
+LAN Sync	區域網路同步
+Enter ID number...	輸入 ID 號碼…
+Receive this ID's data	接收此 ID 的資料
+Save files	存檔檔案
+Import old save	匯入舊存檔
+Export save	匯出存檔
+Export save JSON	匯出 JSON 存檔
+Paste exported FLATS JSON	貼上匯出的 FLATS JSON
+Absolute path to .dat or .json save	輸入 .dat 或 .json 存檔的完整路徑
+Review JSON	檢視 JSON
+Load file	載入檔案
+Replace current save	取代目前存檔
+Copy JSON	複製 JSON
+Copy link	複製連結
+Copy path	複製路徑
+Use this session	僅在本次使用
+Retry browser save	重試瀏覽器儲存
+Saving imported profile to browser storage...	正在將匯入資料儲存至瀏覽器…
+Clipboard unavailable. Select and copy the JSON above.	無法使用剪貼簿，請選取並複製上方 JSON。
+Copy this JSON and save it in a text file or paste it into Import old save on another device.	複製這份 JSON 並另存為文字檔，或在其他裝置的「匯入舊存檔」中貼上。
+Share unavailable in VR	VR 模式無法分享
+Exit VR mode to save the image and copy the website link.	請離開 VR 模式，再儲存圖片並複製網站連結。
+Share image saved	分享圖片已儲存
+Share failed	分享失敗
+Share text copied	分享文字已複製
+Could not copy	無法複製
+Download requested	已要求下載
+Installed	已安裝
+Explore	探索
+Downloads	下載
+Profiles	設定組合
+PROFILES	設定組合
+Search installed mods...	搜尋已安裝模組…
+Search downloads...	搜尋下載項目…
+Search mods...	搜尋模組…
+Enable, configure and manage your mods.	啟用、設定及管理你的模組。
+Custom Crosshair	自訂準心
+Configure	設定
+Check updates	檢查更新
+All categories	所有類別
+Compatible only	僅顯示相容版本
+All versions	所有版本
+Name A-Z	名稱 A–Z
+Name Z-A	名稱 Z–A
+Updated	更新時間
+Update	更新
+Install	安裝
+Uninstall	解除安裝
+Remove	移除
+Delete	刪除
+Import	匯入
+Choose file	選擇檔案
+Clear search	清除搜尋
+Go to installed	查看已安裝
+Select a mod	選擇模組
+Active	已啟用
+Inactive	未啟用
+Available	可使用
+Unavailable	無法使用
+Official service offline	官方服務離線
+Read only	唯讀
+Storage recovery report	儲存空間復原報告
+Try again	再試一次
+Restart after recovery	復原後重新啟動
+Loading local modules...	正在載入本機模組…
+Loading local modules and saved profiles...	正在載入本機模組與設定組合…
+Module changes are blocked until local storage recovers.	本機儲存空間復原前無法變更模組。
+No mods installed. Open Explore to download your first mod.	尚未安裝模組。前往「探索」下載第一個模組。
+External mod changes apply after restarting FLATS.	外部模組變更將在重新啟動 FLATS 後生效。
+Manage mods installed on this device.	管理此裝置上已安裝的模組。
+Downloads continue while you browse.	瀏覽時會繼續下載。
+Official mod service is unavailable in this build.	此版本無法使用官方模組服務。
+Official service unavailable\nYour installed mods still work. Please try again later.	官方服務暫時無法使用\n已安裝的模組仍可使用，請稍後再試。
+Retrieving catalogue details.	正在取得目錄詳細資料。
+Your installed mods remain available. Retry when your connection is available.	已安裝的模組仍可使用，請恢復網路連線後重試。
+Check your connection, then retry.	請檢查網路連線後重試。
+Download failed. Your existing mods were kept.	下載失敗，現有模組已保留。
+Download complete. Open Installed to manage the mod.	下載完成。前往「已安裝」管理模組。
+Download cancelled.	已取消下載。
+Checking dependency versions...	正在檢查相依模組版本…
+Checking package...	正在檢查套件…
+Package imported. Review its status before enabling.	套件已匯入，啟用前請確認狀態。
+Unsaved changes	尚未儲存的變更
+Saved settings	設定已儲存
+Save	儲存
+Save & leave	儲存並離開
+Stay here	留在此頁
+Discard & leave	捨棄並離開
+Disable instead	改為停用
+Profile saved.	設定組合已儲存。
+Keep your enabled mods and settings together.	將啟用的模組與設定儲存在同一組合。
+Room modules differ	房間模組不一致
+Open Mod	開啟模組
+Regular	正常
+Territory	據點爭奪
+Blow up the Base	基地爆破
+Zombie	殭屍模式
+Co-op Survival	合作生存
+Searching...	搜尋中…
+Kill other players.	擊敗其他玩家。
+Kill the other team's players.	擊敗敵隊玩家。
+Dominate the area.	佔領區域。
+Capture the other team's flag\nand bring it back to my team's base.	奪取敵隊旗幟，\n並帶回我方基地。
+Blow up the other team's base.\nSeparated Offense and Defense.\n\nOffense: Set a bomb on the base.\nDefense: Defend my team's base.	炸毀敵隊基地。\n分為進攻方與防守方。\n\n進攻：在基地安裝炸彈。\n防守：保護我方基地。
+A zombie makes another zombie.	殭屍會感染其他玩家。
+Defend your team's VIP and kill the other team's VIP.	保護我方 VIP，並擊敗敵隊 VIP。
+Survive with your co-players.\nYour record is saved as the record of\nsingleplayer mode.\n\nNote: Started from phase 1\nand current score will be reset.	與隊友一起生存。\n紀錄會儲存至單人模式。\n\n注意：從第 1 階段開始，\n目前分數將重設。
+3 Kills	3 次擊殺
+5 Kills	5 次擊殺
+10 Kills	10 次擊殺
+15 Kills	15 次擊殺
+30 Seconds	30 秒
+60 Seconds	60 秒
+90 Seconds	90 秒
+1 Flag	1 面旗幟
+2 Flags	2 面旗幟
+3 Flags	3 面旗幟
+1 Round	1 回合
+2 Rounds	2 回合
+3 Rounds	3 回合
+3 kill	3 次擊殺
+Flat City	扁平城市
+Urban Park	都市公園
+Beachside Town	海濱小鎮
+Department Store	百貨公司
+Warehouse	倉庫
+Night Land	夜之境
+Window Mode	視窗模式
+VSync	垂直同步
+Crosshair Color	準心顏色
+Crosshair Size	準心大小
+White	白色
+Black	黑色
+Red	紅色
+Green	綠色
+Cyan	青色
+Magenta	洋紅色
+<- Button Area ->	← 按鈕區域 →
+<- Stick Area ->	← 搖桿區域 →
+Check your text before posting it.\nLog will be deleted automatically\nafter everyone has gone.	發送前請確認訊息內容。\n所有人離開後，\n聊天紀錄會自動刪除。
+Deathmatch\nTap here to join	死亡競賽\n點此加入
+Disable\n(Delete Mapping)	停用\n（刪除按鍵配置）
+Enable\n(Customize Mapping)	啟用\n（自訂按鍵配置）
+Drag buttons to change their position.\nTap buttons to change their size.	拖曳按鈕以調整位置。\n點按按鈕以調整大小。
+Enter the room name within 20 letters.\nIf you want to create a new room, make the name unique.	請輸入 20 個字元以內的房間名稱。\n建立新房間時，請使用不重複的名稱。
+How to calculate:\nFinal Damage = Damage x ( 1 + Attack x 0.1 )\nHP = 1000 x ( 1 + Defense x 0.1 )	計算方式：\n最終傷害 = 傷害 ×（1 + 攻擊 × 0.1）\n生命值 = 1000 ×（1 + 防禦 × 0.1）
+Hunt monochrome enemies.\nDon't kill colorful ones.	獵殺單色敵人，\n不要擊殺彩色敵人。
+Limit framerate to 30fps.\nDisabled automatically when you are in VR mode.	將幀率限制為每秒 30 幀。\n進入 VR 模式時會自動停用。
+Make headshots in a row.\nDon't shoot body.	連續命中頭部，\n不要射中身體。
+Network disconnected.\nTry again later.	網路連線已中斷。\n請稍後再試。
+One player must be the host at first.\n\nAfter the room creation,\nother players can join the room as a client.	請先由一位玩家擔任主機。\n\n建立房間後，\n其他玩家即可加入。
+Receive notification if someone started open match.\nThis is an experimental option, may affects performance and not work well.	有人開始公開配對時接收通知。\n此功能仍在實驗階段，可能影響效能或無法正常運作。
+Sight:None\n(reload speed bonus)	準心：無\n（裝填速度加成）
+Stay this room and notice when it is full.\nCheck this if you want to play\nsingleplayer while waiting.	留在房間內，額滿時通知。\n若想在等待期間遊玩單人模式，\n請勾選此項。
+Survive every wave.\nEnemies get stronger.	撐過每一波攻勢。\n敵人會越來越強。
+This setting is used for open match\nand invitation match.\n\nYou must be in the same server region\nto make matches with your friends.	此設定適用於公開配對\n與邀請對戰。\n\n與朋友遊玩時，\n必須選擇相同伺服器地區。
+You can delete custom mapping anywhere in the game\nby keep pressing jump,pick,reload and change button.	在遊戲中同時按住跳躍、拾取、裝填與切換按鈕，\n即可刪除自訂按鍵配置。
+You must be in the same online version\nto make matches with others.	必須使用相同的連線版本，\n才能與其他玩家配對。
+Leaderboard (local)	本機排行榜
+Hold reload button to join	按住裝填按鈕加入
+Press enter key to join	按 Enter 加入
+Tap here to join	點此加入
+Manage	管理
+Review	檢視
+Pause	暫停
+Verifying	驗證中
+Pending	等待中
+Downloading	下載中
+Paused	已暫停
+Failed	失敗
+Cancelled	已取消
+All installed mods	所有已安裝模組
+VERSION	版本
+STATUS	狀態
+ENABLED	啟用
+Preview	預覽
+Style	樣式
+Dot	圓點
+Cross	十字
+Circle	圓圈
+Client-only	僅影響本機
+Filters	篩選
+CATEGORY	類別
+All	全部
+Needs attention	需要處理
+Updates	更新
+Save changes	儲存變更
+Restore defaults	還原預設
+Local module storage	本機模組儲存空間
+Make FLATS your own	打造你的 FLATS
+3× preview · actual size uses HUD units	3 倍預覽 · 實際大小以 HUD 單位計算
+Your changes affect the preview only.\nSave changes to keep this configuration.	變更只會影響預覽。\n儲存後才會保留此設定。
+Changes apply when you save.\nSaving does not enable a disabled mod.	儲存後套用變更。\n儲存不會啟用已停用的模組。
+Import a local mod	匯入本機模組
+Choose a FLATS ZIP package or enter its full file path.\nOnly import packages from a source you recognise.	選擇 FLATS ZIP 套件，或輸入完整檔案路徑。\n請只匯入來源可信的套件。
+The package will be checked before installation.	安裝前將先檢查套件。
+Your installed mods are available offline.\nExplore the official catalogue when connected.	離線時仍可使用已安裝模組。\n連線後即可瀏覽官方目錄。
+Find an official package	尋找官方套件
+Paste a package manifest to find its official download.\nWeb installs crosshair data packages; code packages require desktop FLATS.	貼上套件資訊以尋找官方下載。\n網頁版可安裝準心資料套件；程式套件需要桌面版 FLATS。
+The official package is downloaded and verified after your review.	確認後將下載並驗證官方套件。
+Profile name	設定組合名稱
+Online Version:{0}	連線版本：{0}
+Update Version {0}	更新版本 {0}
+Multiplayer Score: {0}	多人分數：{0}
+Singleplayer Score: {0}	單人分數：{0}
+Total Score: {0}	總分：{0}
+Camera: {0}	觀戰：{0}
+Room: {0}	房間：{0}
+Start Now! {0}	立即開始！{0}
+Add bot and Start Now! {0}	加入電腦玩家並開始！{0}
+Downloads ({0})	下載（{0}）
+Size: {0} HUD units	大小：{0} HUD 單位
+{0} mods enabled	已啟用 {0} 個模組
+Update to {0}	更新至 {0}
+Import failed: {0}	匯入失敗：{0}
+Could not review package. {0}	無法檢視套件。{0}
+Could not complete the action. {0}	無法完成操作。{0}
+Could not find package: {0}	找不到套件：{0}
+Loading mods — connecting to {0}	正在載入模組 — 連線至 {0}
+Character: {0}	角色：{0}
+The current save will be backed up before replacement.	取代前會先備份目前存檔。
+MOD / INSTALLED	模組 / 已安裝
+MOD / EXPLORE	模組 / 探索
+MOD / DOWNLOADS	模組 / 下載
+Hi, welcome to the tutorial.	嗨，歡迎來到教學。
+First, turn your head\nand look around.	首先，轉動頭部，\n觀察四周。
+First, use right stick\nand look around.	首先，使用右搖桿，\n觀察四周。
+First, use mouse \nand look around.	首先，移動滑鼠，\n觀察四周。
+First, swipe screen\nand look around.	首先，滑動螢幕，\n觀察四周。
+Walk to the black cube.\nUse left stick.	使用左搖桿，\n走向黑色方塊。
+Walk to the black cube.\nUse W/A/S/D keys.	使用 W/A/S/D 鍵，\n走向黑色方塊。
+Walk to the black cube.\nUse stick on the screen.	使用螢幕上的搖桿，\n走向黑色方塊。
+Good.	很好。
+Now you can fire.	現在可以射擊了。
+Pull right trigger to fire.	按下右扳機射擊。
+Left click to fire.	按滑鼠左鍵射擊。
+Press fire button.	按下射擊按鈕。
+Need to reload?\nUse this button.	需要裝填彈藥？\n按下這個按鈕。
+Need to reload?\nPress R Key.	需要裝填彈藥？\n按下 R 鍵。
+Need to reload?\nPress reload button.	需要裝填彈藥？\n按下裝填按鈕。
+Press this button\nto change weapons.	按下這個按鈕，\n切換武器。
+Press E key\nto change weapons.	按下 E 鍵，\n切換武器。
+Hold reload button\nto change weapons.	按住裝填按鈕，\n切換武器。
+You can set default weapons\nvia 'Character' in the menu.	可在選單的「角色」中，\n設定預設武器。
+Next, kill enemies.	接下來，擊敗敵人。
+Aim and shoot them\nor press this button\nto throw grenades.	瞄準並射擊敵人，\n或按下這個按鈕\n投擲手榴彈。
+Aim and shoot them\nor press G key\nto throw grenades.	瞄準並射擊敵人，\n或按下 G 鍵\n投擲手榴彈。
+Aim and shoot them\nor hold aim button\nto throw grenades.	瞄準並射擊敵人，\n或按住瞄準按鈕\n投擲手榴彈。
+Nice work!!	做得好！
+Headshot always makes\ngood results.	瞄準頭部，\n可以造成更大傷害。
+You can get ammo\nfrom dropped guns.	地上掉落的槍械\n可以補充彈藥。
+Pick the sniper rifle on the floor.\nHold this button to pick up.	拾取地上的狙擊步槍。\n按住這個按鈕即可拾取。
+Pick the sniper rifle on the floor.\nPress Q key to pick up.	拾取地上的狙擊步槍。\n按下 Q 鍵即可拾取。
+Pick the sniper rifle on the floor.\nLong tap to pick up.	拾取地上的狙擊步槍。\n長按即可拾取。
+Hold left trigger\nfor zooming.	按住左扳機，\n使用瞄準鏡。
+Right click\nfor zooming.	按滑鼠右鍵，\n使用瞄準鏡。
+Press zoom button\nfor zooming.	按下縮放按鈕，\n使用瞄準鏡。
+Press this button to jump.\nAnd hold it to sprint.	按下這個按鈕跳躍，\n按住則可衝刺。
+Press space key to jump.\nAnd hold shift to sprint.	按空白鍵跳躍，\n按住 Shift 鍵衝刺。
+Press jump button to jump.\nAnd hold it to sprint.	按下跳躍按鈕跳躍，\n按住則可衝刺。
+OK. You've finished tutorial.	很好，你已完成教學。
+Press start or select button.\nSelect reset button\nand exit the tutorial.	按下 Start 或 Select 按鈕，\n選擇「重設」，\n即可離開教學。
+Press escape key.\nSelect reset button\nand exit the tutorial.	按下 Esc 鍵，\n選擇「重設」，\n即可離開教學。
+Press upper-left button.\nSelect reset button\nand exit the tutorial.	按下左上角按鈕，\n選擇「重設」，\n即可離開教學。
+Hold change button to exchange	按住切換按鈕交換武器
+Press Q key to exchange	按 Q 鍵交換武器
+You are the VIP.	你是 VIP。
+Red team's VIP: {0}	紅隊 VIP：{0}
+Blue team's VIP: {0}	藍隊 VIP：{0}
+Hold change button to grab the flag.	按住切換按鈕奪取旗幟。
+Press Q to grab the flag.	按 Q 鍵奪取旗幟。
+Long tap to grab the flag.	長按奪取旗幟。
+Hold change button to reset the bomb.	按住切換按鈕重設炸彈。
+Press Q to reset the bomb.	按 Q 鍵重設炸彈。
+Long tap to reset the bomb.	長按重設炸彈。
+Hold change button to pick the bomb.	按住切換按鈕拾取炸彈。
+Press Q to pick the bomb.	按 Q 鍵拾取炸彈。
+Long tap to pick the bomb.	長按拾取炸彈。
+Red team scored!	紅隊得分！
+Blue team scored!	藍隊得分！
+You are offense side.\nSet the bomb on the enemies' base.	你是進攻方。\n請在敵方基地安裝炸彈。
+You are defense side.\nDefend your base.	你是防守方。\n請守住我方基地。
+Blue team killed VIP!	藍隊擊敗了 VIP！
+Red team killed VIP!	紅隊擊敗了 VIP！
+VIP was killed!	VIP 已被擊敗！
+Team kill...	誤傷隊友…
+Headshot	爆頭
+Mortalshot	致命一擊
+Headshot {0}x	連續爆頭 {0} 倍
+Load succeeded.	載入成功。
+Make headshots in a row.	連續命中頭部。
+Saving...	儲存中…
+Phase {0}	第 {0} 階段
+Bonus+{0}	加成 +{0}
+You cleared phase {0}!!	你通過了第 {0} 階段！
+start in 3 seconds...	3 秒後開始…
+start in 2 seconds...	2 秒後開始…
+start in 1 second...	1 秒後開始…
+Local Match - online rooms	區域網路配對 — 線上房間
+Internet required. Same Photon app, region and version.\nLAN discovery only; gameplay uses Photon online.\nHost: Deathmatch / 3 kills / 2 players. Both joining starts map voting.	需要網路，且 Photon 應用、地區及版本必須相同。\n區域網路僅用於尋找房間；對戰透過 Photon 連線。\n主機：死亡競賽／3 次擊殺／2 人。雙方加入後開始地圖投票。
+Host room code: lan-...	主機房間代碼：lan-…
+Join code	使用代碼加入
+Host room	建立房間
+Refresh LAN	重新搜尋
+Enter the host's complete lan- room code.	請輸入主機完整的 lan- 房間代碼。
+Overview	總覽
+Versions	版本
+Dependencies	相依模組
+New profile	新增設定組合
+Duplicate	複製
+Rename	重新命名
+Manage selected	管理目前組合
+Review & switch	檢視並切換
+Score: {0} Phase: {1}	分數：{0}　階段：{1}
+Score: {0} HeadshotChain: {1}	分數：{0}　連續爆頭：{1}
+Score: {0} Rule: Deathmatch {1}	分數：{0}　規則：死亡競賽 {1}
+Score: {0} Rule: Team Deathmatch {1}	分數：{0}　規則：團隊死亡競賽 {1}
+Score: {0} Rule: Territory {1}	分數：{0}　規則：據點爭奪 {1}
+Score: {0} Rule: Capture the Flag {1}	分數：{0}　規則：奪旗模式 {1}
+Score: {0} Rule: Blow up the Base {1}	分數：{0}　規則：基地爆破 {1}
+Score: {0} Rule: Zombie	分數：{0}　規則：殭屍模式
+Score: {0} Rule: VIP	分數：{0}　規則：VIP
+You cleared Deathmatch!	你完成了死亡競賽！
+You cleared Team Deathmatch!	你完成了團隊死亡競賽！
+You cleared Territory!	你完成了據點爭奪！
+You cleared Capture the Flag!	你完成了奪旗模式！
+You cleared Blow up the Base!	你完成了基地爆破！
+You cleared Zombie!	你完成了殭屍模式！
+You cleared VIP!	你完成了 VIP 模式！
+Winner:Red Team	勝利：紅隊
+Winner:Blue Team	勝利：藍隊
+Winner:Zombies	勝利：殭屍
+Winner:Humans	勝利：人類
+Draw	平手
+Choose the shape and size of your aiming reticle.	選擇準心的形狀與大小。
+Client-only · Your screen only	僅影響本機 · 只改變你的畫面
+Configure a draft and preview changes before saving.	先調整並預覽，確認後再儲存。
+Selected	已選取
+Saved profile	已儲存組合
+Selected / Running	已選取 / 使用中
+Selected / Restart required	已選取 / 需要重新啟動
+Saved profile / Running	已儲存組合 / 使用中
+Client-only  /  Enabled in selected profile / Active now	僅影響本機 / 目前組合已啟用 / 使用中
+Client-only  /  Disabled in selected profile / Not active now	僅影響本機 / 目前組合已停用 / 未使用
+Installed version: {0}	已安裝版本：{0}
+Affects: Your screen only	影響範圍：僅你的畫面
+Select a row to view its status and actions.	選擇模組以查看狀態與可用操作。
+Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.	歡迎來到 FLATS。\n支援單人遊戲與 Photon 線上對戰。\n線上遊戲需要網際網路連線。
+Core stability, save transfer and module updates.	更新核心穩定性、存檔轉移與模組功能。
+- Core input and save transfer updates.\n- Crosshair packages and module recovery.\n- Local leaderboard; legacy cloud unavailable.\n- LAN Sync transfers ID + scores, not gameplay.\n- Local Match: LAN discovery + online rooms.\n\nPlatform validation: see release notes.	- 更新核心輸入與存檔轉移。\n- 準心套件與模組復原。\n- 本機排行榜；舊雲端服務無法使用。\n- 區域網路同步僅轉移 ID 與分數。\n- 本機配對：區域網路搜尋與線上房間。\n\n平台驗證詳見版本說明。
+FLATS {0} preview	FLATS {0} 預覽版
+Need a controller\nto play in VR mode.	VR 模式需要\n連接控制器。
+Button Mapping	按鍵配置
+Chat Room	聊天室
+Color	顏色
+Extra Settings	其他設定
+Invitation Match	邀請對戰
+Profile	個人資料
+Stage Select	選擇地圖
+Start Offline Match	開始離線對戰
+Sync	同步
+Weapons	武器
+Bots: {0}	電腦玩家：{0}
+No mods installed	尚未安裝模組
+Open Explore to download your first mod.	前往「探索」下載第一個模組。
+Explore mods	探索模組
+No results	找不到結果
+Try another search or filter.	試試其他關鍵字或篩選條件。
+No mods in this category.	此類別尚無模組。
+Official service unavailable	官方服務暫時無法使用
+Installed data modules remain available. Please try again later.	已安裝的資料模組仍可使用，請稍後再試。
+Check your connection and retry. Your installed mods are still available.	請檢查網路連線後重試。已安裝的模組仍可使用。
+No matching downloads	找不到符合條件的下載
+Clear your search to see the queue.	清除搜尋以查看下載佇列。
+No downloads	尚無下載項目
+Your queue will appear here.	下載佇列會顯示在這裡。
+No matching mods	找不到符合條件的模組
+{0} installed  /  {1} active	已安裝 {0} 個 / 啟用中 {1} 個
+FLATS reconstruction\nScores and settings are saved on this device.\nOnline multiplayer uses your configured Photon app.\nStore purchase verification is unavailable.\n\nOriginal game: © Foliage Games LLC	FLATS 重建版本\n分數與設定會儲存在此裝置。\n線上多人遊戲使用已設定的 Photon 服務。\n無法驗證商店購買紀錄。\n\n原作：© Foliage Games LLC
+FLATS Web\nOnline play uses the site's configured Photon service.\nBuilt-in crosshair settings and data presets are supported.\nDownloaded DLL mods require desktop Mono.\nBrowser saves may be cleared by the browser.\n\nOriginal game: © Foliage Games LLC	FLATS 網頁版\n線上遊戲使用網站已設定的 Photon 服務。\n支援內建準心設定與資料預設。\n下載的 DLL 模組需要桌面版 Mono。\n瀏覽器可能會清除本機存檔。\n\n原作：© Foliage Games LLC
+General	一般設定
+Keyboard / Mouse	鍵盤／滑鼠
+Forward	前進
+Backward	後退
+Jump	跳躍
+Sprint	衝刺
+Fire	射擊
+Aim	瞄準
+Reload	換彈
+Grenade	手榴彈
+Change weapon	切換武器
+Change / hold to pick up	切換／按住拾取
+Jump / hold to sprint	跳躍／按住衝刺
+Toggle aim	切換瞄準
+Pick up / exchange	拾取／交換
+Default bindings restored.	已還原預設綁定。
+Binding saved.	已儲存按鍵綁定。
+Binding cancelled. Previous binding kept.	已取消，保留原本的綁定。
+Already assigned to: 	此按鍵已綁定：
+Connect a controller to bind its buttons.	請先連接控制器，再設定按鍵。
+Select an action, then press a controller button.	選擇動作，再按下控制器按鍵。
+Left stick: move. Right stick: look. Start: menu.	左搖桿：移動。右搖桿：視角。Start：選單。
+Select an action, then press a key or mouse button.	選擇動作，再按下鍵盤或滑鼠按鍵。
+Esc cancels. Duplicate bindings are rejected.	Esc 取消。不接受重複按鍵。
+Release all buttons, then press the new binding.	放開所有按鍵，再按下新的按鍵。
+Esc / Start cancels. Timeout: 10 seconds.	Esc／Start 取消。等待時間：10 秒。
+Menu: Esc / Start   |   Confirm: Enter / A   |   Back: Esc / B	選單：Esc／Start　｜　確認：Enter／A　｜　返回：Esc／B
+Left stick	左搖桿
+Right stick	右搖桿
+Mouse	滑鼠
+Hold	按住
+Look around: {control:Look}.	環顧四周：{control:Look}。
+Move: {control:Move}.	移動：{control:Move}。
+Fire: {control:Fire}.	射擊：{control:Fire}。
+Reload: {control:Reload}.	換彈：{control:Reload}。
+Change weapons: {control:Change}.	切換武器：{control:Change}。
+Throw grenade: {control:Grenade}.	投擲手榴彈：{control:Grenade}。
+Pick up: {control:Interact}.	拾取：{control:Interact}。
+Aim: {control:Aim}.	瞄準：{control:Aim}。
+Jump: {control:Jump}.	跳躍：{control:Jump}。
+Sprint: {control:Sprint}.	衝刺：{control:Sprint}。
+Menu: {control:Menu}.	開啟選單：{control:Menu}。
+Exchange weapon: {control:Interact}.	交換武器：{control:Interact}。
+Select reset to exit the tutorial.	選擇重設以離開教學。
+Walk to the black cube.	走到黑色方塊旁。
+Need to reload?	需要換彈嗎？
+Aim and shoot them.	瞄準並射擊敵人。
+Pick the sniper rifle on the floor.	拾取地上的狙擊步槍。
+Move left	向左移動
+Move right	向右移動
+Grab flag: {control:Interact}.	奪取旗幟：{control:Interact}。
+Reset bomb: {control:Interact}.	重設炸彈：{control:Interact}。
+Pick up bomb: {control:Interact}.	拾取炸彈：{control:Interact}。
+Join: {control:Join}.	加入：{control:Join}。
+Select a binding to change it.	選擇按鍵以變更綁定。
+Hold to sprint	按住以衝刺
+Hold to pick up	按住以拾取
+Press a button...	請按下按鍵…
+Release, then press a new binding. Esc / Start cancels.	放開後按下新按鍵。Esc／Start 取消。
+Quit Application	離開遊戲
+Quit Flats.	確定要離開 FLATS 嗎？
+Your installed mods still work. Please try again later.	已安裝的模組仍可使用，請稍後再試。
+Exit from current game and reboot.	結束目前的遊戲並返回主選單。
+Store unavailable	商店無法使用
+This build cannot verify or restore Store purchases. No purchase has been made and no entitlement has been granted.	此版本無法驗證或還原商店購買紀錄。未進行任何購買，也未授予任何購買權益。
+Incorrect input	輸入錯誤
+Custom mapping failed.	自訂按鍵設定失敗。
+Connect a controller	請連接控制器
+You must connect a controller to make its custom mapping.	請先連接控制器，再設定自訂按鍵。
+Deleted your custom mapping.	已刪除自訂按鍵設定
+Your custom controller mapping has been deleted.	已刪除你的控制器自訂按鍵設定。
+No custom mapping.	沒有自訂按鍵設定
+Your custom controller mapping does not exist.	你尚未建立控制器自訂按鍵設定。
+Extremely low framerate!	畫面更新率過低！
+All graphics settings have been disabled.	已停用所有圖形效果。
+Local match	單機對戰
+The offline room could not be created. Please try again.	無法建立離線房間，請再試一次。
+Enter a room name.	請輸入房間名稱。
+Cardboard mode	Cardboard 模式
+Use gamepads to play VR mode.	請使用遊戲控制器遊玩 VR 模式。
+Legacy cloud unavailable	舊版雲端服務無法使用
+Original service data cannot be accessed. No cloud data was loaded.	無法存取原有服務的資料，未載入任何雲端資料。
+Use Export save / Import old save files, or LAN Sync between desktop devices.	請使用「匯出存檔／匯入舊存檔」，或在桌面裝置之間使用區域網路同步。
+Not available	無法使用
+Sorry, currently not available.	抱歉，目前無法使用。
+Not available from TV	電視裝置無法使用
+Sorry, currently this option is unavalable.	抱歉，目前無法使用此選項。
+This option is unavailable.	此選項無法使用
+Sorry, currently this option is not supported in VR mode.	抱歉，VR 模式目前不支援此選項。
+Return to the main menu	返回主選單
+End your game or matchmaking before syncing saved scores.	請先結束遊戲或配對，再同步已儲存的分數。
+LAN Sync in this browser	瀏覽器中的區域網路同步
+Browsers cannot use UDP LAN sync. Use Export save on the source device, then Import old save here. These controls are below LAN Sync.	瀏覽器無法使用 UDP 區域網路同步。請在來源裝置匯出存檔，再於此處匯入舊存檔。這些功能位於區域網路同步下方。
+LAN Sync unavailable	區域網路同步無法使用
+The LAN component is missing. Use Export save / Import old save instead.	缺少區域網路元件，請改用「匯出存檔／匯入舊存檔」。
+LAN Sync failed	區域網路同步失敗
+Review received scores	確認收到的分數
+LAN sender ID: {0}	區域網路傳送者 ID：{0}
+Kills / deaths: {0} / {1}	擊殺／死亡：{0}／{1}
+Survival / assortment / headshot: {0} / {1} / {2}	生存／綜合／爆頭：{0}／{1}／{2}
+Replace only your ID and these five scores, then reload? Confirm only a sender you recognize.	要僅取代你的 ID 與這五項分數，然後重新載入嗎？請只確認你認得的傳送者。
+Replace scores	取代分數
+Broadcasting LAN scores	正在廣播區域網路分數
+Sending ID: {0}	傳送中的 ID：{0}
+Open LAN Sync on the receiving device now. Delivery is not confirmed here.	請在接收裝置開啟區域網路同步。此處無法確認資料是否已送達。
+Broadcast stops after 60 seconds, or when you close this dialog.	廣播會在 60 秒後或關閉此視窗時停止。
+LAN broadcast ended	區域網路廣播已結束
+Received scores are no longer valid. Your scores were not changed.	收到的分數已失效，你的分數未變更。
+Could not confirm save	無法確認存檔
+Current-session scores were restored. Check the storage error before retrying or restarting.	已還原本次遊戲的分數。請先確認儲存錯誤，再重試或重新啟動。
+Multiplayer Ready	多人遊戲已就緒
+If you are playing singleplayer, current score will be saved.	若你正在遊玩單人模式，目前的分數將會儲存。
+Match could not start	無法開始對戰
+Not all players completed synchronization within 60 seconds. The room connection was closed. Return to the main menu, then host or join again.	部分玩家未在 60 秒內完成同步，房間連線已關閉。請返回主選單，再重新建立或加入房間。
+Scores are local only	分數僅儲存在本機
+No scores were uploaded. The original cloud service is unavailable. This leaderboard shows scores stored on this device. Use save files or LAN Sync to transfer scores.	未上傳任何分數。原有雲端服務無法使用，此排行榜顯示此裝置儲存的分數。請使用存檔或區域網路同步來移轉分數。
+Image size error	圖片尺寸錯誤
+Image scale must be larger than 128x128.	圖片尺寸必須大於 128×128。
+Leave the current room before changing region.	請先離開目前的房間，再切換伺服器區域。
+Multiplayer request timed out	多人遊戲請求逾時
+The server did not complete the room request within 25 seconds. Please retry.	伺服器未在 25 秒內完成房間請求，請再試一次。
+Local modules need attention	本機模組需要處理
+Multiplayer connection	多人遊戲連線
+The local module service is unavailable. Return to the main menu and restart FLATS after restoring module storage.	本機模組服務無法使用。請返回主選單，修復模組儲存空間後再重新啟動 FLATS。
+Local modules could not start. {0}	本機模組無法啟動。{0}
+Open MOD from the main menu to inspect storage recovery and retry. Multiplayer has not started.	請從主選單開啟模組中心，檢查儲存空間復原狀態後重試。多人遊戲尚未開始。
+Local module initialization did not finish within 15 seconds. Return to the main menu and check MOD, then retry multiplayer. No room was joined.	本機模組未在 15 秒內完成初始化。請返回主選單檢查模組中心，再重試多人遊戲。目前未加入任何房間。
+Photon connection timed out after 20 seconds. Please retry.	Photon 連線等待 20 秒後逾時，請再試一次。
+Photon connection lost: {0}	Photon 連線中斷：{0}
+
+Kill:{0} Death:{1} Time:{2}	擊殺：{0} 死亡：{1} 時間：{2}
+Time:{0}	時間：{0}
+Red:{0} Blue:{1} Time:{2}	紅隊：{0} 藍隊：{1} 時間：{2}
+Choosing the Mother Zombie...	正在選出母體殭屍…
+Winners: Survivors	勝利：倖存者
+Winners: Zombies	勝利：殭屍
+Winner:Survivors	勝利：倖存者
+You are offense side. Set the bomb on the enemies' base.	你是進攻方。請在敵方基地安裝炸彈。
+You are defense side. Defend your base.	你是防守方。請守住我方基地。
+Red Team	紅隊
+Blue Team	藍隊
+Game Over	遊戲結束
+Player Count: {0}	玩家人數：{0}
+Searching for a room...	正在尋找房間…
+Matchmaking... Wait or press Start Now.	配對中…請稍候，或按「立即開始」。
+Syncing... up to a minute.	同步中…最多約一分鐘。
+Player synchronization timed out.	玩家同步逾時。
+Adjusting team members...	正在調整隊伍成員…
+Score: {0}	分數：{0}
+Died at Phase {0}	在第 {0} 階段陣亡
+Max Headshot Chain: {0}	最高連續爆頭：{0}
+Highscore!!	最高分！！
+Your level is...	你的等級是…
+Beginner	新手
+Good Shooter	好槍手
+Survivor	倖存者
+Tough Guy	硬漢
+Gun Devil	槍魔
+Ninja	忍者
+Crazy Killer	瘋狂殺手
+FPS Zombie	FPS 殭屍
+Fribbler	閒晃者
+Day Dreamer	白日夢想家
+Store purchases unavailable	無法使用商店購買
+Goodbye Ads!	再見了，廣告！
+Thank you!	謝謝你！
+Beer for Developer	請開發者喝啤酒
+Upload (unavailable)	上傳（無法使用）
+Import failed	匯入失敗
+Export failed	匯出失敗
+Save exported	存檔已匯出
+Your save was written to:	你的存檔已寫入：
+Save files: Export on source; Import old save here.	存檔：在來源裝置匯出，在這裡匯入舊存檔。
+Preview before replacing the current save.	取代目前存檔前會先預覽。
+LAN Sync (native builds, same network):	區域網路同步（原生版本、同一網路）：
+Open source first, then receiver; confirm scores.	先開啟來源裝置，再開啟接收裝置，並確認分數。
+Only ID + scores transfer, not gameplay.	只會傳送 ID 和分數，不含遊戲內容。
+Browsers cannot use UDP LAN Sync.	瀏覽器無法使用 UDP 區域網路同步。
+Use save files to transfer your progress.	請使用存檔轉移你的進度。
+Legacy cloud restoration is unavailable.	無法還原舊版雲端資料。
+The ID/Receive entry cannot recover old cloud data.	ID／接收功能無法找回舊的雲端資料。
+Cloud unavailable	雲端服務無法使用
+Legacy ID (unavailable)	舊版 ID（無法使用）
+Play together online using a room code or LAN discovery.	使用房間代碼或區域網路探索，一起在線上遊玩。
+Internet required; players must use the same region and version.	需要網際網路；玩家必須使用相同的區域與版本。
+Host rules: Deathmatch · 3 kills · 2 players.	主機規則：死亡競賽 · 3 擊殺 · 2 名玩家。
+Discovered room	已發現的房間
+No room selected.	尚未選擇房間。
+No rooms found on this network.	在此網路上找不到房間。
+Refresh LAN or enter the host’s room code.	請重新整理區域網路，或輸入主機的房間代碼。
+Region: {0} / online {1}	區域：{0} / 線上版本 {1}
+Select a room below, or enter the host's code. Discovery expires after 30 seconds.	從下方選擇房間，或輸入主機的房間代碼。探索結果會在 30 秒後失效。
+Connecting to {0}... Back cancels.	正在連線到 {0}…按返回可取消。
+Join {0} / {1}	加入 {0} / {1}
+Room request timed out. Retry or check the host's code.	房間請求逾時，請重試或確認主機的房間代碼。
++ New profile	＋ 新增設定組合
+Clear filters	清除篩選
+Close filters	關閉篩選
+Compatible	相容
+Light	淺色
+Dark	深色
+Ring	圓環
+Find package	尋找套件
+Paste manifest.json	貼上 manifest.json
+Review package	檢視套件
+View details	查看詳情
+Your screen only	僅影響自己的畫面
+Multiplayer mod	多人模組
+Multiplayer session mod	多人對局模組
+Version {0}	版本 {0}
+At a glance	概覽
+By {0}	作者：{0}
+Not installed	未安裝
+Available version: {0}	可用版本：{0}
+Installed: None	已安裝：無
+Installed: {0}	已安裝：{0}
+Changes	更新內容
+No changelog provided.	未提供更新紀錄。
+Compatible with this FLATS build	相容於此 FLATS 版本
+Required dependencies	必要的相依模組
+Dependencies are installed individually after your review.	相依模組會在你確認後逐一安裝。
+Required: >= {0} < {1}	需要：>= {0} < {1}
+No description provided.	未提供說明。
+Affects your screen only.	只影響你的畫面。
+This mod participates in multiplayer session requirements.	此模組會納入多人對局的模組需求。
+This package runs code with FLATS privileges.	此套件會以 FLATS 的權限執行程式碼。
+Changes the local crosshair appearance.	變更本機的準心外觀。
+Not installed. Installation does not enable a new mod.	尚未安裝。安裝後不會自動啟用新模組。
+Client-only  /  Enabled in selected profile / Not active now	僅限本機  /  已在所選設定組合中啟用 / 目前未執行
+Client-only  /  Disabled in selected profile / Active now	僅限本機  /  已在所選設定組合中停用 / 目前執行中
+Restart required	需要重新啟動
+Needs attention / Restart required	需要處理 / 需要重新啟動
+Update available / Restart required	有可用更新 / 需要重新啟動
+Update available / Needs attention / Restart required	有可用更新 / 需要處理 / 需要重新啟動
+Disable on restart	重新啟動後停用
+Needs attention / Disable on restart	需要處理 / 重新啟動後停用
+Update available / Disable on restart	有可用更新 / 重新啟動後停用
+Update available / Needs attention / Disable on restart	有可用更新 / 需要處理 / 重新啟動後停用
+Needs attention / Disabled	需要處理 / 已停用
+Update available / Disabled	有可用更新 / 已停用
+Update available / Needs attention / Disabled	有可用更新 / 需要處理 / 已停用
+Active now	目前執行中
+Needs attention / Active now	需要處理 / 目前執行中
+Update available / Active now	有可用更新 / 目前執行中
+Update available / Needs attention / Active now	有可用更新 / 需要處理 / 目前執行中
+Enabled / not active	已啟用／尚未執行
+Needs attention / Enabled / not active	需要處理 / 已啟用／尚未執行
+Update available / Enabled / not active	有可用更新 / 已啟用／尚未執行
+Update available / Needs attention / Enabled / not active	有可用更新 / 需要處理 / 已啟用／尚未執行
+Requires desktop FLATS	需要桌面版 FLATS
+Update available	有可用更新
+Desktop required	需要桌面版
+Paused at {0} / {1} KB. Continue to resume. If the service cannot resume safely, the download starts again.	已暫停於 {0} / {1} KB。按「繼續」可恢復下載；若服務無法安全續傳，將重新開始下載。
+Source: {0} / {1} results	來源：{0} / {1} 個結果
+Import {0} v{1}?	要匯入 {0} v{1} 嗎？
+{0} KB · Local package	{0} KB · 本機套件
+ClientOnly	僅影響自己
+RequiredForSession	多人對局必需
+Installation does not enable a new mod. Restart is required to load it. Packages may run code.	安裝後不會自動啟用新模組，需要重新啟動才會載入。套件可能會執行程式碼。
+Select {0}?	要選擇 {0} 嗎？
+{0} enabled mods. Dependencies and conflicts will be checked.	已啟用 {0} 個模組，將檢查相依與衝突。
+Restart FLATS to run this configuration. Installed packages are shared.	重新啟動 FLATS 以執行此設定組合。已安裝的套件會共用。
+Delete {0}?	要刪除 {0} 嗎？
+Only this saved configuration is removed. Shared packages remain installed.	只會移除這個已儲存的設定組合，共用的套件仍會保留。
+Selected: {0}. Restart required; the running configuration is unchanged.	已選擇：{0}。需要重新啟動；目前執行中的設定不變。
+Selected: {0}. Profile edits are saved locally; packages are shared.	已選擇：{0}。設定組合的修改會儲存在本機；套件為共用。
+Installed {0}	已安裝 {0}
+Profile could not be loaded. No defaults were written.	無法載入個人檔案。未寫入任何預設值。
+Profile saved. Legacy preference copy could not be updated; it will be retried.	個人檔案已儲存。舊版偏好設定副本無法更新，稍後會再試一次。
+Save could not be confirmed. Existing recovery records were retained.	無法確認存檔是否完成。已保留現有的復原紀錄。
+Profile saved, but recovery-copy maintenance reported a problem.	個人檔案已儲存，但維護復原副本時發生問題。
+Imported profile is active for this session, but browser persistence was not confirmed. Export a backup and retry saving from the browser storage notice.	匯入的個人檔案已在本次遊戲中生效，但無法確認瀏覽器是否已保存。請先匯出備份，再從瀏覽器儲存提示重試儲存。
+The legacy resetData flag is enabled. Automatic data deletion was blocked.	舊版 resetData 旗標已啟用。已阻止自動刪除資料。
+Quit without overwriting data	不覆寫資料並離開
+Recovered previous committed generation. Damaged records retained: {0}	已從上一個已提交的版本復原。已保留損壞的紀錄：{0}
+Recovered base record. Damaged generations retained: {0}	已從基礎紀錄復原。已保留損壞的版本：{0}
+Recovered the last valid backup. Original retained at: {0}	已從最後一份有效備份復原。原始檔案保留於：{0}
+Also imports {0} personal settings (language, controls, crosshair).	另外會匯入 {0} 項個人設定（語言、按鍵、準心）。
+official.* mods can only be installed from the official source	official.* 模組只能從官方來源安裝
+Set in Mod center	在模組中心設定
+Everyone in the room needs the same version.	同一房間的每位玩家都需要安裝相同版本。
+
+Size	大小
+Thickness	粗細
+Gap	間距
+Opacity	透明度
+Outline	外框
+Outline color	外框顏色
+Cross Dot	十字加點
+T	T 字
+Classic	經典
+Precision Dot	精準點
+Wide Ring	寬圓環
+Save your Crosshair changes?	要儲存準心的變更嗎？
+The draft has not been applied. Saving keeps the mod's enabled state.	草稿尚未套用。儲存後會保留此模組的啟用狀態。
+Hold to aim	按住以瞄準
+Press to toggle	按一下切換
+Toggle	切換
+Aim Mode	瞄準方式
+Language	語言
+{0} enabled mods are not installed and will be skipped.	有 {0} 個已啟用的模組未安裝，將略過。
+Current game build	目前的遊戲版本
+Profile selected. Restart FLATS to apply its mods and settings.	已選擇設定組合。重新啟動 FLATS 後套用其中的模組與設定。
+Running profile selected.	已選擇目前執行中的設定組合。
+Saved	已儲存
+Saved to selected profile. Restart required.	已儲存到選擇的設定組合，需要重新啟動。
+All planned versions are already installed.	計畫中的版本都已安裝。
+Check storage access and restore compatible settings from a retained backup if needed. No module changes are available until recovery.	請檢查儲存空間的存取權限，必要時從保留的備份還原相容的設定。復原前無法變更模組。
+Enabled the complete dependency set in this profile. Restart FLATS to apply.	已在此設定組合中啟用整組相依模組。重新啟動 FLATS 後套用。
+Online source removed.	已移除線上來源。
+Removed from next launch. Any running version remains active until FLATS restarts.	下次啟動時移除。執行中的版本會持續作用，直到 FLATS 重新啟動。
+Requirements added to Downloads. When complete, review Enable again.	已將相依模組加入下載。完成後請再次檢查並啟用。
+Saved. Restart FLATS to apply external module changes.	已儲存。重新啟動 FLATS 後套用外部模組的變更。
+Source saved.	已儲存來源。
+Update check complete: {0} installed mods found at this source.	更新檢查完成：在此來源找到 {0} 個已安裝的模組。
+Style: {0} → {1}	樣式：{0} → {1}
+Size: {0} → {1} HUD units	大小：{0} → {1} HUD 單位
+Uninstall this mod?	要解除安裝這個模組嗎？
+The package will be removed. Its personal settings are retained. Any running version stays active until restart. Use Disable to keep the package.	套件會被移除，個人設定會保留。執行中的版本在重新啟動前仍會作用。若要保留套件，請改用「停用」。
+Conflicts: none in this plan.	衝突：此計畫沒有衝突。
+Data module. Restart to apply changes.	資料模組。重新啟動後套用變更。
+Managed code runs with FLATS privileges. Restart to apply changes.	程式碼模組會以 FLATS 的權限執行。重新啟動後套用變更。
+Needs attention / {0}	需要處理 / {0}
+Source: {0}	來源：{0}
+Total download: {0} KB	下載總量：{0} KB
+Install {0} and requirements?	要安裝 {0} 及其相依模組嗎？
+Enable {0} and requirements?	要啟用 {0} 及其相依模組嗎？
+{0}  {1} - download	{0}  {1} - 需下載
+{0}  {1} - installed	{0}  {1} - 已安裝
+Packages install together. New mods stay disabled; review Enable after downloading.	套件會一起安裝。新模組預設為停用，下載後請檢查並啟用。
+The complete dependency set will be enabled in this profile.	整組相依模組會在此設定組合中啟用。
+Restart FLATS to apply.	重新啟動 FLATS 後套用。
+Profiles unavailable	無法使用設定組合
+Restore Crosshair defaults?	要還原準心的預設值嗎？
+This changes only this mod's draft. Save changes to apply it. Other mods and game settings are not affected.	這只會變更此模組的草稿，儲存後才會套用，不影響其他模組與遊戲設定。
+T shape	T 字形
+Changes enemy health, damage and speed for everyone in the room.	變更房間內所有人的敵人生命、傷害與速度。
+Data package for the game feature {0}. It contains no code.	遊戲功能 {0} 的資料套件，不含程式碼。
+Source: {0} / {1} results (updating)	來源：{0} / {1} 個結果（更新中）
+Showing saved results. Check your connection, then retry.	目前顯示已儲存的結果。請檢查網路連線後再試一次。

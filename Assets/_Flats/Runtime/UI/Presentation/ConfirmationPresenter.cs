@@ -2,91 +2,34 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Events;
 using UnityEngine.EventSystems;
-namespace Flats.UI {
-public sealed partial class ConfirmationPresenter {
- private readonly GameObject confirm;
- private readonly Color[] originalTextColors;
- public ConfirmationPresenter(GameObject panel) { confirm = panel;originalTextColors=System.Array.ConvertAll(panel.GetComponentsInChildren<Text>(true),t=>t.color);CaptureOriginalAppearance(); }
-		public void ShowConfirm(Color theme, string title, string message, UnityAction<bool> action, string positiveBtnText, string negativeBtnText)
-		{
-			RestoreAppearance();
-            Color color = theme;
-			var labels=confirm.GetComponentsInChildren<Text>(true);
-			for(int i=0;i<labels.Length&&i<originalTextColors.Length;i++)labels[i].color=originalTextColors[i];
-			confirm.transform.GetChild(0).GetComponent<Image>().color = new Color(color.r / 2f, color.g / 2f, color.b / 2f, 1f);
-			confirm.transform.GetChild(1).GetComponent<Text>().text = title;
-			confirm.transform.GetChild(2).GetComponent<Text>().text = message;
-			confirm.transform.GetChild(3).GetChild(0).GetComponent<Text>()
-				.text = positiveBtnText;
-			confirm.transform.GetChild(4).GetChild(0).GetComponent<Text>()
-				.text = negativeBtnText;
-			confirm.transform.GetChild(5).GetChild(0).GetComponent<Text>()
-				.text = positiveBtnText;
-			GameObject gameObject = confirm.transform.GetChild(3).gameObject;
-			GameObject gameObject2 = confirm.transform.GetChild(4).gameObject;
-			GameObject gameObject3 = confirm.transform.GetChild(5).gameObject;
-			gameObject.GetComponent<Button>().onClick.RemoveAllListeners();
-			gameObject2.GetComponent<Button>().onClick.RemoveAllListeners();
-			gameObject3.GetComponent<Button>().onClick.RemoveAllListeners();
-			if (negativeBtnText == null && action != null)
-			{
-				gameObject3.SetActive(true);
-				gameObject3.GetComponent<Button>().onClick.AddListener(delegate
-				{
-					action(true);
-					OnClickedConfirm();
-				});
-			}
-			else if (negativeBtnText == null || action == null)
-			{
-				gameObject3.gameObject.SetActive(true);
-			}
-			else
-			{
-				gameObject.GetComponent<Button>().onClick.AddListener(delegate
-				{
-					action(true);
-					OnClickedConfirm();
-				});
-				gameObject2.GetComponent<Button>().onClick.AddListener(delegate
-				{
-					action(false);
-					OnClickedConfirm();
-				});
-				gameObject.gameObject.SetActive(true);
-				gameObject2.gameObject.SetActive(true);
-			}
-			confirm.gameObject.SetActive(true);
-            if(title=="Room modules differ")StyleRoomMismatch();
-			EventSystem.current.SetSelectedGameObject(title=="Room modules differ"?gameObject2:null);
-		}
-
-		public void OnClickedConfirm()
-		{
-			GameObject positiveBtn = confirm.transform.GetChild(3).gameObject;
-			GameObject negativeBtn = confirm.transform.GetChild(4).gameObject;
-			GameObject alertBtn = confirm.transform.GetChild(5).gameObject;
-			positiveBtn.GetComponent<Button>().onClick.RemoveAllListeners();
-			negativeBtn.GetComponent<Button>().onClick.RemoveAllListeners();
-			alertBtn.GetComponent<Button>().onClick.RemoveAllListeners();
-			positiveBtn.GetComponent<Button>().onClick.AddListener(delegate
-			{
-				positiveBtn.SetActive(false);
-				negativeBtn.SetActive(false);
-				confirm.SetActive(false);
-			});
-			negativeBtn.GetComponent<Button>().onClick.AddListener(delegate
-			{
-				positiveBtn.SetActive(false);
-				negativeBtn.SetActive(false);
-				confirm.SetActive(false);
-			});
-			alertBtn.GetComponent<Button>().onClick.AddListener(delegate
-			{
-				alertBtn.SetActive(false);
-				confirm.SetActive(false);
-			});
-		}
-
-}
+namespace Flats.UI
+{
+    public sealed partial class ConfirmationPresenter
+    {
+        readonly GameObject confirm;
+        readonly ConfirmationDialogView view;
+        public ConfirmationPresenter(GameObject panel)
+        {
+            confirm=panel;view=panel.GetComponent<ConfirmationDialogView>();
+        }
+        public void ShowConfirm(Color theme,string title,string message,UnityAction<bool> action,string positiveBtnText,string negativeBtnText)
+        {
+            view.title.text=title;view.message.text=message;
+            bool choice=negativeBtnText!=null;
+            Bind(view.positive,positiveBtnText,true,action);
+            Bind(view.negative,negativeBtnText,false,action);
+            Bind(view.alert,positiveBtnText,true,action);
+            view.positive.gameObject.SetActive(choice);view.negative.gameObject.SetActive(choice);view.alert.gameObject.SetActive(!choice);
+            confirm.SetActive(true);
+            ResetMessageScroll();
+            if(EventSystem.current!=null)EventSystem.current.SetSelectedGameObject(choice?view.negative.gameObject:view.alert.gameObject);
+        }
+        void Bind(Button button,string label,bool accepted,UnityAction<bool> action)
+        {
+            button.GetComponentInChildren<Text>(true).text=label??"";
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(()=>{OnClickedConfirm();action?.Invoke(accepted);});
+        }
+        public void OnClickedConfirm(){confirm.SetActive(false);}
+    }
 }

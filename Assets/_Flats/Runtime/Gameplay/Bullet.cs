@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using Vectrosity;
+[DefaultExecutionOrder(100)]
 public class Bullet : MonoBehaviour
 {
 	public float damage;
@@ -27,6 +28,7 @@ public class Bullet : MonoBehaviour
 	private bool played;
 
 	private VectorLine trail;
+	private bool trailOriginPending;
 
 	public bool grenade;
 
@@ -53,7 +55,9 @@ public class Bullet : MonoBehaviour
 		}
 		if (shooter.gameObject.activeSelf)
 		{
-			Physics.IgnoreCollision(base.GetComponent<Collider>(), shooter.GetComponent<Collider>());
+			// A dead shooter's CharacterController may already be destroyed.
+			var shooterCollider = shooter.GetComponent<Collider>();
+			if (shooterCollider != null) Physics.IgnoreCollision(base.GetComponent<Collider>(), shooterCollider);
 			if (FlatsOfflineScores.FreeForAll)
 				foreach (var ownCollider in shooter.GetComponentsInChildren<Collider>())
 					Physics.IgnoreCollision(GetComponent<Collider>(),ownCollider);
@@ -64,6 +68,7 @@ public class Bullet : MonoBehaviour
 		if (shooter.tag == "Player")
 		{
 			trail.points3.Add(shooter.GetComponent<FPSController>().primaryWeapon.GetChild(1).position);
+			trailOriginPending = !grenade && !hand;
 		}
 		else
 		{
@@ -291,8 +296,21 @@ public class Bullet : MonoBehaviour
 				played = true;
 			}
 		}
+	}
+
+	private void LateUpdate()
+	{
+		if (shooter == null || Camera.main == null) return;
 		if (trail != null)
 		{
+			// Resolve once after the weapon camera reaches this frame's authored
+			// pose. Keep old segments fixed in world space after the shot.
+			if (trailOriginPending)
+			{
+				var player = shooter.GetComponent<FPSController>();
+				if (player != null) trail.points3[0] = player.GetBulletTrailOrigin();
+				trailOriginPending = false;
+			}
 			if ((bool)mt && Time.timeScale != 0f)
 			{
 				trail.points3.Add(mt.position);

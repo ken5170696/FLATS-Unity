@@ -103,7 +103,7 @@ public class DamageReceiver : MonoBehaviour
 		if (!userIsPlayer)
 		{
 			myAI = GetComponent<AI>();
-			hitPoints = 1000f * (1f + (float)myAI.stats_Defense * 0.1f);
+			hitPoints = 1000f * (1f + (float)myAI.stats_Defense * 0.1f) * Flats.Core.EnemyTuning.Health;
 		}
 		while (true)
 		{
@@ -163,6 +163,17 @@ public class DamageReceiver : MonoBehaviour
 			yield return new WaitForSeconds(0f);
 		}
 		healthbar.size = 0f;
+	}
+
+	// Destroy(myAI) completes at the end of the frame; adding the sink before then
+	// would give Photon two methods with the same RPC name.
+	private IEnumerator AddDeadAIRpcSink()
+	{
+		yield return null;
+		if (this != null && GetComponent<AI>() == null && GetComponent<DeadAIRpcSink>() == null)
+		{
+			base.gameObject.AddComponent<DeadAIRpcSink>();
+		}
 	}
 
 	[PunRPC]
@@ -366,6 +377,14 @@ public class DamageReceiver : MonoBehaviour
 		}
 		else if (Menu.network != 1)
 		{
+			// Every client simulates every bullet, so each copy of a hit would report it
+			// and the target would take the damage once per client. Only the shooter's
+			// owner reports (the master client for AI shooters).
+			var shooterView = shooter != null ? shooter.gameObject.GetPhotonView() : null;
+			if (shooterView == null || !shooterView.isMine)
+			{
+				return;
+			}
 			array[0] = (int)damage;
 			array[1] = headshot;
 			array[2] = shooter.gameObject.GetPhotonView().viewID;
@@ -388,8 +407,7 @@ public class DamageReceiver : MonoBehaviour
 			return;
 		}
 		died = true;
-		GameObject gameObject = new GameObject();
-		gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
+		GameObject gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
 		if (gameObject == null)
 		{
 			return;
@@ -410,6 +428,7 @@ public class DamageReceiver : MonoBehaviour
 		else
 		{
 			UnityEngine.Object.Destroy(myAI);
+			if (Menu.network != 0) StartCoroutine(AddDeadAIRpcSink());
 		}
 		UnityEngine.Object.Destroy(GetComponent<CharacterController>());
 		for (int j = 0; j < mt.childCount; j++)

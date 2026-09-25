@@ -9,6 +9,7 @@ namespace Flats.UI
         Object owner;
         Image[] original;
         bool[] originalEnabled;
+        [SerializeField, Tooltip("Authored child graphic. It is enabled while a module replaces the original reticle.")]
         CrosshairGraphic custom;
         bool replacing;
         public bool IsCustom { get { return replacing; } }
@@ -23,29 +24,23 @@ namespace Flats.UI
         void LateUpdate()
         {
             var appearance = CrosshairPresentation.Appearance;
-            bool wanted = owner != null && appearance != null;
+            bool wanted = owner != null && appearance != null && custom != null;
             if (wanted && !replacing)
             {
                 for(int i=0;i<original.Length;i++) { originalEnabled[i]=original[i].enabled; original[i].enabled=false; }
-                if(custom == null)
-                {
-                    var go=new GameObject("ModuleCrosshair",typeof(RectTransform),typeof(CanvasRenderer),typeof(CrosshairGraphic));
-                    go.transform.SetParent(transform,false); custom=go.GetComponent<CrosshairGraphic>(); custom.raycastTarget=false;
-                    custom.rectTransform.sizeDelta=new Vector2(100,100);
-                }
                 custom.gameObject.SetActive(true); replacing=true;
             }
             if (!wanted) { Restore(); return; }
             // Legacy DesktopCrosshairSize may scale the parent. Module size is in HUD canvas units.
             var scale=transform.localScale;
             custom.rectTransform.localScale=new Vector3(1/Mathf.Max(.001f,scale.x),1/Mathf.Max(.001f,scale.y),1);
-            custom.Set(appearance.Style,appearance.Size);
+            custom.Set(appearance);
         }
         void Restore()
         {
             if(!replacing)return;
             for(int i=0;i<original.Length;i++)if(original[i]!=null)original[i].enabled=originalEnabled[i];
-            if(custom!=null) { custom.gameObject.SetActive(false); Destroy(custom.gameObject); custom=null; }
+            if(custom!=null)custom.gameObject.SetActive(false);
             replacing=false;
         }
         void OnDisable() { Restore(); }
