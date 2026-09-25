@@ -464,19 +464,14 @@ public class DamageReceiver : MonoBehaviour
 			}
 			if (MyView(killer.gameObject))
 			{
-				GameObject gameObject2 = UnityEngine.Object.Instantiate(effectCamera, ct.position, ct.rotation) as GameObject;
-				Supershot component = gameObject2.GetComponent<Supershot>();
-				component.headshot = true;
-				component.StartCoroutine("StartEffect", gameObject.transform);
+				Supershot.PlayKill(effectCamera, ct, gameObject.transform, true);
 			}
 		}
 		else if (command == "mortal" && ct != null)
 		{
 			if (MyView(killer.gameObject))
 			{
-				GameObject gameObject3 = UnityEngine.Object.Instantiate(effectCamera, ct.position, ct.rotation) as GameObject;
-				Supershot component2 = gameObject3.GetComponent<Supershot>();
-				component2.StartCoroutine("StartEffect", gameObject.transform);
+				Supershot.PlayKill(effectCamera, ct, gameObject.transform, false);
 			}
 		}
 		else if (command == "vip" && ct != null)

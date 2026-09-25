@@ -43,6 +43,31 @@ public class Supershot : MonoBehaviour
 
 	private LayerMask savedLayerMask;
 
+	// Awake runs inside Instantiate, so PlayKill sets the mode before creating the effect.
+	private static bool nextNoticeOnly;
+
+	// Kill cinematic turned off: only the text notice plays. Time, cameras, input and
+	// the pause menu are untouched.
+	private bool noticeOnly;
+
+	// Headshot and mortal-shot kills honour the player's Kill Cinematic setting.
+	public static void PlayKill(UnityEngine.Object prefab, Transform view, Transform target, bool headshot)
+	{
+		nextNoticeOnly = !FlatsControls.KillCinematic;
+		GameObject effect;
+		try
+		{
+			effect = UnityEngine.Object.Instantiate(prefab, view.position, view.rotation) as GameObject;
+		}
+		finally
+		{
+			nextNoticeOnly = false;
+		}
+		Supershot component = effect.GetComponent<Supershot>();
+		component.headshot = headshot;
+		component.StartCoroutine("StartEffect", target);
+	}
+
 	private void Awake()
 	{
 		if (!Menu.canOpen)
@@ -50,7 +75,11 @@ public class Supershot : MonoBehaviour
 			UnityEngine.Object.Destroy(base.gameObject);
 			return;
 		}
-		Menu.canOpen = false;
+		noticeOnly = nextNoticeOnly;
+		if (!noticeOnly)
+		{
+			Menu.canOpen = false;
+		}
 		speed = Time.deltaTime;
 		mt = base.transform;
 		mt.position = Camera.main.transform.position;
@@ -64,6 +93,12 @@ public class Supershot : MonoBehaviour
 		myCanvas.GetComponent<Canvas>().worldCamera = transform.GetComponent<Camera>();
 		myCanvas.position = transform.position;
 		myCanvas.rotation = transform.rotation;
+		if (noticeOnly)
+		{
+			GetComponent<Camera>().enabled = false;
+			Singleplayer.chance = true;
+			return;
+		}
 		Camera.main.GetComponent<FXAA>().enabled = false;
 		Camera.main.GetComponent<AmplifyMotionEffect>().enabled = false;
 		Camera.main.GetComponent<FxPro>().enabled = false;
@@ -81,6 +116,14 @@ public class Supershot : MonoBehaviour
 
 	public IEnumerator StartEffect(Transform target)
 	{
+		if (noticeOnly && (bool)ui)
+		{
+			myText.text = KillText();
+			myCanvas.SetParent(null);
+			myCanvas.position -= myCanvas.right * 5f;
+			anim.Play("Supershot");
+			yield break;
+		}
 		if ((bool)ui)
 		{
 			if (VRController.device == "cardboard")
@@ -158,37 +201,7 @@ public class Supershot : MonoBehaviour
 			Time.timeScale = newTimeScale;
 			Time.fixedDeltaTime /= slowFactor;
 			Time.maximumDeltaTime /= slowFactor;
-			if (Multiplayer.rule == 7)
-			{
-				if (vipLayer == LayerMask.NameToLayer("RedTeam"))
-				{
-					myText.text = "Blue team killed VIP!";
-				}
-				else
-				{
-					myText.text = "Red team killed VIP!";
-				}
-			}
-			else if (vip)
-			{
-				myText.text = "VIP was killed!";
-			}
-			else if (ally)
-			{
-				myText.text = "Team kill...";
-			}
-			else if (headshot && Singleplayer.rule == 2)
-			{
-				myText.text = "Headshot " + Singleplayer.headshotChain + "x";
-			}
-			else if (headshot && Singleplayer.enemy != 0)
-			{
-				myText.text = "Headshot";
-			}
-			else
-			{
-				myText.text = "Mortalshot";
-			}
+			myText.text = KillText();
 			myCanvas.SetParent(null);
 			if (ally)
 			{
@@ -227,8 +240,39 @@ public class Supershot : MonoBehaviour
 		}
 	}
 
+	private string KillText()
+	{
+		if (Multiplayer.rule == 7)
+		{
+			return vipLayer == LayerMask.NameToLayer("RedTeam") ? "Blue team killed VIP!" : "Red team killed VIP!";
+		}
+		if (vip)
+		{
+			return "VIP was killed!";
+		}
+		if (ally)
+		{
+			return "Team kill...";
+		}
+		if (headshot && Singleplayer.rule == 2)
+		{
+			return "Headshot " + Singleplayer.headshotChain + "x";
+		}
+		if (headshot && Singleplayer.enemy != 0)
+		{
+			return "Headshot";
+		}
+		return "Mortalshot";
+	}
+
 	public void EndEffect()
 	{
+		if (noticeOnly)
+		{
+			UnityEngine.Object.Destroy(myCanvas.gameObject);
+			UnityEngine.Object.Destroy(base.gameObject);
+			return;
+		}
 		GetComponent<FxPro>().enabled = false;
 		Time.timeScale = 1f;
 		Time.fixedDeltaTime *= slowFactor;
@@ -279,7 +323,10 @@ public class Supershot : MonoBehaviour
 
 	private void LateUpdate()
 	{
-		VectorLine.SetCamera3D(base.gameObject.GetComponent<Camera>());
+		if (!noticeOnly)
+		{
+			VectorLine.SetCamera3D(base.gameObject.GetComponent<Camera>());
+		}
 		if (stopAnim)
 		{
 			return;

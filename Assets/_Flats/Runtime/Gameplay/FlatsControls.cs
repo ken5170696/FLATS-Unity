@@ -20,6 +20,13 @@ public static class FlatsControls
         get => FlatsPreferences.GetString(AimModeKey) == "hold";
         set { FlatsPreferences.SetString(AimModeKey, value ? "hold" : "toggle"); FlatsPreferences.Save(); Changed?.Invoke(); }
     }
+    public const string KillCinematicKey = "ui.v1.killCinematic";
+    // Headshot and mortal-shot slow-motion camera. "off" keeps only the text notice.
+    public static bool KillCinematic
+    {
+        get => FlatsPreferences.GetString(KillCinematicKey) != "off";
+        set { FlatsPreferences.SetString(KillCinematicKey, value ? "on" : "off"); FlatsPreferences.Save(); Changed?.Invoke(); }
+    }
     public const string AimSensitivityKey = "controls.v1.aimSensitivity";
     // Look sensitivity while aimed, on the camera sensitivity scale (Low 1, Normal 2, High 3).
     // Index 0 follows the camera sensitivity, the original behaviour. Weapon zoom still slows it.

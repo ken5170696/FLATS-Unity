@@ -84,6 +84,8 @@ public partial class Menu
         if (aim != null) aim.GetChild(1).GetComponent<Text>().text = FlatsControls.HoldToAim ? "Hold" : "Toggle";
         var aimSensitivity = SettingsRow("AimSensitivity");
         if (aimSensitivity != null) aimSensitivity.GetChild(1).GetComponent<Text>().text = FlatsControls.AimSensitivityNames[FlatsControls.AimSensitivityIndex];
+        var killCinematic = SettingsRow("KillCinematic");
+        if (killCinematic != null) killCinematic.GetChild(1).GetComponent<Text>().text = FlatsControls.KillCinematic ? "ON" : "OFF";
     }
     // The contextual touch Interact button follows the action buttons to the same side.
     static void SetInteractAnchor(Transform hud, ETCBase.RectAnchor anchor)
@@ -100,6 +102,7 @@ public partial class Menu
         }
         else if (row.name == "AimMode") FlatsControls.HoldToAim = !FlatsControls.HoldToAim;
         else if (row.name == "AimSensitivity") FlatsControls.AimSensitivityIndex += direction;
+        else if (row.name == "KillCinematic") FlatsControls.KillCinematic = !FlatsControls.KillCinematic;
         else return false;
         RefreshPersonalRows();
         return true;
