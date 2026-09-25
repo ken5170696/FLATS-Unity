@@ -162,6 +162,24 @@ public partial class Menu
         if (show) RefreshBindings();
     }
 
+    // A controller player opening a Settings page lands on its first option rather than
+    // on Back; the Control page opens on the controller list.
+    void FocusDetailForController()
+    {
+        if (currentDetail == null || Input.GetJoystickNames().Length == 0 || PointerFocusPolicy.PointerActive) return;
+        if (current == "Settings" && currentDetail.transform == settingsScreen.GetChild(2) && bindingsPanel != null && bindingsPanel.activeSelf)
+        {
+            ShowBindings(true, true);
+            if (controllerRows.Count > 0) { EventSystem.current.SetSelectedGameObject(controllerRows[0].gameObject); return; }
+        }
+        foreach (var selectable in currentDetail.GetComponentsInChildren<Selectable>())
+        {
+            if (selectable is Scrollbar || !selectable.IsInteractable()) continue;
+            EventSystem.current.SetSelectedGameObject(selectable.gameObject);
+            return;
+        }
+    }
+
     void ChangeControlCategory(int direction)
     {
         if (FlatsControls.Capturing || releasePending) return;

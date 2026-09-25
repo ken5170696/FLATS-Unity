@@ -1439,6 +1439,9 @@ public partial class Menu : MonoBehaviour
 			standaloneModule.enabled = !controllerNavigation;
 			inControlModule.enabled = controllerNavigation;
 		}
+		// The pointer module handles the mouse; a resting cursor must not add a second,
+		// hover highlight next to controller focus.
+		inControlModule.allowMouseInput = false;
 		if (current != "Playing" && (EventSystem.current.currentSelectedGameObject == null || !EventSystem.current.currentSelectedGameObject.activeInHierarchy))
 		{
 			if (controllerNavigation)
@@ -1469,7 +1472,7 @@ public partial class Menu : MonoBehaviour
 					// their first tile, not on Back, so A does not leave the page.
 					EventSystem.current.SetSelectedGameObject(FirstVisibleTile());
 				}
-				else if (backButton.activeSelf && current != "Play" && current != "Singleplayer" && current != "Multiplayer")
+				else if (backButton.activeSelf && current != "Play" && current != "Singleplayer" && current != "Multiplayer" && !(current == "Settings" && currentDetail == null))
 				{
 					// Tile pages wait for their tiles to appear rather than settling on Back.
 					EventSystem.current.SetSelectedGameObject(backButton);
