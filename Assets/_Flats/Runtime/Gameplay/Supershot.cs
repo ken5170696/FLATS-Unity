@@ -50,6 +50,9 @@ public class Supershot : MonoBehaviour
 	// the pause menu are untouched.
 	private bool noticeOnly;
 
+	// Only the latest notice stays on screen during quick successive kills.
+	private static Supershot activeNotice;
+
 	// Headshot and mortal-shot kills honour the player's Kill Cinematic setting.
 	public static void PlayKill(UnityEngine.Object prefab, Transform view, Transform target, bool headshot)
 	{
@@ -118,6 +121,16 @@ public class Supershot : MonoBehaviour
 	{
 		if (noticeOnly && (bool)ui)
 		{
+			// The ragdoll knock-back belongs to the kill, not to the camera.
+			target.LookAt(player);
+			target.GetChild(3).GetChild(0).GetComponent<Rigidbody>().AddForce(target.forward * -UnityEngine.Random.Range(10000, 20000) - target.up * 10000f);
+			if (activeNotice != null && activeNotice != this)
+			{
+				activeNotice.EndEffect();
+			}
+			activeNotice = this;
+			// The HUD stays visible, so the notice draws above it.
+			myCanvas.GetComponent<Canvas>().sortingOrder = ui.sortingOrder + 1;
 			myText.text = KillText();
 			myCanvas.SetParent(null);
 			myCanvas.position -= myCanvas.right * 5f;
@@ -269,7 +282,15 @@ public class Supershot : MonoBehaviour
 	{
 		if (noticeOnly)
 		{
-			UnityEngine.Object.Destroy(myCanvas.gameObject);
+			if (activeNotice == this)
+			{
+				activeNotice = null;
+			}
+			stopAnim = true;
+			if (myCanvas != null)
+			{
+				UnityEngine.Object.Destroy(myCanvas.gameObject);
+			}
 			UnityEngine.Object.Destroy(base.gameObject);
 			return;
 		}
