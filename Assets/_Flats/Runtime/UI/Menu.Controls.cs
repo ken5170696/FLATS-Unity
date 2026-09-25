@@ -172,7 +172,6 @@ public partial class Menu
     static string ActionName(string action, bool pad)
     {
         if (action == "Change") return pad ? "Change / hold to pick up" : "Change weapon";
-        if (action == "Jump" && pad) return "Jump / hold to sprint";
         if (action == "Scope") return "Toggle aim";
         if (action == "Interact") return "Pick up / exchange";
         if (action == "Left") return "Move left";
@@ -188,7 +187,7 @@ public partial class Menu
             string action = BindingAction(i);
             bindingRows[i].transform.Find("Label").GetComponent<Text>().text = FlatsControls.Label(action, bindingPad);
             bindingLabels[i].text = ActionName(action, false);
-            bindingDetails[i].text = bindingPad && action == "Jump" ? "Hold to sprint" : bindingPad && action == "Change" ? "Hold to pick up" :
+            bindingDetails[i].text = bindingPad && action == "Sprint" ? "Click to toggle" : bindingPad && action == "Change" ? "Hold to pick up" :
                 !bindingPad && action == "Aim" ? (FlatsControls.HoldToAim ? "Hold to aim" : "Press to toggle") : "";
             // The action name fills the row height: centred alone, at the top above a hint line.
             bindingLabels[i].alignment = bindingDetails[i].text.Length > 0 ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft;

@@ -951,8 +951,8 @@ Feedback	回饋
 Vibration	震動
 Right stick: look	右搖桿：視角
 Left stick: move	左搖桿：移動
-Tap to jump. Hold while moving forward to sprint.	點一下跳躍。向前移動時按住可衝刺。
-Hold to run faster.	按住以加速奔跑。
+Press to jump.	按一下跳躍。
+Click while moving forward to sprint. Sprint stops when you stop moving forward or aim. Holding also works.	向前移動時按一下開始衝刺；停止前進或開鏡時結束。按住也可以。
 Shoot. Hold for automatic weapons.	射擊。自動武器請按住。
 Hold to aim down sights.	按住以開鏡瞄準。
 Reload the current weapon.	為目前的武器換彈。
@@ -966,3 +966,4 @@ Standard (default): slower near the centre for fine aim. Linear: the view follow
 Stick movement inside the circle is ignored. Raise it if the view drifts by itself. Auto uses the controller's own setting.	圓圈內的搖桿移動會被忽略。視角會自己飄移時請調高。「自動」使用手把本身的設定。
 Stick movement inside the circle is ignored. Raise it if you walk without touching the stick. Auto uses the controller's own setting.	圓圈內的搖桿移動會被忽略。沒碰搖桿卻會走動時請調高。「自動」使用手把本身的設定。
 Strength of controller vibration when firing. OFF turns it off.	射擊時手把震動的強度。「關閉」即不震動。
+Click to toggle	按一下切換

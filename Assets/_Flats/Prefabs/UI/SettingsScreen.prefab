@@ -39563,7 +39563,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PreviewTarget
   preview: {fileID: 5592935564487959731}
   title: Jump
-  description: Tap to jump. Hold while moving forward to sprint.
+  description: Press to jump.
   kind: 1
   action: Jump
 --- !u!1 &7427828327655304118
@@ -39698,7 +39698,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PreviewTarget
   preview: {fileID: 5592935564487959731}
   title: Sprint
-  description: Hold to run faster.
+  description: Click while moving forward to sprint. Sprint stops when you stop moving forward or aim. Holding also works.
   kind: 1
   action: Sprint
 --- !u!1 &7703568146048441973
