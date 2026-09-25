@@ -80,16 +80,53 @@ namespace InControl
 				}
 				else if (UnnamedJoystickHasInput(id))
 				{
-					UnityInputDeviceProfileBase profile = systemDeviceProfiles.Find((UnityInputDeviceProfileBase config) => config is XboxOneWin10AEProfile)
-						?? systemDeviceProfiles.Find((UnityInputDeviceProfileBase config) => config is XboxOneWin10Profile)
-						?? systemDeviceProfiles.Find((UnityInputDeviceProfileBase config) => config is Xbox360WinProfile);
 					unnamedJoysticks.RemoveAt(i);
-					if (profile != null)
+					var profile = new UnnamedXInputProfile();
+					AttachDevice(new UnityInputDevice(profile, id, string.Empty));
+					Debug.Log("[InControl] Unnamed joystick " + id + " attached as " + profile.Name);
+				}
+			}
+		}
+
+		// The Xbox profile reads each trigger from its own axis (9th LT, 10th RT) and
+		// also from the shared 3rd axis (LT positive, RT negative), keeping the larger
+		// value. Some controllers report the shared axis with the opposite sign, so LT
+		// also pulled RT and aiming fired. Once either separate trigger axis has moved,
+		// this profile ignores the shared axis. One instance per attached device.
+		private sealed class UnnamedXInputProfile : XboxOneWin10AEProfile
+		{
+			public UnnamedXInputProfile()
+			{
+				var shared = new SharedTriggerSource();
+				foreach (InputControlMapping mapping in AnalogMappings)
+				{
+					var analog = mapping.Source as UnityAnalogSource;
+					if (analog != null && analog.AnalogIndex == 2 &&
+						(mapping.Target == InputControlType.LeftTrigger || mapping.Target == InputControlType.RightTrigger))
 					{
-						AttachDevice(new UnityInputDevice(profile, id, string.Empty));
-						Debug.Log("[InControl] Unnamed joystick " + id + " attached as " + profile.Name);
+						mapping.Source = shared;
 					}
 				}
+			}
+		}
+
+		private sealed class SharedTriggerSource : InputControlSource
+		{
+			private bool separateAxesSeen;
+
+			public float GetValue(InputDevice inputDevice)
+			{
+				var device = (UnityInputDevice)inputDevice;
+				if (!separateAxesSeen && (Mathf.Abs(device.ReadRawAnalogValue(8)) > 0.05f || Mathf.Abs(device.ReadRawAnalogValue(9)) > 0.05f))
+				{
+					separateAxesSeen = true;
+				}
+				return separateAxesSeen ? 0f : device.ReadRawAnalogValue(2);
+			}
+
+			public bool GetState(InputDevice inputDevice)
+			{
+				return Utility.IsNotZero(GetValue(inputDevice));
 			}
 		}
 
