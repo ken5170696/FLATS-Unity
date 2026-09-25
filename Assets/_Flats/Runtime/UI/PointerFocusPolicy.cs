@@ -14,6 +14,9 @@ public sealed class PointerFocusPolicy : MonoBehaviour
 {
     [Tooltip("Mouse movement, in pixels per frame, that counts as switching to the pointer.")]
     [SerializeField] float pointerMoveThreshold = 4f;
+    [Tooltip("Frame drawn around the focused control while a keyboard or controller is in use. Theme materials ignore the Selectable tint, so this frame is what shows focus.")]
+    [SerializeField] Color focusFrameColor = new Color(.12f, .02f, .08f, .9f);
+    [SerializeField] float focusFrameWidth = 3f;
 
     // Menu's controller watchdog selects a control when nothing is selected; it waits
     // while the pointer is in use instead of fighting this policy every frame.
@@ -23,19 +26,76 @@ public sealed class PointerFocusPolicy : MonoBehaviour
     bool pointerMode;
     GameObject remembered;
     Vector3 lastMouse;
-    // The cursor position jumps when the window is created or regains focus; that is
-    // not the player moving the mouse.
-    int ignoreMoveFrames;
+    // The cursor position jumps when the window is created, placed or regains focus;
+    // that is not the player moving the mouse.
+    float ignoreMoveUntil;
+    RectTransform focusFrame;
 
     void Awake() { events = GetComponent<EventSystem>(); }
-    void OnEnable() { lastMouse = Input.mousePosition; ignoreMoveFrames = 3; }
-    void OnApplicationFocus(bool focused) { if (focused) ignoreMoveFrames = 3; }
-    void OnDisable() { PointerActive = false; }
+    void OnEnable() { lastMouse = Input.mousePosition; ignoreMoveUntil = Time.unscaledTime + .5f; }
+    void OnApplicationFocus(bool focused) { if (focused) ignoreMoveUntil = Time.unscaledTime + .5f; }
+    void OnDisable() { PointerActive = false; if (focusCanvas != null) focusCanvas.gameObject.SetActive(false); }
+
+    // The frame lives on its own overlay canvas and follows the focused control's screen
+    // rectangle, so it never becomes a child of authored UI (legacy code walks children by
+    // index) and draws with the default UI material whatever theme the control uses.
+    Canvas focusCanvas;
+    readonly Vector3[] corners = new Vector3[4];
+
+    void ShowFocusFrame(GameObject target)
+    {
+        var rect = target != null && target.activeInHierarchy ? target.transform as RectTransform : null;
+        var canvas = rect != null ? rect.GetComponentInParent<Canvas>() : null;
+        if (rect == null || canvas == null || !canvas.enabled)
+        {
+            if (focusCanvas != null) focusCanvas.gameObject.SetActive(false);
+            return;
+        }
+        if (focusCanvas == null)
+        {
+            focusCanvas = new GameObject("ControllerFocusFrame", typeof(RectTransform), typeof(Canvas)).GetComponent<Canvas>();
+            focusCanvas.transform.SetParent(transform, false);
+            focusCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            focusCanvas.sortingOrder = 32000;
+            focusFrame = new GameObject("Frame", typeof(RectTransform)).GetComponent<RectTransform>();
+            focusFrame.SetParent(focusCanvas.transform, false);
+            focusFrame.anchorMin = focusFrame.anchorMax = Vector2.zero;
+            focusFrame.pivot = Vector2.zero;
+            for (int i = 0; i < 4; i++)
+            {
+                var edge = new GameObject("Edge", typeof(RectTransform), typeof(Image)).GetComponent<RectTransform>();
+                edge.SetParent(focusFrame, false);
+                var image = edge.GetComponent<Image>();
+                image.raycastTarget = false;
+                image.color = focusFrameColor;
+                bool vertical = i >= 2;
+                edge.anchorMin = vertical ? new Vector2(i == 2 ? 0 : 1, 0) : new Vector2(0, i == 0 ? 0 : 1);
+                edge.anchorMax = vertical ? new Vector2(i == 2 ? 0 : 1, 1) : new Vector2(1, i == 0 ? 0 : 1);
+                edge.pivot = vertical ? new Vector2(i == 2 ? 0 : 1, .5f) : new Vector2(.5f, i == 0 ? 0 : 1);
+                edge.anchoredPosition = Vector2.zero;
+            }
+        }
+        var root = canvas.rootCanvas;
+        var camera = root.renderMode == RenderMode.ScreenSpaceOverlay ? null : root.worldCamera;
+        rect.GetWorldCorners(corners);
+        Vector2 min = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
+        Vector2 max = RectTransformUtility.WorldToScreenPoint(camera, corners[2]);
+        focusFrame.anchoredPosition = min;
+        focusFrame.sizeDelta = max - min;
+        // Width is authored for the 800x600 reference layout.
+        float width = Mathf.Max(2f, focusFrameWidth * Screen.height / 600f);
+        for (int i = 0; i < 4; i++)
+        {
+            var edge = (RectTransform)focusFrame.GetChild(i);
+            edge.sizeDelta = i >= 2 ? new Vector2(width, 0) : new Vector2(0, width);
+        }
+        focusCanvas.gameObject.SetActive(true);
+    }
 
     void LateUpdate()
     {
         bool moved = Input.mousePresent && (Input.mousePosition - lastMouse).sqrMagnitude > pointerMoveThreshold * pointerMoveThreshold;
-        if (ignoreMoveFrames > 0) { ignoreMoveFrames--; moved = false; }
+        if (Time.unscaledTime < ignoreMoveUntil) moved = false;
         bool pointer = Input.touchCount > 0 || Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1) || moved;
         lastMouse = Input.mousePosition;
         bool navigation = NavigationInput();
@@ -47,8 +107,10 @@ public sealed class PointerFocusPolicy : MonoBehaviour
         if (!pointerMode)
         {
             if (selected == null && navigation && Usable(remembered)) events.SetSelectedGameObject(remembered);
+            ShowFocusFrame(Menu.current == "Playing" ? null : events.currentSelectedGameObject);
             return;
         }
+        ShowFocusFrame(null);
         // Presses, drags, text entry and key capture keep their focus.
         if (selected == null || Input.GetMouseButton(0) || Input.GetMouseButton(1) || Input.touchCount > 0) return;
         if (FlatsControls.Capturing || selected.GetComponent<InputField>() != null) return;

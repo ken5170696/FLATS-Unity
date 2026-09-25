@@ -1376,14 +1376,22 @@ public partial class Menu : MonoBehaviour
 	// Last main-menu tile that had focus, so controller focus comes back to it after a
 	// dialog, a pointer click or a return from another page.
 	private GameObject lastMainTile;
+	// The Settings categories reuse the same tiles, so they are remembered separately.
+	private GameObject lastSettingsTile;
 
 	private void RememberMainTile()
 	{
 		var selected = EventSystem.current.currentSelectedGameObject;
 		if (selected == null || buttons == null) return;
+		bool main = current == "Main", settings = current == "Settings" && currentDetail == null;
+		if (!main && !settings) return;
 		foreach (Image tile in buttons)
 		{
-			if (tile != null && tile.transform.parent.gameObject == selected) { lastMainTile = selected; return; }
+			if (tile != null && tile.transform.parent.gameObject == selected)
+			{
+				if (main) lastMainTile = selected; else lastSettingsTile = selected;
+				return;
+			}
 		}
 	}
 
@@ -1465,6 +1473,11 @@ public partial class Menu : MonoBehaviour
 				{
 					// Return to the tile the player was on, not always the first one.
 					EventSystem.current.SetSelectedGameObject(MainTileToRestore());
+				}
+				else if (current == "Settings" && currentDetail == null && lastSettingsTile != null && lastSettingsTile.activeInHierarchy && lastSettingsTile.GetComponent<Selectable>().IsInteractable())
+				{
+					// Back from a Settings page returns to that page's category.
+					EventSystem.current.SetSelectedGameObject(lastSettingsTile);
 				}
 				else if (FirstVisibleTile() != null)
 				{
