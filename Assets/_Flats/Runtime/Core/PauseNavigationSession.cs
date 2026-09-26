@@ -33,6 +33,12 @@ namespace Flats.Core
             return true;
         }
 
+        /// <summary>Another owner released its pause while this menu was open: resume to that scale.</summary>
+        public void ReplaceSavedTimeScale(float timeScale)
+        {
+            if (IsOpen && frozeSimulation) SavedTimeScale = timeScale;
+        }
+
         public static float ListenerVolume(float configuredVolume, bool playing)
         {
             return configuredVolume * (playing ? 1f : 0.5f);

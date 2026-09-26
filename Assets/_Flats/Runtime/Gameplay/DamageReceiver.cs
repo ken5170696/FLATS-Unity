@@ -96,10 +96,8 @@ public class DamageReceiver : MonoBehaviour
 			yield return new WaitForSeconds(3f);
 			invincibility = false;
 		}
-		else
-		{
-			invincibility = false;
-		}
+		// Other actors spawning must not end the local player's protection, so the static
+		// flag is only cleared by its owners (spawn timer, kill camera, round changes).
 		if (!userIsPlayer)
 		{
 			myAI = GetComponent<AI>();
@@ -185,7 +183,8 @@ public class DamageReceiver : MonoBehaviour
 		{
 			return;
 		}
-		if (!base.gameObject.activeSelf || invincibility)
+		// Invincibility protects players (spawn, kill camera), as in ApplyDamage; a round change protects everyone.
+		if (!base.gameObject.activeSelf || (invincibility && userIsPlayer) || Multiplayer.roundChanging)
 		{
 			return;
 		}
@@ -476,10 +475,7 @@ public class DamageReceiver : MonoBehaviour
 		{
 			if (Menu.network == 0 || !MyView(base.gameObject))
 			{
-				GameObject gameObject4 = UnityEngine.Object.Instantiate(effectCamera, ct.position, ct.rotation) as GameObject;
-				Supershot component3 = gameObject4.GetComponent<Supershot>();
-				component3.vip = true;
-				component3.StartCoroutine("StartEffect", gameObject.transform);
+				Supershot.PlayKill(effectCamera, ct, gameObject.transform, false, true);
 			}
 		}
 		else if (command == "ally" && ct != null)
@@ -546,6 +542,12 @@ public class DamageReceiver : MonoBehaviour
 						{
 							text = "Suicide:" + base.gameObject.GetPhotonView().owner.NickName;
 							multiplayer.GetPhotonView().RPC("Log", PhotonTargets.All, text);
+							// A VIP lost to a fall or their own grenade still starts the next VIP round.
+							if (Multiplayer.rule == 7 && myFPSController.vip && !Multiplayer.end)
+							{
+								invincibility = true;
+								multiplayer.GetPhotonView().RPC("VIPRound", PhotonTargets.All);
+							}
 						}
 					}
 				}
@@ -643,11 +645,7 @@ public class DamageReceiver : MonoBehaviour
 			}
 			else if (!MyView(base.gameObject) && Multiplayer.rule == 7 && myFPSController.vip)
 			{
-				GameObject gameObject6 = UnityEngine.Object.Instantiate(effectCamera, ct.position, ct.rotation) as GameObject;
-				Supershot component4 = gameObject6.GetComponent<Supershot>();
-				component4.vip = true;
-				component4.vipLayer = base.gameObject.layer;
-				component4.StartCoroutine("StartEffect", gameObject.transform);
+				Supershot.PlayKill(effectCamera, ct, gameObject.transform, false, true, base.gameObject.layer);
 			}
 		}
 		if (myFPSController != null)

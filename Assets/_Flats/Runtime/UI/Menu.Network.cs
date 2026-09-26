@@ -141,7 +141,7 @@ public partial class Menu
 		{
 			filterMode = FilterMode.Bilinear
 		};
-		byte[] bytes = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
+		byte[] bytes = FlatsUserIcon.Read(defaultIcon);
 		icon.LoadImage(bytes);
 		ExitGames.Client.Photon.Hashtable playerProps = new ExitGames.Client.Photon.Hashtable();
 		playerProps["K"] = myCharacter.kill;
@@ -290,6 +290,24 @@ public partial class Menu
             ++readyOperation;
             readyStarted = false;
             StopCoroutine("Ready");
+            RestoreReadyPause();
+        }
+
+        // Ready pauses a single-player game in progress; an abandoned attempt must resume it.
+        private bool readyPausedGame;
+        private void RestoreReadyPause()
+        {
+            // canOpen is false once GameOver owns the screen; the pause menu keeps its own pause.
+            if (readyPausedGame && gameState == "Singleplayer" && canOpen)
+            {
+                if (pauseNavigation.IsOpen)
+                {
+                    if (pauseNavigation.SavedTimeScale == 0f) pauseNavigation.ReplaceSavedTimeScale(1f);
+                    if (savedTimeScale == 0f) savedTimeScale = 1f;
+                }
+                else if (current == "Playing" && Time.timeScale == 0f) Time.timeScale = 1f;
+            }
+            readyPausedGame = false;
         }
 
         private void OnLeftRoom()
@@ -314,6 +332,7 @@ public partial class Menu
 			{
 				ShowConfirm("Multiplayer Ready", "If you are playing singleplayer, current score will be saved.", null, "OK", null);
 				Time.timeScale = 0f;
+				readyPausedGame = true;
 				if (gameState == "Singleplayer")
 				{
 					myCurrent.survival_Score = currentSurvivalScore;
@@ -335,12 +354,12 @@ public partial class Menu
 			syncedPlayer = 0;
 			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(5f));
             if (operation != readyOperation || !PhotonNetwork.inRoom ||
-                UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle != scene) yield break;
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle != scene) { RestoreReadyPause(); yield break; }
 			base.gameObject.GetPhotonView().RPC("Sync", PhotonTargets.AllBuffered);
 			while (true)
 			{
                 if (operation != readyOperation || !PhotonNetwork.inRoom ||
-                UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle != scene) yield break;
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle != scene) { RestoreReadyPause(); yield break; }
                 if (Time.realtimeSinceStartup >= deadline)
                 {
                     // Invalidate this attempt before disconnecting so delayed buffered RPCs
@@ -359,6 +378,7 @@ public partial class Menu
                         "Not all players completed synchronization within 60 seconds. The room connection was closed. Return to the main menu, then host or join again.",
                         result => { if (result && this != null && UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle == scene) Reset(true); },
                         "Return to menu", null);
+                    RestoreReadyPause();
                     yield break;
                 }
 				if (PhotonNetwork.isMasterClient && syncedPlayer >= PhotonNetwork.room.PlayerCount)
@@ -374,6 +394,8 @@ public partial class Menu
 				}
 				break;
 			}
+			// The match is starting; the pause now belongs to the match transition.
+			readyPausedGame = false;
 		}
 
 		[PunRPC]
@@ -777,6 +799,7 @@ public partial class Menu
 
 		private void OnDisconnectedFromPhoton()
 		{
+            Debug.LogWarning("FLATS_PHOTON_DISCONNECTED state=" + PhotonNetwork.connectionStateDetailed + " wasInRoom=" + wasInRoom + " gettingRoomList=" + gettingRoomList + " gameState=" + gameState + " current=" + current);
             ResetMatchReadiness();
 			if (gettingRoomList)
 			{

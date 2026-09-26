@@ -41,13 +41,24 @@ public class PhaseSkipper : MonoBehaviour
 		{
 			GameObject[] array3 = GameObject.FindGameObjectsWithTag("Enemy");
 			GameObject[] array4 = array3;
+			int allies = LayerMask.NameToLayer("RedTeam");
 			foreach (GameObject obj2 in array4)
 			{
+				// Ally bots are tagged Enemy too; the skip only removes the opposing side.
+				if (obj2.layer == allies)
+				{
+					continue;
+				}
 				UnityEngine.Object.Destroy(obj2);
 			}
 			base.GetComponent<AudioSource>().PlayOneShot(skipSE);
 			Singleplayer.enemy = 0;
 			Singleplayer.respawnEnemy = 0;
+			// The VIP round waits for the VIP's death, which a skipped VIP never reports.
+			if (Singleplayer.currentAssortmentRule == 7)
+			{
+				Singleplayer.cleared = true;
+			}
 			sp.Log("Killed all enemies!");
 		}
 	}

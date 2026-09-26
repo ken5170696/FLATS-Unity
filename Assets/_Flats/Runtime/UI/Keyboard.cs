@@ -56,11 +56,11 @@ public class Keyboard : MonoBehaviour
 	private void Update()
 	{
 		InputDevice activeDevice = InputManager.ActiveDevice;
-		if ((!Menu.customControlEnabled && activeDevice.Action2.WasPressed) || (Menu.customControlEnabled && Input.GetButtonDown(Menu.customControl["Pick"])))
+		if ((!Menu.customControlEnabled && activeDevice.Action2.WasPressed) || (Menu.customControlEnabled && FlatsControls.LegacyPad(Menu.customControl["Pick"], 1)))
 		{
 			KeyboardInput("backspace");
 		}
-		else if ((!Menu.customControlEnabled && activeDevice.Action3.WasPressed) || (Menu.customControlEnabled && Input.GetButtonDown(Menu.customControl["Reload"])))
+		else if ((!Menu.customControlEnabled && activeDevice.Action3.WasPressed) || (Menu.customControlEnabled && FlatsControls.LegacyPad(Menu.customControl["Reload"], 1)))
 		{
 			KeyboardInput("clear");
 		}

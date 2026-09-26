@@ -159,8 +159,12 @@ public sealed partial class ModuleManagementPage : MonoBehaviour
     {
         var parent=transform.parent as RectTransform;
         if(parent==null || parent.rect.height<=0)return;
+        float aspect=parent.rect.width/parent.rect.height;
         float designHeight=Mathf.Max(1,referenceHeight);
-        float width=designHeight*parent.rect.width/parent.rect.height-2*edgePadding.x;
+        // Portrait canvases are far narrower than the landscape design; derive the design
+        // height from the portrait width so the page scales to the width, not to the height.
+        if(aspect<1f)designHeight=Mathf.Max(1,portraitReferenceWidth)/aspect;
+        float width=designHeight*aspect-2*edgePadding.x;
         float height=designHeight-2*edgePadding.y;
         // Keep the controls' minimum layout area on short windows, then fit the
         // complete page uniformly. Pixel-height layout made the slider and its

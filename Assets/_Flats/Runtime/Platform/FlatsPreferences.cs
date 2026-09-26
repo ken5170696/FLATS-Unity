@@ -33,7 +33,9 @@ public static class FlatsPreferences
                 values=new Dictionary<string,string>();
                 string recovery;
                 var json=FlatsAtomicRecord.Read(FilePath,s=>{if(JsonUtility.FromJson<Document>(s)?.entries==null)throw new InvalidDataException("Invalid isolated preferences");},out recovery);
-                if(json!=null)foreach(var e in JsonUtility.FromJson<Document>(json).entries)values.Add(e.key,e.value);
+                // A hand-edited or merged file may repeat a key; the last entry wins instead of
+                // Dictionary.Add throwing and blocking every preference read.
+                if(json!=null)foreach(var e in JsonUtility.FromJson<Document>(json).entries)if(e.key!=null)values[e.key]=e.value;
             }
             return values;
         }

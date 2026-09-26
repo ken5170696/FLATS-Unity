@@ -115,6 +115,8 @@ public partial class Menu
     private void OnConnectionFail(DisconnectCause cause)
     {
         multiplayerFailure = "Photon connection lost: " + cause;
+        // Player logs previously showed a silent return to the main menu; keep the cause on record.
+        Debug.LogWarning("FLATS_PHOTON_CONNECTION_FAIL cause=" + cause + " state=" + PhotonNetwork.connectionStateDetailed + " inRoom=" + wasInRoom);
         LocalRoomFailed(multiplayerFailure);
         pleaseWait.SetActive(false);
         fliping = false;

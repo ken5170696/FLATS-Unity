@@ -72,6 +72,22 @@ public class Singleplayer : MonoBehaviour
 	{
 		currentAssortmentRule = 0;
 		headshotChain = 0;
+		if (Menu.gameState == "Singleplayer")
+		{
+			ResetSharedMatchState();
+		}
+	}
+
+	// Multiplayer statics survive the scene change. A previous Co-op (8), VIP (7) or bomb
+	// match must not change scoring, HUD, damage or bomb pickup in single-player or Tutorial.
+	public static void ResetSharedMatchState()
+	{
+		Multiplayer.rule = 0;
+		Multiplayer.end = false;
+		Multiplayer.roundChanging = false;
+		GrabbedObject.canGrab = true;
+		GrabbedObject.timeup = false;
+		DamageReceiver.invincibility = false;
 	}
 
 	private IEnumerator Start()

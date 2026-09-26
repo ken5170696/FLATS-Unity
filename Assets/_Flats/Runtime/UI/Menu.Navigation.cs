@@ -352,7 +352,7 @@ public partial class Menu
 				current = "Multiplayer";
 				Texture2D texture2D = new Texture2D(128, 128);
 				texture2D.filterMode = FilterMode.Bilinear;
-				byte[] array = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
+				byte[] array = FlatsUserIcon.Read(defaultIcon);
 				texture2D.LoadImage(array);
 				ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
 				hashtable["K"] = myCharacter.kill;
@@ -504,7 +504,8 @@ public partial class Menu
 				}
 				else if (current == "Settings")
 				{
-					if (currentDetail.name == "ButtonMapping" && Input.GetJoystickNames().Length == 0)
+					// Save whenever the touch layout editor was open, even if a controller connected meanwhile.
+					if (currentDetail.name == "ButtonMapping" && currentDetail.transform.GetChild(1).gameObject.activeSelf)
 					{
 						Vector2[] array2 = new Vector2[4];
 						float[] array3 = new float[4];
@@ -525,7 +526,7 @@ public partial class Menu
 							mt.parent.GetChild(1).GetChild(i).rectTransform()
 								.localScale = new Vector3(localScale.x, localScale.y, localScale.z);
 						}
-						FlatsPreferences.SetString("touchmapping", array2[0].x.ToString("F0") + "$" + array2[0].y.ToString("F0") + "$" + array2[1].x.ToString("F0") + "$" + array2[1].y.ToString("F0") + "$" + array2[2].x.ToString("F0") + "$" + array2[2].y.ToString("F0") + "$" + array2[3].x.ToString("F0") + "$" + array2[3].y.ToString("F0") + "$" + array3[0] + "$" + array3[1] + "$" + array3[2] + "$" + array3[3]);
+						FlatsPreferences.SetString("touchmapping", FormatTouchMapping(new[] { array2[0].x, array2[0].y, array2[1].x, array2[1].y, array2[2].x, array2[2].y, array2[3].x, array2[3].y, array3[0], array3[1], array3[2], array3[3] }));
 						FlatsPreferences.Save();
 						Debug.Log("Touch mapping has been saved.");
 					}
@@ -940,27 +941,27 @@ public partial class Menu
 				case 0:
 					Singleplayer.rule = 0;
 					LoadOfflineScene(stage);
-					gameState = "Singleplayer";
+					gameState = "Singleplayer"; Singleplayer.ResetSharedMatchState();
 					break;
 				case 1:
 					Singleplayer.rule = 1;
 					LoadOfflineScene(stage);
-					gameState = "Singleplayer";
+					gameState = "Singleplayer"; Singleplayer.ResetSharedMatchState();
 					break;
 				case 2:
 					Singleplayer.rule = 2;
 					LoadOfflineScene(stage);
-					gameState = "Singleplayer";
+					gameState = "Singleplayer"; Singleplayer.ResetSharedMatchState();
 					break;
 				case 3:
 					Singleplayer.rule = 3;
 					LoadOfflineScene(stage);
-					gameState = "Singleplayer";
+					gameState = "Singleplayer"; Singleplayer.ResetSharedMatchState();
 					break;
 				case 4:
 					Singleplayer.rule = 4;
 					LoadOfflineScene("Tutorial");
-					gameState = "Singleplayer";
+					gameState = "Singleplayer"; Singleplayer.ResetSharedMatchState();
 					break;
 				case 5:
 					stage++;

@@ -514,6 +514,15 @@ Score: {0} Rule: Capture the Flag {1}	分數：{0}　規則：奪旗模式 {1}
 Score: {0} Rule: Blow up the Base {1}	分數：{0}　規則：基地爆破 {1}
 Score: {0} Rule: Zombie	分數：{0}　規則：殭屍模式
 Score: {0} Rule: VIP	分數：{0}　規則：VIP
+Score: {0} Rule: Capture the Flag	分數：{0}　規則：奪旗模式
+Score: {0} Rule: Blow up the Base	分數：{0}　規則：基地爆破
+Score: {0} Rule: Zombie {1}	分數：{0}　規則：殭屍模式 {1}
+Score: {0} Rule: Loading...	分數：{0}　規則：載入中…
+Headshot chain:{0}	連續爆頭：{0}
+Ally-bot killed Enemy.	友軍 Bot 擊敗了敵人。
+Spawn: Ally-bot	友軍 Bot 已出現
+Killed all enemies!	已擊敗所有敵人！
+Achieved new headshot record.	創下新的連續爆頭紀錄。
 You cleared Deathmatch!	你完成了死亡競賽！
 You cleared Team Deathmatch!	你完成了團隊死亡競賽！
 You cleared Territory!	你完成了據點爭奪！
@@ -541,7 +550,9 @@ Affects: Your screen only	影響範圍：僅你的畫面
 Select a row to view its status and actions.	選擇模組以查看狀態與可用操作。
 Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.	歡迎來到 FLATS。\n支援單人遊戲與 Photon 線上對戰。\n線上遊戲需要網際網路連線。
 Controls, settings and mobile play updates.	操作、設定與手機遊玩更新。
+Stability, controller and phone layout updates.	穩定性、手把與手機版面更新。
 - Separate aim sensitivity; Kill Cinematic switch.\n- Controller: common FPS layout, steady look speed.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.	- 開鏡靈敏度可獨立設定；可關閉擊殺特寫。\n- 手把：改用常見 FPS 配置，轉向速度穩定。\n- 設定頁可捲動；所有按鍵在同一頁。\n- 手機：新增撿槍按鈕；觀戰時可開設定。\n- 子彈軌跡朝子彈方向淡入。\n\n平台驗證詳見版本說明。
+- VIP deaths respect the Kill Cinematic switch.\n- Unnamed controllers (PS5 on phone, any in browsers) get a standard layout.\n- Mode state no longer leaks from online play into solo modes.\n- Phone portrait: menu and Mod Center fit the screen; Chinese player names.\n- Safer saves: missing avatar, duplicate settings and profile writes recover.\n\nPlatform validation: see release notes.	- VIP 死亡遵守「擊殺特寫」開關。\n- 無名稱手把（手機上的 PS5、瀏覽器內任何手把）改用標準配置。\n- 線上模式的狀態不再殘留到單人模式。\n- 手機直向：選單與模組中心貼合螢幕；玩家名稱支援中文。\n- 存檔更穩：頭像缺失、重複設定與設定檔寫入失敗都能復原。\n\n平台驗證詳見版本說明。
 FLATS {0} preview	FLATS {0} 預覽版
 Need a controller\nto play in VR mode.	VR 模式需要\n連接控制器。
 Button Mapping	按鍵配置
@@ -932,6 +943,7 @@ Swapped with: 	已與此動作交換：
 Binding not saved.	按鍵未儲存。
 Default controller settings restored.	已還原手把預設設定。
 LB / RB: next section. Select an option to change it.	LB / RB：切換區段。選擇選項即可變更。
+{0} / {1}: next section. Select an option to change it.	{0} / {1}：切換區段。選擇選項即可變更。
 Button layout	按鍵配置
 Layout preset	配置預設
 Custom	自訂
@@ -967,3 +979,22 @@ Stick movement inside the circle is ignored. Raise it if the view drifts by itse
 Stick movement inside the circle is ignored. Raise it if you walk without touching the stick. Auto uses the controller's own setting.	圓圈內的搖桿移動會被忽略。沒碰搖桿卻會走動時請調高。「自動」使用手把本身的設定。
 Strength of controller vibration when firing. OFF turns it off.	射擊時手把震動的強度。「關閉」即不震動。
 Click to toggle	按一下切換
+Red team got the flag.	紅隊奪得旗幟。
+Blue team got the flag.	藍隊奪得旗幟。
+Reset Flag.	旗幟已重設。
+Reset Bomb.	炸彈已重設。
+Red team dominated territory.	紅隊佔領了據點。
+Blue team dominated territory.	藍隊佔領了據點。
+Red team lost territory.	紅隊失去了據點。
+Blue team lost territory.	藍隊失去了據點。
+Suicide:{0}	自殺：{0}
+Killed: {0}	陣亡：{0}
+Respawn:{0}	重生：{0}
+{0} quit game.	{0} 離開了遊戲。
+{0} has become the mother zombie.	{0} 成為了母體殭屍。
+{0} has become a zombie.	{0} 變成了殭屍。
+{0} killed {1}	{0} 擊敗了 {1}
+Preset	預設組合
+Setting	設定項目
+Value	數值
+Close this page or app to leave without overwriting data.	請關閉此頁面或 App 離開，資料不會被覆蓋。

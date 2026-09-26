@@ -10,6 +10,9 @@ public class Multiplayer : MonoBehaviour
 
 	public static bool end;
 
+	// A VIP or Zombie round change is in progress: nobody, bots included, takes damage.
+	public static bool roundChanging;
+
 	public static int redTeamScore;
 
 	public static int blueTeamScore;
@@ -58,6 +61,7 @@ public class Multiplayer : MonoBehaviour
 		if (Menu.gameState == "Multiplayer")
 		{
 			rule = Menu.rule;
+			roundChanging = false;
 			FlatsOfflineScores.Reset();
 			if (FlatsOfflineScores.FreeForAll)
 			{
@@ -547,6 +551,7 @@ public class Multiplayer : MonoBehaviour
 	{
 		StopCoroutine("ZombieCount");
 		DamageReceiver.invincibility = true;
+		roundChanging = true;
 		Menu.canOpen = false;
 		int[] array3 = new int[2];
 		ui.parent.GetChild(2).GetChild(0).GetComponent<Text>()
@@ -685,6 +690,7 @@ public class Multiplayer : MonoBehaviour
 		limit = 100 + Menu.playerCount * 30;
 		zombieCount = 0;
 		DamageReceiver.invincibility = false;
+		roundChanging = false;
 		Menu.canOpen = true;
 		StartCoroutine("ZombieCount");
 	}
@@ -693,8 +699,13 @@ public class Multiplayer : MonoBehaviour
 	{
 		var red = new List<GameObject>();
 		var blue = new List<GameObject>();
+		// The list can be seconds old: skip players who died since (destroyed, or a ragdoll
+		// that still carries the Player tag without its controller).
 		foreach (var player in players)
+		{
+			if (player == null || player.GetComponent<FPSController>() == null) continue;
 			(player.GetPhotonView().owner.GetTeam() == PunTeams.Team.red ? red : blue).Add(player);
+		}
 		if (PhotonNetwork.offlineMode)
 			foreach (var bot in FindObjectsOfType<AI>())
 			{
@@ -714,6 +725,12 @@ public class Multiplayer : MonoBehaviour
 	[PunRPC]
 	public IEnumerator VIPRound()
 	{
+		// A second VIP death during the change must not start an overlapping round.
+		if (roundChanging)
+		{
+			yield break;
+		}
+		roundChanging = true;
 		limit += 30;
 		yield return new WaitForSeconds(6f);
 		if (Menu.botCount > 0 && Menu.isMaster())
@@ -747,6 +764,11 @@ public class Multiplayer : MonoBehaviour
 		foreach (GameObject gameObject2 in array3)
 		{
 			FPSController component = gameObject2.GetComponent<FPSController>();
+			// A player who died moments ago keeps the Player tag after Die removed the controller.
+			if (component == null || component.primaryWeapon == null)
+			{
+				continue;
+			}
 			component.primaryWeapon.GetComponent<Gun>().currentAmmo = component.primaryWeapon.GetComponent<Gun>().limitAmmo;
 			component.primaryWeapon.GetComponent<Gun>().maxAmmo = component.primaryWeapon.GetComponent<Gun>().limitMaxAmmo;
 			if (Menu.network == 0)
@@ -761,7 +783,7 @@ public class Multiplayer : MonoBehaviour
 				}
 				if (component.vip)
 				{
-					SkinnedMeshRenderer[] componentsInChildren = GetComponentsInChildren<SkinnedMeshRenderer>();
+					SkinnedMeshRenderer[] componentsInChildren = component.GetComponentsInChildren<SkinnedMeshRenderer>();
 					if (component.gameObject.GetPhotonView().owner.GetTeam() == PunTeams.Team.red)
 					{
 						SkinnedMeshRenderer[] array4 = componentsInChildren;
@@ -809,10 +831,11 @@ public class Multiplayer : MonoBehaviour
 		}
 		else if (Menu.network != 1 && PhotonNetwork.isMasterClient)
 		{
-			SelectVIPs(players);
+			SelectVIPs(GameObject.FindGameObjectsWithTag("Player"));
 		}
 		limit = 110 + Menu.playerCount * 30;
 		DamageReceiver.invincibility = false;
+		roundChanging = false;
 		Menu.canOpen = true;
 	}
 
@@ -882,6 +905,11 @@ public class Multiplayer : MonoBehaviour
 
 	private void OnPhotonPlayerDisconnected(PhotonPlayer pp)
 	{
+		// Round synchronisation waits for Menu.playerCount players; a leaver must not stall it.
+		if (PhotonNetwork.room != null)
+		{
+			Menu.playerCount = Mathf.Min(Menu.playerCount, PhotonNetwork.room.PlayerCount);
+		}
 		if (PhotonNetwork.isMasterClient)
 		{
 			base.gameObject.GetPhotonView().RPC("Log", PhotonTargets.AllBuffered, pp.NickName + " quit game.");

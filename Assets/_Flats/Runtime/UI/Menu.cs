@@ -535,7 +535,7 @@ public partial class Menu : MonoBehaviour
 				Debug.Log("This is the first play.");
 				update.transform.GetChild(1).GetComponent<Text>().text = "FLATS " + text + " preview";
 				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller: common FPS layout, steady look speed.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- VIP deaths respect the Kill Cinematic switch.\n- Unnamed controllers (PS5 on phone, any in browsers) get a standard layout.\n- Mode state no longer leaks from online play into solo modes.\n- Phone portrait: menu and Mod Center fit the screen; Chinese player names.\n- Safer saves: missing avatar, duplicate settings and profile writes recover.\n\nPlatform validation: see release notes.";
 			}
 			else
 			{
@@ -595,8 +595,8 @@ public partial class Menu : MonoBehaviour
 					SaveDataController.Save();
 				}
 				update.transform.GetChild(1).GetComponent<Text>().text = "Update Version " + text;
-				update.transform.GetChild(2).GetComponent<Text>().text = "Controls, settings and mobile play updates.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- Separate aim sensitivity; Kill Cinematic switch.\n- Controller: common FPS layout, steady look speed.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.";
+				update.transform.GetChild(2).GetComponent<Text>().text = "Stability, controller and phone layout updates.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- VIP deaths respect the Kill Cinematic switch.\n- Unnamed controllers (PS5 on phone, any in browsers) get a standard layout.\n- Mode state no longer leaks from online play into solo modes.\n- Phone portrait: menu and Mod Center fit the screen; Chinese player names.\n- Safer saves: missing avatar, duplicate settings and profile writes recover.\n\nPlatform validation: see release notes.";
 			}
 			version = text;
 			FlatsPreferences.SetString("version", version);
@@ -681,28 +681,13 @@ public partial class Menu : MonoBehaviour
 			myCharacter.attack = 0;
 			myCharacter.defense = 0;
 		}
-		if (!System.IO.File.Exists((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png"))
-		{
-			if (System.IO.File.Exists((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/UserIcon.png"))
-			{
-				System.IO.File.Delete((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/UserIcon.png");
-			}
-			byte[] bytes = defaultIcon.EncodeToPNG();
-			System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", bytes);
-		}
+		// FlatsUserIcon restores the default avatar when the file is missing, unreadable or
+		// too small, so the character screen and room entry never throw on a cleaned folder.
 		Texture2D icon = new Texture2D(128, 128)
 		{
 			filterMode = FilterMode.Bilinear
 		};
-		byte[] bytes2 = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
-		icon.LoadImage(bytes2);
-		if (icon.width < 128 || icon.height < 128)
-		{
-			byte[] bytes3 = defaultIcon.EncodeToPNG();
-			System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", bytes3);
-			bytes2 = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
-			icon.LoadImage(bytes2);
-		}
+		icon.LoadImage(FlatsUserIcon.Read(defaultIcon));
 		characterScreen.GetChild(0).GetChild(0)
 			.GetChild(0)
 			.GetComponent<Image>()
@@ -913,31 +898,31 @@ public partial class Menu : MonoBehaviour
 		if (FlatsPreferences.HasKey("touchmapping"))
 		{
 			string text = FlatsPreferences.GetString("touchmapping");
-			string[] array = text.Split(new string[1] { "$" }, StringSplitOptions.None);
-			mt.parent.GetChild(1).GetChild(1).GetComponent<ETCButton>()
-				.anchorOffet = new Vector2(float.Parse(array[0]), float.Parse(array[1]));
-			mt.parent.GetChild(1).GetChild(2).GetComponent<ETCButton>()
-				.anchorOffet = new Vector2(float.Parse(array[2]), float.Parse(array[3]));
-			mt.parent.GetChild(1).GetChild(3).GetComponent<ETCButton>()
-				.anchorOffet = new Vector2(float.Parse(array[4]), float.Parse(array[5]));
-			mt.parent.GetChild(1).GetChild(4).GetComponent<ETCButton>()
-				.anchorOffet = new Vector2(float.Parse(array[6]), float.Parse(array[7]));
-			if (array.Length > 8)
+			if (TryParseTouchMapping(text, out float[] array))
 			{
-				mt.parent.GetChild(1).GetChild(1).rectTransform()
-					.localScale = new Vector3(float.Parse(array[8]), float.Parse(array[8]), mt.parent.GetChild(1).GetChild(1).rectTransform()
-					.localScale.z);
-				mt.parent.GetChild(1).GetChild(2).rectTransform()
-					.localScale = new Vector3(float.Parse(array[9]), float.Parse(array[9]), mt.parent.GetChild(1).GetChild(2).rectTransform()
-					.localScale.z);
-				mt.parent.GetChild(1).GetChild(3).rectTransform()
-					.localScale = new Vector3(float.Parse(array[10]), float.Parse(array[10]), mt.parent.GetChild(1).GetChild(3).rectTransform()
-					.localScale.z);
-				mt.parent.GetChild(1).GetChild(4).rectTransform()
-					.localScale = new Vector3(float.Parse(array[11]), float.Parse(array[11]), mt.parent.GetChild(1).GetChild(4).rectTransform()
-					.localScale.z);
+				for (int i = 1; i <= 4; i++)
+				{
+					mt.parent.GetChild(1).GetChild(i).GetComponent<ETCButton>()
+						.anchorOffet = new Vector2(array[(i - 1) * 2], array[(i - 1) * 2 + 1]);
+					if (array.Length > 8)
+					{
+						RectTransform button = mt.parent.GetChild(1).GetChild(i).rectTransform();
+						button.localScale = new Vector3(array[7 + i], array[7 + i], button.localScale.z);
+					}
+				}
+				// Older versions wrote the current culture's decimal separator; keep one format.
+				string normalized = FormatTouchMapping(array);
+				if (normalized != text)
+				{
+					FlatsPreferences.SetString("touchmapping", normalized);
+					FlatsPreferences.Save();
+				}
+				Debug.Log("Loaded touch mapping:" + normalized);
 			}
-			Debug.Log("Loaded touch mapping:" + text);
+			else
+			{
+				Debug.LogWarning("Ignored an unreadable touch mapping: " + text);
+			}
 		}
 		if (FlatsPreferences.HasKey("controllermapping") && Input.GetJoystickNames().Length > 0)
 		{
@@ -1221,7 +1206,7 @@ public partial class Menu : MonoBehaviour
 				tutorialLaunchConsumed = true;
 				network = 0;
 				Singleplayer.rule = 4;
-				gameState = "Singleplayer";
+				gameState = "Singleplayer"; Singleplayer.ResetSharedMatchState();
 				LoadOfflineScene("Tutorial");
 				yield break;
 			}
@@ -1561,7 +1546,7 @@ public partial class Menu : MonoBehaviour
         PhotonNetwork.player.NickName = myCharacter.name;
         PhotonNetwork.SetPlayerCustomProperties(new ExitGames.Client.Photon.Hashtable {
             { "K", 0 }, { "D", 0 }, { "TC", myCharacter.color }, { "C", myCharacter.comment },
-            { "I", System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png") }
+            { "I", FlatsUserIcon.Read(defaultIcon) }
         });
         PhotonNetwork.CreateRoom("Flats Local Bots", new RoomOptions {
             MaxPlayers = 1, IsVisible = false,
@@ -1580,6 +1565,37 @@ public partial class Menu : MonoBehaviour
         Debug.Log("FLATS_LOCAL_MATCH rule=" + rule + " bots=" + botCount + " map=" + OfflineMaps[offlineMap]);
         LoadOfflineScene(OfflineMaps[offlineMap]);
     }
+
+		// Touch layout: four button offsets (x, y) and, since a later version, four scales.
+		public static bool TryParseTouchMapping(string text, out float[] values)
+		{
+			values = null;
+			string[] parts = (text ?? "").Split('$');
+			if (parts.Length != 8 && parts.Length != 12)
+			{
+				return false;
+			}
+			var parsed = new float[parts.Length];
+			for (int i = 0; i < parts.Length; i++)
+			{
+				if (!float.TryParse(parts[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out parsed[i]) &&
+					!float.TryParse(parts[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.CurrentCulture, out parsed[i]))
+				{
+					return false;
+				}
+				if (float.IsNaN(parsed[i]) || float.IsInfinity(parsed[i]))
+				{
+					return false;
+				}
+			}
+			values = parsed;
+			return true;
+		}
+
+		public static string FormatTouchMapping(float[] values)
+		{
+			return string.Join("$", values.Select(value => value.ToString("R", System.Globalization.CultureInfo.InvariantCulture)));
+		}
 
 		[PunRPC]
 		private void StartNow()
