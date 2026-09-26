@@ -550,7 +550,21 @@ Affects: Your screen only	影響範圍：僅你的畫面
 Select a row to view its status and actions.	選擇模組以查看狀態與可用操作。
 Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.	歡迎來到 FLATS。\n支援單人遊戲與 Photon 線上對戰。\n線上遊戲需要網際網路連線。
 Controls, settings and mobile play updates.	操作、設定與手機遊玩更新。
+Stability, controller and phone layout updates.	穩定性、手把與手機版面更新。
 - Separate aim sensitivity; Kill Cinematic switch.\n- Controller: common FPS layout, steady look speed.\n- Settings scroll; all key bindings on one page.\n- Mobile: Swap button; settings while spectating.\n- Bullet tracers fade in toward the bullet.\n\nPlatform validation: see release notes.	- 開鏡靈敏度可獨立設定；可關閉擊殺特寫。\n- 手把：改用常見 FPS 配置，轉向速度穩定。\n- 設定頁可捲動；所有按鍵在同一頁。\n- 手機：新增撿槍按鈕；觀戰時可開設定。\n- 子彈軌跡朝子彈方向淡入。\n\n平台驗證詳見版本說明。
+- VIP deaths respect the Kill Cinematic switch.
+- Unnamed controllers (PS5 on phone, any in browsers) get a standard layout.
+- Mode state no longer leaks from online play into solo modes.
+- Phone portrait: menu and Mod Center fit the screen; Chinese player names.
+- Safer saves: missing avatar, duplicate settings and profile writes recover.
+
+Platform validation: see release notes.	- VIP 死亡遵守「擊殺特寫」開關。
+- 無名稱手把（手機上的 PS5、瀏覽器內任何手把）改用標準配置。
+- 線上模式的狀態不再殘留到單人模式。
+- 手機直向：選單與模組中心貼合螢幕；玩家名稱支援中文。
+- 存檔更穩：頭像缺失、重複設定與設定檔寫入失敗都能復原。
+
+平台驗證詳見版本說明。
 FLATS {0} preview	FLATS {0} 預覽版
 Need a controller\nto play in VR mode.	VR 模式需要\n連接控制器。
 Button Mapping	按鍵配置

@@ -799,6 +799,7 @@ public partial class Menu
 
 		private void OnDisconnectedFromPhoton()
 		{
+            Debug.LogWarning("FLATS_PHOTON_DISCONNECTED state=" + PhotonNetwork.connectionStateDetailed + " wasInRoom=" + wasInRoom + " gettingRoomList=" + gettingRoomList + " gameState=" + gameState + " current=" + current);
             ResetMatchReadiness();
 			if (gettingRoomList)
 			{
