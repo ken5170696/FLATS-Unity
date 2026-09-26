@@ -215,7 +215,9 @@ public partial class Menu
         controllerList.gameObject.SetActive(bindingPad && bindingsPanel.activeSelf);
         if (controllerPreview != null) controllerPreview.SetActive(bindingPad && bindingsPanel.activeSelf);
         bindingStyle = FlatsGamepad.DeviceStyle(InputManager.ActiveDevice);
-        bindingStatus.text = bindingPad && Input.GetJoystickNames().Length > 0 ? "LB / RB: next section. Select an option to change it." : "Select a binding to change it.";
+        bindingStatus.text = bindingPad && Input.GetJoystickNames().Length > 0
+            ? FlatsGamepad.Glyph(InputControlType.LeftBumper, bindingStyle) + " / " + FlatsGamepad.Glyph(InputControlType.RightBumper, bindingStyle) + ": next section. Select an option to change it."
+            : "Select a binding to change it.";
     }
     void BeginBinding(int index)
     {

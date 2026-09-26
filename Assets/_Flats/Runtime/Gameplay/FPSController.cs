@@ -813,7 +813,8 @@ public partial class FPSController : MonoBehaviour
 				if (padUsed) preferGamepad = true;
 				// Only a deliberate mouse move (over 3 pixels in a frame) hands control back; jitter of a resting
 				// mouse must not switch the controller off between stick inputs.
-				else if (FlatsControls.KeyboardOrMouseKeyHeld() || new Vector2(Input.GetAxisRaw("mouse x"), Input.GetAxisRaw("mouse y")).sqrMagnitude > 9f) preferGamepad = false;
+				// Phones simulate the mouse from touches, which must not take control from the pad.
+				else if (!Application.isMobilePlatform && (FlatsControls.KeyboardOrMouseKeyHeld() || new Vector2(Input.GetAxisRaw("mouse x"), Input.GetAxisRaw("mouse y")).sqrMagnitude > 9f)) preferGamepad = false;
 				FlatsControls.UsingGamepad = !overrideInputDevice && preferGamepad && activeDevice.Name != "None";
                 if (!overrideInputDevice && preferGamepad && Input.GetJoystickNames().Length > 0 && activeDevice.Name != "None")
 				{

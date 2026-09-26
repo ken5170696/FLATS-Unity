@@ -514,6 +514,9 @@ Score: {0} Rule: Capture the Flag {1}	分數：{0}　規則：奪旗模式 {1}
 Score: {0} Rule: Blow up the Base {1}	分數：{0}　規則：基地爆破 {1}
 Score: {0} Rule: Zombie	分數：{0}　規則：殭屍模式
 Score: {0} Rule: VIP	分數：{0}　規則：VIP
+Score: {0} Rule: Capture the Flag	分數：{0}　規則：奪旗模式
+Score: {0} Rule: Blow up the Base	分數：{0}　規則：基地爆破
+Score: {0} Rule: Zombie {1}	分數：{0}　規則：殭屍模式 {1}
 You cleared Deathmatch!	你完成了死亡競賽！
 You cleared Team Deathmatch!	你完成了團隊死亡競賽！
 You cleared Territory!	你完成了據點爭奪！
@@ -932,6 +935,7 @@ Swapped with: 	已與此動作交換：
 Binding not saved.	按鍵未儲存。
 Default controller settings restored.	已還原手把預設設定。
 LB / RB: next section. Select an option to change it.	LB / RB：切換區段。選擇選項即可變更。
+{0} / {1}: next section. Select an option to change it.	{0} / {1}：切換區段。選擇選項即可變更。
 Button layout	按鍵配置
 Layout preset	配置預設
 Custom	自訂
@@ -967,3 +971,18 @@ Stick movement inside the circle is ignored. Raise it if the view drifts by itse
 Stick movement inside the circle is ignored. Raise it if you walk without touching the stick. Auto uses the controller's own setting.	圓圈內的搖桿移動會被忽略。沒碰搖桿卻會走動時請調高。「自動」使用手把本身的設定。
 Strength of controller vibration when firing. OFF turns it off.	射擊時手把震動的強度。「關閉」即不震動。
 Click to toggle	按一下切換
+Red team got the flag.	紅隊奪得旗幟。
+Blue team got the flag.	藍隊奪得旗幟。
+Reset Flag.	旗幟已重設。
+Reset Bomb.	炸彈已重設。
+Red team dominated territory.	紅隊佔領了據點。
+Blue team dominated territory.	藍隊佔領了據點。
+Red team lost territory.	紅隊失去了據點。
+Blue team lost territory.	藍隊失去了據點。
+Suicide:{0}	自殺：{0}
+Killed: {0}	陣亡：{0}
+Respawn:{0}	重生：{0}
+{0} quit game.	{0} 離開了遊戲。
+{0} has become the mother zombie.	{0} 成為了母體殭屍。
+{0} has become a zombie.	{0} 變成了殭屍。
+{0} killed {1}	{0} 擊敗了 {1}

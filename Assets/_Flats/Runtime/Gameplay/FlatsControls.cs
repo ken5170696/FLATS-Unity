@@ -98,12 +98,22 @@ public static class FlatsControls
         if (FlatsPreferences.HasKey(Key(action, true))) return State(device.GetControl(Pad(action)), edge);
         // Preserve old per-device mappings until that action is rebound or reset.
         string legacy = action == "Grenade" ? "Pick" : action == "Aim" ? "Zoom" : action;
-        if (Menu.customControlEnabled && Menu.customControl.TryGetValue(legacy, out string binding))
+        if (Menu.customControlEnabled && Menu.customControl.TryGetValue(legacy, out string binding)) return LegacyPad(binding, edge);
+        return State(device.GetControl(Pad(action)), edge);
+    }
+    // Old per-device mappings store "joystick 1 button N" (a KeyCode name, not an Input
+    // Manager axis, so Input.GetButton would throw) or "joystick 1 analog N".
+    public static bool LegacyPad(string binding, int edge = 0)
+    {
+        try
         {
             if (binding.Contains("analog")) return edge == 2 ? Input.GetAxis(binding) < .8f : Input.GetAxis(binding) > .8f;
-            return edge == 1 ? Input.GetButtonDown(binding) : edge == 2 ? Input.GetButtonUp(binding) : Input.GetButton(binding);
+            return edge == 1 ? Input.GetKeyDown(binding) : edge == 2 ? Input.GetKeyUp(binding) : Input.GetKey(binding);
         }
-        return State(device.GetControl(Pad(action)), edge);
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
     public static string Label(string action, bool pad)
     {

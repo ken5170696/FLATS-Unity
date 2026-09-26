@@ -913,31 +913,31 @@ public partial class Menu : MonoBehaviour
 		if (FlatsPreferences.HasKey("touchmapping"))
 		{
 			string text = FlatsPreferences.GetString("touchmapping");
-			string[] array = text.Split(new string[1] { "$" }, StringSplitOptions.None);
-			mt.parent.GetChild(1).GetChild(1).GetComponent<ETCButton>()
-				.anchorOffet = new Vector2(float.Parse(array[0]), float.Parse(array[1]));
-			mt.parent.GetChild(1).GetChild(2).GetComponent<ETCButton>()
-				.anchorOffet = new Vector2(float.Parse(array[2]), float.Parse(array[3]));
-			mt.parent.GetChild(1).GetChild(3).GetComponent<ETCButton>()
-				.anchorOffet = new Vector2(float.Parse(array[4]), float.Parse(array[5]));
-			mt.parent.GetChild(1).GetChild(4).GetComponent<ETCButton>()
-				.anchorOffet = new Vector2(float.Parse(array[6]), float.Parse(array[7]));
-			if (array.Length > 8)
+			if (TryParseTouchMapping(text, out float[] array))
 			{
-				mt.parent.GetChild(1).GetChild(1).rectTransform()
-					.localScale = new Vector3(float.Parse(array[8]), float.Parse(array[8]), mt.parent.GetChild(1).GetChild(1).rectTransform()
-					.localScale.z);
-				mt.parent.GetChild(1).GetChild(2).rectTransform()
-					.localScale = new Vector3(float.Parse(array[9]), float.Parse(array[9]), mt.parent.GetChild(1).GetChild(2).rectTransform()
-					.localScale.z);
-				mt.parent.GetChild(1).GetChild(3).rectTransform()
-					.localScale = new Vector3(float.Parse(array[10]), float.Parse(array[10]), mt.parent.GetChild(1).GetChild(3).rectTransform()
-					.localScale.z);
-				mt.parent.GetChild(1).GetChild(4).rectTransform()
-					.localScale = new Vector3(float.Parse(array[11]), float.Parse(array[11]), mt.parent.GetChild(1).GetChild(4).rectTransform()
-					.localScale.z);
+				for (int i = 1; i <= 4; i++)
+				{
+					mt.parent.GetChild(1).GetChild(i).GetComponent<ETCButton>()
+						.anchorOffet = new Vector2(array[(i - 1) * 2], array[(i - 1) * 2 + 1]);
+					if (array.Length > 8)
+					{
+						RectTransform button = mt.parent.GetChild(1).GetChild(i).rectTransform();
+						button.localScale = new Vector3(array[7 + i], array[7 + i], button.localScale.z);
+					}
+				}
+				// Older versions wrote the current culture's decimal separator; keep one format.
+				string normalized = FormatTouchMapping(array);
+				if (normalized != text)
+				{
+					FlatsPreferences.SetString("touchmapping", normalized);
+					FlatsPreferences.Save();
+				}
+				Debug.Log("Loaded touch mapping:" + normalized);
 			}
-			Debug.Log("Loaded touch mapping:" + text);
+			else
+			{
+				Debug.LogWarning("Ignored an unreadable touch mapping: " + text);
+			}
 		}
 		if (FlatsPreferences.HasKey("controllermapping") && Input.GetJoystickNames().Length > 0)
 		{
@@ -1221,7 +1221,7 @@ public partial class Menu : MonoBehaviour
 				tutorialLaunchConsumed = true;
 				network = 0;
 				Singleplayer.rule = 4;
-				gameState = "Singleplayer";
+				gameState = "Singleplayer"; Singleplayer.ResetSharedMatchState();
 				LoadOfflineScene("Tutorial");
 				yield break;
 			}
@@ -1580,6 +1580,37 @@ public partial class Menu : MonoBehaviour
         Debug.Log("FLATS_LOCAL_MATCH rule=" + rule + " bots=" + botCount + " map=" + OfflineMaps[offlineMap]);
         LoadOfflineScene(OfflineMaps[offlineMap]);
     }
+
+		// Touch layout: four button offsets (x, y) and, since a later version, four scales.
+		public static bool TryParseTouchMapping(string text, out float[] values)
+		{
+			values = null;
+			string[] parts = (text ?? "").Split('$');
+			if (parts.Length != 8 && parts.Length != 12)
+			{
+				return false;
+			}
+			var parsed = new float[parts.Length];
+			for (int i = 0; i < parts.Length; i++)
+			{
+				if (!float.TryParse(parts[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out parsed[i]) &&
+					!float.TryParse(parts[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.CurrentCulture, out parsed[i]))
+				{
+					return false;
+				}
+				if (float.IsNaN(parsed[i]) || float.IsInfinity(parsed[i]))
+				{
+					return false;
+				}
+			}
+			values = parsed;
+			return true;
+		}
+
+		public static string FormatTouchMapping(float[] values)
+		{
+			return string.Join("$", values.Select((value, i) => value.ToString(i < 8 ? "F0" : "R", System.Globalization.CultureInfo.InvariantCulture)));
+		}
 
 		[PunRPC]
 		private void StartNow()

@@ -56,6 +56,12 @@ public class Supershot : MonoBehaviour
 	// Headshot, mortal-shot and VIP kills honour the player's Kill Cinematic setting.
 	public static void PlayKill(UnityEngine.Object prefab, Transform view, Transform target, bool headshot, bool vip = false, int vipLayer = 0)
 	{
+		// Awake discards the effect while another cinematic owns the screen. A VIP death
+		// must still end the single-player mission then.
+		if (!Menu.canOpen && vip)
+		{
+			Singleplayer.cleared = true;
+		}
 		nextNoticeOnly = !FlatsControls.KillCinematic;
 		GameObject effect;
 		try
@@ -277,7 +283,7 @@ public class Supershot : MonoBehaviour
 		{
 			return "Headshot " + Singleplayer.headshotChain + "x";
 		}
-		if (headshot && Singleplayer.enemy != 0)
+		if (headshot)
 		{
 			return "Headshot";
 		}
@@ -306,7 +312,9 @@ public class Supershot : MonoBehaviour
 			return;
 		}
 		GetComponent<FxPro>().enabled = false;
-		Time.timeScale = 1f;
+		// A kill that ended the match leaves the results screen in control of time and menus.
+		bool matchOver = Menu.gameState == "Multiplayer" && Multiplayer.end;
+		Time.timeScale = matchOver ? Time.timeScale : 1f;
 		Time.fixedDeltaTime *= slowFactor;
 		Time.maximumDeltaTime *= slowFactor;
 		base.GetComponent<Camera>().clearFlags = CameraClearFlags.Depth;
@@ -324,7 +332,7 @@ public class Supershot : MonoBehaviour
 		}
 		Camera.main.transform.GetChild(0).gameObject.SetActive(true);
 		DamageReceiver.invincibility = false;
-		Menu.canOpen = true;
+		Menu.canOpen = Menu.canOpen || !matchOver;
 		if (Input.GetJoystickNames().Length == 0 && !Input.mousePresent)
 		{
 			ETCInput.SetControlActivated("Joystick", true);

@@ -269,7 +269,7 @@ public class LookInputModule : BaseInputModule
 		if (!ignoreInputsWhenLookAway || (ignoreInputsWhenLookAway && currentLook != null))
 		{
 			_buttonUsed = false;
-			if (Input.GetMouseButtonDown(0) || (!Menu.customControlEnabled && InputManager.ActiveDevice.Action1.WasPressed) || (Menu.customControlEnabled && Input.GetButtonDown(Menu.customControl["Jump"])))
+			if (Input.GetMouseButtonDown(0) || (!Menu.customControlEnabled && InputManager.ActiveDevice.Action1.WasPressed) || (Menu.customControlEnabled && FlatsControls.LegacyPad(Menu.customControl["Jump"], 1)))
 			{
 				ClearSelection();
 				lookPointerEventData.pressPosition = lookPointerEventData.position;
@@ -343,7 +343,7 @@ public class LookInputModule : BaseInputModule
 				}
 			}
 		}
-		if (Input.GetMouseButtonUp(0) || InputManager.ActiveDevice.Action1.WasReleased || (Menu.customControlEnabled && Input.GetButtonUp(Menu.customControl["Jump"])))
+		if (Input.GetMouseButtonUp(0) || InputManager.ActiveDevice.Action1.WasReleased || (Menu.customControlEnabled && FlatsControls.LegacyPad(Menu.customControl["Jump"], 2)))
 		{
 			if ((bool)currentDragging)
 			{

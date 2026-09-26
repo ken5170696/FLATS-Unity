@@ -168,8 +168,8 @@ public class ControllerMappingEditor : MonoBehaviour
 							Menu.customControl["Zoom"] = "joystick 1 " + array[5];
 							Menu.customControl["Fire"] = "joystick 1 " + array[6];
 							Menu.customControlEnabled = true;
-							standaloneModule.submitButton = Menu.customControl["Jump"];
-							standaloneModule.cancelButton = Menu.customControl["Pick"];
+							standaloneModule.submitButton = "Submit";
+							standaloneModule.cancelButton = "Cancel";
 							standaloneModule.enabled = true;
 							inControlModule.enabled = false;
 						}

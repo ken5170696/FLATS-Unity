@@ -219,9 +219,9 @@ public static class FlatsSaveTransfer
         if (key == "touchmapping")
         {
             var parts = value.Split('$');
+            // The menu stores and normalises layouts with invariant numbers.
             return (parts.Length == 8 || parts.Length == 12) && parts.All(part =>
-                float.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out float v) && !float.IsNaN(v) && !float.IsInfinity(v) &&
-                float.TryParse(part, NumberStyles.Float, CultureInfo.CurrentCulture, out float local) && local == v);
+                float.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out float v) && !float.IsNaN(v) && !float.IsInfinity(v));
         }
         return false;
     }

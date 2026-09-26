@@ -96,10 +96,8 @@ public class DamageReceiver : MonoBehaviour
 			yield return new WaitForSeconds(3f);
 			invincibility = false;
 		}
-		else
-		{
-			invincibility = false;
-		}
+		// Other actors spawning must not end the local player's protection, so the static
+		// flag is only cleared by its owners (spawn timer, kill camera, round changes).
 		if (!userIsPlayer)
 		{
 			myAI = GetComponent<AI>();
@@ -185,7 +183,8 @@ public class DamageReceiver : MonoBehaviour
 		{
 			return;
 		}
-		if (!base.gameObject.activeSelf || invincibility)
+		// Invincibility protects players (spawn, kill camera, round changes), as in ApplyDamage.
+		if (!base.gameObject.activeSelf || (invincibility && userIsPlayer))
 		{
 			return;
 		}
@@ -543,6 +542,12 @@ public class DamageReceiver : MonoBehaviour
 						{
 							text = "Suicide:" + base.gameObject.GetPhotonView().owner.NickName;
 							multiplayer.GetPhotonView().RPC("Log", PhotonTargets.All, text);
+							// A VIP lost to a fall or their own grenade still starts the next VIP round.
+							if (Multiplayer.rule == 7 && myFPSController.vip && !Multiplayer.end)
+							{
+								invincibility = true;
+								multiplayer.GetPhotonView().RPC("VIPRound", PhotonTargets.All);
+							}
 						}
 					}
 				}
