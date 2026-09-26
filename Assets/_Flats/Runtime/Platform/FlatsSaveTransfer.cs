@@ -192,7 +192,7 @@ public static class FlatsSaveTransfer
     {
         // Later entries win; the result is bounded by the number of known keys.
         var result = new Dictionary<string, Preference>();
-        if (source != null) foreach (var entry in source) if (Accept(entry)) result[entry.key] = entry;
+        if (source != null) foreach (var entry in source) if (Accept(entry)) result[entry.key] = Normalized(entry);
         return result.Values.ToArray();
     }
 
@@ -218,12 +218,17 @@ public static class FlatsSaveTransfer
         if (key == "controllermapping") return value.Split('$').Length == 7;
         if (key == "touchmapping")
         {
-            var parts = value.Split('$');
-            // The menu stores and normalises layouts with invariant numbers.
-            return (parts.Length == 8 || parts.Length == 12) && parts.All(part =>
-                float.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out float v) && !float.IsNaN(v) && !float.IsInfinity(v));
+            // Same reader as the menu: invariant numbers, or this device's older local format.
+            return Menu.TryParseTouchMapping(value, out _);
         }
         return false;
+    }
+
+    // Touch layouts travel in the menu's invariant format.
+    static Preference Normalized(Preference entry)
+    {
+        if (entry.key != "touchmapping" || !Menu.TryParseTouchMapping(entry.value, out float[] values)) return entry;
+        return new Preference { key = entry.key, kind = entry.kind, value = Menu.FormatTouchMapping(values) };
     }
 
     // Enum.TryParse also accepts numbers; only named values are valid bindings.

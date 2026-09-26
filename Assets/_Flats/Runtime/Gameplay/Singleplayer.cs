@@ -84,6 +84,7 @@ public class Singleplayer : MonoBehaviour
 	{
 		Multiplayer.rule = 0;
 		Multiplayer.end = false;
+		Multiplayer.roundChanging = false;
 		GrabbedObject.canGrab = true;
 		GrabbedObject.timeup = false;
 		DamageReceiver.invincibility = false;

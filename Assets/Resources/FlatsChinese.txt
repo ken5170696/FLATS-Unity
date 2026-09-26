@@ -517,6 +517,12 @@ Score: {0} Rule: VIP	分數：{0}　規則：VIP
 Score: {0} Rule: Capture the Flag	分數：{0}　規則：奪旗模式
 Score: {0} Rule: Blow up the Base	分數：{0}　規則：基地爆破
 Score: {0} Rule: Zombie {1}	分數：{0}　規則：殭屍模式 {1}
+Score: {0} Rule: Loading...	分數：{0}　規則：載入中…
+Headshot chain:{0}	連續爆頭：{0}
+Ally-bot killed Enemy.	友軍 Bot 擊敗了敵人。
+Spawn: Ally-bot	友軍 Bot 已出現
+Killed all enemies!	已擊敗所有敵人！
+Achieved new headshot record.	創下新的連續爆頭紀錄。
 You cleared Deathmatch!	你完成了死亡競賽！
 You cleared Team Deathmatch!	你完成了團隊死亡競賽！
 You cleared Territory!	你完成了據點爭奪！

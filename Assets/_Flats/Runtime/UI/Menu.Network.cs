@@ -297,7 +297,16 @@ public partial class Menu
         private bool readyPausedGame;
         private void RestoreReadyPause()
         {
-            if (readyPausedGame && gameState == "Singleplayer" && Time.timeScale == 0f) Time.timeScale = 1f;
+            // canOpen is false once GameOver owns the screen; the pause menu keeps its own pause.
+            if (readyPausedGame && gameState == "Singleplayer" && canOpen)
+            {
+                if (pauseNavigation.IsOpen)
+                {
+                    if (pauseNavigation.SavedTimeScale == 0f) pauseNavigation.ReplaceSavedTimeScale(1f);
+                    if (savedTimeScale == 0f) savedTimeScale = 1f;
+                }
+                else if (current == "Playing" && Time.timeScale == 0f) Time.timeScale = 1f;
+            }
             readyPausedGame = false;
         }
 

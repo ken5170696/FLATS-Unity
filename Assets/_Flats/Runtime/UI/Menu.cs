@@ -1609,7 +1609,7 @@ public partial class Menu : MonoBehaviour
 
 		public static string FormatTouchMapping(float[] values)
 		{
-			return string.Join("$", values.Select((value, i) => value.ToString(i < 8 ? "F0" : "R", System.Globalization.CultureInfo.InvariantCulture)));
+			return string.Join("$", values.Select(value => value.ToString("R", System.Globalization.CultureInfo.InvariantCulture)));
 		}
 
 		[PunRPC]

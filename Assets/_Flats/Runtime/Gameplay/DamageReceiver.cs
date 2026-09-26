@@ -183,8 +183,8 @@ public class DamageReceiver : MonoBehaviour
 		{
 			return;
 		}
-		// Invincibility protects players (spawn, kill camera, round changes), as in ApplyDamage.
-		if (!base.gameObject.activeSelf || (invincibility && userIsPlayer))
+		// Invincibility protects players (spawn, kill camera), as in ApplyDamage; a round change protects everyone.
+		if (!base.gameObject.activeSelf || (invincibility && userIsPlayer) || Multiplayer.roundChanging)
 		{
 			return;
 		}
