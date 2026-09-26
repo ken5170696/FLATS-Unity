@@ -535,13 +535,7 @@ public partial class Menu : MonoBehaviour
 				Debug.Log("This is the first play.");
 				update.transform.GetChild(1).GetComponent<Text>().text = "FLATS " + text + " preview";
 				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- VIP deaths respect the Kill Cinematic switch.
-- Unnamed controllers (PS5 on phone, any in browsers) get a standard layout.
-- Mode state no longer leaks from online play into solo modes.
-- Phone portrait: menu and Mod Center fit the screen; Chinese player names.
-- Safer saves: missing avatar, duplicate settings and profile writes recover.
-
-Platform validation: see release notes.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- VIP deaths respect the Kill Cinematic switch.\n- Unnamed controllers (PS5 on phone, any in browsers) get a standard layout.\n- Mode state no longer leaks from online play into solo modes.\n- Phone portrait: menu and Mod Center fit the screen; Chinese player names.\n- Safer saves: missing avatar, duplicate settings and profile writes recover.\n\nPlatform validation: see release notes.";
 			}
 			else
 			{
@@ -602,13 +596,7 @@ Platform validation: see release notes.";
 				}
 				update.transform.GetChild(1).GetComponent<Text>().text = "Update Version " + text;
 				update.transform.GetChild(2).GetComponent<Text>().text = "Stability, controller and phone layout updates.";
-				update.transform.GetChild(4).GetComponent<Text>().text = "- VIP deaths respect the Kill Cinematic switch.
-- Unnamed controllers (PS5 on phone, any in browsers) get a standard layout.
-- Mode state no longer leaks from online play into solo modes.
-- Phone portrait: menu and Mod Center fit the screen; Chinese player names.
-- Safer saves: missing avatar, duplicate settings and profile writes recover.
-
-Platform validation: see release notes.";
+				update.transform.GetChild(4).GetComponent<Text>().text = "- VIP deaths respect the Kill Cinematic switch.\n- Unnamed controllers (PS5 on phone, any in browsers) get a standard layout.\n- Mode state no longer leaks from online play into solo modes.\n- Phone portrait: menu and Mod Center fit the screen; Chinese player names.\n- Safer saves: missing avatar, duplicate settings and profile writes recover.\n\nPlatform validation: see release notes.";
 			}
 			version = text;
 			FlatsPreferences.SetString("version", version);
