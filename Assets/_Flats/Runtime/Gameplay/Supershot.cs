@@ -53,8 +53,8 @@ public class Supershot : MonoBehaviour
 	// Only the latest notice stays on screen during quick successive kills.
 	private static Supershot activeNotice;
 
-	// Headshot and mortal-shot kills honour the player's Kill Cinematic setting.
-	public static void PlayKill(UnityEngine.Object prefab, Transform view, Transform target, bool headshot)
+	// Headshot, mortal-shot and VIP kills honour the player's Kill Cinematic setting.
+	public static void PlayKill(UnityEngine.Object prefab, Transform view, Transform target, bool headshot, bool vip = false, int vipLayer = 0)
 	{
 		nextNoticeOnly = !FlatsControls.KillCinematic;
 		GameObject effect;
@@ -66,8 +66,14 @@ public class Supershot : MonoBehaviour
 		{
 			nextNoticeOnly = false;
 		}
+		if (effect == null)
+		{
+			return;
+		}
 		Supershot component = effect.GetComponent<Supershot>();
 		component.headshot = headshot;
+		component.vip = vip;
+		component.vipLayer = vipLayer;
 		component.StartCoroutine("StartEffect", target);
 	}
 
@@ -287,6 +293,11 @@ public class Supershot : MonoBehaviour
 				activeNotice = null;
 			}
 			stopAnim = true;
+			// A single-player VIP death still ends the mission without the cinematic.
+			if (vip)
+			{
+				Singleplayer.cleared = true;
+			}
 			if (myCanvas != null)
 			{
 				UnityEngine.Object.Destroy(myCanvas.gameObject);

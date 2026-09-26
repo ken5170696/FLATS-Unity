@@ -476,10 +476,7 @@ public class DamageReceiver : MonoBehaviour
 		{
 			if (Menu.network == 0 || !MyView(base.gameObject))
 			{
-				GameObject gameObject4 = UnityEngine.Object.Instantiate(effectCamera, ct.position, ct.rotation) as GameObject;
-				Supershot component3 = gameObject4.GetComponent<Supershot>();
-				component3.vip = true;
-				component3.StartCoroutine("StartEffect", gameObject.transform);
+				Supershot.PlayKill(effectCamera, ct, gameObject.transform, false, true);
 			}
 		}
 		else if (command == "ally" && ct != null)
@@ -643,11 +640,7 @@ public class DamageReceiver : MonoBehaviour
 			}
 			else if (!MyView(base.gameObject) && Multiplayer.rule == 7 && myFPSController.vip)
 			{
-				GameObject gameObject6 = UnityEngine.Object.Instantiate(effectCamera, ct.position, ct.rotation) as GameObject;
-				Supershot component4 = gameObject6.GetComponent<Supershot>();
-				component4.vip = true;
-				component4.vipLayer = base.gameObject.layer;
-				component4.StartCoroutine("StartEffect", gameObject.transform);
+				Supershot.PlayKill(effectCamera, ct, gameObject.transform, false, true, base.gameObject.layer);
 			}
 		}
 		if (myFPSController != null)
