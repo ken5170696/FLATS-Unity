@@ -53,6 +53,23 @@ public static class FlatsAtomicRecord
         // Unique same-directory rename publishes only a completely written, flushed record.
         // Previous generations remain immutable, including damaged records for recovery.
         File.Move(temp,path+".generation-"+sequence.ToString("D19")+"-"+Guid.NewGuid().ToString("N")+".json");
+        PruneGenerations(path);
+    }
+    // Generation mode is permanent once entered, so without a cap the folder (and on WebGL
+    // the IndexedDB sync) grows with every save. Keep the newest records; the base file
+    // and .bak are never touched here.
+    public const int RetainedGenerations=8;
+    public static int PruneGenerations(string path)
+    {
+        string[] generations=Generations(path);
+        int removed=0;
+        for(int i=RetainedGenerations;i<generations.Length;i++)
+        {
+            try { File.Delete(generations[i]);removed++; }
+            catch(IOException) { }
+            catch(UnauthorizedAccessException) { }
+        }
+        return removed;
     }
     public static string Read(string path,Action<string> validate,out string recovery)
     {

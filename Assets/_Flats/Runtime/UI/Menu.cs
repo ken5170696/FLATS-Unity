@@ -681,28 +681,13 @@ public partial class Menu : MonoBehaviour
 			myCharacter.attack = 0;
 			myCharacter.defense = 0;
 		}
-		if (!System.IO.File.Exists((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png"))
-		{
-			if (System.IO.File.Exists((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/UserIcon.png"))
-			{
-				System.IO.File.Delete((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/UserIcon.png");
-			}
-			byte[] bytes = defaultIcon.EncodeToPNG();
-			System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", bytes);
-		}
+		// FlatsUserIcon restores the default avatar when the file is missing, unreadable or
+		// too small, so the character screen and room entry never throw on a cleaned folder.
 		Texture2D icon = new Texture2D(128, 128)
 		{
 			filterMode = FilterMode.Bilinear
 		};
-		byte[] bytes2 = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
-		icon.LoadImage(bytes2);
-		if (icon.width < 128 || icon.height < 128)
-		{
-			byte[] bytes3 = defaultIcon.EncodeToPNG();
-			System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", bytes3);
-			bytes2 = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
-			icon.LoadImage(bytes2);
-		}
+		icon.LoadImage(FlatsUserIcon.Read(defaultIcon));
 		characterScreen.GetChild(0).GetChild(0)
 			.GetChild(0)
 			.GetComponent<Image>()
@@ -1561,7 +1546,7 @@ public partial class Menu : MonoBehaviour
         PhotonNetwork.player.NickName = myCharacter.name;
         PhotonNetwork.SetPlayerCustomProperties(new ExitGames.Client.Photon.Hashtable {
             { "K", 0 }, { "D", 0 }, { "TC", myCharacter.color }, { "C", myCharacter.comment },
-            { "I", System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png") }
+            { "I", FlatsUserIcon.Read(defaultIcon) }
         });
         PhotonNetwork.CreateRoom("Flats Local Bots", new RoomOptions {
             MaxPlayers = 1, IsVisible = false,

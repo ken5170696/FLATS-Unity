@@ -352,7 +352,7 @@ public partial class Menu
 				current = "Multiplayer";
 				Texture2D texture2D = new Texture2D(128, 128);
 				texture2D.filterMode = FilterMode.Bilinear;
-				byte[] array = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
+				byte[] array = FlatsUserIcon.Read(defaultIcon);
 				texture2D.LoadImage(array);
 				ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
 				hashtable["K"] = myCharacter.kill;

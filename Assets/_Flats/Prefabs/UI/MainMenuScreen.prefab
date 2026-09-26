@@ -323,6 +323,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2071583664719020937}
   - component: {fileID: 8387848408126618790}
+  - component: {fileID: 389984680676480726}
   m_Layer: 5
   m_Name: MainMenuScreen
   m_TagString: Untagged
@@ -2679,3 +2680,18 @@ CanvasGroup:
   m_Interactable: 1
   m_BlocksRaycasts: 1
   m_IgnoreParentGroups: 0
+--- !u!114 &389984680676480726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1631741534350049259}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 052602744f4c4f8985f7c8e425953efb, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::MenuTileFit
+  designSpan: 640
+  margin: 24
+  minimumScale: 0.55

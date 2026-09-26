@@ -105,7 +105,7 @@ public partial class Menu
 					return;
 				}
 				array = texture2D.EncodeToPNG();
-				System.IO.File.WriteAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png", array);
+				FlatsUserIcon.Write(array);
 				characterScreen.GetChild(0).GetChild(0)
 					.GetChild(0)
 					.GetComponent<Image>()

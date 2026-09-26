@@ -56,7 +56,19 @@ namespace Flats.Modules
             var temp=path+".new";var text=codec.Write(next);if(System.Text.Encoding.UTF8.GetByteCount(text)>4*1024*1024)throw new InvalidDataException("Profiles document too large");
             foreach(var file in new[]{path,temp,path+".previous"})if(File.Exists(file)&&(File.GetAttributes(file)&FileAttributes.ReparsePoint)!=0)throw new IOException("Linked profile files are not supported");
             using(var f=new FileStream(temp,FileMode.Create,FileAccess.Write)){using(var writer=new StreamWriter(f)){writer.Write(text);writer.Flush();f.Flush(true);}}
-            if(File.Exists(path))File.Replace(temp,path,path+".previous");else File.Move(temp,path);
+            try
+            {
+                if(File.Exists(path))File.Replace(temp,path,path+".previous");else File.Move(temp,path);
+            }
+            catch(Exception e) when(e is IOException||e is UnauthorizedAccessException||e is PlatformNotSupportedException)
+            {
+                // File.Replace is not available on every mount (Android/Linux cross-device,
+                // browser file systems). Keep the previous copy best-effort and fall back to a
+                // plain copy so a profile save never crashes the game.
+                if(!File.Exists(temp))throw;
+                try{if(File.Exists(path))File.Copy(path,path+".previous",true);}catch(IOException){}catch(UnauthorizedAccessException){}
+                File.Copy(temp,path,true);File.Delete(temp);
+            }
             document=next;
         }
         public string Create(string name,string copyId=null)

@@ -141,7 +141,7 @@ public partial class Menu
 		{
 			filterMode = FilterMode.Bilinear
 		};
-		byte[] bytes = System.IO.File.ReadAllBytes((FlatsPreferences.IsolatedRoot ?? Application.persistentDataPath) + "/Flats_UserIcon.png");
+		byte[] bytes = FlatsUserIcon.Read(defaultIcon);
 		icon.LoadImage(bytes);
 		ExitGames.Client.Photon.Hashtable playerProps = new ExitGames.Client.Photon.Hashtable();
 		playerProps["K"] = myCharacter.kill;
