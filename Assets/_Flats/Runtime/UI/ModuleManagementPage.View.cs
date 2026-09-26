@@ -11,6 +11,8 @@ public sealed partial class ModuleManagementPage
     [Header("Responsive canvas")]
     [SerializeField, Min(1), Tooltip("Design height in UI units. Layout follows the canvas aspect ratio, not desktop monitor pixels.")]
     float referenceHeight=720;
+    [SerializeField, Min(1), Tooltip("Design width in UI units used when the canvas is taller than wide (phone portrait); the page then fits its width instead of shrinking to the landscape height.")]
+    float portraitReferenceWidth=720;
     [SerializeField] Vector2 minimumLayoutSize=new Vector2(960,680);
     [SerializeField] Vector2 edgePadding=new Vector2(30,24);
     [SerializeField, Min(960)] float maximumLayoutWidth=1440;

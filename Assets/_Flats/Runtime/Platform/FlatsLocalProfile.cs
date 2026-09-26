@@ -162,7 +162,16 @@ public class FlatsStorageNotice : MonoBehaviour
         if (font != null) label.font = button.font = font;
         GUI.depth=-1000;GUILayout.BeginArea(new Rect(30,30,Mathf.Min(Screen.width-60,780),300),GUI.skin.box);
         GUILayout.Label(FlatsLocalization.Translate(message), label);
-        if(fatal){if(GUILayout.Button(FlatsLocalization.Translate("Quit without overwriting data"), button))Application.Quit();}
+        if(fatal)
+        {
+#if UNITY_WEBGL || UNITY_IOS
+            // Application.Quit is a no-op in browsers and App Store rules forbid self-termination on
+            // iOS, so keep the notice on screen and tell the player how to leave without saving.
+            GUILayout.Label(FlatsLocalization.Translate("Close this page or app to leave without overwriting data."), label);
+#else
+            if(GUILayout.Button(FlatsLocalization.Translate("Quit without overwriting data"), button))Application.Quit();
+#endif
+        }
         else if(GUILayout.Button(FlatsLocalization.Translate("Close"), button))Destroy(gameObject);
         GUILayout.EndArea();
     }
