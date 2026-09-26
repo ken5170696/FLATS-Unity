@@ -707,7 +707,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 890, y: 420}
+  m_SizeDelta: {x: 760, y: 420}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5122189731258752364
 CanvasRenderer:
@@ -2976,7 +2976,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: -30}
-  m_SizeDelta: {x: 860, y: 390}
+  m_SizeDelta: {x: 760, y: 390}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &6078151176132531541
 CanvasRenderer:
@@ -4382,6 +4382,7 @@ GameObject:
   - component: {fileID: 7410977273658589524}
   - component: {fileID: 696869760659503439}
   - component: {fileID: 5862661482633164000}
+  - component: {fileID: 8892201532419963040}
   m_Layer: 5
   m_Name: Details
   m_TagString: Untagged
@@ -6467,6 +6468,7 @@ GameObject:
   - component: {fileID: 1163702702296866100}
   - component: {fileID: 3486193512628550602}
   - component: {fileID: 7470462428403018664}
+  - component: {fileID: 3586332567721948558}
   m_Layer: 5
   m_Name: Requirements
   m_TagString: Untagged
@@ -13223,6 +13225,7 @@ GameObject:
   - component: {fileID: 8751027023602604319}
   - component: {fileID: 3397740246915081337}
   - component: {fileID: 6794227140449480417}
+  - component: {fileID: 2919197880537930147}
   m_Layer: 5
   m_Name: ModList
   m_TagString: Untagged
@@ -14121,6 +14124,7 @@ GameObject:
   - component: {fileID: 5681950556112649324}
   - component: {fileID: 4877503890117645217}
   - component: {fileID: 3851998604468197516}
+  - component: {fileID: 6471042152759256940}
   m_Layer: 5
   m_Name: ConfirmationBody
   m_TagString: Untagged
@@ -17462,6 +17466,7 @@ GameObject:
   - component: {fileID: 6415511451820654164}
   - component: {fileID: 7218541207979085549}
   - component: {fileID: 2901167100476790169}
+  - component: {fileID: 5311542011336883037}
   m_Layer: 5
   m_Name: FilterOptions
   m_TagString: Untagged
@@ -20657,3 +20662,73 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &8892201532419963040
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3042521728046994162}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c81a2e8913754f6cb0d663b14dbe3861, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Flats.UI.Presentation::Flats.UI.ScrollToSelection
+  padding: 12
+  startAtTop: 1
+--- !u!114 &3586332567721948558
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4522735928348788884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c81a2e8913754f6cb0d663b14dbe3861, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Flats.UI.Presentation::Flats.UI.ScrollToSelection
+  padding: 12
+  startAtTop: 1
+--- !u!114 &2919197880537930147
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8581612357125949065}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c81a2e8913754f6cb0d663b14dbe3861, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Flats.UI.Presentation::Flats.UI.ScrollToSelection
+  padding: 12
+  startAtTop: 1
+--- !u!114 &6471042152759256940
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8916737895454241569}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c81a2e8913754f6cb0d663b14dbe3861, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Flats.UI.Presentation::Flats.UI.ScrollToSelection
+  padding: 12
+  startAtTop: 1
+--- !u!114 &5311542011336883037
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9162481664187152286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c81a2e8913754f6cb0d663b14dbe3861, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Flats.UI.Presentation::Flats.UI.ScrollToSelection
+  padding: 12
+  startAtTop: 1

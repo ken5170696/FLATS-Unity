@@ -992,3 +992,6 @@ Respawn:{0}	重生：{0}
 {0} has become the mother zombie.	{0} 成為了母體殭屍。
 {0} has become a zombie.	{0} 變成了殭屍。
 {0} killed {1}	{0} 擊敗了 {1}
+Preset	預設組合
+Setting	設定項目
+Value	數值
