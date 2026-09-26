@@ -414,6 +414,17 @@ namespace Flats.Account
             RunReconcile();
         }
 
+#if UNITY_EDITOR
+        // Authoring aid only: lets an Editor script preview every panel state without a Unity
+        // Cloud project or network. Not compiled into players.
+        public void DebugPreviewState(State state, string displayName = "", string error = "", bool lastSync = false)
+        {
+            DisplayName = displayName ?? "";
+            LastSyncUtc = lastSync ? DateTime.UtcNow : (DateTime?)null;
+            Set(state, error);
+        }
+#endif
+
         void Set(State state, string error)
         {
             Current = state; LastError = error ?? "";
