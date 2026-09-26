@@ -1031,4 +1031,4 @@ Upload this device's save?	要上傳這台裝置的存檔嗎？
 This device last synced with a different account.	這台裝置上次是與另一個帳號同步。
 Upload keeps it as this account's cloud save. Not now leaves the cloud empty; the device save is unchanged.	「上傳」會把它作為這個帳號的雲端存檔；「暫不」則雲端維持空白，裝置存檔不變。
 Not now	暫不
-Browser storage could not be saved before sign-in. {0}	登入前無法寫入瀏覽器儲存空間。{0}
+Google sign-in is not available in the browser version yet. Use Export save and Import old save to move progress.	瀏覽器版本目前無法使用 Google 登入。請用「匯出存檔／匯入舊存檔」轉移進度。

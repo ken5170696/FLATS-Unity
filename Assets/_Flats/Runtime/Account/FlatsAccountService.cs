@@ -28,11 +28,14 @@ namespace Flats.Account
         const float UploadDelaySeconds = 3f;
 
         static FlatsAccountService instance;
+        static bool quitting;
+        // The live service if one exists; never creates one (safe from OnDisable/OnDestroy).
+        public static FlatsAccountService Existing => instance;
         public static FlatsAccountService Instance
         {
             get
             {
-                if (instance == null)
+                if (instance == null && !quitting)
                 {
                     var existing = FindObjectOfType<FlatsAccountService>();
                     if (existing != null) instance = existing;
@@ -69,15 +72,28 @@ namespace Flats.Account
             instance = this;
             DontDestroyOnLoad(gameObject);
             if (FlatsPreferences.IsolatedRoot != null) Set(State.Unsupported, "Verification mode keeps saves local.");
+#if UNITY_WEBGL && !UNITY_EDITOR
+            // Unity Player Accounts 3.6.1 has no WebGL browser flow (BrowserUtils returns null),
+            // so the browser build keeps saves local until a WebGL sign-in path exists.
+            else Set(State.Unsupported, "Google sign-in is not available in the browser version yet. Use Export save and Import old save to move progress.");
+#else
             else if (string.IsNullOrEmpty(Application.cloudProjectId)) Set(State.Unconfigured, "");
+#endif
             SaveDataController.Saved += OnLocalSaved;
         }
+
+        void OnApplicationQuit() { quitting = true; }
 
         void OnDestroy()
         {
             SaveDataController.Saved -= OnLocalSaved;
             if (instance == this) instance = null;
         }
+
+#if UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ResetStatics() { instance = null; quitting = false; }
+#endif
 
         // Menu calls this once its profile has loaded. Restores a cached session silently
         // (no browser) and reconciles; also drains work deferred while in a match.
@@ -144,34 +160,11 @@ namespace Flats.Account
                     PlayerAccountService.Instance.SignInFailed += OnPlayerAccountFailed;
                     playerAccountHooked = true;
                 }
-#if UNITY_WEBGL && !UNITY_EDITOR
-                // The browser leaves this page for the sign-in redirect. Persist pending saves to
-                // IndexedDB first, otherwise unsynced changes die with the page.
-                if (!await FlushBrowserStorage()) return;
-#endif
                 // Opens the system browser (or redirects on Web). Completion arrives via SignedIn.
                 await PlayerAccountService.Instance.StartSignInAsync();
             }
             catch (Exception error) { Fail(error); }
         }
-
-#if UNITY_WEBGL && !UNITY_EDITOR
-        Task<bool> FlushBrowserStorage()
-        {
-            var completion = new TaskCompletionSource<bool>();
-            try
-            {
-                var transfer = FlatsBrowserSaveTransfer.Create(transform);
-                transfer.Flush((status, error) =>
-                {
-                    if (status == "saved") completion.TrySetResult(true);
-                    else { Set(State.SignedOut, "Browser storage could not be saved before sign-in. " + error); completion.TrySetResult(false); }
-                });
-            }
-            catch (Exception error) { Set(State.SignedOut, "Browser storage could not be saved before sign-in. " + error.Message); completion.TrySetResult(false); }
-            return completion.Task;
-        }
-#endif
 
         async void OnPlayerAccountSignedIn()
         {

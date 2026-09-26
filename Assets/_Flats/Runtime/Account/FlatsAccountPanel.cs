@@ -17,17 +17,22 @@ namespace Flats.Account
         [SerializeField] AudioSource pressSound;
 
         bool bound;
+        FlatsAccountService service;
 
         void OnEnable()
         {
             Bind();
-            FlatsAccountService.Instance.Changed += Refresh;
+            service = FlatsAccountService.Instance;
+            service.Changed += Refresh;
             Refresh();
         }
 
         void OnDisable()
         {
-            if (FlatsAccountService.Instance != null) FlatsAccountService.Instance.Changed -= Refresh;
+            // Use the captured reference: the Instance getter would create a new service while
+            // the scene is being torn down.
+            if (service != null) service.Changed -= Refresh;
+            service = null;
         }
 
         void Bind()
@@ -43,7 +48,11 @@ namespace Flats.Account
 
         public void Refresh()
         {
-            var service = FlatsAccountService.Instance;
+            var service = this.service ?? FlatsAccountService.Existing;
+            if (service == null) return;
+            // Known app messages are translated before they become a template parameter;
+            // unknown server text stays as data.
+            string error = FlatsLocalization.Translate(service.LastError);
             string title, body = "";
             bool canSignIn = false, canSignOut = false, canSync = false;
             switch (service.Current)
@@ -54,7 +63,7 @@ namespace Flats.Account
                     break;
                 case FlatsAccountService.State.Unsupported:
                     title = "Cloud account unavailable";
-                    body = service.LastError;
+                    body = error;
                     break;
                 case FlatsAccountService.State.SigningIn:
                     title = "Signing in...";
@@ -68,12 +77,12 @@ namespace Flats.Account
                     title = string.IsNullOrEmpty(service.DisplayName) ? "Signed in" : "Signed in as " + service.DisplayName;
                     body = string.IsNullOrEmpty(service.LastError)
                         ? (service.LastSyncUtc.HasValue ? "Last sync: " + service.LastSyncUtc.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm") : "Your save syncs to this account.")
-                        : "Sync problem: " + service.LastError;
+                        : "Sync problem: " + error;
                     canSignOut = true; canSync = true;
                     break;
                 case FlatsAccountService.State.Error:
                     title = "Sign-in failed";
-                    body = service.LastError;
+                    body = error;
                     canSignIn = true;
                     break;
                 default:
