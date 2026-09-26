@@ -998,3 +998,37 @@ Preset	預設組合
 Setting	設定項目
 Value	數值
 Close this page or app to leave without overwriting data.	請關閉此頁面或 App 離開，資料不會被覆蓋。
+Account	帳號
+Cloud account not configured	尚未設定雲端帳號
+This build has no Unity Cloud project, so saves stay on this device.	這個版本沒有連結 Unity Cloud 專案，存檔只保留在這台裝置。
+Cloud account unavailable	雲端帳號無法使用
+Verification mode keeps saves local.	驗證模式下存檔只保留在本機。
+Signing in...	登入中…
+Finish signing in with Google in your browser, then return here.	請在瀏覽器中完成 Google 登入，再回到這裡。
+Syncing...	同步中…
+Signed in	已登入
+Signed in as {0}	已登入：{0}
+Last sync: {0}	上次同步：{0}
+Your save syncs to this account.	你的存檔會同步到這個帳號。
+Sync problem: {0}	同步發生問題：{0}
+Sign-in failed	登入失敗
+Not signed in	尚未登入
+Sign in with Google to keep your profile, progress and settings on every device.	使用 Google 登入，讓個人檔案、進度與設定在每台裝置上都能保留。
+Sign in with Google	使用 Google 登入
+Sign out	登出
+Sync now	立即同步
+Session expired. Sign in again to keep syncing.	登入已過期，請重新登入以繼續同步。
+Cloud save is ready; it will be applied on the main menu.	雲端存檔已就緒，回到主選單後套用。
+Which save do you want to keep?	要保留哪一份存檔？
+This device and your account have different saves.	這台裝置與你的帳號有不同的存檔。
+Cloud: {0}, {1} kills, survival {2}, saved {3}	雲端：{0}，{1} 次擊殺，生存 {2}，儲存於 {3}
+This device: {0}, {1} kills, survival {2}	這台裝置：{0}，{1} 次擊殺，生存 {2}
+Use cloud replaces this device's save (a backup is kept). Keep device uploads this save to the cloud.	「使用雲端」會取代這台裝置的存檔（會保留備份）；「保留本機」會把這份存檔上傳到雲端。
+Use cloud	使用雲端
+Keep device	保留本機
+unknown time	時間不明
+Upload this device's save?	要上傳這台裝置的存檔嗎？
+This device last synced with a different account.	這台裝置上次是與另一個帳號同步。
+Upload keeps it as this account's cloud save. Not now leaves the cloud empty; the device save is unchanged.	「上傳」會把它作為這個帳號的雲端存檔；「暫不」則雲端維持空白，裝置存檔不變。
+Not now	暫不
+Browser storage could not be saved before sign-in. {0}	登入前無法寫入瀏覽器儲存空間。{0}

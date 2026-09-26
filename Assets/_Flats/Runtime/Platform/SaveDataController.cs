@@ -5,9 +5,12 @@ using UnityEngine;
 // explicit profile values and do not depend on Menu or scene objects.
 public class SaveDataController : MonoBehaviour
 {
+    // Raised after the local record has been written. The account service uses it to
+    // schedule a cloud upload; nothing here depends on the cloud.
+    public static event System.Action Saved;
     public static void Save()
     {
-        Save(new ProfileSnapshot(Menu.myCharacter,Menu.mySettings,Menu.myCurrent),new LocalProfileStore());
+        if(Save(new ProfileSnapshot(Menu.myCharacter,Menu.mySettings,Menu.myCurrent),new LocalProfileStore()))Saved?.Invoke();
     }
     public static bool Save(ProfileSnapshot snapshot,IProfileStore store)
     {

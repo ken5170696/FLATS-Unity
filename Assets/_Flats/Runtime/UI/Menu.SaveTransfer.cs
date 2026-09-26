@@ -197,29 +197,50 @@ public partial class Menu
             PreviewSaveImport(saveImportPath.text.Trim());
             return;
         }
-        try
-        {
-            if (gameState != "Main") throw new InvalidOperationException("Return to the main menu before importing a save.");
-#if UNITY_WEBGL && !UNITY_EDITOR
-            // Parse before committing, then publish the complete imported session
-            // synchronously so ordinary Menu saves cannot write the old snapshot.
-            var importedSnapshot=Flats.Profiles.LegacyProfileCodec.Decode(new Flats.Profiles.ProfilePayload(pendingSaveImport.character,pendingSaveImport.settings,pendingSaveImport.current));
-#endif
-            FlatsSaveTransfer.Import(pendingSaveImport, pendingSavePreferences);
-#if UNITY_WEBGL && !UNITY_EDITOR
-            myCharacter=importedSnapshot.Character;mySettings=importedSnapshot.Settings;myCurrent=importedSnapshot.Current;
-#endif
-            pendingSaveImport = null;
-            pendingSavePreferences = null;
-#if UNITY_WEBGL && !UNITY_EDITOR
-            browserImportAwaitingSave = true;
-            PersistBrowserImport();
-#else
-            saveTransferDialog.SetActive(false);
-            Application.LoadLevel(0);
-#endif
-        }
+        try { ApplyPendingSaveImport(); }
         catch (Exception e) { saveTransferPreview.text = "Import failed: " + e.Message; }
+    }
+
+    // Shared by the file-import dialog and the cloud account: validates, backs up, commits,
+    // then reloads the menu (or persists browser storage first on Web).
+    void ApplyPendingSaveImport()
+    {
+        if (gameState != "Main") throw new InvalidOperationException("Return to the main menu before importing a save.");
+#if UNITY_WEBGL && !UNITY_EDITOR
+        // Parse before committing, then publish the complete imported session
+        // synchronously so ordinary Menu saves cannot write the old snapshot.
+        var importedSnapshot=Flats.Profiles.LegacyProfileCodec.Decode(new Flats.Profiles.ProfilePayload(pendingSaveImport.character,pendingSaveImport.settings,pendingSaveImport.current));
+#endif
+        FlatsSaveTransfer.Import(pendingSaveImport, pendingSavePreferences);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        myCharacter=importedSnapshot.Character;mySettings=importedSnapshot.Settings;myCurrent=importedSnapshot.Current;
+#endif
+        pendingSaveImport = null;
+        pendingSavePreferences = null;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        browserImportAwaitingSave = true;
+        PersistBrowserImport();
+#else
+        saveTransferDialog.SetActive(false);
+        Application.LoadLevel(0);
+#endif
+    }
+
+    // Called by Flats.Account.FlatsAccountService after the player chose the cloud save.
+    // The avatar is written first so the reloaded menu shows it; failures keep the default icon.
+    public void ImportCloudProfile(FlatsLocalProfile.Profile profile, FlatsSaveTransfer.Preference[] preferences, byte[] avatarPng)
+    {
+        if (profile == null) throw new ArgumentNullException(nameof(profile));
+        if (gameState != "Main") throw new InvalidOperationException("Return to the main menu before importing a save.");
+        pendingSaveImport = profile;
+        pendingSavePreferences = preferences;
+        if (avatarPng != null && avatarPng.Length > 0)
+        {
+            try { FlatsUserIcon.Write(avatarPng); }
+            catch (System.IO.IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+        ApplyPendingSaveImport();
     }
 
     void ExportSave()

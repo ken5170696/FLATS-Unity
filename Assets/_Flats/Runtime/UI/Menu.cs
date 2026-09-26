@@ -669,6 +669,8 @@ public partial class Menu : MonoBehaviour
 		{
 			adForWin.Visible = false;
 		}
+		// Profile is loaded: restore a cached cloud session silently and reconcile.
+		Flats.Account.FlatsAccountService.OnMainMenuReady();
 		version = FlatsPreferences.GetString("version");
 		currentSurvivalScore = myCurrent.survival_Score;
 		currentSurvivalPhase = myCurrent.survival_Phase;
