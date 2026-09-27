@@ -13,9 +13,14 @@ namespace Flats.Modules
         readonly string path;
         IFirstPartyModule implementation;
         public ModuleManifest Manifest { get; private set; }
-        public ExternalModule(InstalledPackage p, string directory)
+        // Mod API 1.2.0: the installed directory and live setting values a managed
+        // module receives through IModuleContextReceiver. Created for every kind so the
+        // host can push saved values uniformly; only managed entry types observe it.
+        public ModuleContext Context { get; }
+        public ExternalModule(InstalledPackage p, string directory, SettingValue[] storedSettings=null)
         {
             package=p;path=directory;
+            Context=new ModuleContext(Path.GetFullPath(directory),p.manifest.settings,storedSettings);
             var m=p.manifest.Validate();
             var conflicts=m.Conflicts.ToList();
             if(ModRules.IsCrosshairProvider(p.manifest))conflicts.Add(CrosshairModule.Id);
@@ -38,6 +43,9 @@ namespace Flats.Modules
                 if(actual.Id!=declared.Id || actual.Version!=declared.Version || actual.Scope!=declared.Scope || actual.ApiVersions.ToString()!=declared.ApiVersions.ToString() || actual.GameVersions.ToString()!=declared.GameVersions.ToString() ||
                     !actual.Dependencies.Select(d=>d.Id+d.Versions).SequenceEqual(declared.Dependencies.Select(d=>d.Id+d.Versions)) || !actual.Conflicts.SequenceEqual(declared.Conflicts))
                     throw new InvalidDataException("Entry manifest differs from the validated package manifest");
+                // Attach runs once, before the first Initialize, so the module can read its
+                // directory and settings during Initialize and Enable.
+                if(implementation is IModuleContextReceiver receiver)receiver.Attach(Context);
             }
             implementation.Initialize(lifetime);
 #endif

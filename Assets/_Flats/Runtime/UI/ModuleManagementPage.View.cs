@@ -75,8 +75,9 @@ public sealed partial class ModuleManagementPage
         if(sizeSlider!=null)sizeSlider.onValueChanged.AddListener(value=>Configure(draft.style,value));
         if(smaller!=null)Listen(smaller, () => Configure(draft.style,draft.size-2));
         if(larger!=null)Listen(larger, () => Configure(draft.style,draft.size+2));
-        Listen(reset, () => Ask("Restore Crosshair defaults?\n\nThis changes only this mod's draft. Save changes to apply it. Other mods and game settings are not affected.",
+        Listen(reset, () => Ask((ModuleSettings?"Restore "+SettingsTitle+" defaults?":"Restore Crosshair defaults?")+"\n\nThis changes only this mod's draft. Save changes to apply it. Other mods and game settings are not affected.",
             ()=>{if(Generic)settingsForm.ResetToDefaults();else Configure(CrosshairStyle.Cross,24);}));
+        if(configure!=null)Listen(configure, () => OpenSettings(selectedId));
         Listen(saveDraft, () => SaveDraft(true));
         Listen(cancelDraft, LeaveSettings);
         Listen(importPanel.transform,"ReviewImport",ReviewImport);

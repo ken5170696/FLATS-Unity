@@ -25,22 +25,35 @@ public sealed partial class ModuleManagementPage
     [SerializeField] Button[] styles;
     [SerializeField, Tooltip("Settings-driven editor. When assigned it replaces the style buttons and size slider.")]
     ModuleSettingsForm settingsForm;
+    [SerializeField, Tooltip("Optional authored Configure button in the detail panel for installed mods that declare settings. When absent the quick panel offers Configure.")]
+    Button configure;
     bool Generic=>settingsForm!=null;
-    static string Signature(CrosshairSettings s)=>string.Join(";",s.Values.Select(v=>v.id+"="+v.value));
-    bool Dirty=>draft!=null&&Signature(draft)!=Signature(Host.ConfiguredCrosshair);
-    
-    
+    // Mod API 1.2.0: the settings-driven form edits any installed module that declares
+    // settings, not only the crosshair. Values are saved per profile and pushed to the
+    // running module through its IModuleContext.
+    string settingsModuleId=CrosshairModule.Id;
+    SettingValue[] genericDraft=new SettingValue[0];
+    bool ModuleSettings=>settingsModuleId!=CrosshairModule.Id;
+    static string Signature(CrosshairSettings s)=>Signature(s.Values);
+    static string Signature(SettingValue[] values)=>string.Join(";",(values??new SettingValue[0]).Select(v=>v.id+"="+v.value));
+    bool Dirty=>ModuleSettings?Signature(genericDraft)!=Signature(Host.ConfiguredSettings(settingsModuleId)):draft!=null&&Signature(draft)!=Signature(Host.ConfiguredCrosshair);
+    static bool HasSettings(PackageManifest m)=>m?.settings!=null && m.settings.Length>0;
+    bool Configurable(InstalledPackage package)=>package!=null && (package.manifest.id==CrosshairModule.Id || (Generic && HasSettings(package.manifest)));
+    string SettingsTitle=>ModuleSettings?PlayerName(Service.Installed.FirstOrDefault(p=>p.manifest.id==settingsModuleId)?.manifest.name):"Custom Crosshair";
+
+
     void RefreshQuick()
     {
         var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
         var package=Service.Installed.FirstOrDefault(p=>p.manifest.id==selectedId);
-        bool configurable=selectedId==CrosshairModule.Id && package!=null;
-        ((FlatsLocalizedText)quickTitle).translate=configurable || (package==null && record==null);
-        quickTitle.text=configurable?"Custom Crosshair":package?.manifest.name??record?.Manifest.DisplayName??"Select a mod";
-        quickInfo.text=configurable?"Client-only  /  "+(Host.Requested(CrosshairModule.Id)?"Enabled in selected profile":"Disabled in selected profile")+" / "+(record?.Active==true?"Active now":"Not active now")+"\n\nInstalled version: "+package.manifest.version+"\n\nAffects: Your screen only":
+        bool configurable=Configurable(package);
+        bool crosshair=selectedId==CrosshairModule.Id && package!=null;
+        ((FlatsLocalizedText)quickTitle).translate=crosshair || (package==null && record==null);
+        quickTitle.text=crosshair?"Custom Crosshair":package?.manifest.name??record?.Manifest.DisplayName??"Select a mod";
+        quickInfo.text=crosshair?"Client-only  /  "+(Host.Requested(CrosshairModule.Id)?"Enabled in selected profile":"Disabled in selected profile")+" / "+(record?.Active==true?"Active now":"Not active now")+"\n\nInstalled version: "+package.manifest.version+"\n\nAffects: Your screen only":
             package!=null?(package.manifest.scope=="ClientOnly"?"Your screen only":"Multiplayer mod")+"\n\nVersion "+package.manifest.version+"\n\n"+InstalledStatus(package):"Select a row to view its status and actions.";
         quickConfigure.gameObject.SetActive(configurable);quickDetails.interactable=!string.IsNullOrEmpty(selectedId);
-        quickPreview.gameObject.SetActive(configurable);if(configurable)quickPreview.Set(Host.ConfiguredCrosshair.style,54);
+        quickPreview.gameObject.SetActive(crosshair);if(crosshair)quickPreview.Set(Host.ConfiguredCrosshair.style,54);
         foreach(Transform row in listContent){var b=row.GetComponent<Button>();if(b!=null)b.image.color=row.name=="Mod-"+selectedId?ModCenterWidgets.Tint:ModCenterWidgets.Paper;}
         listHeading.text="";foreach(var b in statusTabs){b.GetComponentInChildren<Text>().color=b.name=="Status"+localFilter?ModCenterWidgets.Accent:ModCenterWidgets.Muted;}
     }
@@ -56,12 +69,23 @@ public sealed partial class ModuleManagementPage
     }
     
     
-    void OpenSettings()
+    void OpenSettings() { OpenSettings(selectedId); }
+    void OpenSettings(string id)
     {
+        var package=Service.Installed.FirstOrDefault(p=>p.manifest.id==id);
+        if(id!=CrosshairModule.Id && !(Generic && HasSettings(package?.manifest)))return;
+        settingsModuleId=id==CrosshairModule.Id?CrosshairModule.Id:id;
         // Start from every saved value so editing style or size keeps colour, thickness and outline.
         draft=Host.ConfiguredCrosshair.Clone();
+        genericDraft=ModuleSettings?Host.ConfiguredSettings(id):new SettingValue[0];
         SaveView();settingsOpen=true;detailOpen=false;draftNotice.text="";ApplyView();
-        if(Generic)
+        ShowPreview(!ModuleSettings);
+        if(ModuleSettings)
+        {
+            settingsForm.Bind(package.manifest.settings,package.manifest.presets,genericDraft,values=>{genericDraft=values;RefreshDraft();});
+            RefreshDraft();var first=settingsForm.GetComponentInChildren<Selectable>();if(first!=null)Focus(first);
+        }
+        else if(Generic)
         {
             // Settings are in HUD units; the preview shows them three times larger, as before.
             preview.rectTransform.localScale=Vector3.one*3;
@@ -70,9 +94,18 @@ public sealed partial class ModuleManagementPage
         }
         else {RefreshDraft();Focus(styles[(int)draft.style]);}
     }
+    // The crosshair preview and its backdrop buttons are authored for the crosshair only.
+    void ShowPreview(bool visible)
+    {
+        if(preview!=null)preview.gameObject.SetActive(visible);
+        if(previewBackdrop!=null)previewBackdrop.gameObject.SetActive(visible);
+        if(settingsLabel!=null)settingsLabel.gameObject.SetActive(visible);
+        foreach(var name in new[]{"LightPreview","DarkPreview"}){var t=crosshairPanel.transform.Find(name);if(t!=null)t.gameObject.SetActive(visible);}
+    }
     void RefreshDraft()
     {
-        if(Generic)preview.Set(draft);
+        if(ModuleSettings) { }
+        else if(Generic)preview.Set(draft);
         else
         {
             preview.Set(draft.style,draft.size*3);settingsLabel.text="Size: "+draft.size+" HUD units";
@@ -83,14 +116,16 @@ public sealed partial class ModuleManagementPage
     }
     bool SaveDraft(bool leave)
     {
-        if(!Host.Configure(draft.Values)){draftNotice.text=Host.Notice;return false;}
+        bool saved=ModuleSettings?Host.Configure(settingsModuleId,genericDraft):Host.Configure(draft.Values);
+        if(!saved){draftNotice.text=Host.Notice;return false;}
         if(leave)FinishSettings();else RefreshDraft();return true;
     }
-    void FinishSettings() { settingsOpen=false;detailOpen=false;Reload();FocusSelected(); }
+    void FinishSettings() { settingsOpen=false;detailOpen=false;settingsModuleId=CrosshairModule.Id;ShowPreview(true);Reload();FocusSelected(); }
     void LeaveSettings()
     {
         if(!Dirty){FinishSettings();return;}
-        Ask(Generic?"Save your Crosshair changes?\n\nThe draft has not been applied. Saving keeps the mod's enabled state.":
+        Ask(ModuleSettings?"Save your changes to "+SettingsTitle+"?\n\nThe draft has not been applied. Saving keeps the mod's enabled state.":
+            Generic?"Save your Crosshair changes?\n\nThe draft has not been applied. Saving keeps the mod's enabled state.":
             "Save your Crosshair changes?\n\nStyle: "+Host.ConfiguredCrosshair.style+" → "+draft.style+"\nSize: "+Host.ConfiguredCrosshair.size+" → "+draft.size+" HUD units\n\nThe draft has not been applied. Saving keeps the mod's enabled state.",()=>SaveDraft(true));
         confirmPanel.transform.Find("ConfirmAction").GetComponentInChildren<Text>().text="Save & leave";
         confirmPanel.transform.Find("CancelAction").GetComponentInChildren<Text>().text="Stay here";

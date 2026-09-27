@@ -69,7 +69,8 @@ public sealed partial class ModuleManagementPage
         importButton.gameObject.SetActive(!settingsOpen&&!detailOpen);
         summary.gameObject.SetActive(!settingsOpen&&!detailOpen);brandIcon.gameObject.SetActive(false);
         subtitle.gameObject.SetActive(!settingsOpen);
-        pageTitle.text=settingsOpen?"Custom Crosshair":detailOpen?"MOD / "+tab.ToUpperInvariant():"MOD";
+        if(pageTitle is FlatsLocalizedText localizedTitle)localizedTitle.translate=!(settingsOpen&&ModuleSettings);
+        pageTitle.text=settingsOpen?SettingsTitle:detailOpen?"MOD / "+tab.ToUpperInvariant():"MOD";
         notice.gameObject.SetActive(!settingsOpen);
         crosshairPanel.SetActive(settingsOpen);
         ((RectTransform)footerRule).anchoredPosition=new Vector2(0,settingsOpen?76:56);

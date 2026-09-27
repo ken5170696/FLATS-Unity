@@ -17,6 +17,9 @@ namespace Flats.Modules
         bool Requested(string id);
         bool Configure(CrosshairStyle style, float size);
         bool Configure(SettingValue[] values);
+        // Mod API 1.2.0: declared settings of any installed module, stored per profile.
+        SettingValue[] ConfiguredSettings(string id);
+        bool Configure(string id, SettingValue[] values);
         void SelectProfile(string id);
         void InitializeProfiles(string directory, InstalledPackage[] installed);
         void AttachExternal(IFirstPartyModule[] modules, string[] requested);
@@ -49,6 +52,9 @@ namespace Flats.Modules
         Task<byte[]> Artwork(string url, CancellationToken cancel);
         string Problem(PackageManifest manifest);
         bool NeedsRestart(string id);
+        // Mod API 1.2.0: hands saved setting values to the running module's context.
+        // Returns false when that module is not running in this process.
+        bool ApplyLiveSettings(string id, SettingValue[] values);
     }
 
     public interface IModCenterPlatform

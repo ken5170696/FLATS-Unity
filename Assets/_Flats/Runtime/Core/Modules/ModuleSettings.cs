@@ -14,6 +14,11 @@ namespace Flats.Modules
         public string id, type, label, description, defaultValue;
         public float min, max, step;
         public string[] choices;
+        // Mod API 1.2.0, both optional. group is a heading shown above consecutive
+        // settings that share it (an English key translated through FlatsLocalization);
+        // performance is one of ModuleSettingsSchema.PerformanceLevels and is shown as a
+        // cost tag. Older manifests leave both empty and render exactly as before.
+        public string group, performance;
     }
     [Serializable] public sealed class SettingValue { public string id, value; }
     [Serializable] public sealed class ModulePreset { public string id, name; public SettingValue[] values; }
@@ -23,6 +28,7 @@ namespace Flats.Modules
     public static class ModuleSettingsSchema
     {
         public const int MaxSettings = 32, MaxPresets = 16, MaxChoices = 32;
+        public static readonly string[] PerformanceLevels = { "low", "medium", "high", "extreme" };
         static readonly Regex SettingId = new Regex(@"\A[a-z][a-zA-Z0-9]{0,39}\z");
         static readonly Regex Color = new Regex(@"\A#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?\z");
 
@@ -37,6 +43,9 @@ namespace Flats.Modules
                 if (s == null || s.id == null || !SettingId.IsMatch(s.id) || !ids.Add(s.id)) throw new InvalidDataException("Invalid or duplicate setting id");
                 ModRules.Text(s.label, 80, "setting label", true);
                 ModRules.Text(s.description, 400, "setting description");
+                ModRules.Text(s.group, 80, "setting group");
+                if (!string.IsNullOrEmpty(s.performance) && Array.IndexOf(PerformanceLevels, s.performance) < 0)
+                    throw new InvalidDataException("Setting " + s.id + " performance must be low, medium, high or extreme");
                 switch (s.type)
                 {
                     case "bool": case "color": break;

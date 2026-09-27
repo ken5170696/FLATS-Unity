@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Flats.Modules;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 // Renders any module's declared settings from authored row and preset templates.
@@ -15,11 +16,17 @@ public sealed class ModuleSettingsForm : MonoBehaviour
     [Tooltip("Parent for preset buttons. Leave empty to hide presets.")]
     public RectTransform presets;
     public Button presetTemplate;
+    [Tooltip("Optional heading instantiated above each run of settings that share a group (Mod API 1.2.0). Leave empty to render groups flat.")]
+    public Text groupTemplate;
+    [Tooltip("Optional scroll view around the rows. The focused row is kept visible for controller navigation.")]
+    public ScrollRect scroll;
 
     ModuleSettingSpec[] specs = new ModuleSettingSpec[0];
     ModulePreset[] presetList = new ModulePreset[0];
     readonly List<ModuleSettingRowView> views = new List<ModuleSettingRowView>();
+    readonly List<GameObject> headings = new List<GameObject>();
     Action<SettingValue[]> changed;
+    GameObject lastFocused;
 
     public SettingValue[] Draft { get; private set; } = new SettingValue[0];
 
@@ -32,9 +39,22 @@ public sealed class ModuleSettingsForm : MonoBehaviour
         // Deactivate before the deferred Destroy so focus and lookups this frame only see new rows.
         foreach (var view in views) if (view != null) { view.gameObject.SetActive(false); Destroy(view.gameObject); }
         views.Clear();
+        foreach (var heading in headings) if (heading != null) { heading.SetActive(false); Destroy(heading); }
+        headings.Clear();
         rowTemplate.gameObject.SetActive(false);
+        if (groupTemplate != null) groupTemplate.gameObject.SetActive(false);
+        string group = null;
         foreach (var spec in specs)
         {
+            if (groupTemplate != null && !string.IsNullOrEmpty(spec.group) && spec.group != group)
+            {
+                var heading = Instantiate(groupTemplate, rows, false);
+                heading.name = "Group-" + spec.group;
+                heading.text = spec.group;
+                heading.gameObject.SetActive(true);
+                headings.Add(heading.gameObject);
+            }
+            group = spec.group;
             var view = Instantiate(rowTemplate, rows, false);
             view.name = "Setting-" + spec.id;
             view.gameObject.SetActive(true);
@@ -42,6 +62,7 @@ public sealed class ModuleSettingsForm : MonoBehaviour
             view.Bind(spec, ModuleSettingsSchema.Get(Draft, id), value => Set(id, value));
             views.Add(view);
         }
+        if (scroll != null) { Canvas.ForceUpdateCanvases(); scroll.verticalNormalizedPosition = 1; }
         if (presets != null && presetTemplate != null)
         {
             presetTemplate.gameObject.SetActive(false);
@@ -71,5 +92,23 @@ public sealed class ModuleSettingsForm : MonoBehaviour
         Draft = values;
         for (int i = 0; i < views.Count; i++) views[i].Show(ModuleSettingsSchema.Get(Draft, specs[i].id));
         changed?.Invoke(Draft);
+    }
+
+    // Keyboard and controller focus moves between rows without pointer scrolling, so
+    // the scroll view follows the selected control (the same rule ModuleScrollItem uses).
+    void Update()
+    {
+        if (scroll == null || EventSystem.current == null) return;
+        var focused = EventSystem.current.currentSelectedGameObject;
+        if (focused == null || focused == lastFocused || !focused.transform.IsChildOf(rows)) return;
+        lastFocused = focused;
+        RectTransform item = focused.transform as RectTransform;
+        while (item != null && item.parent != rows) item = item.parent as RectTransform;
+        if (item == null) return;
+        Canvas.ForceUpdateCanvases();
+        float top = -item.anchoredPosition.y - item.rect.height * (1 - item.pivot.y);
+        float bottom = top + item.rect.height, height = scroll.viewport.rect.height, offset = scroll.content.anchoredPosition.y;
+        if (top < offset) offset = top; else if (bottom > offset + height) offset = bottom - height;
+        scroll.content.anchoredPosition = new Vector2(scroll.content.anchoredPosition.x, Mathf.Clamp(offset, 0, Mathf.Max(0, scroll.content.rect.height - height)));
     }
 }

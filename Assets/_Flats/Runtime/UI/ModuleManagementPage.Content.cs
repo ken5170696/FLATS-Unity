@@ -212,6 +212,7 @@ public sealed partial class ModuleManagementPage
         ((FlatsLocalizedText)detailTitle).translate=selectedId==CrosshairModule.Id || selectedId=="storage-report";
         ((FlatsLocalizedText)description).translate=selectedId==CrosshairModule.Id || selectedId=="storage-report" || tab=="Downloads";
         crosshairPanel.SetActive(settingsOpen);secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);enable.interactable=false;
+        if(configure!=null)configure.gameObject.SetActive(false);
         foreach(Transform row in listContent){var b=row.GetComponent<Button>();if(b!=null)b.image.color=row.name=="Mod-"+selectedId?ModCenterWidgets.Accent:ModCenterWidgets.PanelColor;}
         if(tab=="Downloads"){UpdateDownloadDetail();return;}
         var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==selectedId);
@@ -249,8 +250,14 @@ public sealed partial class ModuleManagementPage
         if(p!=null)
         {
             secondary.gameObject.SetActive(true);bool update=!busy&&!downloading&&item!=null&&ModRules.Version(item.manifest.version)>ModRules.Version(p.manifest.version);
-            secondary.GetComponentInChildren<Text>().text=update?"Update to "+item.manifest.version:"Check updates";
-            secondary.interactable=!busy&&!downloading&&Service.Source!=null;
+            // A mod with declared settings gets Configure: on the authored button when the
+            // prefab has one, otherwise in place of Check updates (updates stay reachable
+            // from the Installed tab's Check updates control).
+            bool configurable=Generic&&HasSettings(p.manifest)&&!downloading;
+            if(configure!=null){configure.gameObject.SetActive(configurable);configure.interactable=!busy;}
+            bool inlineConfigure=configurable&&configure==null&&!update;
+            secondary.GetComponentInChildren<Text>().text=inlineConfigure?"Configure":update?"Update to "+item.manifest.version:"Check updates";
+            secondary.interactable=inlineConfigure?!busy:!busy&&!downloading&&Service.Source!=null;
             remove.gameObject.SetActive(true);remove.interactable=!busy&&!downloading;
         }
         DetailSections(m,p);
@@ -326,6 +333,7 @@ public sealed partial class ModuleManagementPage
     {
         if(selectedId==CrosshairModule.Id && tab!="Explore"){OpenSettings();return;}
         var p=Service.Installed.FirstOrDefault(x=>x.manifest.id==selectedId);
+        if(p!=null && tab!="Explore" && secondary.GetComponentInChildren<Text>().text=="Configure"){OpenSettings(selectedId);return;}
         if(p!=null && known.TryGetValue(selectedId,out var item) && ModRules.Version(item.manifest.version)>ModRules.Version(p.manifest.version)){InstallSelected();return;}
         Run(async()=>{foreach(var update in await Service.CheckUpdates(CancellationToken.None))known[update.manifest.id]=update;});
     }

@@ -17,6 +17,8 @@ public sealed class ModuleSettingRowView : MonoBehaviour
     public Image toggleTrack;
     public RectTransform toggleThumb;
     public Image swatch;
+    [Tooltip("Optional cost tag for settings that declare performance (Mod API 1.2.0): Low, Medium, High or Extreme.")]
+    public Text performanceTag;
     public Color enabledColor = new Color(.8f, .098f, .4f);
     public Color disabledColor = new Color(.7f, .68f, .7f);
     [Tooltip("Colours offered for colour settings, in order.")]
@@ -34,6 +36,12 @@ public sealed class ModuleSettingRowView : MonoBehaviour
     {
         spec = setting; changed = onChanged; binding = true;
         label.text = setting.label;
+        if (performanceTag != null)
+        {
+            bool tagged = !string.IsNullOrEmpty(setting.performance);
+            performanceTag.gameObject.SetActive(tagged);
+            if (tagged) performanceTag.text = PerformanceLabel(setting.performance);
+        }
         bool numeric = setting.type == "int" || setting.type == "float";
         bool stepped = setting.type == "choice" || setting.type == "color";
         if (slider != null) slider.gameObject.SetActive(numeric);
@@ -85,6 +93,19 @@ public sealed class ModuleSettingRowView : MonoBehaviour
                 break;
         }
         binding = false;
+    }
+
+    // English keys; FlatsLocalizedText or the caller translates them.
+    public static string PerformanceLabel(string level)
+    {
+        switch (level)
+        {
+            case "low": return "Low cost";
+            case "medium": return "Medium cost";
+            case "high": return "High cost";
+            case "extreme": return "Extreme cost";
+            default: return "";
+        }
     }
 
     static string ChoiceName(string id)
