@@ -459,7 +459,7 @@ public partial class FPSController : MonoBehaviour
 	private void ApplyLook(Flats.Core.LookInput input, float x, float y)
 	{
 		var look = Flats.Core.LookRotationPolicy.Evaluate(input, x, y, isZoom ? FlatsControls.AimSensitivity(sensitivity) : sensitivity, invertY,
-			isZoom, isZoom ? currentGun.zoom : 1f, headTracking, VRController.device == "cardboard",
+			isZoom, isZoom ? currentGun.zoom * ScopeViewPresenter.LookScale : 1f, headTracking, VRController.device == "cardboard",
 			headRotation.x, headRotation.y, SessionPlaying, testMode,
 			mct.localEulerAngles.x, mct.localEulerAngles.y);
 		mt.eulerAngles += new Vector3(0f, look.BodyYaw, 0f);

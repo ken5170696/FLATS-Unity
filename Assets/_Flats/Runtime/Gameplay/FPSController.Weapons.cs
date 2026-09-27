@@ -23,9 +23,16 @@ public partial class FPSController
 			startZooming = true;
 			aimEyeLocalPosition = mt.InverseTransformPoint(ct.position);
 			camAnim.enabled = false;
+			// A scope.view module enlarges only the local player's aimed lens image;
+			// the presenter restores the sight when aiming ends.
+			if (primarySightIndex != 0 && MyView(base.gameObject))
+			{
+				ScopeViewPresenter.Apply(primaryWeapon.GetChild(2), Menu.sightDictionary[primarySightIndex], gunCam);
+			}
 		}
 		else if (Aiming && !zoom)
 		{
+			ScopeViewPresenter.Restore();
 			if ((bool)sight)
 			{
 				sight.SetActive(false);

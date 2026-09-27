@@ -46,6 +46,7 @@ namespace Flats.Modules
         {
             if(package.manifest.kind=="managed") { implementation.Enable(lifetime);return; }
             if(package.manifest.kind=="data" && package.manifest.adapter==Flats.Core.EnemyTuning.Adapter) { EnableEnemyTuning(lifetime);return; }
+            if(package.manifest.kind=="data" && package.manifest.adapter==Flats.Core.ScopeView.Adapter) { EnableScopeView(lifetime);return; }
             if(!ModRules.IsCrosshairProvider(package.manifest))
                 throw new NotSupportedException("No game handler for "+package.manifest.adapter);
             if(CrosshairPresentation.Appearance!=null)throw new InvalidOperationException("Disable the other crosshair module first");
@@ -60,14 +61,30 @@ namespace Flats.Modules
         void EnableEnemyTuning(ModuleLifetime lifetime)
         {
             // The payload is part of the hashed package, so every player in the room applies the same values.
-            if(string.IsNullOrEmpty(package.manifest.payload))throw new InvalidDataException("Enemy tuning packages require a payload");
+            var payload=ReadPayload<Flats.Core.EnemyTuningPayload>("Enemy tuning");
+            Flats.Core.EnemyTuning.Apply(payload);
+            // Registered after Apply: the adapter holds one static state, so a second package
+            // rejected by Apply must not reset the first one during failure cleanup.
+            lifetime.Own(Flats.Core.EnemyTuning.Reset);
+        }
+        void EnableScopeView(ModuleLifetime lifetime)
+        {
+            // Presentation only: the lens image grows on this player's screen; the aim ray,
+            // damage and what other players see are unchanged.
+            var payload=ReadPayload<Flats.Core.ScopeViewPayload>("Scope view");
+            Flats.Core.ScopeView.Apply(payload);
+            lifetime.Own(Flats.Core.ScopeView.Reset);
+        }
+        // Reads the package's JSON payload (at most 16 KiB, inside the package directory).
+        T ReadPayload<T>(string what) where T:class
+        {
+            if(string.IsNullOrEmpty(package.manifest.payload))throw new InvalidDataException(what+" packages require a payload");
             string file=Path.GetFullPath(Path.Combine(path,package.manifest.payload));
             if(!file.StartsWith(Path.GetFullPath(path),StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Payload path escapes the package");
-            var info=new FileInfo(file);if(!info.Exists || info.Length>16*1024)throw new InvalidDataException("Enemy tuning payload is missing or too large");
-            var payload=UnityEngine.JsonUtility.FromJson<Flats.Core.EnemyTuningPayload>(File.ReadAllText(file));
-            if(payload==null)throw new InvalidDataException("Invalid enemy tuning payload");
-            Flats.Core.EnemyTuning.Apply(payload);
-            lifetime.Own(Flats.Core.EnemyTuning.Reset);
+            var info=new FileInfo(file);if(!info.Exists || info.Length>16*1024)throw new InvalidDataException(what+" payload is missing or too large");
+            var payload=UnityEngine.JsonUtility.FromJson<T>(File.ReadAllText(file));
+            if(payload==null)throw new InvalidDataException("Invalid "+what.ToLowerInvariant()+" payload");
+            return payload;
         }
         public void Disable() { implementation?.Disable(); }
     }

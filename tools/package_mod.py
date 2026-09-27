@@ -1,7 +1,7 @@
 """Package a crosshair or data manifest for desktop import or catalogue publication.
 
 Schema 1 packages a single crosshair preset. Schema 2 packages a data module for a
-game adapter (for example crosshair@2 or enemy.tuning@1), including its JSON payload
+game adapter (crosshair@2, enemy.tuning@1 or scope.view@1), including its JSON payload
 from the manifest's folder. This authoring tool checks basic data fields. The game's
 installer remains the authority for compatibility, dependency, conflict and package
 validation.
@@ -18,7 +18,9 @@ VERSION = r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
 ADAPTER = r'[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*@[1-9][0-9]{0,3}'
 SCOPES = ('ClientOnly', 'RequiredForSession')
 # Scopes each game adapter accepts; an unknown adapter is left to the game to reject.
-ADAPTER_SCOPES = {'crosshair@2': ('ClientOnly',), 'enemy.tuning@1': ('RequiredForSession',)}
+ADAPTER_SCOPES = {'crosshair@2': ('ClientOnly',), 'enemy.tuning@1': ('RequiredForSession',),
+                  'scope.view@1': ('ClientOnly',)}
+SCOPE_LENSES = ('2x', '4x', '6x', '8x')
 
 
 def check_range(manifest, prefix, required):
@@ -35,8 +37,8 @@ def check_range(manifest, prefix, required):
 def check_payload(manifest, folder):
     name = manifest.get('payload')
     if name in (None, ''):
-        if manifest['adapter'] == 'enemy.tuning@1':
-            raise ValueError('enemy.tuning@1 packages need a payload')
+        if manifest['adapter'] in ('enemy.tuning@1', 'scope.view@1'):
+            raise ValueError(manifest['adapter'] + ' packages need a payload')
         return None
     relative = Path(name)
     if (not isinstance(name, str) or relative.is_absolute() or '..' in relative.parts or
@@ -54,7 +56,36 @@ def check_payload(manifest, folder):
             number = value.get(key, 1)
             if type(number) not in (int, float) or not math.isfinite(number) or not 0.25 <= number <= 4:
                 raise ValueError(f'{key} must be a multiplier between 0.25 and 4')
+    if manifest['adapter'] == 'scope.view@1':
+        check_scope_view(value)
     return relative.as_posix(), data
+
+
+def check_scope_view(value):
+    """Mirror the game's scope.view@1 payload rules; unknown keys are refused here so typos surface."""
+    allowed = {'schema', 'preserveMagnification', 'renderTextureScale', 'lenses'}
+    if not isinstance(value, dict) or set(value) - allowed:
+        raise ValueError('scope.view@1 payload accepts only schema, preserveMagnification, renderTextureScale and lenses')
+    if value.get('schema') != 1:
+        raise ValueError('scope.view@1 payload needs schema 1')
+    if type(value.get('preserveMagnification', True)) is not bool:
+        raise ValueError('preserveMagnification must be true or false')
+    texture = value.get('renderTextureScale', 1)
+    if type(texture) is not int or not 1 <= texture <= 4:
+        raise ValueError('renderTextureScale must be an integer between 1 and 4')
+    lenses = value.get('lenses', [])
+    if not isinstance(lenses, list):
+        raise ValueError('lenses must be a list of {lens, scale} entries')
+    seen = set()
+    for entry in lenses:
+        if not isinstance(entry, dict) or set(entry) - {'lens', 'scale'} or entry.get('lens') not in SCOPE_LENSES:
+            raise ValueError('each lens entry needs a lens of 2x, 4x, 6x or 8x and a scale')
+        if entry['lens'] in seen:
+            raise ValueError(f'duplicate lens {entry["lens"]}')
+        seen.add(entry['lens'])
+        scale = entry.get('scale', 1)
+        if type(scale) not in (int, float) or not math.isfinite(scale) or not 1 <= scale <= 3:
+            raise ValueError(f'{entry["lens"]} scale must be between 1 and 3')
 
 
 def package(manifest_path, output):

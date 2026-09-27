@@ -170,6 +170,8 @@ namespace Flats.Modules
             ModAdapters.Register(CrosshairSettingsSpec.Adapter,ModuleScope.ClientOnly);
             // Changes enemy balance for everyone in the match, so it is session-only.
             ModAdapters.Register(Flats.Core.EnemyTuning.Adapter,ModuleScope.RequiredForSession);
+            // Enlarges the local player's own lens image only, so it stays client-only.
+            ModAdapters.Register(Flats.Core.ScopeView.Adapter,ModuleScope.ClientOnly);
             string directory=Application.persistentDataPath;
 #if UNITY_EDITOR
             var testRoot=Environment.GetEnvironmentVariable("FLATS_MOD_TEST_ROOT");
