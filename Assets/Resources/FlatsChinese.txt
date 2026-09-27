@@ -1032,3 +1032,7 @@ This device last synced with a different account.	這台裝置上次是與另一
 Upload keeps it as this account's cloud save. Not now leaves the cloud empty; the device save is unchanged.	「上傳」會把它作為這個帳號的雲端存檔；「暫不」則雲端維持空白，裝置存檔不變。
 Not now	暫不
 Google sign-in is not available in the browser version yet. Use Export save and Import old save to move progress.	瀏覽器版本目前無法使用 Google 登入。請用「匯出存檔／匯入舊存檔」轉移進度。
+Export a save file here, then use Import old save on the other device.	在這裡匯出存檔，再到另一台裝置使用「匯入舊存檔」。
+Browsers cannot use LAN Sync; use save files instead.	瀏覽器無法使用區域網路同步，請改用存檔檔案。
+LAN Sync (native builds, same network): open the source first, then the receiver.	區域網路同步（原生版本、同一網路）：先開啟來源裝置，再開啟接收裝置。
+Legacy cloud data cannot be restored.	舊版雲端資料無法還原。

@@ -24,6 +24,7 @@ namespace Flats.Account
             Bind();
             service = FlatsAccountService.Instance;
             service.Changed += Refresh;
+            FlatsLocalization.Changed += Refresh;
             Refresh();
         }
 
@@ -32,6 +33,7 @@ namespace Flats.Account
             // Use the captured reference: the Instance getter would create a new service while
             // the scene is being torn down.
             if (service != null) service.Changed -= Refresh;
+            FlatsLocalization.Changed -= Refresh;
             service = null;
         }
 

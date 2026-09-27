@@ -396,9 +396,9 @@ public partial class Menu : MonoBehaviour
         if (syncExplanation != null)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            syncExplanation.GetComponent<Text>().text = "Save files: Export on source; Import old save here.\nPreview before replacing the current save.\n\nBrowsers cannot use UDP LAN Sync.\nUse save files to transfer your progress.\n\nLegacy cloud restoration is unavailable.\nThe ID/Receive entry cannot recover old cloud data.";
+            syncExplanation.GetComponent<Text>().text = "Export a save file here, then use Import old save on the other device.\nBrowsers cannot use LAN Sync; use save files instead.\nLegacy cloud data cannot be restored.";
 #else
-            syncExplanation.GetComponent<Text>().text = "Save files: Export on source; Import old save here.\nPreview before replacing the current save.\n\nLAN Sync (native builds, same network):\nOpen source first, then receiver; confirm scores.\nOnly ID + scores transfer, not gameplay.\n\nLegacy cloud restoration is unavailable.\nThe ID/Receive entry cannot recover old cloud data.";
+            syncExplanation.GetComponent<Text>().text = "Export a save file here, then use Import old save on the other device.\nLAN Sync (native builds, same network): open the source first, then the receiver.\nLegacy cloud data cannot be restored.";
 #endif
         }
 		anim = GetComponent<Animator>();
