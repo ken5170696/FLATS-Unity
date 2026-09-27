@@ -1036,3 +1036,15 @@ Export a save file here, then use Import old save on the other device.	在這裡
 Browsers cannot use LAN Sync; use save files instead.	瀏覽器無法使用區域網路同步，請改用存檔檔案。
 LAN Sync (native builds, same network): open the source first, then the receiver.	區域網路同步（原生版本、同一網路）：先開啟來源裝置，再開啟接收裝置。
 Legacy cloud data cannot be restored.	舊版雲端資料無法還原。
+Sign-in timed out. Try again.	登入逾時，請再試一次。
+The sign-in token could not be read.	無法讀取登入憑證。
+The sign-in token was not issued by Google.	登入憑證不是由 Google 核發。
+The sign-in token belongs to a different app.	登入憑證屬於其他應用程式。
+The sign-in token does not match this sign-in attempt.	登入憑證與這次登入不符。
+The sign-in token has expired.	登入憑證已過期。
+Google sign-in failed.	Google 登入失敗。
+Google did not return a sign-in token.	Google 沒有回傳登入憑證。
+Google sign-in script could not be loaded.	無法載入 Google 登入元件。
+The sign-in reply does not match this attempt.	登入回應與這次登入不符。
+The sign-in reply has no token.	登入回應沒有憑證。
+Unexpected callback path.	登入回應路徑不正確。

@@ -3,9 +3,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Services.Authentication;
-using Unity.Services.Authentication.PlayerAccounts;
 using Unity.Services.CloudSave;
 using Unity.Services.CloudSave.Models;
 using Unity.Services.Core;
@@ -13,8 +13,8 @@ using UnityEngine;
 
 namespace Flats.Account
 {
-    // Google sign-in through Unity Player Accounts and a cloud mirror of the local save
-    // in Cloud Save. The local atomic record stays authoritative: the service never
+    // Google sign-in (ID token from Google Identity Services, see FlatsGoogleSignInSettings)
+    // into Unity Authentication, and a cloud mirror of the local save in Cloud Save. The local atomic record stays authoritative: the service never
     // blocks play, and every cloud-to-local write goes through FlatsSaveTransfer.Import
     // (validation, backup, preference acceptance) exactly like a file import.
     public sealed class FlatsAccountService : MonoBehaviour
@@ -59,7 +59,11 @@ namespace Flats.Account
         public bool IsSignedIn => Current == State.SignedIn || Current == State.Syncing;
         public event Action Changed;
 
-        bool initialized, startupSyncDone, playerAccountHooked;
+        bool initialized, startupSyncDone;
+        FlatsGoogleSignInSettings settings;
+        CancellationTokenSource signInCancel;
+        string pendingNonce;
+        TaskCompletionSource<string> browserToken;
         string cloudWriteLock;
         Coroutine pendingUpload;
         // A cloud document that arrived while the player was not on the main menu.
@@ -71,14 +75,9 @@ namespace Flats.Account
             if (instance != null && instance != this) { Destroy(gameObject); return; }
             instance = this;
             DontDestroyOnLoad(gameObject);
+            settings = FlatsGoogleSignInSettings.Load();
             if (FlatsPreferences.IsolatedRoot != null) Set(State.Unsupported, "Verification mode keeps saves local.");
-#if UNITY_WEBGL && !UNITY_EDITOR
-            // Unity Player Accounts 3.6.1 has no WebGL browser flow (BrowserUtils returns null),
-            // so the browser build keeps saves local until a WebGL sign-in path exists.
-            else Set(State.Unsupported, "Google sign-in is not available in the browser version yet. Use Export save and Import old save to move progress.");
-#else
-            else if (string.IsNullOrEmpty(Application.cloudProjectId)) Set(State.Unconfigured, "");
-#endif
+            else if (string.IsNullOrEmpty(Application.cloudProjectId) || settings == null || !settings.IsConfigured) Set(State.Unconfigured, "");
             SaveDataController.Saved += OnLocalSaved;
         }
 
@@ -117,9 +116,11 @@ namespace Flats.Account
             try
             {
                 if (AuthenticationService.Instance.IsSignedIn || AuthenticationService.Instance.SessionTokenExists) AuthenticationService.Instance.SignOut(true);
-                PlayerAccountService.Instance.SignOut();
             }
             catch (Exception error) { Debug.LogWarning("FLATS_ACCOUNT sign-out: " + error.Message); }
+#if UNITY_WEBGL && !UNITY_EDITOR
+            FlatsGoogleSignOut();
+#endif
             cloudWriteLock = null; PlayerId = ""; DisplayName = "";
             if (pendingUpload != null) { StopCoroutine(pendingUpload); pendingUpload = null; }
             Set(State.SignedOut, "");
@@ -148,47 +149,74 @@ namespace Flats.Account
             catch (Exception error) { Fail(error); }
         }
 
+        // Every platform ends with a Google ID token whose audience is the Web client ID:
+        // WebGL renders the Google button in-page, other platforms hand off to the HTTPS
+        // sign-in page and receive the token on a loopback port or a deep link.
         async void RunSignIn()
         {
             try
             {
                 if (!await EnsureInitialized()) return;
                 Set(State.SigningIn, "");
-                if (!playerAccountHooked)
+                signInCancel = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(30, settings.timeoutSeconds)));
+                pendingNonce = FlatsGoogleIdToken.NewNonce();
+                string token;
+#if UNITY_WEBGL && !UNITY_EDITOR
+                browserToken = new TaskCompletionSource<string>();
+                using (signInCancel.Token.Register(() => browserToken.TrySetCanceled()))
                 {
-                    PlayerAccountService.Instance.SignedIn += OnPlayerAccountSignedIn;
-                    PlayerAccountService.Instance.SignInFailed += OnPlayerAccountFailed;
-                    playerAccountHooked = true;
+                    FlatsGoogleSignInStart(settings.webClientId, pendingNonce, gameObject.name,
+                        FlatsLocalization.Translate("Sign in with Google"), FlatsLocalization.Translate("Cancel"));
+                    try { token = await browserToken.Task; }
+                    finally { FlatsGoogleSignInCancel(); }
                 }
-                // Opens the system browser (or redirects on Web). Completion arrives via SignedIn.
-                await PlayerAccountService.Instance.StartSignInAsync();
-            }
-            catch (Exception error) { Fail(error); }
-        }
-
-        async void OnPlayerAccountSignedIn()
-        {
-            try
-            {
-                string token = PlayerAccountService.Instance.AccessToken;
+#else
+                token = await new FlatsGoogleHandoffSignIn(settings).SignInAsync(pendingNonce, signInCancel.Token);
+#endif
+                var claims = FlatsGoogleIdToken.Decode(token);
+                string problem = FlatsGoogleIdToken.Validate(claims, settings.webClientId, pendingNonce, DateTime.UtcNow);
+                if (problem != null) { Set(State.Error, problem); return; }
                 if (AuthenticationService.Instance.IsSignedIn) AuthenticationService.Instance.SignOut(true);
-                await AuthenticationService.Instance.SignInWithUnityAsync(token);
+                await AuthenticationService.Instance.SignInWithGoogleAsync(token);
+                RememberGoogleName(AuthenticationService.Instance.PlayerId, FlatsGoogleIdToken.DisplayName(claims));
                 await AfterAuthenticated();
             }
+            catch (OperationCanceledException) { Set(State.SignedOut, signInCancel != null && signInCancel.IsCancellationRequested && !cancelledByPlayer ? "Sign-in timed out. Try again." : ""); }
             catch (Exception error) { Fail(error); }
+            finally { pendingNonce = null; cancelledByPlayer = false; if (signInCancel != null) { signInCancel.Dispose(); signInCancel = null; } }
         }
 
-        void OnPlayerAccountFailed(RequestFailedException error) { Fail(error); }
+        bool cancelledByPlayer;
+        public void CancelSignIn()
+        {
+            if (Current != State.SigningIn || signInCancel == null) return;
+            cancelledByPlayer = true;
+            signInCancel.Cancel();
+        }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")] static extern void FlatsGoogleSignInStart(string clientId, string nonce, string target, string title, string cancel);
+        [System.Runtime.InteropServices.DllImport("__Internal")] static extern void FlatsGoogleSignInCancel();
+        [System.Runtime.InteropServices.DllImport("__Internal")] static extern void FlatsGoogleSignOut();
+#endif
+        // Called by FlatsGoogleSignIn.jslib through SendMessage.
+        [UnityEngine.Scripting.Preserve] public void OnGoogleIdToken(string token) { if (browserToken != null) browserToken.TrySetResult(token); }
+        [UnityEngine.Scripting.Preserve] public void OnGoogleSignInFailed(string message) { if (browserToken != null) browserToken.TrySetException(new InvalidOperationException(string.IsNullOrEmpty(message) ? "Google sign-in failed." : message)); }
+        [UnityEngine.Scripting.Preserve] public void OnGoogleSignInCancelled(string unused) { cancelledByPlayer = true; if (browserToken != null) browserToken.TrySetCanceled(); }
+
+        // The Google account name is shown in the panel; Unity's PlayerName is an auto-generated tag.
+        string GoogleNameKey(string playerId) => "account.v1." + playerId + ".googleName";
+        void RememberGoogleName(string playerId, string name)
+        {
+            if (string.IsNullOrEmpty(playerId)) return;
+            FlatsPreferences.SetString(GoogleNameKey(playerId), name ?? ""); FlatsPreferences.Save();
+        }
 
         async Task AfterAuthenticated()
         {
             PlayerId = AuthenticationService.Instance.PlayerId ?? "";
-            DisplayName = AuthenticationService.Instance.PlayerName ?? "";
-            if (string.IsNullOrEmpty(DisplayName))
-            {
-                try { DisplayName = await AuthenticationService.Instance.GetPlayerNameAsync() ?? ""; }
-                catch (Exception) { DisplayName = ""; }
-            }
+            DisplayName = FlatsPreferences.GetString(GoogleNameKey(PlayerId), "");
+            if (string.IsNullOrEmpty(DisplayName)) DisplayName = AuthenticationService.Instance.PlayerName ?? "";
             Set(State.SignedIn, "");
             await Reconcile();
         }
