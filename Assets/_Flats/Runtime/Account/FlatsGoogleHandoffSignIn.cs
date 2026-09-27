@@ -36,11 +36,18 @@ namespace Flats.Account
             }
             finally { Application.deepLinkActivated -= onDeepLink; }
 #else
-            var listener = new HttpListener();
-            int port = FreePort();
-            listener.Prefixes.Add("http://localhost:" + port + "/");
-            listener.Prefixes.Add("http://127.0.0.1:" + port + "/");
-            listener.Start();
+            HttpListener listener = null;
+            int port = 0;
+            for (int attempt = 0; attempt < 5 && listener == null; attempt++)
+            {
+                // The probed port can be taken before we bind it; a fresh probe fixes that.
+                port = FreePort();
+                var candidate = new HttpListener();
+                candidate.Prefixes.Add("http://localhost:" + port + "/");
+                candidate.Prefixes.Add("http://127.0.0.1:" + port + "/");
+                try { candidate.Start(); listener = candidate; }
+                catch (Exception) when (attempt < 4) { candidate.Close(); }
+            }
             try
             {
                 Application.OpenURL(BuildUrl("http://localhost:" + port + "/callback", state, nonce));

@@ -30,9 +30,10 @@ namespace Flats.Account
         {
             if (claims == null) return "The sign-in token could not be read.";
             if (claims.iss != "https://accounts.google.com" && claims.iss != "accounts.google.com") return "The sign-in token was not issued by Google.";
-            if (!string.IsNullOrEmpty(expectedAudience) && claims.aud != expectedAudience) return "The sign-in token belongs to a different app.";
-            if (!string.IsNullOrEmpty(expectedNonce) && claims.nonce != expectedNonce) return "The sign-in token does not match this sign-in attempt.";
-            if (claims.exp > 0 && DateTimeOffset.FromUnixTimeSeconds(claims.exp).UtcDateTime < utcNow) return "The sign-in token has expired.";
+            // Audience and nonce are always required: an empty expectation must never pass.
+            if (string.IsNullOrEmpty(expectedAudience) || claims.aud != expectedAudience) return "The sign-in token belongs to a different app.";
+            if (string.IsNullOrEmpty(expectedNonce) || claims.nonce != expectedNonce) return "The sign-in token does not match this sign-in attempt.";
+            if (claims.exp <= 0 || DateTimeOffset.FromUnixTimeSeconds(claims.exp).UtcDateTime < utcNow) return "The sign-in token has expired.";
             return null;
         }
 
