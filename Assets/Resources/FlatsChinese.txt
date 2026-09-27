@@ -998,7 +998,6 @@ Preset	預設組合
 Setting	設定項目
 Value	數值
 Close this page or app to leave without overwriting data.	請關閉此頁面或 App 離開，資料不會被覆蓋。
-Configure	設定
 Low cost	效能負擔：低
 Medium cost	效能負擔：中
 High cost	效能負擔：高

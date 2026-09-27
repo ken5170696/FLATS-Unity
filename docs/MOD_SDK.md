@@ -1,8 +1,8 @@
-# Mod SDK preview — API 1.1.0
+# Mod SDK preview — API 1.2.0
 
-This preview supports crosshair data packages, data modules for game adapters (manifest schema 2) and the existing managed module contract. It does not expose weapons, maps or game modes as supported third-party APIs. Game compatibility and API compatibility are separate: declare both ranges, with an inclusive minimum and exclusive maximum.
+This preview supports crosshair data packages, data modules for game adapters (manifest schema 2), the existing managed module contract, and (API 1.2.0) a module context, setting groups and a render policy for client-side rendering modules. It does not expose weapons, maps or game modes as supported third-party APIs. Game compatibility and API compatibility are separate: declare both ranges, with an inclusive minimum and exclusive maximum.
 
-FLATS 5.4.3 and 5.4.4 use API 1.1.0, which reads manifest schemas 1 and 2. FLATS 5.4.2 players use API 1.0.0 and only schema 1, so a schema 2 package is unavailable to them rather than misread. A schema 2 package declares `apiMinimum` 1.1.0 or later.
+FLATS 5.4.3 to 5.4.5 use API 1.1.0, which reads manifest schemas 1 and 2. FLATS 5.4.2 players use API 1.0.0 and only schema 1, so a schema 2 package is unavailable to them rather than misread. A schema 2 package declares `apiMinimum` 1.1.0 or later; a package that relies on the 1.2.0 additions below declares 1.2.0.
 
 ## Create a data package
 
@@ -49,6 +49,23 @@ The host validates the complete requested set before activation, orders dependen
 Lifecycle callbacks are synchronous on the Unity main thread. Do not block them with downloads or disk work. Marshal Unity object access back to the main thread; cancel and join owned asynchronous work during cleanup, and never mutate scene objects after disposal. The host cannot automatically cancel work that a managed extension starts outside its lifetime. Activation changes normally take effect at restart; loading a DLL is not hot unloading, and disabling it does not unload its assembly.
 
 Managed ZIPs declare `kind: managed`, a safe relative `.dll` `assembly` path and a public parameterless `entryType` implementing `IFirstPartyModule`. The implementation's ID, version, scope, API/game ranges, dependencies and conflicts must exactly match the package manifest. Desktop Mono can load these DLLs with the game's privileges: **this is not a sandbox**. Web and IL2CPP/AOT reject executable packages. No claim of mobile managed-module support is made.
+
+## Module context and render policy (API 1.2.0)
+
+FLATS 5.4.6 raises the Mod API to 1.2.0. Every addition is optional; 1.0.0 and 1.1.0 packages load unchanged. A package that uses any of the following declares `apiMinimum` 1.2.0.
+
+**Module context.** A managed entry type may also implement `Flats.Modules.IModuleContextReceiver`. The host then calls `Attach(IModuleContext)` once, before the first `Initialize`. The context provides:
+
+- `Directory`: the absolute path of the immutable installed package directory, for loading AssetBundles or data files that sit beside the entry assembly. Do not write there.
+- `Settings`: one normalized `SettingValue` per setting the manifest declares, in manifest order, read from the selected profile. Unknown ids are dropped, invalid values fall back to the declared default and numbers are clamped and snapped to `step`, exactly as the Mod Center form does.
+- `SettingsChanged`: raised on the Unity main thread with the new normalized values when the player saves the module's settings in the Mod Center while the module is running. Register the handler after `lifetime.Own(...)` removes it, because the host keeps the context for the process lifetime.
+- `GameVersion` and `ApiVersion` of the running host.
+
+Any installed module that declares `settings[]` now gets the settings-driven Configure screen in the Mod Center; values are stored per profile in the module's `ProfileModule.json` record as `{"schema":2,"values":[...]}`. Two optional fields extend a setting descriptor: `group` (an English heading key; consecutive settings with the same group share one heading) and `performance` (`low`, `medium`, `high` or `extreme`, shown as a cost tag). Both are validated on install; older manifests without them render as before.
+
+**Localized labels.** Setting labels, groups and choice names are English keys. A running module can translate them for Traditional Chinese players with `FlatsLocalization.AddTranslations(IReadOnlyDictionary<string,string>)`, which returns the `IDisposable` that removes them; hand it to `lifetime.Own`. Entries never override the game's own table.
+
+**Render policy.** `Flats.Rendering.RenderPolicy.Register(IRenderPolicy)` (Assembly-CSharp, `Runtime/Rendering/RenderPolicy.cs`) lets one client-side module decide, per enabled game camera and before every context render, whether URP post-processing runs, which URP anti-aliasing mode applies and which volume layer mask the camera uses. Without a registered policy `FlatsCameraStack` behaves exactly as before: post-processing off, anti-aliasing `None`, authored volume mask untouched. A second registration throws until the first handle is disposed; a policy that throws is logged and that camera falls back to the original settings. Because this contract lives in Assembly-CSharp rather than `Flats.Core`, it is intended for first-party rendering modules built against the exact game revision and is version-bound; ordinary third-party modules should keep to the `Flats.Core` contracts above.
 
 ## Settings, dependencies and multiplayer
 
