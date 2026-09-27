@@ -21,10 +21,12 @@ namespace Flats.Account
     {
         public enum State { Unconfigured, Unsupported, SignedOut, SigningIn, SignedIn, Syncing, Error }
 
-        public const string ProfileKey = "flats.profile.v1";
-        public const string AvatarKey = "flats.avatar.v1.png";
+        // Cloud Save keys allow letters, digits, '-' and '_' only.
+        public const string ProfileKey = "flats_profile_v1";
+        public const string AvatarKey = "flats_avatar_v1";
         const string DirtyKey = "account.v1.dirty";
         const string LastPlayerKey = "account.v1.lastPlayerId";
+        const string FreshKey = "account.v1.localFresh";
         const float UploadDelaySeconds = 3f;
 
         static FlatsAccountService instance;
@@ -269,7 +271,7 @@ namespace Flats.Account
             string lastPlayer = FlatsPreferences.GetString(LastPlayerKey, "");
             bool accountChanged = lastPlayer.Length > 0 && lastPlayer != PlayerId;
             var action = FlatsCloudSyncPolicy.Decide(hasLocal, hasCloud, equal, FlatsPreferences.GetString(MarkerKey, null), cloud == null ? null : cloud.savedAtUtc,
-                FlatsPreferences.GetInt(DirtyKey, 0) == 1, accountChanged);
+                FlatsPreferences.GetInt(DirtyKey, 0) == 1, accountChanged, FlatsPreferences.GetInt(FreshKey, 0) == 1);
             switch (action)
             {
                 case SyncAction.Upload: await Upload(localExport); break;
@@ -416,11 +418,21 @@ namespace Flats.Account
         string MarkerKey => "account.v1." + PlayerId + ".cloudStamp";
         string AvatarMarkerKey => "account.v1." + PlayerId + ".avatarSha256";
 
+        // Menu calls this right after it writes the first-run default profile, which happens
+        // before this service exists. The flag is cleared by the next real save or sync.
+        public static void NoteFreshProfile()
+        {
+            FlatsPreferences.SetInt(FreshKey, 1);
+            FlatsPreferences.SetInt(DirtyKey, 0);
+            FlatsPreferences.Save();
+        }
+
         void MarkSynced(string cloudStamp)
         {
             FlatsPreferences.SetString(MarkerKey, cloudStamp ?? "");
             FlatsPreferences.SetString(LastPlayerKey, PlayerId ?? "");
             FlatsPreferences.SetInt(DirtyKey, 0);
+            FlatsPreferences.SetInt(FreshKey, 0);
             FlatsPreferences.Save();
             LastSyncUtc = DateTime.UtcNow;
         }
@@ -434,7 +446,7 @@ namespace Flats.Account
         void OnLocalSaved()
         {
             if (Current == State.Unconfigured || Current == State.Unsupported) return;
-            FlatsPreferences.SetInt(DirtyKey, 1); FlatsPreferences.Save();
+            FlatsPreferences.SetInt(DirtyKey, 1); FlatsPreferences.SetInt(FreshKey, 0); FlatsPreferences.Save();
             if (!IsSignedIn) return;
             if (pendingUpload != null) StopCoroutine(pendingUpload);
             pendingUpload = StartCoroutine(UploadSoon());
@@ -469,6 +481,10 @@ namespace Flats.Account
         void Fail(Exception error)
         {
             string message = error is RequestFailedException failed ? failed.Message : error.Message;
+            var validation = error as CloudSaveValidationException;
+            if (validation != null && validation.Details != null)
+                foreach (var detail in validation.Details)
+                    Debug.LogWarning("FLATS_ACCOUNT validation detail: " + detail.Field + ": " + string.Join("; ", detail.Messages ?? new List<string>()));
             Set(IsSignedIn || AuthenticationService.Instance.IsSignedIn ? State.SignedIn : State.Error, message);
             if (Current == State.SignedIn) { LastError = message; Changed?.Invoke(); }
         }

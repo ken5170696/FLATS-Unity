@@ -532,6 +532,7 @@ public partial class Menu : MonoBehaviour
 				adFree = false;
 				version = text;
 				SaveDataController.Save();
+				Flats.Account.FlatsAccountService.NoteFreshProfile();
 				Debug.Log("This is the first play.");
 				update.transform.GetChild(1).GetComponent<Text>().text = "FLATS " + text + " preview";
 				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.";

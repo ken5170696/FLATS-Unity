@@ -59,9 +59,12 @@ namespace Flats.Account
         // `localDirty` is whether any save happened locally since that moment.
         // `accountChanged` is true when this device last synced with a different player:
         // the local save may belong to someone else, so it is never uploaded silently.
-        public static SyncAction Decide(bool hasLocal, bool hasCloud, bool contentEqual, string lastSyncedCloudStamp, string cloudStamp, bool localDirty, bool accountChanged = false)
+        // `localFresh` means the local save is the untouched first-run default: it has nothing
+        // worth keeping, so an existing cloud save always wins without asking.
+        public static SyncAction Decide(bool hasLocal, bool hasCloud, bool contentEqual, string lastSyncedCloudStamp, string cloudStamp, bool localDirty, bool accountChanged = false, bool localFresh = false)
         {
             if (!hasLocal && !hasCloud) return SyncAction.None;
+            if (hasLocal && hasCloud && localFresh && !contentEqual) return SyncAction.Download;
             if (hasLocal && accountChanged && !contentEqual) return SyncAction.AskPlayer;
             if (hasLocal && !hasCloud) return SyncAction.Upload;
             if (!hasLocal && hasCloud) return SyncAction.Download;
