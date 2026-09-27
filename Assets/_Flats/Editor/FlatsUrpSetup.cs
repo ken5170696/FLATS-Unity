@@ -55,6 +55,10 @@ public static class FlatsUrpSetup
         int previous = QualitySettings.GetQualityLevel();
         for (int i = 0; i < QualitySettings.names.Length; ++i)
         {
+            // The unused "Mod" level keeps FlatsModPipeline (HDR, shadows, Forward+, SSAO,
+            // Decal) in the build so URP retains the resources and shader variants that
+            // client-side rendering modules enable at run time. Never selected by the game.
+            if (QualitySettings.names[i] == "Mod") continue;
             QualitySettings.SetQualityLevel(i, false);
             QualitySettings.renderPipeline = pipeline;
         }
