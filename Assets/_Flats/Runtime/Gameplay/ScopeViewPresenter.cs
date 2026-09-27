@@ -29,18 +29,21 @@ public sealed class ScopeViewPresenter : MonoBehaviour
     public static ScopeViewPresenter Apply(Transform anchor, string sightName, Camera eye)
     {
         Restore();
-        if (!Flats.Core.ScopeView.Active || anchor == null || anchor.childCount == 0 || string.IsNullOrEmpty(sightName)) return null;
+        if (!Flats.Core.ScopeView.Active || anchor == null || string.IsNullOrEmpty(sightName)) return null;
         string lens = sightName.EndsWith(" sight") ? sightName.Substring(0, sightName.Length - 6) : sightName;
         if (System.Array.IndexOf(Flats.Core.ScopeViewPayload.Lenses, lens) < 0) return null;
         float scale = Flats.Core.ScopeView.Scale(lens);
         int textureScale = Flats.Core.ScopeView.RenderTextureScale;
         if (scale <= 1f && textureScale <= 1) return null;
-        var sight = anchor.GetChild(0);
+        // The live sight is the FlatsSightTarget under the anchor, whatever else is mounted there.
+        var target = anchor.GetComponentInChildren<FlatsSightTarget>(true);
+        if (target == null) return null;
+        var sight = target.transform;
         var maskComponent = sight.GetComponentInChildren<Mask>(true);
         var camera = sight.GetComponentInChildren<Camera>(true);
         if (maskComponent == null || camera == null) return null;
         var presenter = sight.gameObject.AddComponent<ScopeViewPresenter>();
-        presenter.Initialize(anchor, maskComponent.transform, camera, eye, sight.GetComponent<FlatsSightTarget>(), scale, textureScale);
+        presenter.Initialize(anchor, maskComponent.transform, camera, eye, target, scale, textureScale);
         current = presenter;
         return presenter;
     }
