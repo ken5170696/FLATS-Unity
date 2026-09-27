@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 93f9976d35fe4b49bc8b7b541493b2e9, type: 3}
   m_Name: FlatsGoogleSignIn
   m_EditorClassIdentifier:
-  webClientId:
+  webClientId: 697205455357-cl2v5jp3uh13rk0d2ucv33ttu4o4pk30.apps.googleusercontent.com
   handoffUrl: https://flats-site.tail2511fc.ts.net/google-signin.html
   mobileScheme: flats-auth
   timeoutSeconds: 300
