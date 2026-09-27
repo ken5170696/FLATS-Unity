@@ -76,9 +76,22 @@ namespace Flats.Account
             instance = this;
             DontDestroyOnLoad(gameObject);
             settings = FlatsGoogleSignInSettings.Load();
-            if (FlatsPreferences.IsolatedRoot != null) Set(State.Unsupported, "Verification mode keeps saves local.");
+            if (FlatsPreferences.IsolatedRoot != null && !IsolatedCloudAllowed()) Set(State.Unsupported, "Verification mode keeps saves local.");
             else if (string.IsNullOrEmpty(Application.cloudProjectId) || settings == null || !settings.IsConfigured) Set(State.Unconfigured, "");
             SaveDataController.Saved += OnLocalSaved;
+        }
+
+        // Verification clones keep saves in an isolated folder and must not touch the cloud by
+        // accident. A tester who wants the real cloud from such a clone opts in explicitly by
+        // creating `allow-cloud-account.txt` inside that folder; players' builds ignore it.
+        static bool IsolatedCloudAllowed()
+        {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            try { return File.Exists(Path.Combine(FlatsPreferences.IsolatedRoot, "allow-cloud-account.txt")); }
+            catch (Exception) { return false; }
+#else
+            return false;
+#endif
         }
 
         void OnApplicationQuit() { quitting = true; }
