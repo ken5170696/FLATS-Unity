@@ -108,11 +108,16 @@ public sealed class ModuleSettingRowView : MonoBehaviour
         }
     }
 
+    // Rendering acronyms used as choice ids stay upper case in English ("SMAA", not "Smaa").
+    static readonly System.Collections.Generic.HashSet<string> Acronyms = new System.Collections.Generic.HashSet<string>
+        { "smaa", "taa", "fxaa", "msaa", "fsr", "stp", "aces", "agx", "hdr", "ssao", "ssr", "lut", "dof", "gi" };
+
     static string ChoiceName(string id)
     {
         if (string.IsNullOrEmpty(id)) return "";
         // A bare "T" would also translate keyboard key labels.
         if (id == "t") return "T shape";
+        if (Acronyms.Contains(id)) return id.ToUpperInvariant();
         var text = new System.Text.StringBuilder();
         foreach (char c in id)
         {
