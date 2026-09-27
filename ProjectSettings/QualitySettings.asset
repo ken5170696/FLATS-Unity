@@ -60,7 +60,6 @@ QualitySettings:
     terrainFadeLength: 5
     terrainMaxTrees: 50
     excludedTargetPlatforms: []
-  m_TextureMipmapLimitGroupNames: []
   - serializedVersion: 5
     name: Mod
     pixelLightCount: 0
