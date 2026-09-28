@@ -182,6 +182,7 @@ namespace Flats.Core.Roguelike
             {
                 if (rerollsLeft <= 0) { r.Status = TransactionStatus.RerollsExhausted; r.Reason = "no rerolls left"; return r; }
                 long price = tx.expectedPriceMinor;
+                if (price < 0) { r.Status = TransactionStatus.PriceMismatch; r.Reason = "invalid price"; return r; }
                 if (walletMinor < price) { r.Status = TransactionStatus.InsufficientFunds; r.Reason = "not enough money"; return r; }
                 walletMinor -= price; rerollsLeft--; shopVersion++;
                 r.Status = TransactionStatus.Ok; r.PaidMinor = price; r.NewShopVersion = shopVersion;

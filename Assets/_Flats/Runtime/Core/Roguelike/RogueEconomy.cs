@@ -12,6 +12,7 @@ namespace Flats.Core.Roguelike
         public int weight;              // hundredths
         public long minor;              // base bounty per player, minor units
         public bool paid, cancelled;
+        public bool isExtra;            // reinforcement/summon slot paid from the bonus pool, not the stage budget
     }
 
     /// <summary>The authority's view of one encounter's economy: locked at start, drained by kills.</summary>
@@ -22,8 +23,11 @@ namespace Flats.Core.Roguelike
         public int depth, difficulty, players;
         public long budgetMinor;        // G per player
         public long objectiveMinor;     // paid once on objective success
-        public long bonusBudgetMinor;   // cap for event/marked-kill extras this encounter
+        public long bonusBudgetMinor;   // cap for reinforcement/marked-kill extras this encounter
         public long bonusPaidMinor;
+        public long eventBudgetMinor;   // separate cap for event/emergency success rewards
+        public long eventPaidMinor;
+        public string[] resolvedEvents = new string[0];   // event ids already settled this encounter
         public int nextInstanceId = 1;
         public List<BountySlot> slots = new List<BountySlot>();
 
@@ -51,7 +55,8 @@ namespace Flats.Core.Roguelike
     /// </summary>
     public static class RogueEconomy
     {
-        public const double ObjectiveFraction = 0.5, RescueFraction = 0.1, BonusBudgetFraction = 0.3;
+        public const double ObjectiveFraction = 0.5, RescueFraction = 0.1, BonusBudgetFraction = 0.3, EventBudgetFraction = 1.0;
+        public const double MaxStageBountyMul = 2.0;
         public const int MaxRescueRewardsPerVictimPerStage = 1;
 
         public static EncounterLedger Open(int encounterId, int depth, int difficulty, int players, string routeTag)
@@ -63,6 +68,7 @@ namespace Flats.Core.Roguelike
             {
                 encounterId = encounterId, depth = depth, difficulty = difficulty, players = Math.Max(1, players),
                 budgetMinor = g, objectiveMinor = RogueMoney.MulFraction(g, ObjectiveFraction), bonusBudgetMinor = RogueMoney.MulFraction(g, BonusBudgetFraction),
+                eventBudgetMinor = RogueMoney.MulFraction(g, EventBudgetFraction),
             };
         }
 
@@ -88,7 +94,7 @@ namespace Flats.Core.Roguelike
         public static BountySlot ReserveExtra(EncounterLedger ledger, string roleId, int weight, long minorEach)
         {
             long remaining = Math.Max(0, ledger.bonusBudgetMinor - ledger.bonusPaidMinor - ReservedExtra(ledger));
-            var slot = new BountySlot { instanceId = ledger.nextInstanceId++, roleId = roleId, weight = weight, minor = Math.Min(minorEach, remaining) };
+            var slot = new BountySlot { instanceId = ledger.nextInstanceId++, roleId = roleId, weight = weight, minor = Math.Min(minorEach, remaining), isExtra = true };
             ledger.slots.Add(slot);
             return slot;
         }
@@ -97,18 +103,34 @@ namespace Flats.Core.Roguelike
         {
             // Extras are the slots beyond the regular split; approximated as unpaid slots with a bonus-sized value.
             long r = 0;
-            foreach (var s in ledger.slots) if (!s.paid && !s.cancelled && s.weight == 0) r += s.minor;
+            foreach (var s in ledger.slots) if (!s.paid && !s.cancelled && s.isExtra) r += s.minor;
             return r;
         }
 
         /// <summary>Pays a slot to every valid member. Duplicate, cancelled or unknown slots pay nothing.</summary>
         public static Payout PayKill(EncounterLedger ledger, int instanceId, bool headshot, IList<string> validMembers)
         {
+            return PayKill(ledger, instanceId, headshot, validMembers, 1.0);
+        }
+
+        /// <summary>stageBountyMul is the authority-locked stage multiplier (risk contract, outage penalty), clamped to [0, MaxStageBountyMul].</summary>
+        public static Payout PayKill(EncounterLedger ledger, int instanceId, bool headshot, IList<string> validMembers, double stageBountyMul)
+        {
             var payout = new Payout { Headshot = headshot, Reason = "kill" };
             var slot = ledger.Find(instanceId);
             if (slot == null || slot.paid || slot.cancelled || validMembers == null || validMembers.Count == 0) return payout;
             slot.paid = true;
+            double mul = double.IsNaN(stageBountyMul) ? 1.0 : Math.Max(0.0, Math.Min(MaxStageBountyMul, stageBountyMul));
             long minor = headshot ? RogueMoney.MulFraction(slot.minor, RogueCatalog.HeadshotMoneyMultiplier) : slot.minor;
+            minor = RogueMoney.MulFraction(minor, mul);
+            if (slot.isExtra)
+            {
+                // extras draw from the bonus pool: never more than what is left, and the draw is recorded
+                long remaining = Math.Max(0, ledger.bonusBudgetMinor - ledger.bonusPaidMinor);
+                minor = Math.Min(minor, remaining);
+                ledger.bonusPaidMinor += minor;
+            }
+            if (minor <= 0) return payout;
             foreach (var m in validMembers) payout.Minor[m] = minor;
             return payout;
         }
@@ -132,7 +154,23 @@ namespace Flats.Core.Roguelike
             return payout;
         }
 
-        /// <summary>Bounded extras (event success, marked-kill bonus). Draws from the bonus budget; returns what was actually paid.</summary>
+        /// <summary>Event/emergency success reward: once per event id per encounter, only for events the plan contains, from the event budget.</summary>
+        public static Payout PayEvent(EncounterLedger ledger, string encounterId, IList<string> validMembers, long minorEach, IList<string> plannedIds)
+        {
+            var payout = new Payout { Reason = encounterId ?? "event" };
+            if (string.IsNullOrEmpty(encounterId) || validMembers == null || validMembers.Count == 0 || minorEach <= 0) return payout;
+            if (plannedIds == null || plannedIds.IndexOf(encounterId) < 0) return payout;
+            if (Array.IndexOf(ledger.resolvedEvents, encounterId) >= 0) return payout;
+            var resolved = new List<string>(ledger.resolvedEvents) { encounterId }; ledger.resolvedEvents = resolved.ToArray();
+            long remaining = Math.Max(0, ledger.eventBudgetMinor - ledger.eventPaidMinor);
+            long each = Math.Min(minorEach, remaining);
+            if (each <= 0) return payout;
+            ledger.eventPaidMinor += each;
+            foreach (var m in validMembers) payout.Minor[m] = each;
+            return payout;
+        }
+
+        /// <summary>Bounded extras (marked-kill bonus and similar). Draws from the bonus budget; returns what was actually paid.</summary>
         public static Payout PayBonus(EncounterLedger ledger, IList<string> validMembers, long minorEach, string reason)
         {
             var payout = new Payout { Reason = reason };

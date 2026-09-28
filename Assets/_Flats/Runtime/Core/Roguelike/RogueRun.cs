@@ -61,6 +61,7 @@ namespace Flats.Core.Roguelike
         public long teamEarnedMinor;
         public double stageSeconds;                     // authority clock within the stage
         public int riskContract;                        // 0 none, 1 accepted this stage
+        public double stageBountyMul = 1;               // locked by the authority before kills are paid (risk contract, outage penalty)
 
         public RunPlayer Player(string key) { foreach (var p in players) if (p.key == key) return p; return null; }
         public int Chapter { get { return RogueDepth.ChapterOf(depth); } }
@@ -185,6 +186,8 @@ namespace Flats.Core.Roguelike
             var processed = new List<string>(p.processedTx);
             long wallet = p.walletMinor; int version = p.shopVersion; int rerolls = p.rerollsLeft;
             var offers = tx.rewardPick ? p.rewardOffers : p.offers;
+            if (tx.reroll && tx.expectedPriceMinor != RogueShop.RerollPriceMinor(State.Chapter))
+                return new TransactionResult { Status = TransactionStatus.PriceMismatch, Reason = "reroll price changed", NewShopVersion = p.shopVersion };
             var result = RogueShop.Apply(tx, ref wallet, p.build, offers, ref version, ref rerolls, processed, open, State.runId);
             if (result.Ok)
             {
@@ -213,6 +216,7 @@ namespace Flats.Core.Roguelike
             State.rescuesPaid = new string[0];
             State.stageSeconds = 0;
             State.riskContract = 0;
+            State.stageBountyMul = 1;
             foreach (var p in State.players)
             {
                 p.ready = false;
@@ -234,7 +238,7 @@ namespace Flats.Core.Roguelike
         public Payout EnemyKilled(int instanceId, string killerKey, bool headshot)
         {
             if (State.phase != RunPhase.Combat) return new Payout();
-            var payout = RogueEconomy.PayKill(State.ledger, instanceId, headshot, State.ValidMembers());
+            var payout = RogueEconomy.PayKill(State.ledger, instanceId, headshot, State.ValidMembers(), State.stageBountyMul);
             Credit(payout);
             var killer = State.Player(killerKey);
             if (killer != null && payout.Total > 0) { killer.kills++; if (headshot) killer.headshots++; }
@@ -304,9 +308,19 @@ namespace Flats.Core.Roguelike
             var def = RogueCatalog.Encounter(encounterId);
             if (def == null) return new Payout();
             long each = RogueMoney.MulFraction(State.ledger.budgetMinor, def.RewardFraction);
-            var payout = RogueEconomy.PayBonus(State.ledger, State.ValidMembers(), each, encounterId);
+            var planned = new List<string> { State.encounter.eventId, State.encounter.emergencyId };
+            var payout = RogueEconomy.PayEvent(State.ledger, encounterId, State.ValidMembers(), each, planned);
             Credit(payout);
             return payout;
+        }
+
+        /// <summary>Locks the stage bounty multiplier (risk contract accepted, outage failed). Only before or during combat; clamped by the economy.</summary>
+        public bool SetStageBountyMul(double mul)
+        {
+            if (State.phase != RunPhase.Combat || double.IsNaN(mul) || double.IsInfinity(mul)) return false;
+            State.stageBountyMul = Math.Max(0.0, Math.Min(RogueEconomy.MaxStageBountyMul, mul));
+            if (mul > 1) State.riskContract = 1;
+            return true;
         }
 
         public Payout Rescued(string rescuer, string victim)
