@@ -135,21 +135,25 @@ public sealed class ScopeViewPresenter : MonoBehaviour
         else if (overlay != null && overlay.image != null && target != null && overlay.image.texture != target.Target) overlay.image.texture = target.Target;
     }
 
+    // Edit-mode fixtures (private validation) call Apply/Restore outside Play mode, where
+    // Destroy is deferred forever; remove synchronously there.
+    static void Remove(Object target) { if (Application.isPlaying) Destroy(target); else DestroyImmediate(target); }
+
     void Release()
     {
-        if (overlay != null) { Destroy(overlay.gameObject); overlay = null; }
+        if (overlay != null) { Remove(overlay.gameObject); overlay = null; }
         if (worldCanvas != null) { worldCanvas.SetActive(worldCanvasWasActive); worldCanvas = null; }
         OverlayDiameter = 0f;
         if (mask != null) mask.localScale = authoredMaskScale;
         if (sightCamera != null) sightCamera.fieldOfView = authoredFieldOfView;
         if (target != null) target.SetRenderScale(1);
         lookScale = 1f;
-        Destroy(this);
+        Remove(this);
     }
 
     void OnDestroy()
     {
-        if (overlay != null) { Destroy(overlay.gameObject); overlay = null; }
+        if (overlay != null) { Remove(overlay.gameObject); overlay = null; }
         if (worldCanvas != null) { worldCanvas.SetActive(worldCanvasWasActive); worldCanvas = null; }
         if (current == this) current = null;
     }
