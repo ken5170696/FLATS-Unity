@@ -113,7 +113,7 @@ public sealed partial class ModuleManagementPage
         string id=package.manifest.id;
         var record=Host.Manager.Installed.FirstOrDefault(r=>r.Manifest.Id==id);
         string state=Service.NeedsRestart(id)?(package.requested?"Restart required":record?.Active==true?"Disable on restart":"Disabled"):(record?.Active==true?"Active now":package.requested?"Enabled / not active":"Disabled");
-        if(Service.Problem(package.manifest).Length>0||!string.IsNullOrEmpty(record?.Reason))state="Needs attention / "+FlatsLocalization.Translate(state);
+        if(Service.Problem(package.manifest).Length>0||!string.IsNullOrEmpty(record?.Reason))state="Needs attention / "+state;
         if(known.TryGetValue(id,out var item)&&ModRules.Version(item.manifest.version)>ModRules.Version(package.manifest.version))state="Update available / "+state;
         return state;
     }
@@ -142,7 +142,7 @@ public sealed partial class ModuleManagementPage
     }
     void Empty(string message)
     {
-        float h=Mathf.Max(180,listScroll.viewport.rect.height);bool compact=h<280;
+        float h=Mathf.Max(190,listScroll.viewport.rect.height);bool compact=h<280;
         var view=Instantiate(emptyStatePrefab,listContent,false);view.name="EmptyPanel";
         var panel=(RectTransform)view.transform;panel.anchoredPosition=new Vector2(0,-h/2);panel.sizeDelta=new Vector2(ListWidth-16,h);
         view.icon.SetActive(!compact);
@@ -210,7 +210,8 @@ public sealed partial class ModuleManagementPage
         overviewTab.gameObject.SetActive(false);versionsTab.gameObject.SetActive(false);dependenciesTab.gameObject.SetActive(false);atGlance.gameObject.SetActive(false);glanceScroll.gameObject.SetActive(false);
         artworkGeneration++;detailArtwork.gameObject.SetActive(false);
         ((FlatsLocalizedText)detailTitle).translate=selectedId==CrosshairModule.Id || selectedId=="storage-report";
-        ((FlatsLocalizedText)description).translate=selectedId==CrosshairModule.Id || selectedId=="storage-report" || tab=="Downloads";
+        // Line-by-line translation: game sentences use their table keys, author text without a key is kept.
+        ((FlatsLocalizedText)description).translate=true;
         crosshairPanel.SetActive(settingsOpen);secondary.gameObject.SetActive(false);remove.gameObject.SetActive(false);enable.interactable=false;
         if(configure!=null)configure.gameObject.SetActive(false);
         foreach(Transform row in listContent){var b=row.GetComponent<Button>();if(b!=null)b.image.color=row.name=="Mod-"+selectedId?ModCenterWidgets.Accent:ModCenterWidgets.PanelColor;}

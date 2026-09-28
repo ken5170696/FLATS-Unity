@@ -94,13 +94,19 @@ public sealed partial class ModuleManagementPage
         }
         else {RefreshDraft();Focus(styles[(int)draft.style]);}
     }
-    // The crosshair preview and its backdrop buttons are authored for the crosshair only.
+    // The crosshair preview, its heading, hint and backdrop buttons are authored for the crosshair
+    // only. A module settings page has no preview, so the form takes the authored full width.
+    float authoredFormAnchorX=-1;
     void ShowPreview(bool visible)
     {
         if(preview!=null)preview.gameObject.SetActive(visible);
         if(previewBackdrop!=null)previewBackdrop.gameObject.SetActive(visible);
         if(settingsLabel!=null)settingsLabel.gameObject.SetActive(visible);
-        foreach(var name in new[]{"LightPreview","DarkPreview"}){var t=crosshairPanel.transform.Find(name);if(t!=null)t.gameObject.SetActive(visible);}
+        foreach(var name in new[]{"LightPreview","DarkPreview","PreviewTitle","PreviewHint"}){var t=crosshairPanel.transform.Find(name);if(t!=null)t.gameObject.SetActive(visible);}
+        if(settingsForm==null)return;
+        var form=(RectTransform)settingsForm.transform;
+        if(authoredFormAnchorX<0)authoredFormAnchorX=form.anchorMin.x;
+        form.anchorMin=new Vector2(visible?authoredFormAnchorX:0f,form.anchorMin.y);
     }
     void RefreshDraft()
     {
