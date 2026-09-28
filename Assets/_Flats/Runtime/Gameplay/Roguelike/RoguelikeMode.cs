@@ -54,5 +54,6 @@ public static class RoguelikeMode
         // The controller consumes it on start and the menu clears it on entry.
         RunInProgress = false;
         RoguePlayer.ResetLocalStatics();
+        RogueScreenView.Suspended = false;
     }
 }

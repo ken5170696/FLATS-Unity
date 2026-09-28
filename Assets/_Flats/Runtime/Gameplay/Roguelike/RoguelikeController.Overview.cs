@@ -15,14 +15,29 @@ public partial class RoguelikeController
 
     void TickOverview()
     {
-        if (!runStarted || state == null || leaving) return;
+        if (leaving) { if (overview != null) CloseOverview(); return; }
+        if (!runStarted || state == null) return;
         var pad = InControl.InputManager.ActiveDevice;
         bool toggle = Input.GetKeyDown(KeyCode.Tab) || (pad != null && pad.GetControl(InControl.InputControlType.Back).WasPressed);
         bool allowed = Menu.current == "Playing" || Menu.current == "RogueScreen";
         if (toggle && allowed && !ConfirmDialogOpen()) { if (overview != null) CloseOverview(); else OpenOverview(); }
         if (overview == null) return;
         overviewRefresh -= Time.deltaTime;
-        if (overviewRefresh <= 0) { overviewRefresh = 0.5f; FillOverview(); }
+        if (overviewRefresh <= 0) { overviewRefresh = 0.5f; if (!Input.GetMouseButton(0)) FillOverview(); }   // never swap rows under a held click
+    }
+
+    string overviewSignature = "";
+    /// <summary>Cheap change key per tab: rows are rebuilt only when it changes, so scroll and focus survive idle refreshes.</summary>
+    string OverviewSignature(RunPlayer me)
+    {
+        var rp = LocalRoguePlayer(); var dr = rp != null ? rp.GetComponent<DamageReceiver>() : null;
+        var sb = new System.Text.StringBuilder();
+        sb.Append(overview.Current).Append('|').Append(state.phase).Append('|').Append(state.depth).Append('|').Append(me.walletMinor).Append('|').Append(me.shopVersion).Append('|').Append(pendingTx.Count)
+          .Append('|').Append(me.kills).Append('|').Append(me.ultimateCharge).Append('|').Append(me.build.mods.Length).Append('|').Append(me.build.cores.Length).Append('|').Append(me.build.healthTier + me.build.damageTier + me.build.magazineTier + me.build.speedTier)
+          .Append('|').Append(dr != null ? Mathf.RoundToInt(dr.hitPoints / 25f) : 0).Append('|').Append(AliveEnemies).Append('|').Append((int)(state.stageSeconds / 5));
+        foreach (var p in state.players) sb.Append('|').Append(p.key).Append(p.life).Append(p.connected ? 1 : 0).Append(p.ready ? 1 : 0).Append(p.walletMinor).Append(p.kills);
+        if (overview.Current == 3) { var go = FindLocalPlayer(); var fc = go != null ? go.GetComponent<FPSController>() : null; var g = fc != null && fc.primaryWeapon != null ? fc.primaryWeapon.GetComponent<Gun>() : null; if (g != null) sb.Append('|').Append(g.currentAmmo).Append('/').Append(g.maxAmmo); }
+        return sb.ToString();
     }
 
     static bool ConfirmDialogOpen() { var v = UnityEngine.Object.FindObjectOfType<ConfirmationDialogView>(); return v != null && v.gameObject.activeInHierarchy; }
@@ -32,7 +47,7 @@ public partial class RoguelikeController
         if (overview != null || state == null) return;
         overview = RogueOverviewView.Open();
         if (overview == null) return;
-        overview.TabChanged += index => FillOverview();
+        overview.TabChanged += index => FillOverview(true);
         overview.Select(state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd ? 0 : 1);
         overviewRefresh = 0.5f;
     }
@@ -40,16 +55,19 @@ public partial class RoguelikeController
     public void CloseOverview()
     {
         if (overview == null) return;
-        overview.Close(); overview = null;
+        overview.Close(); overview = null; overviewSignature = "";
         if (screen != null) RefreshScreens();
     }
 
-    void FillOverview()
+    void FillOverview(bool force = false)
     {
         if (overview == null || state == null) return;
         var me = LocalPlayer;
         if (me == null) { CloseOverview(); return; }
-        overview.ClearRows();
+        string signature = OverviewSignature(me);
+        if (!force && signature == overviewSignature) return;
+        overviewSignature = signature;
+        overview.ClearRows(true);
         switch (overview.Current)
         {
             case 0: FillShopTab(me); break;
@@ -80,7 +98,7 @@ public partial class RoguelikeController
         var stats = BuildStats.Compute(me.build);
         var rp = LocalRoguePlayer();
         var dr = rp != null ? rp.GetComponent<DamageReceiver>() : null;
-        float max = rp != null ? rp.MaxHealth() : 1000f, hp = dr != null ? dr.hitPoints : max;
+        float max = rp != null ? rp.MaxHealth() : 1000f, hp = dr != null ? Mathf.Max(0, dr.hitPoints) : max;
         overview.SetHeader("Main0", me.name, T("Kills {0}   Headshots {1}   Deaths {2}   Rescues {3}", me.kills, me.headshots, me.deaths, me.rescues));
         overview.AddStat("Heart", T("Health"), Mathf.RoundToInt(hp) + " / " + Mathf.RoundToInt(max), T("Tier {0}/{1}   {2}", me.build.healthTier, RogueCatalog.StatTiers, Pct(stats.HealthMul)), max > 0 ? hp / max : 0, TintRed);
         overview.AddStat("Fire", T("Damage"), Pct(stats.DamageMul), T("Tier {0}/{1}   Body x{2}   Head x{3}", me.build.damageTier, RogueCatalog.StatTiers, Round(stats.BodyDamageMul), Round(stats.HeadshotDamageMul)), (float)((stats.DamageMul - 1) / BuildStats.MaxTotalDamageMul), TintPink);
@@ -89,9 +107,9 @@ public partial class RoguelikeController
         overview.AddStat("Shield", T("Damage taken"), Pct(stats.DamageTakenMul), stats.DamageTakenMul < 1 ? T("Reduced by mods and cores") : "", -1, TintInk);
         overview.AddStat("Ultimate", T("Ultimate"), string.IsNullOrEmpty(me.build.ultimate) ? T("None") : ItemName(me.build.ultimate), string.IsNullOrEmpty(me.build.ultimate) ? T("Buy one in the shop; it charges from kills.") : T("Charge {0}%   Press {1}", me.ultimateCharge, RogueIcons.KeyHint("Ultimate")), string.IsNullOrEmpty(me.build.ultimate) ? -1 : me.ultimateCharge / 100f, TintGold);
         overview.AddStat(string.IsNullOrEmpty(me.build.tactical) ? "Dash" : RogueIcons.ForItem(RogueCatalog.Item(me.build.tactical)), T("Tactical"), string.IsNullOrEmpty(me.build.tactical) ? T("None") : ItemName(me.build.tactical), string.IsNullOrEmpty(me.build.tactical) ? "" : T("Press {0}", RogueIcons.KeyHint("Tactical")), -1, TintBlue);
-        overview.AddStat("Square", T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), "", "", -1, TintInk);
+        overview.AddStat("Core", T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), "", "", -1, TintInk);
         foreach (var id in me.build.cores) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueOfferRowView.RarityTint(RarityText(def))); }
-        overview.AddStat("Settings5", T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods), "", "", -1, TintInk);
+        overview.AddStat("Mod", T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods), "", "", -1, TintInk);
         foreach (var id in me.build.mods) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueOfferRowView.RarityTint(RarityText(def))); }
     }
 
@@ -103,12 +121,12 @@ public partial class RoguelikeController
         {
             if (!p.connected) continue;
             var go = RogueWorld.PlayerByKey(p.key);
-            var rp = go != null ? go.GetComponent<RoguePlayer>() : null; var dr = go != null ? go.GetComponent<DamageReceiver>() : null;
-            float max = rp != null ? rp.MaxHealth() : 1000f, hp = dr != null ? Mathf.Max(0, dr.hitPoints) : (p.life == PlayerLife.Alive ? max : 0);
+            var rp = go != null ? go.GetComponent<RoguePlayer>() : null;
+            float fraction = rp != null ? rp.HealthFraction() : (p.life == PlayerLife.Alive ? 1f : 0f);
             var tint = p.life == PlayerLife.Alive ? TintGreen : p.life == PlayerLife.Downed ? TintGold : TintRed;
             overview.AddStat(RogueIcons.ForLife(p.life), p.name + (p.key == me.key ? "  (" + T("You") + ")" : ""), LifeText(p.life) + (p.ready && (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) ? "  " + T("Ready") : ""),
-                T("Wallet ${0}   Kills {1}   HS {2}   Deaths {3}   Rescues {4}", RogueMoney.Format(p.walletMinor), p.kills, p.headshots, p.deaths, p.rescues), max > 0 ? hp / max : 0, tint);
-            overview.AddStat("Square", T("Build"), BuildShort(p.build), BuildSummary(p.build), -1, TintInk);
+                T("Wallet ${0}   Kills {1}   HS {2}   Deaths {3}   Rescues {4}", RogueMoney.Format(p.walletMinor), p.kills, p.headshots, p.deaths, p.rescues), fraction, tint);
+            overview.AddStat("Core", T("Build"), BuildShort(p.build), BuildSummary(p.build), -1, TintInk);
         }
     }
 

@@ -127,19 +127,26 @@ public class RogueHudView : MonoBehaviour
 
     // ---------------------------------------------------------------- waypoints
     static readonly List<RogueWaypoint> scratch = new List<RogueWaypoint>();
+    static Vector3 sortEye;
+    static readonly System.Comparison<RogueWaypoint> byPriorityThenDistance = (a, b) => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : (a.Position - sortEye).sqrMagnitude.CompareTo((b.Position - sortEye).sqrMagnitude);
+    GameObject localPlayer; float localPlayerCheck;
+    readonly List<string> markerLabelKey = new List<string>(); readonly List<int> markerDistance = new List<int>();
     void LateUpdate()
     {
         if (waypointRoot == null || waypointTemplate == null) return;
+        if (canvas != null && !canvas.enabled) { HideMarkers(0); return; }   // hidden HUD (run screen, pause): no projection work
         var cam = Camera.main;
         if (cam == null || canvasRect == null) { HideMarkers(0); return; }
         Vector3 eye = cam.transform.position;
-        var local = RoguelikeController.FindLocalPlayer();
+        if (localPlayer == null || Time.unscaledTime >= localPlayerCheck) { localPlayer = RoguelikeController.FindLocalPlayer(); localPlayerCheck = Time.unscaledTime + 0.5f; }
+        var local = localPlayer;
         scratch.Clear();
         foreach (var wp in RogueWaypoint.All)
             if (wp != null && !wp.Hidden && wp.isActiveAndEnabled && (local == null || wp.gameObject != local)) scratch.Add(wp);
-        scratch.Sort((a, b) => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : (a.Position - eye).sqrMagnitude.CompareTo((b.Position - eye).sqrMagnitude));
+        sortEye = eye;
+        scratch.Sort(byPriorityThenDistance);
         int shown = Mathf.Min(scratch.Count, maxWaypoints);
-        while (markers.Count < shown) { var m = Instantiate(waypointTemplate, waypointRoot, false); markers.Add(m); }
+        while (markers.Count < shown) { var m = Instantiate(waypointTemplate, waypointRoot, false); markers.Add(m); markerLabelKey.Add(null); markerDistance.Add(-1); }
         Vector2 half = canvasRect.rect.size * 0.5f;
         Camera uiCam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
         for (int i = 0; i < shown; i++)
@@ -147,6 +154,7 @@ public class RogueHudView : MonoBehaviour
             var wp = scratch[i]; var m = markers[i];
             m.gameObject.SetActive(true);
             Vector3 view = cam.WorldToViewportPoint(wp.Position);
+            if (float.IsNaN(view.x) || float.IsNaN(view.y) || float.IsInfinity(view.x) || float.IsInfinity(view.y)) { m.gameObject.SetActive(false); continue; }   // target on the camera plane
             bool behind = view.z < 0;
             bool onScreen = !behind && view.x > 0.02f && view.x < 0.98f && view.y > 0.02f && view.y < 0.98f;
             Vector2 pos;
@@ -158,23 +166,26 @@ public class RogueHudView : MonoBehaviour
             }
             else
             {
-                // clamp to the screen edge along the direction from the centre; flip when the target is behind the camera
-                Vector2 dir = new Vector2(view.x - 0.5f, view.y - 0.5f);
+                // clamp to the screen edge along the direction from the centre, measured in canvas units so the
+                // aspect ratio does not skew the angle; flip when the target is behind the camera
+                Vector2 dir = new Vector2((view.x - 0.5f) * half.x * 2f, (view.y - 0.5f) * half.y * 2f);
                 if (behind) dir = -dir;
                 if (dir.sqrMagnitude < 1e-4f) dir = Vector2.up;
                 dir.Normalize();
-                Vector2 limit = new Vector2(half.x - edgeInset, half.y - edgeInset);
+                Vector2 markerHalf = m.rect != null ? m.rect.sizeDelta * 0.5f : new Vector2(60, 35);
+                Vector2 limit = new Vector2(half.x - markerHalf.x - edgeInset * 0.25f, half.y - markerHalf.y - edgeInset * 0.25f);
                 float scale = Mathf.Min(limit.x / Mathf.Max(1e-3f, Mathf.Abs(dir.x)), limit.y / Mathf.Max(1e-3f, Mathf.Abs(dir.y)));
                 pos = dir * scale;
                 angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
             }
             if (m.rect != null) m.rect.anchoredPosition = pos;
             if (m.arrow != null) { m.arrow.gameObject.SetActive(!onScreen); if (m.arrowRect != null) m.arrowRect.localRotation = Quaternion.Euler(0, 0, angle); }
-            RogueIcons.Apply(m.icon, wp.Icon);
+            if (m.icon != null && (m.icon.sprite == null || m.icon.sprite.name != wp.Icon)) RogueIcons.Apply(m.icon, wp.Icon);
             float dist = Vector3.Distance(eye, wp.transform.position);
-            if (m.distance != null) m.distance.text = Mathf.RoundToInt(dist) + " m";
-            if (m.label != null) m.label.text = RoguelikeController.Decode(wp.Label);
-            if (m.back != null) m.back.color = wp.Tint;
+            int metres = Mathf.RoundToInt(dist);
+            if (m.distance != null && markerDistance[i] != metres) { markerDistance[i] = metres; m.distance.text = metres + " m"; }   // text only when the integer changes
+            if (m.label != null && markerLabelKey[i] != wp.Label) { markerLabelKey[i] = wp.Label; m.label.text = RoguelikeController.Decode(wp.Label); }   // translate once per label
+            if (m.back != null && m.back.color != wp.Tint) m.back.color = wp.Tint;
             if (m.group != null) m.group.alpha = wp.Pulse ? 0.7f + 0.3f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 4f)) : onScreen ? 0.95f : 0.8f;
             float s = onScreen ? Mathf.Lerp(1.15f, 0.8f, Mathf.InverseLerp(6f, 60f, dist)) : 0.85f;
             if (m.rect != null) m.rect.localScale = new Vector3(s, s, 1);

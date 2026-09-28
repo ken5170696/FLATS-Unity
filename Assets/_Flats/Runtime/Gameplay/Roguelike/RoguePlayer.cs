@@ -270,7 +270,7 @@ public class RoguePlayer : MonoBehaviour
     // ---------------------------------------------------------------- abilities (local owner)
     void Update()
     {
-        if (!isMine) SyncWaypoint();   // teammates' copies carry the revive marker; my own is never shown
+        if (!isMine) { SyncWaypoint(); if (receiver != null && receiver.hitPoints > observedMaxHealth) observedMaxHealth = receiver.hitPoints; }   // teammates' copies carry the revive marker; my own is never shown
         if (!isMine || controller == null) return;
         if (ultimateActive != "" && Time.time >= ultimateUntil) EndUltimate();
         var cc = GetComponent<CharacterController>();
@@ -344,6 +344,15 @@ public class RoguePlayer : MonoBehaviour
     public bool UltimateActive { get { return ultimateActive != ""; } }
     public float UltimateRemaining { get { return ultimateActive == "" ? 0f : Mathf.Clamp01((ultimateUntil - Time.time) / ultimateDuration); } }
     float ultimateDuration = 8f;
+    /// <summary>Health as 0..1. Remote copies do not know the owner's character defence, so they use the highest health seen (the spawn value).</summary>
+    float observedMaxHealth;
+    public float HealthFraction()
+    {
+        if (receiver == null) return 1f;
+        float hp = Mathf.Max(0f, receiver.hitPoints);
+        float max = isMine ? MaxHealth() : Mathf.Max(observedMaxHealth, hp);
+        return max > 0f ? Mathf.Clamp01(hp / max) : 0f;
+    }
     /// <summary>Downed teammates carry a revive waypoint; the local player's own marker is never shown.</summary>
     RogueWaypoint downedWaypoint;
     void SyncWaypoint()

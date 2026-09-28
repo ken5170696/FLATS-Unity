@@ -219,10 +219,11 @@ public sealed class EliteHuntRunner : RogueEventRunner
     public override void Tick(float dt)
     {
         if (machine == null) return;
-        if (elite == null && spawnDelay > 0) { spawnDelay -= dt; if (spawnDelay <= 0) { elite = Controller.SpawnExtraEnemy("role.marksman", true, Point(0)); if (elite != null) { elite.HuntMarked = true; Banner("Elite Hunt: a marked elite is on the map.", 3); } } }
+        if (elite == null && spawnDelay > 0) { spawnDelay -= dt; if (spawnDelay <= 0) { elite = Controller.SpawnExtraEnemy("role.marksman", true, Point(0)); if (elite != null) { Controller.MarkHuntTarget(elite.InstanceId); Controller.Notify(new RogueEventMessage { kind = "hunt", index = elite.InstanceId }); Banner("Elite Hunt: a marked elite is on the map.", 3); } } }
         StatusText = elite != null ? N("Hunt the marked elite") : "";
         Settle(machine.Status);
     }
+    public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "hunt") Controller.MarkHuntTarget(e.index); }
     public override void OnEnemyKilled(RogueEnemyRole role) { if (machine != null && elite != null && role == elite) { machine.OnEliteKilled(); Banner("Elite down!", 2); } }
 }
 
@@ -232,7 +233,7 @@ public sealed class LureCrateRunner : RogueEventRunner
     public override void Begin()
     {
         crate = RogueWorld.Cube("LureCrate", Point(0), new Vector3(1.2f, 1.2f, 1.2f), RogueWorld.Pink2, true);
-        RogueWaypoint.Attach(crate, "Square", "Lure crate", RogueWorld.Pink2, 1.6f, 1);
+        RogueWaypoint.Attach(crate, "Crate", "Lure crate", RogueWorld.Pink2, 1.6f, 1);
         crate.GetComponent<Collider>().isTrigger = true;
         carry = crate.AddComponent<RogueCarryable>(); carry.Action = "lure"; carry.Prompt = "Pick up the lure (enemies follow it)";
         if (Authority) machine = new LureCrateEvent();

@@ -1505,7 +1505,6 @@ Stage bounty	本關賞金
 Stage time	本關時間
 Supply crate	補給箱
 Supply drone	補給無人機
-TAB / Esc: close   Q / E: switch tab   Wallet ${0}	TAB / Esc：關閉　Q / E：切換頁籤　錢包 ${0}
 TAB: overview	TAB：總覽
 Target	目標
 The shop opens between stages.	商店在關卡之間開放。

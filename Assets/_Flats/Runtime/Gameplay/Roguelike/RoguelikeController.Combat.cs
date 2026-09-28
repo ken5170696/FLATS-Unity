@@ -7,9 +7,8 @@ using UnityEngine;
 // Stage flow, spawning, kills and the wipe check. Authority only, except where noted.
 public partial class RoguelikeController
 {
-#if UNITY_EDITOR
-    public static string DebugForceObjective, DebugForceEvent, DebugForceEmergency;
-#endif
+    /// <summary>Private validation overlay hook (no public implementation): may rewrite the planned encounter before it starts.</summary>
+    partial void DebugOverrideEncounter();
     readonly Dictionary<int, RogueEnemyRole> liveEnemies = new Dictionary<int, RogueEnemyRole>();
     readonly RoguePacing pacing = new RoguePacing();
     int nextWave;
@@ -70,19 +69,7 @@ public partial class RoguelikeController
     {
         var map = RogueCatalog.Map(state.mapId);
         if (!machine.BeginCombat(map)) yield break;
-#if UNITY_EDITOR
-        // Editor-only validation override (never compiled into a player): force a specific objective/event/emergency for the stage.
-        if (!string.IsNullOrEmpty(DebugForceObjective)) { if (DebugForceObjective.StartsWith("fin.")) { state.encounter.finaleId = DebugForceObjective; state.encounter.objectiveId = ""; } else { state.encounter.objectiveId = DebugForceObjective; state.encounter.finaleId = ""; } }
-        if (DebugForceEvent != null) state.encounter.eventId = DebugForceEvent;
-        if (DebugForceEmergency != null) state.encounter.emergencyId = DebugForceEmergency;
-        if (DebugForceObjective != null && DebugForceObjective.StartsWith("fin.") && !System.Array.Exists(state.encounter.waves[state.encounter.waves.Length - 1].roles, r => r == "role.finale"))
-        {
-            var last = state.encounter.waves[state.encounter.waves.Length - 1];
-            var r = new System.Collections.Generic.List<string>(last.roles); var e = new System.Collections.Generic.List<bool>(last.elite); var w = new System.Collections.Generic.List<int>(last.weights);
-            r.Add("role.finale"); e.Add(true); w.Add(600); last.roles = r.ToArray(); last.elite = e.ToArray(); last.weights = w.ToArray();   // appended so existing slot ids stay aligned with InstanceIdFor
-            RogueEconomy.Reserve(state.ledger, new[] { "role.finale" }, new[] { 600 });
-        }
-#endif
+        DebugOverrideEncounter();
         CloseScreens();
         nextWave = 0; objectiveDone = false; stageEnding = false; commanderDied = false;
         objectiveKillsNeeded = RogueDirector.CountEnemies(state.encounter); objectiveKills = 0;
@@ -158,6 +145,10 @@ public partial class RoguelikeController
         var role = RogueEnemyRole.Attach(go, roleId, instanceId, elite);
         liveEnemies[instanceId] = role;
         Singleplayer.enemy++;
+        BindEnemyMarkers(role);
+        BindEnemyMarkers(role);
+        BindEnemyMarkers(role);
+        BindEnemyMarkers(role);
     }
 
     int PickSpawnPoint(int lastPoint)
@@ -224,21 +215,6 @@ public partial class RoguelikeController
 
     // ---------------------------------------------------------------- objective (stage 1 slice: Clear; others plug in via RogueObjectiveRunner)
     RogueObjectiveRunner objectiveRunner;
-#if UNITY_EDITOR
-    public RogueObjectiveRunner DebugObjectiveRunner { get { return objectiveRunner; } }
-    /// <summary>Validation only: ends the current combat as cleared (remaining waves skipped, live enemies killed).</summary>
-    public void DebugSkipStage()
-    {
-        if (!IsAuthority || state == null || state.phase != RunPhase.Combat) return;
-        nextWave = state.encounter.waves.Length; spawning = false; objectiveDone = true;
-        foreach (var e in new List<RogueEnemyRole>(liveEnemies.Values))
-        {
-            if (e == null) continue;
-            e.Invulnerable = false;
-            var d = e.GetComponent<DamageReceiver>(); if (d != null) d.ApplyDamage(999999f, 0, transform);
-        }
-    }
-#endif
 
     void StartObjective()
     {

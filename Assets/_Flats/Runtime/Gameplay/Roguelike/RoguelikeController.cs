@@ -427,6 +427,7 @@ public partial class RoguelikeController : MonoBehaviour
         DisposeEvents();
         foreach (var e in liveEnemies.Values) if (e != null) { /* scene objects are destroyed with the scene */ }
         liveEnemies.Clear();
+        CloseOverview();
         CloseScreens();
         RoguePlayer.ResetLocalStatics();
         RoguelikeMode.RunInProgress = false;

@@ -20,7 +20,7 @@ public class RogueOverviewView : MonoBehaviour
     public Button close;
     public RogueStatRowView statTemplate;
     public RogueOfferRowView offerTemplate;
-    public Color tabActive = new Color(0.8f, 0.098f, 0.4f, 1f), tabIdle = new Color(1f, 1f, 1f, 0.35f), tabTextActive = Color.white, tabTextIdle = new Color(0.2f, 0.2f, 0.2f, 1f);
+    public Color tabActive = new Color(0.8f, 0.098f, 0.4f, 1f), tabIdle = new Color(1f, 1f, 1f, 0.8f), tabTextActive = Color.white, tabTextIdle = new Color(0.2f, 0.2f, 0.2f, 1f);
 
     public int Current { get; private set; }
     public event Action<int> TabChanged;
@@ -73,12 +73,24 @@ public class RogueOverviewView : MonoBehaviour
     public void Close()
     {
         RogueScreenView.Suspended = false;
-        if (Menu.current == ScreenState) Menu.current = previousState == ScreenState ? "Playing" : previousState;
-        FPSController.enableCamRotate = previousCamRotate || Menu.current == "Playing";
-        if (Menu.current == "Playing") { UnityEngine.Cursor.lockState = CursorLockMode.Locked; UnityEngine.Cursor.visible = false; }
-        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(previousSelection);
-        if (hudCanvas != null && (hudWasEnabled || Menu.current == "Playing")) hudCanvas.enabled = true;
+        // modal stack: a run screen still open underneath keeps the screen state, free cursor and locked camera
+        var under = FindObjectOfType<RogueScreenView>();
+        bool screenBelow = under != null && under.gameObject.activeInHierarchy;
+        if (Menu.current == ScreenState && !screenBelow) Menu.current = previousState == ScreenState ? "Playing" : previousState;
+        FPSController.enableCamRotate = !screenBelow && (previousCamRotate || Menu.current == "Playing");
+        if (Menu.current == "Playing" && !screenBelow) { UnityEngine.Cursor.lockState = CursorLockMode.Locked; UnityEngine.Cursor.visible = false; }
+        if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(screenBelow ? null : previousSelection);
+        if (hudCanvas != null && !screenBelow && (hudWasEnabled || Menu.current == "Playing")) hudCanvas.enabled = true;
+        closed = true;
         Destroy(gameObject);
+    }
+
+    bool closed;
+    void OnDestroy()
+    {
+        // a scene change or session cleanup may destroy the panel without Close(): never leave the run screen suspended
+        RogueScreenView.Suspended = false;
+        if (!closed && hudCanvas != null && FindObjectOfType<RogueScreenView>() == null) hudCanvas.enabled = true;
     }
 
     public void Select(int index)
@@ -111,9 +123,14 @@ public class RogueOverviewView : MonoBehaviour
 
     public void SetFooter(string text) { if (footer != null) footer.text = text ?? ""; }
 
-    public void ClearRows()
+    public void ClearRows() { ClearRows(false); }
+
+    public void ClearRows(bool keepScroll)
     {
         if (rowsContent == null) return;
+        float scrollPos = scroll != null ? scroll.verticalNormalizedPosition : 1f;
+        var selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+        keepSelectionName = keepScroll && selected != null && selected.transform.IsChildOf(rowsContent) ? selected.transform.parent.name : null;
         for (int i = rowsContent.childCount - 1; i >= 0; i--)
         {
             var child = rowsContent.GetChild(i).gameObject;
@@ -121,7 +138,18 @@ public class RogueOverviewView : MonoBehaviour
             child.SetActive(false);
             Destroy(child);
         }
-        if (scroll != null) scroll.verticalNormalizedPosition = 1f;
+        if (scroll != null) { if (keepScroll) StartCoroutine(RestoreScroll(scrollPos)); else scroll.verticalNormalizedPosition = 1f; }
+    }
+
+    string keepSelectionName;
+    System.Collections.IEnumerator RestoreScroll(float pos)
+    {
+        yield return null;   // after the layout rebuild of the new rows
+        if (scroll != null) scroll.verticalNormalizedPosition = pos;
+        if (keepSelectionName != null && rowsContent != null && EventSystem.current != null)
+            for (int i = 0; i < rowsContent.childCount; i++)
+                if (rowsContent.GetChild(i).name == keepSelectionName) { var b = rowsContent.GetChild(i).GetComponentInChildren<Button>(); if (b != null && b.interactable) EventSystem.current.SetSelectedGameObject(b.gameObject); break; }
+        keepSelectionName = null;
     }
 
     /// <summary>bar &lt; 0 hides the bar. A null value keeps the row as a plain heading line.</summary>

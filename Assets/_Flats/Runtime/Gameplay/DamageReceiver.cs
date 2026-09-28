@@ -210,7 +210,7 @@ public class DamageReceiver : MonoBehaviour
 			base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, receivedData[2]);
 			return;
 		}
-		if (receivedData[1] == 1 && !userIsPlayer && !myAI.vip && (Menu.network == 0 || Multiplayer.rule == 8))
+		if (receivedData[1] == 1 && !userIsPlayer && (myAI == null || !myAI.vip) && (Menu.network == 0 || Multiplayer.rule == 8))
 		{
 			command = "head";
 			killer = shooter;
@@ -456,7 +456,7 @@ public class DamageReceiver : MonoBehaviour
 		{
 			mt.GetChild(j).gameObject.SetActive(false);
 		}
-		if (ct == null && (bool)Camera.main.gameObject)
+		if (ct == null && Camera.main != null && (bool)Camera.main.gameObject)
 		{
 			ct = Camera.main.transform;
 		}

@@ -35,7 +35,7 @@ public sealed class CarryRunner : RogueObjectiveRunner
     {
         Vector3 start = c.PlanPoint(0); dropPoint = c.PlanPoint(1);
         crate = RogueWorld.Cube("SupplyCrate", start, new Vector3(1.4f, 1.0f, 1.4f), RogueWorld.Gold, true);
-        RogueWaypoint.Attach(crate, "Square", "Supply crate", RogueWorld.Gold, 1.6f, 3);
+        RogueWaypoint.Attach(crate, "Crate", "Supply crate", RogueWorld.Gold, 1.6f, 3);
         crate.GetComponent<Collider>().isTrigger = true;
         carry = crate.AddComponent<RogueCarryable>(); carry.Action = "carry"; carry.Prompt = "Pick up the crate";
         ring = RogueWorld.Ring("DropZone", dropPoint, 4f, RogueWorld.Gold);
@@ -210,7 +210,7 @@ public sealed class VaultRunner : RogueObjectiveRunner
         {
             var p = c.PlanPoint(i);
             cells[i] = RogueWorld.Cube("PowerCell" + i, p, new Vector3(1.2f, 1.8f, 1.2f), RogueWorld.Blue, true);
-            RogueWaypoint.Attach(cells[i], "Ammo", "Power cell {0}|" + (i + 1), RogueWorld.Blue, 2f, i == 0 ? 3 : 1);
+            RogueWaypoint.Attach(cells[i], "Battery", "Power cell {0}|" + (i + 1), RogueWorld.Blue, 2f, i == 0 ? 3 : 1);
             var it = cells[i].AddComponent<RogueInteractable>(); it.Action = "cell:" + i; it.Prompt = "Charge cell " + (i + 1); it.Radius = 3.5f;
         }
         if (c.IsAuthority) machine = new VaultObjective(1000);

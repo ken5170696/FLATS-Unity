@@ -170,6 +170,7 @@ public partial class RoguelikeController
         foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.CancelAll(); }
         RogueEnemyRole.SetOutlines(false, Vector3.zero, 0);
         DisposeEvents();
+        CloseOverview();
         CloseScreens();
         DamageReceiver.invincibility = false;
         RoguelikeMode.RunInProgress = false;
@@ -196,13 +197,29 @@ public partial class RoguelikeController
     /// <summary>Client: register an enemy that the authority spawned so the local counts and the kill map agree.</summary>
     public void RegisterEnemy(RogueEnemyRole role)
     {
-        if (role == null || liveEnemies.ContainsKey(role.InstanceId)) return;
+        if (role == null) return;
+        BindEnemyMarkers(role);                       // idempotent; runs on the authority's own copy as well
+        if (liveEnemies.ContainsKey(role.InstanceId)) return;
         liveEnemies[role.InstanceId] = role;
         if (!IsAuthority) Singleplayer.enemy++;
-        if (role.RoleId == "role.finale" && state != null)
+    }
+
+    int huntInstance = -1;
+    /// <summary>Finale enemies and the Elite Hunt target carry a waypoint on every client; the hunt id arrives by event and may precede the enemy.</summary>
+    void BindEnemyMarkers(RogueEnemyRole role)
+    {
+        if (role.RoleId == "role.finale" && state != null && role.GetComponent<RogueWaypoint>() == null)
         {
             var def = RogueCatalog.Encounter(state.encounter.finaleId);
             RogueWaypoint.Attach(role.gameObject, "Enemy", def != null ? def.Name : "Target", new Color(1f, 0.12f, 0.5f), 2.6f, 4);
         }
+        if (huntInstance >= 0 && role.InstanceId == huntInstance && !role.HuntMarked) role.HuntMarked = true;
+    }
+
+    public void MarkHuntTarget(int instanceId)
+    {
+        huntInstance = instanceId;
+        RogueEnemyRole role;
+        if (instanceId >= 0 && liveEnemies.TryGetValue(instanceId, out role) && role != null && !role.HuntMarked) role.HuntMarked = true;
     }
 }

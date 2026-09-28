@@ -62,7 +62,7 @@ public class RogueIcons : MonoBehaviour
             case "supply.ammo": return "Ammo";
             case "supply.medkit": return "Medkit";
             case "supply.repair": return "Load";
-            case "stat.health": return "Medkit";
+            case "stat.health": return "Heart";
             case "stat.damage": return "Fire";
             case "stat.magazine": return "Ammo";
             case "stat.speed": return "Jump";
@@ -72,8 +72,9 @@ public class RogueIcons : MonoBehaviour
         }
         if (def.Kind == Flats.Core.Roguelike.ItemKind.Ultimate) return "Ultimate";
         if (def.Kind == Flats.Core.Roguelike.ItemKind.Weapon) return "Fire";
+        if (def.Kind == Flats.Core.Roguelike.ItemKind.Core) return "Core";
         if (def.Tags.Length > 0) return ForTag(def.Tags[0]);
-        return "Square";
+        return def.Kind == Flats.Core.Roguelike.ItemKind.Mod ? "Mod" : "Square";
     }
 
     public static string ForTag(string tag)
@@ -88,7 +89,7 @@ public class RogueIcons : MonoBehaviour
             case "demolition": return "Zoom";
             case "marker": return "Multiplayer4";
             case "mobility": return "Jump";
-            default: return "Square";
+            default: return "Mod";
         }
     }
 

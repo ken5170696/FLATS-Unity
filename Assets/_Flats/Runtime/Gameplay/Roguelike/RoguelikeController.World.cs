@@ -118,6 +118,7 @@ public partial class RoguelikeController
         if (objectiveRunner != null) { objectiveRunner.Dispose(); objectiveRunner = null; }
         LureTarget = null; PowerRerouted = false; ClearGravityZones();
         objectiveText = ""; lastSentObjectiveText = "";
+        huntInstance = -1;
         foreach (var world in GameObject.FindGameObjectsWithTag("Untagged")) { }   // world props are tracked by their runners
     }
 

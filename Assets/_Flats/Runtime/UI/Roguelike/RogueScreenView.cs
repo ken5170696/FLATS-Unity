@@ -65,6 +65,7 @@ public class RogueScreenView : MonoBehaviour
 
     public void Close()
     {
+        if (Suspended) { Destroy(gameObject); return; }   // the overview on top owns the input state and restores it when it closes
         if (Menu.current == ScreenState) Menu.current = previousState == ScreenState ? "Playing" : previousState;
         FPSController.enableCamRotate = previousCamRotate || Menu.current == "Playing";
         if (Menu.current == "Playing") { UnityEngine.Cursor.lockState = CursorLockMode.Locked; UnityEngine.Cursor.visible = false; }

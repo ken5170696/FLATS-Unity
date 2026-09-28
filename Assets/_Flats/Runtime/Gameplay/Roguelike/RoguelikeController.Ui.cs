@@ -22,7 +22,7 @@ public partial class RoguelikeController
     // ---------------------------------------------------------------- HUD
     void RefreshHud()
     {
-        if (state == null) return;
+        if (state == null || leaving) return;
         var me = LocalPlayer;
         string money = me != null ? RogueMoney.Format(me.walletMinor) : "0";
         string stage = state.Chapter + "-" + RogueDepth.StageInChapter(state.depth);
@@ -87,11 +87,10 @@ public partial class RoguelikeController
         {
             if (!p.connected || (me != null && p.key == me.key)) continue;
             var go = RogueWorld.PlayerByKey(p.key);
-            var rp = go != null ? go.GetComponent<RoguePlayer>() : null; var dr = go != null ? go.GetComponent<DamageReceiver>() : null;
-            float max = rp != null ? rp.MaxHealth() : 1000f, hp = dr != null ? Mathf.Max(0, dr.hitPoints) : (p.life == PlayerLife.Alive ? max : 0);
+            var rp = go != null ? go.GetComponent<RoguePlayer>() : null;
             entries.Add(new RogueHudView.SquadEntry
             {
-                name = p.name, icon = RogueIcons.ForLife(p.life), hp = p.life == PlayerLife.Alive ? (max > 0 ? hp / max : 0) : 0,
+                name = p.name, icon = RogueIcons.ForLife(p.life), hp = p.life == PlayerLife.Alive ? (rp != null ? rp.HealthFraction() : 1f) : 0,
                 state = p.life == PlayerLife.Downed ? T("Downed") : p.life == PlayerLife.Dead ? T("Dead") : (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) && p.ready ? T("Ready") : "",
                 tint = p.life == PlayerLife.Alive ? new Color(0.3f, 0.75f, 0.4f) : p.life == PlayerLife.Downed ? new Color(1f, 0.7f, 0.1f) : new Color(0.95f, 0.3f, 0.35f)
             });

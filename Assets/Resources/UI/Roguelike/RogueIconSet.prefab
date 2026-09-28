@@ -122,11 +122,15 @@ MonoBehaviour:
   - Zoom
   - Ammo
   - Arrow
+  - Battery
   - Coin
+  - Core
+  - Crate
   - Dash
   - Enemy
   - Heart
   - Medkit
+  - Mod
   - Objective
   - Shield
   - Squad
@@ -212,11 +216,15 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 1a8d28ca46e9fb144a8bf3380bfdcc8c, type: 3}
   - {fileID: 21300000, guid: b99c61fbb68a4835bd5e6c5b8eedf387, type: 3}
   - {fileID: 21300000, guid: 7e3251233554422bbde0f0e46b36bac5, type: 3}
+  - {fileID: 21300000, guid: 1a894b16bc75475e9e799a9d3f3f27f8, type: 3}
   - {fileID: 21300000, guid: 5c4d8e24ed074f2b8581eef17f2be35b, type: 3}
+  - {fileID: 21300000, guid: 9233c752d7f147d597332636bda06402, type: 3}
+  - {fileID: 21300000, guid: 6b1e357ec68243808a4cdbf3a5784aa5, type: 3}
   - {fileID: 21300000, guid: 9ccb90ffea35425cbd55b376f4683877, type: 3}
   - {fileID: 21300000, guid: 2aa2f1a4f11f4fd58b35983e1c437c11, type: 3}
   - {fileID: 21300000, guid: a024feda31564456a60762aaa66f5783, type: 3}
   - {fileID: 21300000, guid: d359dc90d20c4875a138b7b95c2a5707, type: 3}
+  - {fileID: 21300000, guid: 5a24ebc815ef4523b623b1a290272d09, type: 3}
   - {fileID: 21300000, guid: 02b869508b394d478511a3ab7c0a82e7, type: 3}
   - {fileID: 21300000, guid: d861b93e68bd4282ba0d0b5466a9fba1, type: 3}
   - {fileID: 21300000, guid: 0c89042a832e42e983be57d8ce6dc180, type: 3}
