@@ -415,7 +415,7 @@ public partial class Menu
 				anim.SetTrigger("SkipToMatching");
 				current = "Matching";
 			}
-			if (rule != 1 && rule != 6 && rule != 8)
+			if (rule != 1 && rule != 6 && rule != 8 && rule != RoguelikeMode.CoopRule)
 			{
 				roomTexts[4].text = "Adjusting team members...";
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
@@ -550,7 +550,7 @@ public partial class Menu
 			{
 				num = 4;
 			}
-			if (playerCount <= 2 || rule == 1 || rule == 6 || rule == 8)
+			if (playerCount <= 2 || rule == 1 || rule == 6 || rule == 8 || rule == RoguelikeMode.CoopRule)
 			{
 				startNow.transform.GetChild(0).GetComponent<Text>().text = "Start Now! " + startNowPlayer + "/" + num / 2;
 			}
@@ -577,7 +577,7 @@ public partial class Menu
 				component.death = myCharacter.death;
 				myButton.transform.SetParent(multiplayerList, false);
 			}
-			if (rule == 1 || rule == 6 || rule == 8)
+			if (rule == 1 || rule == 6 || rule == 8 || rule == RoguelikeMode.CoopRule)
 			{
 				PhotonNetwork.player.SetTeam(PunTeams.Team.none);
 			}
@@ -616,7 +616,7 @@ public partial class Menu
 				Texture2D texture2D = new Texture2D(128, 128);
 				texture2D.LoadImage(data);
 				GameObject gameObject = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-				if (rule == 1 || rule == 6 || rule == 8)
+				if (rule == 1 || rule == 6 || rule == 8 || rule == RoguelikeMode.CoopRule)
 				{
 					int index = (int)photonPlayer.CustomProperties["TC"];
 					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(index)
@@ -671,7 +671,7 @@ public partial class Menu
 			Texture2D texture2D = new Texture2D(128, 128);
 			texture2D.LoadImage(data);
 			GameObject gameObject = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-			if (rule == 1 || rule == 6 || rule == 8)
+			if (rule == 1 || rule == 6 || rule == 8 || rule == RoguelikeMode.CoopRule)
 			{
 				int index = (int)newPlayer.CustomProperties["TC"];
 				gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(index)

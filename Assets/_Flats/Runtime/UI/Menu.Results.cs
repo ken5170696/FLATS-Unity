@@ -17,7 +17,7 @@ public partial class Menu
 {
 		private IEnumerator GameOver()
 		{
-			if (gameState == "Singleplayer" || (gameState == "Multiplayer" && Multiplayer.rule == 8))
+			if (gameState == "Singleplayer" || (gameState == "Multiplayer" && (Multiplayer.rule == 8 || RoguelikeMode.Coop)))
 			{
 				GameObject[] array = GameObject.FindGameObjectsWithTag("Enemy");
 				GameObject[] array2 = array;
@@ -57,7 +57,7 @@ public partial class Menu
 			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(1.5f));
 			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(1f));
 			Time.timeScale = 0f;
-			if (gameState == "Multiplayer" && Multiplayer.rule != 8)
+			if (gameState == "Multiplayer" && Multiplayer.rule != 8 && !RoguelikeMode.Coop)
 			{
 				List<GameObject> list = new List<GameObject>();
 				if (network == 1)
@@ -343,10 +343,15 @@ public partial class Menu
 				skipTitle = true;
 				backButton.SetActive(true);
 			}
-			else if (gameState == "Singleplayer" || Multiplayer.rule == 8)
+			else if (gameState == "Singleplayer" || Multiplayer.rule == 8 || RoguelikeMode.Coop)
 			{
 				int myScore = 0;
-				if (Singleplayer.rule == 0 || Multiplayer.rule == 8)
+				if (RoguelikeMode.Active)
+				{
+					resultIndex.text = "Result";
+					singleplayerResult.GetChild(0).GetComponent<Text>().text = RogueHooks.ResultText();
+				}
+				else if (Singleplayer.rule == 0 || Multiplayer.rule == 8)
 				{
 					resultIndex.text = "Result";
 					singleplayerResult.GetChild(0).GetComponent<Text>().text = "Score: " + currentSurvivalScore + "\nDied at Phase " + currentSurvivalPhase;

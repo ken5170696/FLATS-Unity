@@ -81,7 +81,7 @@ public class WatchCamera : MonoBehaviour
 			{
 				Debug.Log("Singleplayer");
 			}
-			else if (Menu.network != 1)
+			else if (Menu.network != 1 && !RoguelikeMode.Coop)
 			{
 				multiplayer.GetPhotonView().RPC("GetTeamScore", PhotonTargets.All, array);
 			}
@@ -98,7 +98,7 @@ public class WatchCamera : MonoBehaviour
 				{
 					Debug.Log("Singleplayer");
 				}
-				else if (Menu.network != 1)
+				else if (Menu.network != 1 && !RoguelikeMode.Coop)
 				{
 					multiplayer.GetPhotonView().RPC("GetTeamScore", PhotonTargets.All, array2);
 				}
@@ -251,7 +251,7 @@ public class WatchCamera : MonoBehaviour
 	{
 		yield return new WaitForSeconds(3f);
 		GameObject[] others = LivingPlayers();
-		if (others.Length <= 0 && !Multiplayer.end)
+		if (others.Length <= 0 && !Multiplayer.end && !RoguelikeMode.Coop)
 		{
 			int[] array = new int[2] { 2, 0 };
 			multiplayer.GetPhotonView().RPC("GetTeamScore", PhotonTargets.AllBuffered, array);

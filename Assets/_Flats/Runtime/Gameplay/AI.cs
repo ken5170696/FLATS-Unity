@@ -114,6 +114,16 @@ public class AI : MonoBehaviour
 
 	private Vector3 netVelocity;
 
+	// Roguelike Survival role data (set by the authority before Start; replicated in SyncTeam).
+	[System.NonSerialized] public int forcedPrimaryWeapon = -1;
+	[System.NonSerialized] public float roleSpeedScale = 1f;
+	[System.NonSerialized] public float roleDamageScale = 1f;
+	[System.NonSerialized] public float rolePreferredRange;
+	[System.NonSerialized] public bool roleFlanker;
+	[System.NonSerialized] public int rogueRole = -1;
+	[System.NonSerialized] public int rogueInstance;
+	[System.NonSerialized] public int rogueElite;
+
 	private void Awake()
 	{
 		mt = base.transform;
@@ -132,11 +142,11 @@ public class AI : MonoBehaviour
 	private IEnumerator Start()
 	{
 		int network = Menu.network;
-		defaultSpeed = agent.speed * Flats.Core.EnemyTuning.Speed;
+		defaultSpeed = agent.speed * Flats.Core.EnemyTuning.Speed * roleSpeedScale;
 		agent.speed = defaultSpeed;
 		agent.autoBraking = false;
 		StartCoroutine("SyncAnimation");
-		primaryWeaponIndex = UnityEngine.Random.Range(0, 14);
+		primaryWeaponIndex = forcedPrimaryWeapon >= 0 ? forcedPrimaryWeapon : UnityEngine.Random.Range(0, 14);
 		secondaryWeaponIndex = UnityEngine.Random.Range(0, 16);
 		if (secondaryWeaponIndex == primaryWeaponIndex)
 		{
@@ -148,7 +158,7 @@ public class AI : MonoBehaviour
 		}
 		primarySightIndex = UnityEngine.Random.Range(0, GunInfo.zoom[primaryWeaponIndex] + 1);
 		secondarySightIndex = UnityEngine.Random.Range(0, GunInfo.zoom[secondaryWeaponIndex] + 1);
-		int[] sendData = new int[7] { team, primaryWeaponIndex, secondaryWeaponIndex, primarySightIndex, secondarySightIndex, stats_Attack, stats_Defense };
+		int[] sendData = new int[10] { team, primaryWeaponIndex, secondaryWeaponIndex, primarySightIndex, secondarySightIndex, stats_Attack, stats_Defense, rogueRole, rogueInstance, rogueElite };
 		if (Menu.network == 0)
 		{
 			StartCoroutine("SyncTeam", sendData);
@@ -262,6 +272,7 @@ public class AI : MonoBehaviour
 		int sws = receivedData[4];
 		stats_Attack = receivedData[5];
 		stats_Defense = receivedData[6];
+		if (receivedData.Length >= 10 && RoguelikeMode.Active) RogueHooks.OnEnemySynced(this, receivedData[7], receivedData[8], receivedData[9]);
 		Transform ui = GameObject.Find("UICamera").transform;
 		if (team == 0)
 		{
@@ -331,7 +342,7 @@ public class AI : MonoBehaviour
 			secondaryWeapon.gameObject.SetActive(true);
 		}
 		currentGun = primaryWeapon.GetComponent<Gun>();
-		if ((Menu.network == 0 || Multiplayer.rule == 8) && base.gameObject.tag == "Enemy")
+		if ((Menu.network == 0 || Multiplayer.rule == 8 || RoguelikeMode.Coop) && base.gameObject.tag == "Enemy")
 		{
 			int num = 0;
 			if (stats_Attack + stats_Defense == 0)
@@ -1010,9 +1021,9 @@ public class AI : MonoBehaviour
 					component.grenade = true;
 				}
 				float num = 1f;
-				if (Menu.gameState == "Singleplayer" || Multiplayer.rule == 8)
+				if (Menu.gameState == "Singleplayer" || Multiplayer.rule == 8 || RoguelikeMode.Coop)
 				{
-					if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8)
+					if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8 || RoguelikeMode.Active)
 					{
 						num = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.enemy);
 					}
@@ -1025,7 +1036,7 @@ public class AI : MonoBehaviour
 						num = 0.5f;
 					}
 				}
-				component.damage = currentGun.damage * (1f + (float)stats_Attack * 0.1f) * num * Flats.Core.EnemyTuning.Damage;
+				component.damage = currentGun.damage * (1f + (float)stats_Attack * 0.1f) * num * Flats.Core.EnemyTuning.Damage * roleDamageScale * (RoguelikeMode.Active ? RogueHooks.EnemyDamageMul() : 1f);
 				rigidbody.gameObject.layer = base.gameObject.layer + 2;
 				rigidbody.linearVelocity = velocity;
 				currentGun.currentAmmo--;
@@ -1064,9 +1075,9 @@ public class AI : MonoBehaviour
 			Bullet bb = b.GetComponent<Bullet>();
 			bb.shooter = mt;
 			float damagePerEnemy = 1f;
-			if (Menu.gameState == "Singleplayer" || Multiplayer.rule == 8)
+			if (Menu.gameState == "Singleplayer" || Multiplayer.rule == 8 || RoguelikeMode.Coop)
 			{
-				if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8)
+				if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8 || RoguelikeMode.Active)
 				{
 					damagePerEnemy = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.enemy);
 				}
@@ -1079,7 +1090,7 @@ public class AI : MonoBehaviour
 					damagePerEnemy = 0.5f;
 				}
 			}
-			bb.damage = currentGun.damage * (1f + (float)stats_Attack * 0.1f) * damagePerEnemy * Flats.Core.EnemyTuning.Damage;
+			bb.damage = currentGun.damage * (1f + (float)stats_Attack * 0.1f) * damagePerEnemy * Flats.Core.EnemyTuning.Damage * roleDamageScale * (RoguelikeMode.Active ? RogueHooks.EnemyDamageMul() : 1f);
 			b.gameObject.layer = base.gameObject.layer + 2;
 			b.linearVelocity = dir;
 			anim.SetInteger("Burst", currentBurstCount);

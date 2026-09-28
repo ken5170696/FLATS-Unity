@@ -7,6 +7,12 @@ namespace Flats.Gameplay
     {
         public static bool Move(CharacterController controller, Transform body, bool jumping, bool zombie, float forward, float right, float deltaTime)
         {
+            return Move(controller, body, jumping, zombie, forward, right, deltaTime, 1f);
+        }
+        /// <summary>speedScale multiplies the base 15 (18 zombie) units per second; 1 is the original feel.</summary>
+        public static bool Move(CharacterController controller, Transform body, bool jumping, bool zombie, float forward, float right, float deltaTime, float speedScale)
+        {
+            forward *= speedScale; right *= speedScale;
             RaycastHit ground;
             if(!jumping && controller.isGrounded && Physics.Raycast(body.position+Vector3.up,Vector3.down,out ground,2f)
                 && ground.normal.y>=Mathf.Cos(controller.slopeLimit*Mathf.Deg2Rad))

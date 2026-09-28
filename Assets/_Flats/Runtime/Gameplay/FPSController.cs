@@ -257,7 +257,7 @@ public partial class FPSController : MonoBehaviour
 		}
         // Reuse the existing scene UI binding, without another global service lookup.
         var menu = ui.GetComponentInChildren<Menu>(true);
-        if (menu != null) menu.BindGameplay(this);
+        if (menu != null) { menu.BindGameplay(this); RogueHooks.OnPlayerStarted(this); }
         else Debug.LogError("Player requires a Menu gameplay session binding.", this);
 		netPos = mt.position;
 		netRot = mt.rotation;
@@ -1067,7 +1067,7 @@ public partial class FPSController : MonoBehaviour
 					{
 						actions.Dispatch(Flats.Core.PlayerAction.ThrowGrenade);
 					}
-					if (input.Jump && !jumping && isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
+					if (input.Jump && !jumping && (isGrounded() || (RoguelikeMode.Active && RogueHooks.AllowAirJump(this))) && !Physics.Raycast(mct.position, Vector2.up, 2f))
 					{
 						Y = mt.position.y;
 						jumping = true;
@@ -1107,7 +1107,7 @@ public partial class FPSController : MonoBehaviour
 				num2 = 0f;
 			}
 			ferrisWheelFollower.BeforeMove(cc, mt);
-			movedWithGravity = Flats.Gameplay.PlayerMovementMotor.Move(cc, mt, jumping, zombie, num, num2, Time.deltaTime);
+			movedWithGravity = Flats.Gameplay.PlayerMovementMotor.Move(cc, mt, jumping, zombie, num, num2, Time.deltaTime, RoguelikeMode.Active ? RogueHooks.MoveSpeedScale(this) : 1f);
 			if (jumping)
 			{
 				if (mt.parent == null)
@@ -1121,7 +1121,7 @@ public partial class FPSController : MonoBehaviour
 					{
 						jumping = false;
 					}
-					if (mt.position.y >= Y + 5f || Physics.Raycast(mct.position, Vector2.up, 2f))
+					if (mt.position.y >= Y + 5f * (RoguelikeMode.Active ? RogueHooks.JumpHeightMul(this) : 1f) || Physics.Raycast(mct.position, Vector2.up, 2f))
 					{
 						jumping = false;
 					}

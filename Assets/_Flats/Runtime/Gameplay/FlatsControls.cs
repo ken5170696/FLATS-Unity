@@ -5,9 +5,9 @@ using UnityEngine;
 // Gameplay bindings are independent of the fixed menu submit/cancel controls.
 public static class FlatsControls
 {
-    public static readonly string[] KeyboardActions = { "Forward", "Backward", "Left", "Right", "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Interact" };
-    public static readonly string[] PadActions = { "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Scope" };
-    static readonly KeyCode[] defaults = { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.LeftShift, KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.R, KeyCode.E, KeyCode.G, KeyCode.Q };
+    public static readonly string[] KeyboardActions = { "Forward", "Backward", "Left", "Right", "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Interact", "Ultimate", "Tactical" };
+    public static readonly string[] PadActions = { "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Scope", "Ultimate", "Tactical" };
+    static readonly KeyCode[] defaults = { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.LeftShift, KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.R, KeyCode.E, KeyCode.G, KeyCode.Q, KeyCode.F, KeyCode.C };
     public static event Action Changed;
     public static bool Capturing { get; set; }
     public static bool UsingGamepad { get; set; }

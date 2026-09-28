@@ -88,6 +88,7 @@ public class Singleplayer : MonoBehaviour
 		GrabbedObject.canGrab = true;
 		GrabbedObject.timeup = false;
 		DamageReceiver.invincibility = false;
+		RoguelikeMode.Reset();
 	}
 
 	private IEnumerator Start()

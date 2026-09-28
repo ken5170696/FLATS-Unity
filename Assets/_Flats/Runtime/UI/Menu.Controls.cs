@@ -139,6 +139,12 @@ public partial class Menu
     void BindAuthoredRow(List<Button> rows, List<Text> labels, List<Text> details, int actionIndex, ScrollRect list)
     {
         var row = list.content.Find("Binding" + actionIndex + "/Button");
+        if (row == null && actionIndex > 0)
+        {
+            // Actions added after the screen was authored reuse the last authored row as their template.
+            var template = list.content.Find("Binding" + (actionIndex - 1));
+            if (template != null) { var clone = Instantiate(template.gameObject, list.content, false); clone.name = "Binding" + actionIndex; clone.transform.SetSiblingIndex(template.GetSiblingIndex() + 1); row = clone.transform.Find("Button"); }
+        }
         var button = row.GetComponent<Button>();
         rows.Add(button);
         labels.Add(row.Find("Action").GetComponent<Text>());
@@ -192,7 +198,9 @@ public partial class Menu
     {
         if (action == "Change") return pad ? "Change / hold to pick up" : "Change weapon";
         if (action == "Scope") return "Toggle aim";
-        if (action == "Interact") return "Pick up / exchange";
+        if (action == "Interact") return "Pick up / exchange / revive";
+        if (action == "Ultimate") return "Ultimate (Roguelike)";
+        if (action == "Tactical") return "Tactical skill (Roguelike)";
         if (action == "Left") return "Move left";
         if (action == "Right") return "Move right";
         return action;

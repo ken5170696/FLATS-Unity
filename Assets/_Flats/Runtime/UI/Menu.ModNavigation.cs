@@ -23,6 +23,7 @@ public partial class Menu
         if(fliping)return true;
         if(button==-1)StartCoroutine(LeavePlay(-1));
         else if(button==0 || button==1)StartCoroutine(LeavePlay(button==0?1:0));
+        // button 2 (Roguelike) is routed by HandleRoguelikeNavigation before this handler
         return true;
     }
     IEnumerator ShowPlay()
@@ -43,11 +44,12 @@ public partial class Menu
     internal void RefreshPlayTiles()
     {
         if(originalTilePositions==null)originalTilePositions=System.Array.ConvertAll(buttons,b=>((RectTransform)b.transform.parent).anchoredPosition);
-        bt[0].text="Singleplayer";bt[1].text="Multiplayer";buttons[0].sprite=images[1];buttons[1].sprite=images[0];
+        bt[0].text="Singleplayer";bt[1].text="Multiplayer";bt[2].text="Roguelike";
+        buttons[0].sprite=images[1];buttons[1].sprite=images[0];buttons[2].sprite=images[18];
         for(int i=0;i<buttons.Length;i++)
         {
-            if(i>1)buttons[i].transform.parent.gameObject.SetActive(false);
-            else ((RectTransform)buttons[i].transform.parent).anchoredPosition=new Vector2(i==0?-110:110,0);
+            if(i>2)buttons[i].transform.parent.gameObject.SetActive(false);
+            else { buttons[i].transform.parent.gameObject.SetActive(true);((RectTransform)buttons[i].transform.parent).anchoredPosition=new Vector2((i-1)*220,0); }
         }
     }
     void RestorePlayTiles()

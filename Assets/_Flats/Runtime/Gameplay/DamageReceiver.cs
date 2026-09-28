@@ -89,7 +89,7 @@ public class DamageReceiver : MonoBehaviour
 			ui = GameObject.Find("UI").transform;
 			damageEffect = ui.Find("DamageEffect").GetComponent<Image>();
 			healthbar = ui.Find("Healthbar").GetComponent<Scrollbar>();
-			hitPoints = 1000f * (1f + (float)Menu.myCharacter.defense * 0.1f);
+			hitPoints = RogueHooks.PlayerMaxHealth(this, 1000f * (1f + (float)Menu.myCharacter.defense * 0.1f));
 			damageEffect.color = new Color(1f, 1f, 1f, 0f);
 			healthbar.size = 1f;
 			invincibility = true;
@@ -101,13 +101,13 @@ public class DamageReceiver : MonoBehaviour
 		if (!userIsPlayer)
 		{
 			myAI = GetComponent<AI>();
-			hitPoints = 1000f * (1f + (float)myAI.stats_Defense * 0.1f) * Flats.Core.EnemyTuning.Health;
+			hitPoints = RogueHooks.EnemyMaxHealth(this, 1000f * (1f + (float)myAI.stats_Defense * 0.1f) * Flats.Core.EnemyTuning.Health);
 		}
 		while (true)
 		{
 			if (userIsPlayer && MyView(base.gameObject))
 			{
-				float num = 1000f * (1f + (float)Menu.myCharacter.defense * 0.1f);
+				float num = RogueHooks.PlayerMaxHealth(this, 1000f * (1f + (float)Menu.myCharacter.defense * 0.1f));
 				if (myFPSController.zombie)
 				{
 					num = 6000f;
@@ -200,7 +200,7 @@ public class DamageReceiver : MonoBehaviour
 		{
 			return;
 		}
-		if (receivedData[1] == 1 && !userIsPlayer && !myAI.vip && (Menu.network == 0 || Multiplayer.rule == 8))
+		if (receivedData[1] == 1 && !userIsPlayer && !myAI.vip && (Menu.network == 0 || Multiplayer.rule == 8 || RoguelikeMode.Coop))
 		{
 			command = "head";
 			killer = shooter;
@@ -214,7 +214,7 @@ public class DamageReceiver : MonoBehaviour
 			}
 			return;
 		}
-		hitPoints -= receivedData[0];
+		hitPoints -= RoguelikeMode.Active ? RogueHooks.ModifyIncomingDamage(this, receivedData[0], shooter) : receivedData[0];
 		if (hitPoints <= 0f)
 		{
 			command = "normal";
@@ -228,7 +228,7 @@ public class DamageReceiver : MonoBehaviour
 				base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, receivedData[2]);
 			}
 		}
-		else if (!userIsPlayer && !myAI.vip && (Menu.network == 0 || Multiplayer.rule == 8))
+		else if (!userIsPlayer && !myAI.vip && (Menu.network == 0 || Multiplayer.rule == 8 || RoguelikeMode.Coop))
 		{
 			int num = 0;
 			num = ((!Singleplayer.chance) ? UnityEngine.Random.Range(0, 60) : UnityEngine.Random.Range(0, 12));
@@ -263,7 +263,7 @@ public class DamageReceiver : MonoBehaviour
 		{
 			base.GetComponent<AudioSource>().PlayOneShot(damageSE);
 		}
-		if (Menu.network == 0 || Multiplayer.rule == 8)
+		if (Menu.network == 0 || Multiplayer.rule == 8 || (RoguelikeMode.Coop && userIsPlayer))
 		{
 			if (hitPoints <= 0f)
 			{
@@ -294,6 +294,7 @@ public class DamageReceiver : MonoBehaviour
 				}
 				return;
 			}
+			if (RoguelikeMode.Active) damage = RogueHooks.ModifyIncomingDamage(this, damage, shooter);
 			hitPoints -= damage;
 			if (!userIsPlayer && myAI.isPatrol && myAI.targets[0] != null)
 			{
@@ -303,8 +304,9 @@ public class DamageReceiver : MonoBehaviour
 				rotation.z = 0f;
 				mt.rotation = rotation;
 			}
-			if (hitPoints <= 0f && (Menu.gameState == "Singleplayer" || !userIsPlayer || (Multiplayer.rule == 8 && MyView(base.gameObject))))
+			if (hitPoints <= 0f && (Menu.gameState == "Singleplayer" || !userIsPlayer || ((Multiplayer.rule == 8 || RoguelikeMode.Coop) && MyView(base.gameObject))))
 			{
+				if (userIsPlayer && RoguelikeMode.Active && RogueHooks.TryDown(this)) return;
 				command = "normal";
 				killer = shooter;
 				if (killer.tag == "Enemy")
@@ -404,6 +406,7 @@ public class DamageReceiver : MonoBehaviour
 			return;
 		}
 		died = true;
+		if (userIsPlayer && RoguelikeMode.Active) RogueHooks.OnPlayerDied(this);
 		GameObject gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
 		if (gameObject == null)
 		{
@@ -482,7 +485,7 @@ public class DamageReceiver : MonoBehaviour
 		{
 			GameObject.Find("SingleplayerController").GetComponent<Singleplayer>().Log("Ally-bot killed Enemy.");
 		}
-		else if (command == "normal" && (userIsPlayer || (Menu.network != 0 && Multiplayer.rule != 8)))
+		else if (command == "normal" && (userIsPlayer || (Menu.network != 0 && Multiplayer.rule != 8 && !RoguelikeMode.Coop)))
 		{
 			if (Menu.network == 0)
 			{
@@ -495,9 +498,9 @@ public class DamageReceiver : MonoBehaviour
 					gameObject.transform.GetChild(4).GetChild(0).GetComponent<BlurEffect>()
 						.enabled = true;
 				}
-				if (Singleplayer.rule == 3)
+				if (Singleplayer.rule == 3 || RoguelikeMode.Solo)
 				{
-					Debug.Log("Respawn for training...");
+					Debug.Log(RoguelikeMode.Solo ? "Roguelike solo death: the run controller ends the run." : "Respawn for training...");
 				}
 				else
 				{
@@ -551,7 +554,7 @@ public class DamageReceiver : MonoBehaviour
 						}
 					}
 				}
-				else if (Multiplayer.rule != 8)
+				else if (Multiplayer.rule != 8 && !RoguelikeMode.Coop)
 				{
 					if (Menu.network == 0)
 					{
@@ -630,7 +633,7 @@ public class DamageReceiver : MonoBehaviour
 						}
 					}
 				}
-				else if (Multiplayer.rule == 8)
+				else if (Multiplayer.rule == 8 || RoguelikeMode.Coop)
 				{
 					if (Menu.network == 0)
 					{
@@ -740,7 +743,8 @@ public class DamageReceiver : MonoBehaviour
 		}
 		if (!userIsPlayer)
 		{
-			if (Menu.gameState == "Singleplayer" || Multiplayer.rule == 8)
+			if (RoguelikeMode.Active) RogueHooks.OnEnemyDied(this, killer, command == "head");
+			if (Menu.gameState == "Singleplayer" || Multiplayer.rule == 8 || RoguelikeMode.Coop)
 			{
 				if (base.gameObject.layer == LayerMask.NameToLayer("BlueTeam"))
 				{

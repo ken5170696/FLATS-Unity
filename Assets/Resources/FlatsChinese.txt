@@ -1076,3 +1076,290 @@ Google sign-in script could not be loaded.	無法載入 Google 登入元件。
 The sign-in reply does not match this attempt.	登入回應與這次登入不符。
 The sign-in reply has no token.	登入回應沒有憑證。
 Unexpected callback path.	登入回應路徑不正確。
+Roguelike	Roguelike
+Roguelike Survival	Roguelike 生存
+How to Play	玩法說明
+Difficulty: {0}	難度：{0}
+Map: Random	地圖：隨機
+Map: {0}	地圖：{0}
+Continue: Chapter {0} Stage {1}	續玩：第 {0} 章第 {1} 關
+No checkpoint	沒有存檔點
+Checkpoint unreadable	存檔點無法讀取
+Start Run	開始新局
+Evacuate	撤離
+Hard	困難
+Chaos	混亂
+Standard enemies and bounty. Emergencies from stage 3.	標準敵人與賞金。第 3 關起出現緊急事件。
+Tougher enemies, more elites, +10% bounty.	敵人更強、精英更多，賞金 +10%。
+Elite squads early, frequent emergencies, +20% bounty.	精英小隊提早登場、緊急事件頻繁，賞金 +20%。
+Co-op survival for 1-4 players with no final stage.	1～4 人合作生存，沒有最終關。
+Fight through stages, earn bounty for every kill (headshots pay x1.5), buy upgrades between stages and pick a route after each chapter.	一關一關打下去，每次擊殺都有賞金（爆頭 1.5 倍），關與關之間購買升級，每章結束選擇路線。
+Downed players can be revived. A full death returns you at the next safe stage with a money penalty. If everyone falls, the run ends.	倒地的玩家可以被救起。完全死亡會在下一個安全關卡回歸並扣除金錢。全員倒下則本局結束。
+Evacuate after any chapter to bank your record, or continue and your progress is checkpointed.	任何一章結束後可以撤離保存紀錄，或繼續前進並自動建立存檔點。
+The checkpoint could not be read:	存檔點無法讀取：
+There is no saved run yet.	目前沒有已儲存的局。
+Starting a new run discards the saved checkpoint. Continue?	開始新局會刪除已儲存的存檔點。要繼續嗎？
+Waiting for the host...	等待主機…
+Everyone is ready. Starting...	全員就緒，即將開始…
+Start cancelled.	出發已取消。
+Stage {0}-{1}: {2}	第 {0}-{1} 關：{2}
+start in {0}...	{0} 秒後開始…
+Stage {0}-{1}	第 {0}-{1} 關
+Shop is open. Ready up when done.	商店已開啟。準備好後按就緒。
+Chapter {0} complete! Choose your route.	第 {0} 章完成！選擇你的路線。
+Chapter {0} complete	第 {0} 章完成
+Choose the next chapter's route.	選擇下一章的路線。
+The host chooses the route.	由主機選擇路線。
+Host decides	主機決定
+Reinforcements!	增援來了！
+Objective complete!	目標完成！
++{0} each	每人 +{0}
+Stage cleared!	本關清除！
+Squad wiped.	小隊全滅。
+Travelling to {0}...	前往 {0}…
+Run resumed at chapter {0} stage {1}	本局從第 {0} 章第 {1} 關恢復
+Event: {0}	事件：{0}
+Warning: {0}	警告：{0}
+Bounty +{0}	賞金 +{0}
+Headshot bounty +{0}	爆頭賞金 +{0}
+{0} is down!	{0} 倒地了！
+{0} died.	{0} 死亡。
+Revived: {0}	已救起：{0}
+Emergency revive: {0}	緊急復甦：{0}
+Ultimate used	已使用大招
+Ultimate: {0}	大招：{0}
+Ultimate {0}%	大招 {0}%
+No ultimate equipped	沒有裝備大招
+Nobody to revive	沒有人需要復活
+Shield up	護盾展開
+Shield broken	護盾破裂
+You are down! Hold on for a revive.	你倒地了！撐住等待救援。
+Revived!	已復活！
+Reviving... {0}	救援中… {0}
+Hold {0} to revive	按住 {0} 救援
+Emergency revive!	緊急復甦！
+Checkpoint failed: {0}	存檔點寫入失敗：{0}
+Prep: shop open, ready when done	整備：商店開啟，完成後按就緒
+Enemies {0}	敵人 {0}
+Ult {0}%	大招 {0}%
+Cleared	已清除
+Pick a reward	選擇獎勵
+Chapter {0} complete: choose a route	第 {0} 章完成：選擇路線
+Chapter shop: continue or evacuate	章末商店：繼續或撤離
+Shop  Stage {0}-{1}	商店　第 {0}-{1} 關
+Chapter {0} Shop	第 {0} 章商店
+Wallet ${0}   Rerolls {1}   {2}	錢包 ${0}　重抽 {1}　{2}
+Buy	購買
+Take	拿取
+Go	前往
+Reroll	重抽
+Free	免費
+Bought	已購買
+Buying...	購買中…
+Not enough money	金錢不足
+No rerolls left	沒有重抽次數
+Reroll offers	重抽商品
+New offers for this visit. Limited per visit; the same offers return if you leave and come back.	換一批本次的商品。每次造訪有限次數；離開再回來仍是同一批。
+Ready	就緒
+Not ready	取消就緒
+Press Ready to start the stage.	按「就緒」開始本關。
+Ready {0}/{1}. The stage starts when everyone is ready.	就緒 {0}/{1}。全員就緒後開始本關。
+Continue travels to {0}. Evacuate banks this run's record and ends it.	「續玩」前往 {0}。「撤離」保存本局紀錄並結束。
+Stage {0}-{1} cleared	第 {0}-{1} 關清除
+Pick one. It is free.	選一個，免費。
+End the run here and bank your record? The checkpoint is removed.	在此結束本局並保存紀錄？存檔點將被移除。
+Rare	稀有
+Uncommon	少見
+Risky	高風險
+Safer	較安全
+Bounty {0}%	賞金 {0}%
+Replaces {0}.	取代 {0}。
+Replaces {0} (charge is kept).	取代 {0}（充能保留）。
+Tier {0}/{1}: {2} -> {3}	階級 {0}/{1}：{2} → {3}
+Mods {0}/{1}	改件 {0}/{1}
+max tier	已達最高階
+already owned	已擁有
+core slots full	核心槽已滿
+mod slots full	改件槽已滿
+already equipped	已裝備
+unknown item	未知物品
+Purchase failed: {0}	購買失敗：{0}
+Bought {0} for ${1}	以 ${1} 購買 {0}
+Bought {0}	已購買 {0}
+Rerolled	已重抽
+Evacuated	已撤離
+Squad wiped	小隊全滅
+Run ended	本局結束
+Chapter {0}  Stage {1}  Depth {2}	第 {0} 章　第 {1} 關　深度 {2}
+Earned {0}  Kills {1}  Headshots {2}	收入 {0}　擊殺 {1}　爆頭 {2}
+Ammo Crate	彈藥箱
+Refill the reserve ammunition of both weapons.	補滿兩把武器的備用彈藥。
+Medkit	醫療包
+Restore full health now.	立即回復全部生命。
+Field Repair	野戰修復
+Restore full health and refill ammunition.	回復全部生命並補滿彈藥。
+Vitality	體力
++12% maximum health per tier (max 5 tiers). Heals the added amount.	每階最大生命 +12%（最多 5 階），並回復增加的量。
+Firepower	火力
++8% weapon damage per tier (max 5 tiers).	每階武器傷害 +8%（最多 5 階）。
+Magazine	彈匣
++15% magazine capacity per tier (max 5 tiers), at least +1 round.	每階彈匣容量 +15%（最多 5 階），至少 +1 發。
+Agility	敏捷
++6% movement speed per tier (max 5 tiers).	每階移動速度 +6%（最多 5 階）。
+Precision	精準
+Headshots deal +25% damage and bullets pierce one enemy at 60% damage. Body shots deal -10%.	爆頭傷害 +25%，子彈可穿透一名敵人（60% 傷害）。身體命中 -10%。
+Assault	突擊
++15% damage within 12 m, -10% beyond 30 m. A kill within 12 m grants 2 s of 30% damage reduction and +15% speed.	12 m 內傷害 +15%，30 m 外 -10%。12 m 內擊殺後 2 秒減傷 30% 並加速 15%。
+Suppression	壓制
+Each hit within 1 s of the last adds +4% damage, up to +40%. +20% magazine, +20% reload time.	1 秒內連續命中每次 +4% 傷害，最高 +40%。彈匣 +20%，換彈時間 +20%。
+Reload Burst	換彈爆發
+Reloading after firing at least 60% of the magazine grants +35% damage for 3 s.	打掉至少 60% 彈匣後換彈，獲得 3 秒 +35% 傷害。
+Ricochet	彈射
+Bullets bounce once off walls at 80% damage. Ricochet hits deal +30%.	子彈碰牆反彈一次（80% 傷害）。反彈命中 +30%。
+Demolition	爆破
+Kills explode: 40% of the killing damage in a 6 m radius and a short knockback. Explosions never chain.	擊殺引發爆炸：6 m 半徑內造成致命傷害的 40% 並短暫擊退。爆炸不會連鎖。
+Marker	標記
+Your hits mark enemies for 4 s. Marked enemies take +12% damage from everyone. Marked kills by anyone charge your ultimate.	你的命中標記敵人 4 秒。被標記的敵人受到所有人 +12% 傷害。任何人擊殺被標記者都為你的大招充能。
+Mobility	機動
++12% speed, revive 40% faster, carry objects at full speed. The first shot after a dash or a jump landing deals +20%.	速度 +12%，救援快 40%，搬運物件不減速。衝刺或落地後的第一發 +20%。
+Long Barrel	長槍管
+Headshots deal +10% damage.	爆頭傷害 +10%。
+Piercing Rounds	穿甲彈
+Bullets pierce one more enemy (maximum two).	子彈多穿透一名敵人（最多兩名）。
+Calm Hands	穩定雙手
+Weapon spread reduced by 25% while aiming.	瞄準時武器散布 -25%。
+Close Quarters	近身
++10% damage within 12 m.	12 m 內傷害 +10%。
+Adrenaline	腎上腺素
+Kills heal 5% of maximum health (at most 3 heals per second).	擊殺回復 5% 最大生命（每秒最多 3 次）。
+Choke	縮口
+Shotguns fire one extra pellet.	霰彈槍多射出一顆彈丸。
+Extended Magazine	加長彈匣
++25% magazine capacity.	彈匣容量 +25%。
+Heavy Rounds	重彈
++6% damage, -3% movement speed.	傷害 +6%，移動速度 -3%。
+Sustained Fire	持續射擊
+Suppression stacks up to +60% instead of +40%.	壓制疊加上限由 +40% 提升至 +60%。
+Fast Hands	快手
+Reload time -25%.	換彈時間 -25%。
+Tactical Reload	戰術換彈
+Every reload returns 2 rounds to the reserve.	每次換彈退回 2 發備彈。
+Burst Extender	爆發延長
+Reload Burst lasts 5 s instead of 3 s.	換彈爆發持續 5 秒而非 3 秒。
+Rubber Rounds	橡膠彈
+Ricochets keep 100% damage.	反彈保留 100% 傷害。
+Double Bounce	二次反彈
+Bullets bounce one more time (maximum two).	子彈多反彈一次（最多兩次）。
+Angle Finder	角度儀
+Ricochet hits mark the enemy for 4 s.	反彈命中標記敵人 4 秒。
+Bigger Boom	更大爆炸
+Explosion radius +50%.	爆炸半徑 +50%。
+Frag Grenades	破片手榴彈
+Grenade damage +30%.	手榴彈傷害 +30%。
+Shockwave	震波
+Explosions slow enemies by 40% for 2 s.	爆炸使敵人減速 40%，持續 2 秒。
+Spotter	觀測手
+Marks last 3 s longer.	標記多持續 3 秒。
+Bounty Hunter	賞金獵人
+Marked kills pay +10% bounty to the whole squad (bounded per stage).	擊殺被標記者全隊賞金 +10%（每關有上限）。
+Team Radio	隊伍無線電
+A teammate hitting your marked enemy charges your ultimate.	隊友命中你標記的敵人時為你的大招充能。
+Double Dash	雙重衝刺
+Dash has two charges.	衝刺有兩次充能。
+Spring Legs	彈簧腿
+Jump 30% higher.	跳躍高度 +30%。
+Quick Revive	快速救援
+Revive teammates 40% faster.	救援隊友快 40%。
+Ammo Belt	彈帶
++30% reserve ammunition.	備用彈藥 +30%。
+Thick Skin	厚皮
+Damage taken -8%.	受到傷害 -8%。
+Double Jump	二段跳
+Passive: press Jump again in the air for a second jump. Resets on landing.	被動：空中再按跳躍可二段跳。落地重置。
+Dash	衝刺
+Active: dash 8 m forward. 6 s cooldown. Stops at walls and edges.	主動：向前衝刺 8 m。冷卻 6 秒。遇牆與邊緣停止。
+Shield	護盾
+Active: absorb 400 damage for 4 s. 12 s cooldown. Re-activating replaces the shield, it does not stack.	主動：4 秒內吸收 400 傷害。冷卻 12 秒。重複啟用會取代護盾，不疊加。
+Infinite Fire	無限火力
+8 s of unlimited ammunition with no reloads. Fire rate unchanged.	8 秒無限彈藥、不需換彈。射速不變。
+Lethal Shot	致命射擊
+5 s: direct hits kill regular enemies outright. Finale targets take +200% instead.	5 秒內直接命中即擊殺普通敵人。章末目標改為 +200% 傷害。
+Invincible	無敵
+5 s of immunity to combat and gas damage. Only you.	5 秒免疫戰鬥與毒霧傷害。僅限自己。
+Emergency Revive	緊急復甦
+Once per run: instantly revive downed or dead teammates with their build. Solo: survive one lethal hit.	每局一次：立即復活倒地或死亡的隊友並保留其 Build。單人：擋下一次致命傷害。
+Enemy Sight	敵人透視
+8 s: outlines of every spawned enemy within 80 m.	8 秒顯示 80 m 內所有已生成敵人的輪廓。
+Chain Bullets	閃電連鎖子彈
+8 s: hits arc to up to 3 enemies within 10 m at 50% damage. Chains do not count as headshots.	8 秒內命中會連鎖至 10 m 內最多 3 名敵人（50% 傷害）。連鎖不算爆頭。
+Homing Bullets	子彈追蹤
+8 s: bullets steer toward the nearest visible enemy within 15 degrees.	8 秒內子彈會朝 15 度內最近的可見敵人轉向。
+Replace your primary weapon. Ammunition is refilled.	更換主武器，並補滿彈藥。
+Rifleman	步槍手
+Rusher	突進者
+Marksman	神射手
+Shield Bearer	盾衛
+Flanker	側翼者
+Jammer	干擾者
+Clear Out	清剿
+Eliminate every enemy in the area.	消滅區域內所有敵人。
+Hold the Zone	佔領區域
+Stand inside the marked zone until it is secured. More players secure it faster.	站在標記區域內直到佔領完成。人越多越快。
+Deliver the Crate	運送補給箱
+Carry the supply crate to the drop point. The carrier cannot shoot.	把補給箱搬到投放點。搬運者不能開火。
+Protect the Repair	保護修復
+Keep the repair device alive until it reaches 100%.	保護修復裝置直到進度 100%。
+Break Out	突圍
+Fight through to the extraction marker. Everyone must arrive.	殺到撤離標記。全員都必須抵達。
+Moving Supply	移動補給
+A supply drone crosses the map. Shoot it down before it leaves to claim the crate.	補給無人機橫越地圖。在它離開前擊落以取得補給箱。
+Alarm Cache	警報寶箱
+Open the cache for a high bounty. Opening it calls a reinforcement wave.	打開寶箱獲得高額賞金。開啟會召來增援波。
+Low Gravity	低重力
+Gravity is halved in the marked area for this stage.	本關標記區域內重力減半。
+Power Reroute	供電改道
+Flip the breaker: doors change, opening a shortcut for 60 s.	切換斷路器：門路改變，開啟 60 秒捷徑。
+Repair Device	修復裝置
+An optional device can be repaired while enemies attack it. Reward on completion.	可選修復的裝置，修復時敵人會攻擊它。完成有獎勵。
+Risk Contract	風險合約
+Accept: enemies deal +25% damage this stage, bounty +40%. Decline at no cost.	接受：本關敵人傷害 +25%，賞金 +40%。拒絕無代價。
+Elite Hunt	精英獵殺
+A marked elite roams the map. Killing it pays a large bounty.	一名被標記的精英在地圖遊走。擊殺可得高額賞金。
+Lure Crate	誘敵箱
+A beacon crate attracts enemies while carried. Plant it to pull the wave away from an objective.	搬運時信標箱會吸引敵人。放置它把敵人引離目標。
+Gas Leak	毒霧外洩
+Activate 2 of 3 vent switches before the countdown ends or gas spreads zone by zone.	在倒數結束前啟動 3 個排風開關中的 2 個，否則毒霧逐區擴散。
+Power Outage	供電中斷
+Lights out. Restart the generator: hold the switch for 8 s while enemies close in.	燈光熄滅。重啟發電機：在敵人逼近時按住開關 8 秒。
+Mobile Bomb	移動炸彈
+A bomb is armed. Carry it to the disposal point before it explodes.	炸彈已啟動。在爆炸前把它搬到處理點。
+Reinforcement Signal	增援信號
+A signal device is calling waves. Destroy it to stop the reinforcements.	信號裝置正在召喚敵人。摧毀它以停止增援。
+Commander	指揮官
+The commander is shielded while its guard lives. Kill the guard wave to expose it, then strike.	指揮官在護衛存活時受保護。殺光護衛波使其暴露，再出手。
+Vault	金庫
+Three power cells must be charged in order; each charge opens a window to damage the vault core.	三個電池必須依序充能；每次充能開啟一段可攻擊金庫核心的時間。
+Convoy	護衛車隊
+An escorted carrier moves along a route. Break the escort and destroy the carrier before it reaches the exit.	受護衛的載具沿路線移動。突破護衛並在它抵達出口前摧毀。
+Quiet Route	安靜路線
+Fewer elites, no emergencies. Bounty -10%.	精英較少、無緊急事件。賞金 -10%。
+Hot Route	熱區路線
+More elites and emergencies likely. Bounty +30%.	精英與緊急事件更多。賞金 +30%。
+Strange Route	異常路線
+Events every stage. Shops offer rarer items.	每關都有事件。商店提供更稀有的物品。
+Rich Route	富饒路線
+Bounty +20%, but the shop charges +20%.	賞金 +20%，但商店價格 +20%。
+Direct Route	直行路線
+No modifiers.	無修正。
+Title	標題
+Subtitle	副標題
+Note	說明
+Effect	效果
+Price	價格
+Rarity	稀有度
+Status	狀態
+Ultimate (Roguelike)	大招（Roguelike）
+Tactical skill (Roguelike)	戰術技能（Roguelike）
+Pick up / exchange / revive	拾取／交換／救援
+Co-op roguelike for 1-4 players.\nEarn bounty for kills (headshots x1.5),\nbuy upgrades between stages, choose routes.\nThe objective sets the difficulty.	1～4 人合作 Roguelike。\n擊殺獲得賞金（爆頭 1.5 倍），\n關間購買升級，選擇路線。\n目標設定即為難度。
+Cleared: {0}	已清除：{0}

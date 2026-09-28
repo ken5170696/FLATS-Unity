@@ -129,7 +129,7 @@ public class InformationUI : MonoBehaviour
 		Vector3 position = new Vector3(target.position.x, target.position.y + offsetY, target.position.z);
 		if (Vector3.Angle(localCamera.forward, localCamera.position - target.position) >= 90f)
 		{
-			if (showAlways || localPlayerTeam == targetTeam || (Vector3.Distance(localCamera.position, target.position) < 50f && Menu.network != 0 && Multiplayer.rule != 8))
+			if (showAlways || localPlayerTeam == targetTeam || (Vector3.Distance(localCamera.position, target.position) < 50f && Menu.network != 0 && Multiplayer.rule != 8 && !RoguelikeMode.Coop))
 			{
 				Vector2 vector = Camera.main.WorldToViewportPoint(position);
 				screenPos = new Vector2(vector.x * canvasRect.sizeDelta.x - canvasRect.sizeDelta.x * 0.5f, vector.y * canvasRect.sizeDelta.y - canvasRect.sizeDelta.y * 0.5f);

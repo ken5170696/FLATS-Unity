@@ -63,7 +63,7 @@ public partial class FPSController
 					.GetChild(c)
 					.GetComponent<Image>()
 					.color;
-				if (MyView(base.gameObject) || Multiplayer.rule == 6 || Multiplayer.rule == 8)
+				if (MyView(base.gameObject) || Multiplayer.rule == 6 || Multiplayer.rule == 8 || RoguelikeMode.Coop)
 				{
 					skinnedMeshRenderer.gameObject.layer = 8;
 					base.gameObject.layer = 8;

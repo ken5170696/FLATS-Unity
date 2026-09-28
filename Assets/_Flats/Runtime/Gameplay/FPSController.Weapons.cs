@@ -230,11 +230,11 @@ public partial class FPSController
 					}
 					else
 					{
-						component.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f);
+						component.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) : 1f);
 					}
 					rigidbody.gameObject.layer = base.gameObject.layer + 2;
 					rigidbody.linearVelocity = velocity;
-					currentGun.currentAmmo--;
+					if (!(RoguelikeMode.Active && RogueHooks.InfiniteAmmo(this))) currentGun.currentAmmo--;
 					if (currentGun.currentAmmo == 0)
 					{
 						break;
@@ -280,7 +280,7 @@ public partial class FPSController
 				}
 				else
 				{
-					bb.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f);
+					bb.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) : 1f);
 				}
 				b.gameObject.layer = base.gameObject.layer + 2;
 				b.linearVelocity = dir;
@@ -290,7 +290,7 @@ public partial class FPSController
 				}
 				anim.SetInteger("Burst", currentBurstCount);
 				currentBurstCount--;
-				currentGun.currentAmmo--;
+				if (!(RoguelikeMode.Active && RogueHooks.InfiniteAmmo(this))) currentGun.currentAmmo--;
 				yield return new WaitForSeconds(0.1f);
 				if (currentBurstCount == 0 || currentGun.currentAmmo == 0)
 				{
@@ -326,6 +326,7 @@ public partial class FPSController
 		{
 			yield break;
 		}
+		if (RoguelikeMode.Active) RogueHooks.OnReloadStarted(this, current, limit);
 		if (MyView(base.gameObject) && Aiming)
 		{
 			Zoom(false);

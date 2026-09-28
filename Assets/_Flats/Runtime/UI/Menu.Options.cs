@@ -144,11 +144,12 @@ public partial class Menu
 				}
 				if (parent.parent.name == "RoomCreation")
 				{
+					int maxPlayers = rule == RoguelikeMode.CoopRule ? 4 : 8;   // the roguelike squad is 1-4; legacy capacity stays 8
 					if (playerCount < 2)
 					{
-						playerCount = 8;
+						playerCount = maxPlayers;
 					}
-					else if (playerCount > 8)
+					else if (playerCount > maxPlayers)
 					{
 						playerCount = 2;
 					}
@@ -161,7 +162,7 @@ public partial class Menu
 				{
 					playerCount = 0;
 				}
-				if (rule != 1 && rule != 6 && rule != 8)
+				if (rule != 1 && rule != 6 && rule != 8 && rule != RoguelikeMode.CoopRule)
 				{
 					if (num < 0)
 					{

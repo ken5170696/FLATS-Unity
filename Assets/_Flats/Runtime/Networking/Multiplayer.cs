@@ -123,13 +123,18 @@ public class Multiplayer : MonoBehaviour
 					limit = 100 + Menu.playerCount * 20;
 				}
 			}
-			else if (Menu.rule != 8)
+			else if (Menu.rule != 8 && Menu.rule != RoguelikeMode.CoopRule)
 			{
 				limit = 270 + Menu.objective * 30;
 			}
 			if (Menu.rule == 8)
 			{
 				Singleplayer.rule = 0;
+			}
+			else if (Menu.rule == RoguelikeMode.CoopRule)
+			{
+				Singleplayer.rule = RoguelikeMode.SoloRule;
+				RoguelikeMode.Difficulty = Mathf.Clamp(Menu.objective, 1, 3);
 			}
 		}
 		else
@@ -212,7 +217,7 @@ public class Multiplayer : MonoBehaviour
 		redBase = GameObject.Find("RedTeamBase");
 		blueBase = GameObject.Find("BlueTeamBase");
 		Vector3 spawnPoint = Vector3.zero;
-		if (Menu.rule == 1 || Menu.rule == 6)
+		if (Menu.rule == 1 || Menu.rule == 6 || Menu.rule == RoguelikeMode.CoopRule)
 		{
 			Transform sp = GameObject.Find("SpawnPoints").transform;
 			LayerMask mask = 1 << LayerMask.NameToLayer("BlueTeam");
@@ -274,6 +279,7 @@ public class Multiplayer : MonoBehaviour
 		ruleTitleText[6] = "Zombie";
 		ruleTitleText[7] = "VIP";
 		ruleTitleText[8] = "Co-op Survival";
+		ruleTitleText[RoguelikeMode.CoopRule] = "Roguelike Survival";
 		phaseText.enabled = true;
 		phaseText.text = ruleTitleText[Menu.rule];
 		yield return new WaitForSeconds(3f);
@@ -410,7 +416,7 @@ public class Multiplayer : MonoBehaviour
 				{
 					base.gameObject.GetPhotonView().RPC("ZombieRound", PhotonTargets.AllBuffered, 0);
 				}
-				else if (rule != 8)
+				else if (rule != 8 && rule != RoguelikeMode.CoopRule)
 				{
 					int[] array4 = new int[2] { 2, 0 };
 					base.gameObject.GetPhotonView().RPC("GetTeamScore", PhotonTargets.All, array4);
@@ -424,7 +430,7 @@ public class Multiplayer : MonoBehaviour
 			{
 				score.text = "Time:" + limit;
 			}
-			else if (rule != 8)
+			else if (rule != 8 && rule != RoguelikeMode.CoopRule)
 			{
 				score.text = "Red:" + redTeamScore + " Blue:" + blueTeamScore + " Time:" + limit;
 			}
@@ -914,7 +920,7 @@ public class Multiplayer : MonoBehaviour
 		{
 			base.gameObject.GetPhotonView().RPC("Log", PhotonTargets.AllBuffered, pp.NickName + " quit game.");
 		}
-		if (!end && ((rule != 1 && rule != 6 && rule != 8 && (PunTeams.PlayersPerTeam[PunTeams.Team.red].Count == 0 || PunTeams.PlayersPerTeam[PunTeams.Team.blue].Count == 0)) || (PhotonNetwork.playerList.Length == 1 && rule != 8)))
+		if (!end && ((rule != 1 && rule != 6 && rule != 8 && (PunTeams.PlayersPerTeam[PunTeams.Team.red].Count == 0 || PunTeams.PlayersPerTeam[PunTeams.Team.blue].Count == 0)) || (PhotonNetwork.playerList.Length == 1 && rule != 8 && rule != RoguelikeMode.CoopRule)))
 		{
 			end = true;
 			GameObject.Find("Menu").BroadcastMessage("GameOver", SendMessageOptions.DontRequireReceiver);

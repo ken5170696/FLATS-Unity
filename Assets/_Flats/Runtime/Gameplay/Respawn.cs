@@ -67,7 +67,7 @@ public class Respawn : MonoBehaviour
 			GameObject deadPlayer2 = base.transform.root.gameObject;
 			UnityEngine.Object.Destroy(deadPlayer2.GetComponent<Destroy>());
 			yield return new WaitForSeconds(1.5f);
-			if (Menu.gameState != "Multiplayer" || (Multiplayer.rule == 8 && Multiplayer.end))
+			if (Menu.gameState != "Multiplayer" || ((Multiplayer.rule == 8 || RoguelikeMode.Coop) && Multiplayer.end))
 				yield break;
 			var menuObject = GameObject.Find("Menu");
 			Menu menu2 = menuObject != null ? menuObject.GetComponent<Menu>() : null;
@@ -78,14 +78,14 @@ public class Respawn : MonoBehaviour
 				yield return new WaitForSeconds(3f);
 				// The round may end or the player may leave during the fade delay.
 				// Do not create a new player/spectator against a closed match UI.
-				if (menu2 == null || Menu.gameState != "Multiplayer" || (Multiplayer.rule == 8 && Multiplayer.end))
+				if (menu2 == null || Menu.gameState != "Multiplayer" || ((Multiplayer.rule == 8 || RoguelikeMode.Coop) && Multiplayer.end))
 					yield break;
 				int respawnPattern = 0;
 				if (Multiplayer.rule == 1 || Multiplayer.rule == 6)
 				{
 					respawnPattern = 0;
 				}
-				else if (Multiplayer.rule != 8 && Menu.network == 2 && PhotonNetwork.room.PlayerCount == 2)
+				else if (Multiplayer.rule != 8 && !RoguelikeMode.Coop && Menu.network == 2 && PhotonNetwork.room.PlayerCount == 2)
 				{
 					respawnPattern = 0;
 				}
@@ -97,7 +97,7 @@ public class Respawn : MonoBehaviour
 				{
 					respawnPattern = 2;
 				}
-				else if (Multiplayer.rule == 8)
+				else if (Multiplayer.rule == 8 || RoguelikeMode.Coop)
 				{
 					respawnPattern = 3;
 				}

@@ -1,0 +1,76 @@
+# Roguelike Survival
+
+A co-op survival mode for 1–4 players with no designed final stage. It keeps the FLATS
+gunplay, movement, maps and interface and adds a run structure: stages, bounty money,
+a personal shop, builds, events and chapter routes.
+
+## Playing
+
+- **Entry**: `Play › Roguelike` (solo: difficulty, map, continue/start) or a multiplayer room
+  with rule **Roguelike Survival** (the room objective is the difficulty: Normal / Hard / Chaos;
+  the squad is 1–4 players).
+- **Stage loop**: Prep (shop, ready up) → Combat (one main objective plus director waves)
+  → Cleared → Reward (pick one of three, free) → next stage. Every fifth stage is a chapter
+  finale; after it you choose a route (map + modifier) and can **Evacuate** (bank the record)
+  or **Continue** (a checkpoint is written and the next map loads).
+- **Money**: every kill pays a bounty to *every* connected squad member (headshot kills pay
+  ×1.5). The stage budget is normalised so more enemies never mean more money per player.
+  Objective completion, event success and rescues pay bounded extras.
+- **Down / death**: a lethal hit downs you for 30 s; a teammate holds *Interact* for 3 s to
+  revive. Bleeding out is a full death: you return at the next safe stage with your build
+  and a 20% wallet tax. If nobody is alive (and no Emergency Revive is armed) the run ends.
+- **Controls**: everything Classic uses, plus *Ultimate* (default `F` / left bumper) and
+  *Tactical* (default `C` / D-pad down). Both are rebindable in Settings › Control.
+- **Checkpoints**: written only at safe boundaries (a stage's Prep, or the chapter shop).
+  `Play › Roguelike › Continue` resumes the last checkpoint. The Classic profile and its
+  scores are never touched.
+
+## Content (chapter 1 seed values)
+
+| Kind | Count | Notes |
+|---|---|---|
+| Stat upgrades | 4 × 5 tiers | Vitality +12%, Firepower +8%, Magazine +15% (≥ +1 round), Agility +6% per tier |
+| Build cores | 8, max 2 equipped | Precision, Assault, Suppression, Reload Burst, Ricochet, Demolition, Marker, Mobility |
+| Mods | 26, max 6 equipped | see `RogueCatalog.Mods` |
+| Tactical | 3, one slot | Double Jump (passive), Dash, Shield |
+| Ultimates | 7, one slot, 0–100 charge | Infinite Fire, Lethal Shot, Invincible, Emergency Revive (once per run), Enemy Sight, Chain Bullets, Homing Bullets |
+| Enemy roles | 6 | Rifleman, Rusher, Marksman, Shield Bearer, Flanker, Jammer (each with a silhouette marker) |
+| Objectives | 5 | Clear Out, Hold the Zone, Deliver the Crate, Protect the Repair, Break Out |
+| Events | 8 | Moving Supply, Alarm Cache, Low Gravity, Power Reroute, Repair Device, Risk Contract, Elite Hunt, Lure Crate |
+| Emergencies | 4 | Gas Leak, Power Outage, Mobile Bomb, Reinforcement Signal |
+| Finales | 3 | Commander, Vault, Convoy |
+| Routes | 4 | Quiet, Hot, Strange, Rich |
+
+Prices are fixed per chapter (`RogueDepth.PriceMultiplier`) and never react to wallet size.
+Depth curves saturate: enemy health caps at ×4.5, damage at ×2.2, concurrent enemies at 24,
+the per-player budget at about 7× the chapter-1 value.
+
+## Where things live
+
+| Area | Location | Owner |
+|---|---|---|
+| Pure rules (no engine) | `Assets/_Flats/Runtime/Core/Roguelike/` (`Flats.Core.Roguelike`) | economy, shop transactions, builds, director, run state machine, save DTOs |
+| Content data | `RogueCatalog.cs` | items, roles, objectives, events, emergencies, finales, maps, routes |
+| Unity adapters | `Assets/_Flats/Runtime/Gameplay/Roguelike/` | `RoguelikeController` (on the SingleplayerController prefab), `RoguePlayer`, `RogueEnemyRole`, hooks, transport, save store |
+| Menu entry | `Assets/_Flats/Runtime/UI/Menu.Roguelike.cs` | Play page tile and the mode page |
+| Screens | `Assets/Resources/UI/Roguelike/RogueScreen.prefab`, `RogueOfferRow.prefab` | authored uGUI; `RogueScreenView` binds them |
+| Text | `Assets/Resources/FlatsChinese.txt` | every string is an English key with a Chinese entry |
+
+Mode identity: `Singleplayer.rule == 5` (solo) or `Multiplayer.rule == 9` (co-op), read through
+`RoguelikeMode`. Legacy classes call `RogueHooks` behind `RoguelikeMode.Active` checks and are
+otherwise unchanged; Classic Survival, Assortment, Headshot, Training, Tutorial and the PvP rules
+do not read any of the mode's state.
+
+## Authoring
+
+- **Add a mod or core**: append an `ItemDef` to `RogueCatalog.Mods`/`Cores` and give it an effect in
+  `BuildStats.Compute` (numbers) or the adapter (behaviour). Add the name and effect text to
+  `FlatsChinese.txt`. `RogueCatalog.Validate()` and the dotnet tests fail on duplicate ids.
+- **Add an event/objective**: append an `EncounterDef` (map tags it requires/excludes, cooldown in
+  stages, mutual exclusions), implement its pure state machine in `RogueEvents`/`RogueObjectives`,
+  and a world runner in the adapter (`RogueObjectiveRunner.Create`).
+- **Map candidate points**: objectives use the map's `SpawnPoints`, `WayPoints` and `PhaseSkippers`
+  transforms as candidates and filter them by NavMesh reachability at runtime; Warehouse and
+  NightLand carry the `droplinks` tag so one-way-drop content is excluded there.
+- **Balance**: `tools/unity-validation/roguelike-tests` (private) runs the pure rules and a fixed-seed
+  economy simulation for 1/2/4 players and several headshot rates.

@@ -246,6 +246,7 @@ public partial class Menu
             }
             return;
         }
+        if (HandleRoguelikeNavigation(button)) return;
         if (HandleModNavigation(button)) return;
         if (button == -1 && current == "Multiplayer" && anim.GetBool("RoomCreation"))
         {

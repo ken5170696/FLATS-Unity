@@ -1050,6 +1050,7 @@ public partial class Menu : MonoBehaviour
 		ruleTitleText[6] = "Zombie";
 		ruleTitleText[7] = "VIP";
 		ruleTitleText[8] = "Co-op Survival";
+		ruleTitleText[RoguelikeMode.CoopRule] = "Roguelike Survival";
 		ruleExpText = new Dictionary<int, string>();
 		ruleExpText[0] = "Searching...";
 		ruleExpText[1] = "Kill other players.";
@@ -1060,6 +1061,7 @@ public partial class Menu : MonoBehaviour
 		ruleExpText[6] = "A zombie makes another zombie.";
 		ruleExpText[7] = "Defend your team's VIP and kill the other team's VIP.";
 		ruleExpText[8] = "Survive with your co-players.\nYour record is saved as the record of\nsingleplayer mode.\n\nNote: Started from phase 1\nand current score will be reset.";
+		ruleExpText[RoguelikeMode.CoopRule] = "Co-op roguelike for 1-4 players.\nEarn bounty for kills (headshots x1.5),\nbuy upgrades between stages, choose routes.\nThe objective sets the difficulty.";
 		objectiveText = new Dictionary<string, string>();
 		objectiveText["0-0"] = "Any";
 		objectiveText["0-1"] = "Any";
@@ -1097,6 +1099,10 @@ public partial class Menu : MonoBehaviour
 		objectiveText["8-1"] = "--";
 		objectiveText["8-2"] = "--";
 		objectiveText["8-3"] = "--";
+		objectiveText["9-0"] = "Any";
+		objectiveText["9-1"] = "Normal";
+		objectiveText["9-2"] = "Hard";
+		objectiveText["9-3"] = "Chaos";
 		stageName = new Dictionary<int, string>();
 		stageName[0] = "Flat City";
 		stageName[1] = "Urban Park";
@@ -1128,7 +1134,7 @@ public partial class Menu : MonoBehaviour
 				Texture2D texture2D = new Texture2D(128, 128);
 				texture2D.LoadImage(data);
 				GameObject gameObject = (GameObject)UnityEngine.Object.Instantiate(playerButton);
-				if (rule == 1 || rule == 6 || rule == 8)
+				if (rule == 1 || rule == 6 || rule == 8 || rule == RoguelikeMode.CoopRule)
 				{
 					int index = (int)photonPlayer.CustomProperties["TC"];
 					gameObject.GetComponent<Image>().color = characterScreen.GetChild(1).GetChild(index)
@@ -1185,7 +1191,7 @@ public partial class Menu : MonoBehaviour
 			{
 				num = 4;
 			}
-			if (playerCount <= 2 || rule == 1 || rule == 6 || rule == 8)
+			if (playerCount <= 2 || rule == 1 || rule == 6 || rule == 8 || rule == RoguelikeMode.CoopRule)
 			{
 				startNow.transform.GetChild(0).GetComponent<Text>().text = "Start Now! " + startNowPlayer + "/" + num / 2;
 			}
@@ -1535,7 +1541,7 @@ public partial class Menu : MonoBehaviour
             current = "Main"; BackToMainMenu(); backButton.SetActive(gameState != "Main");
             yield break;
         }
-        if (button == 0) rule = rule % 8 + 1;
+        if (button == 0) rule = rule % 9 + 1;
         if (button == 1) objective = objective % 3 + 1;
         if (button == 2) botCount = botCount >= 9 ? 1 : botCount + 2;
         if (button == 3) offlineMap = (offlineMap + 1) % OfflineMaps.Length;
@@ -1615,7 +1621,7 @@ public partial class Menu : MonoBehaviour
 			{
 				num = 4;
 			}
-			if (playerCount <= 2 || rule == 1 || rule == 6 || rule == 8)
+			if (playerCount <= 2 || rule == 1 || rule == 6 || rule == 8 || rule == RoguelikeMode.CoopRule)
 			{
 				startNow.transform.GetChild(0).GetComponent<Text>().text = "Start Now! " + startNowPlayer + "/" + num / 2;
 			}
@@ -1628,7 +1634,7 @@ public partial class Menu : MonoBehaviour
 				Debug.Log("More than half players want to start now, so it's going to begin.");
 				botCount = playerCount - PhotonNetwork.room.PlayerCount;
 				playerCount = PhotonNetwork.room.PlayerCount;
-				if (rule == 1 || rule == 6 || rule == 8)
+				if (rule == 1 || rule == 6 || rule == 8 || rule == RoguelikeMode.CoopRule)
 				{
 					botCount = 0;
 				}
