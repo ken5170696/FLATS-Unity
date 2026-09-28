@@ -1,0 +1,18 @@
+{
+  "schema": 2,
+  "id": "example.author-wide-scope",
+  "version": "1.0.0",
+  "name": "Author Wide Scope",
+  "author": "Your name",
+  "description": "Telescopic sights show a larger lens image while aiming: 2x to 8x grow in that order, magnification is unchanged, and the lens is rendered at four times the usual resolution. Affects only your own screen.",
+  "category": "HUD",
+  "changelog": "First release.",
+  "apiMinimum": "1.1.0",
+  "apiMaximum": "2.0.0",
+  "scope": "ClientOnly",
+  "kind": "data",
+  "adapter": "scope.view@1",
+  "payload": "view.json",
+  "dependencies": [],
+  "conflicts": []
+}

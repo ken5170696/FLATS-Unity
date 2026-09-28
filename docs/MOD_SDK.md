@@ -26,19 +26,23 @@ A data module contains no code. It declares `kind: data` and the game `adapter` 
 |---|---|---|---|
 | `crosshair@2` | `ClientOnly` | The local HUD crosshair | The first entry in `presets` |
 | `enemy.tuning@1` | `RequiredForSession` | AI enemy health, damage and movement speed | `payload`: a JSON file with `schema: 1` and `health`, `damage`, `speed` multipliers between 0.25 and 4 (default 1) |
+| `scope.view@1` | `ClientOnly` | How large the local player's telescopic lens image is while aiming (2x, 4x, 6x, 8x; the reflex sight is unchanged) | `payload`: a JSON file with `schema: 1`, `lenses` (entries of `lens` and `scale` 1–3, default 1), `preserveMagnification` (default true) and `renderTextureScale` (integer 1–4, default 1) |
 
 `crosshair@2` settings are `style` (`cross`, `dot`, `ring`, `crossDot`, `t`), `size` (6–64), `thickness` (1–8), `gap` (0–16), `color` and `outlineColor` (`#rrggbb` or `#rrggbbaa`), `opacity` (0.2–1) and `outline` (`true`/`false`). Values are strings, as in `docs/examples/crosshair-preset/manifest.json`. A preset lists only the values it changes; the others keep their defaults. Presets are checked against these settings when the package is installed, so an unknown name or an out-of-range value is rejected.
 
 An `enemy.tuning@1` payload is part of the hashed package. Every player in a room therefore uses the same numbers, and the room agreement below rejects players whose package differs. See `docs/examples/enemy-tuning`.
+
+A `scope.view@1` payload changes presentation on the local screen only: the lens image of the aimed sight is drawn `scale` times larger, and the game keeps it inside the viewport, so a phone held upright shows a smaller enlargement than a monitor. With `preserveMagnification` true the sight camera's field of view widens with the image, so 8x still magnifies eight times; with false only the image grows, magnification grows with it and aim sensitivity is reduced to match. `renderTextureScale` multiplies the 256×256 lens texture while aiming so the larger image stays sharp. Unknown lens names, duplicates and out-of-range values are rejected at installation. The module is presentation only: it does not alter bullet trajectory, spread, range or hitboxes, and other players observe no difference. With `preserveMagnification` false the target's on-screen size grows with the image, which works like a higher-magnification optic; competitive rooms may regard that as an advantage. Requires FLATS 5.4.6 or later; earlier releases show the package as requiring a game feature. See `docs/examples/scope-view`.
 
 The same packaging command handles schema 2 and includes the payload that sits next to the manifest:
 
 ```sh
 python tools/package_mod.py docs/examples/crosshair-preset/manifest.json --output Builds/Mods
 python tools/package_mod.py docs/examples/enemy-tuning/manifest.json --output Builds/Mods
+python tools/package_mod.py docs/examples/scope-view/manifest.json --output Builds/Mods
 ```
 
-Payloads are relative `.json` paths of at most 16 KiB. The packager checks the adapter's scope and the enemy tuning ranges. The game still performs the full validation when installing.
+Payloads are relative `.json` paths of at most 16 KiB. The packager checks the adapter's scope and the enemy tuning and scope view ranges. The game still performs the full validation when installing.
 
 ## Contracts and lifecycle
 
