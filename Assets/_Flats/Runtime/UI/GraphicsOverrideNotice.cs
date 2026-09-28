@@ -22,7 +22,9 @@ public sealed class GraphicsOverrideNotice : MonoBehaviour
     float nextPoll;
     bool navigating;
 
-    void Awake() { if (open != null) open.onClick.AddListener(() => { if (!navigating && ownerId != null) StartCoroutine(Navigate(ownerId)); }); }
+    // Leaving Settings deactivates this section, which would stop a coroutine started here,
+    // so the navigation runs on the Menu component instead.
+    void Awake() { if (open != null) open.onClick.AddListener(() => { var menu = FindFirstObjectByType<Menu>(); if (!navigating && ownerId != null && menu != null) menu.StartCoroutine(Navigate(ownerId, menu)); }); }
     void OnEnable() { nextPoll = 0f; Refresh(); }
     void Update() { if (Time.unscaledTime < nextPoll) return; nextPoll = Time.unscaledTime + 0.5f; Refresh(); }
 
@@ -41,12 +43,11 @@ public sealed class GraphicsOverrideNotice : MonoBehaviour
     }
 
     // Back out of Settings (a detail page needs two steps), then open the module's settings.
-    IEnumerator Navigate(string id)
+    IEnumerator Navigate(string id, Menu menu)
     {
         navigating = true;
         var binding = FindFirstObjectByType<ModulePageBinding>(FindObjectsInactive.Include);
-        var menu = FindFirstObjectByType<Menu>();
-        if (binding == null || binding.page == null || menu == null) { navigating = false; yield break; }
+        if (binding == null || binding.page == null) { navigating = false; yield break; }
         float deadline = Time.unscaledTime + 4f;
         for (int attempt = 0; attempt < 3 && Menu.current != "Main" && Time.unscaledTime < deadline; attempt++)
         {
