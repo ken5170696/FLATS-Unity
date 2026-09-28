@@ -20,6 +20,8 @@ public sealed class ModuleSettingsForm : MonoBehaviour
     public Text groupTemplate;
     [Tooltip("Optional scroll view around the rows. The focused row is kept visible for controller navigation.")]
     public ScrollRect scroll;
+    [Tooltip("Optional control a controller reaches with Down from the last preset button (or the last row when there are no presets), normally the page's Save button.")]
+    public Selectable afterLast;
 
     ModuleSettingSpec[] specs = new ModuleSettingSpec[0];
     ModulePreset[] presetList = new ModulePreset[0];
@@ -101,7 +103,7 @@ public sealed class ModuleSettingsForm : MonoBehaviour
         for (int i = 0; i < primaries.Count; i++)
         {
             var up = i > 0 ? primaries[i - 1] : null;
-            var down = i + 1 < primaries.Count ? primaries[i + 1] : firstPreset;
+            var down = i + 1 < primaries.Count ? primaries[i + 1] : (firstPreset != null ? firstPreset : afterLast);
             var primary = primaries[i]; var secondary = secondaries[i];
             primary.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = up, selectOnDown = down, selectOnRight = secondary, wrapAround = false };
             if (secondary != null)
@@ -113,7 +115,7 @@ public sealed class ModuleSettingsForm : MonoBehaviour
             {
                 mode = Navigation.Mode.Explicit, selectOnUp = lastPrimary, wrapAround = false,
                 selectOnLeft = i > 0 ? presetButtons[i - 1] : null, selectOnRight = i + 1 < presetButtons.Count ? presetButtons[i + 1] : null,
-                selectOnDown = presetButtons[i].navigation.selectOnDown,
+                selectOnDown = afterLast != null ? afterLast : presetButtons[i].navigation.selectOnDown,
             };
         }
     }
