@@ -17,6 +17,12 @@ namespace Flats.Modules
         bool Requested(string id);
         bool Configure(CrosshairStyle style, float size);
         bool Configure(SettingValue[] values);
+        // Mod API 1.2.0: declared settings of any installed module, stored per profile.
+        SettingValue[] ConfiguredSettings(string id);
+        bool Configure(string id, SettingValue[] values);
+        // Mod API 1.3.0: hands draft values to the running module without saving them, so the
+        // settings page previews live; the page hands the saved values back when it closes.
+        bool PreviewSettings(string id, SettingValue[] values);
         void SelectProfile(string id);
         void InitializeProfiles(string directory, InstalledPackage[] installed);
         void AttachExternal(IFirstPartyModule[] modules, string[] requested);
@@ -33,6 +39,8 @@ namespace Flats.Modules
         IModSource Source { get; }
         InstalledPackage[] Installed { get; }
         InstalledPackage[] Running { get; }
+        // Mod API 1.3.0: the running, active module that declares the graphics override, or null.
+        InstalledPackage GraphicsOverride { get; }
         bool Ready { get; }
         bool InitializationComplete { get; }
         bool CanRetryInitialization { get; }
@@ -49,6 +57,9 @@ namespace Flats.Modules
         Task<byte[]> Artwork(string url, CancellationToken cancel);
         string Problem(PackageManifest manifest);
         bool NeedsRestart(string id);
+        // Mod API 1.2.0: hands saved setting values to the running module's context.
+        // Returns false when that module is not running in this process.
+        bool ApplyLiveSettings(string id, SettingValue[] values);
     }
 
     public interface IModCenterPlatform

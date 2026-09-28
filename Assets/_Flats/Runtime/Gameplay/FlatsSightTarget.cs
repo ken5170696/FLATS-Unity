@@ -5,10 +5,15 @@ using UnityEngine.UI;
 public sealed class FlatsSightTarget : MonoBehaviour
 {
     RenderTexture target;
+    RenderTextureDescriptor template;
     Camera sightCamera;
     RawImage[] displays;
     Camera aimCamera;
     float imageRoll;
+    // Integer multiple of the template size the runtime target currently uses.
+    public int RenderScale { get; private set; } = 1;
+    // The live lens image; replaced by SetRenderScale, so consumers re-read it after each call.
+    public RenderTexture Target { get { return target; } }
     void Start()
     {
         var owner = GetComponentInParent<FPSController>();
@@ -42,16 +47,37 @@ public sealed class FlatsSightTarget : MonoBehaviour
         sightCamera=GetComponentInChildren<Camera>(true);
         displays=GetComponentsInChildren<RawImage>(true);
         if(sightCamera==null || displays.Length==0)return;
-        var template=displays[0].texture as RenderTexture;
-        if(template==null)return;
-        target=new RenderTexture(template.descriptor) { name="Flats runtime sight", hideFlags=HideFlags.DontSave };
+        var source=displays[0].texture as RenderTexture;
+        if(source==null)return;
+        template=source.descriptor;
+        target=new RenderTexture(template) { name="Flats runtime sight", hideFlags=HideFlags.DontSave };
         target.Create();
         sightCamera.targetTexture=target;
         // URP completes an entire screen stack before moving to the next base.
         // Render the scope first so every consumer sees this frame's image.
         if(UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
             sightCamera.depth=-100;
-        foreach(var display in displays)if(display.texture==template)display.texture=target;
+        foreach(var display in displays)if(display.texture==source)display.texture=target;
+    }
+    // Recreates the runtime target at an integer multiple of the template size, for the
+    // sight the local player is aiming through when a scope.view module enlarges its
+    // image. Scale 1 restores the authored cost; other sights never call this.
+    public void SetRenderScale(int scale)
+    {
+        scale=Mathf.Max(1,scale);
+        if(target==null || scale==RenderScale)return;
+        var descriptor=template;
+        int limit=SystemInfo.maxTextureSize;
+        descriptor.width=Mathf.Min(template.width*scale,limit);
+        descriptor.height=Mathf.Min(template.height*scale,limit);
+        var next=new RenderTexture(descriptor) { name="Flats runtime sight x"+scale, hideFlags=HideFlags.DontSave };
+        next.Create();
+        var previous=target;
+        target=next;RenderScale=scale;
+        if(sightCamera!=null)sightCamera.targetTexture=target;
+        if(displays!=null)foreach(var display in displays)if(display!=null && display.texture==previous)display.texture=target;
+        if(RenderTexture.active==previous)RenderTexture.active=null;
+        previous.Release();Destroy(previous);
     }
     void OnDestroy()
     {

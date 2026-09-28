@@ -29,8 +29,13 @@ public static class FlatsCameraStack
             var data = camera.GetUniversalAdditionalCameraData();
             data.renderType = CameraRenderType.Base;
             data.cameraStack.Clear();
-            data.renderPostProcessing = false; // FLATS renderer feature owns the original effects.
-            data.antialiasing = AntialiasingMode.None;
+            // Without a registered Flats.Rendering.RenderPolicy this is the original
+            // behaviour: the FLATS renderer feature owns the effects, URP post-processing
+            // and anti-aliasing stay off and the volume layer mask is left as authored.
+            var settings = Flats.Rendering.RenderPolicy.Resolve(camera, data);
+            data.renderPostProcessing = settings.renderPostProcessing;
+            data.antialiasing = settings.antialiasing;
+            if (settings.volumeLayerMask.HasValue) data.volumeLayerMask = settings.volumeLayerMask.Value;
         }
         for (int i = 0; i < ordered.Count; ++i)
         {

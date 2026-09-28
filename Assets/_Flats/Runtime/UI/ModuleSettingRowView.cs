@@ -17,6 +17,8 @@ public sealed class ModuleSettingRowView : MonoBehaviour
     public Image toggleTrack;
     public RectTransform toggleThumb;
     public Image swatch;
+    [Tooltip("Optional cost tag for settings that declare performance (Mod API 1.2.0): Low, Medium, High or Extreme.")]
+    public Text performanceTag;
     public Color enabledColor = new Color(.8f, .098f, .4f);
     public Color disabledColor = new Color(.7f, .68f, .7f);
     [Tooltip("Colours offered for colour settings, in order.")]
@@ -34,6 +36,12 @@ public sealed class ModuleSettingRowView : MonoBehaviour
     {
         spec = setting; changed = onChanged; binding = true;
         label.text = setting.label;
+        if (performanceTag != null)
+        {
+            bool tagged = !string.IsNullOrEmpty(setting.performance);
+            performanceTag.gameObject.SetActive(tagged);
+            if (tagged) performanceTag.text = PerformanceLabel(setting.performance);
+        }
         bool numeric = setting.type == "int" || setting.type == "float";
         bool stepped = setting.type == "choice" || setting.type == "color";
         if (slider != null) slider.gameObject.SetActive(numeric);
@@ -57,6 +65,19 @@ public sealed class ModuleSettingRowView : MonoBehaviour
 
     string shown;
     string Show() { return shown; }
+
+    // The control a controller lands on for this row, and the optional second control to its right.
+    public Selectable Primary
+    {
+        get
+        {
+            if (spec == null) return null;
+            if (spec.type == "int" || spec.type == "float") return slider;
+            if (spec.type == "bool") return toggle;
+            return previous;
+        }
+    }
+    public Selectable Secondary => spec != null && (spec.type == "choice" || spec.type == "color") ? next : null;
 
     public void Show(string current)
     {
@@ -87,11 +108,29 @@ public sealed class ModuleSettingRowView : MonoBehaviour
         binding = false;
     }
 
+    // English keys; FlatsLocalizedText or the caller translates them.
+    public static string PerformanceLabel(string level)
+    {
+        switch (level)
+        {
+            case "low": return "Low cost";
+            case "medium": return "Medium cost";
+            case "high": return "High cost";
+            case "extreme": return "Extreme cost";
+            default: return "";
+        }
+    }
+
+    // Rendering acronyms used as choice ids stay upper case in English ("SMAA", not "Smaa").
+    static readonly System.Collections.Generic.HashSet<string> Acronyms = new System.Collections.Generic.HashSet<string>
+        { "smaa", "taa", "fxaa", "msaa", "fsr", "stp", "aces", "agx", "hdr", "ssao", "ssr", "lut", "dof", "gi" };
+
     static string ChoiceName(string id)
     {
         if (string.IsNullOrEmpty(id)) return "";
         // A bare "T" would also translate keyboard key labels.
         if (id == "t") return "T shape";
+        if (Acronyms.Contains(id)) return id.ToUpperInvariant();
         var text = new System.Text.StringBuilder();
         foreach (char c in id)
         {

@@ -39,6 +39,10 @@ public sealed partial class ModuleManagementPage
     void LayoutConfirmation()
     {
         float w=Mathf.Min(830,ContentWidth-140);Place(modalScroll.transform,0,-4,w,244);modalScroll.viewport.sizeDelta=new Vector2(w-12,244);confirmText.rectTransform.sizeDelta=new Vector2(w-24,244);float h=Mathf.Max(244,confirmText.preferredHeight);confirmText.rectTransform.sizeDelta=new Vector2(w-24,h);modalContent.sizeDelta=new Vector2(0,h);
+        // Title, accent rule and body are authored wider than the 760 card; size the card to the body.
+        var card=(RectTransform)confirmPanel.transform;card.sizeDelta=new Vector2(w+100,card.sizeDelta.y);
+        if(modalTitle!=null)modalTitle.rectTransform.sizeDelta=new Vector2(w,modalTitle.rectTransform.sizeDelta.y);
+        var rule=confirmPanel.transform.Find("AccentRule") as RectTransform;if(rule!=null)rule.sizeDelta=new Vector2(w+60,rule.sizeDelta.y);
     }
     void ApplyView()
     {
@@ -69,7 +73,8 @@ public sealed partial class ModuleManagementPage
         importButton.gameObject.SetActive(!settingsOpen&&!detailOpen);
         summary.gameObject.SetActive(!settingsOpen&&!detailOpen);brandIcon.gameObject.SetActive(false);
         subtitle.gameObject.SetActive(!settingsOpen);
-        pageTitle.text=settingsOpen?"Custom Crosshair":detailOpen?"MOD / "+tab.ToUpperInvariant():"MOD";
+        if(pageTitle is FlatsLocalizedText localizedTitle)localizedTitle.translate=!(settingsOpen&&ModuleSettings);
+        pageTitle.text=settingsOpen?SettingsTitle:detailOpen?"MOD / "+tab.ToUpperInvariant():"MOD";
         notice.gameObject.SetActive(!settingsOpen);
         crosshairPanel.SetActive(settingsOpen);
         ((RectTransform)footerRule).anchoredPosition=new Vector2(0,settingsOpen?76:56);

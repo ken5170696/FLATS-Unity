@@ -15,6 +15,19 @@ namespace Flats.Modules
         public IModSource Source { get; private set; }
         public InstalledPackage[] Installed { get; private set; } = new InstalledPackage[0];
         public InstalledPackage[] Running { get; private set; } = new InstalledPackage[0];
+        public InstalledPackage GraphicsOverride
+        {
+            get
+            {
+                foreach(var p in Running)
+                {
+                    if(p?.manifest==null || !ModRules.OverridesGraphics(p.manifest))continue;
+                    var record=owner.Manager?.Installed.FirstOrDefault(r=>r.Manifest.Id==p.manifest.id);
+                    if(record!=null && record.Active)return p;
+                }
+                return null;
+            }
+        }
         public bool Ready { get; private set; }
         public bool InitializationComplete { get; private set; }
         public bool CanRetryInitialization { get { return !disposed && InitializationComplete && !Ready && !owner.ReadOnly && !activationStarted; } }
@@ -259,9 +272,19 @@ namespace Flats.Modules
         }
         // A crosshair only draws this client's HUD, so starting or stopping the same
         // running package needs no restart. Other modules keep the restart gate.
+        readonly System.Collections.Generic.Dictionary<string,ModuleContext> contexts=new System.Collections.Generic.Dictionary<string,ModuleContext>(StringComparer.Ordinal);
         IFirstPartyModule CreateModule(InstalledPackage p)
         {
-            return p.manifest.id==CrosshairModule.Id && ModRules.IsCrosshairProvider(p.manifest) ? (IFirstPartyModule)owner.Crosshair.Bind(p.manifest) : new ExternalModule(p,Store.ContentPath(p));
+            if(p.manifest.id==CrosshairModule.Id && ModRules.IsCrosshairProvider(p.manifest))return owner.Crosshair.Bind(p.manifest);
+            var module=new ExternalModule(p,Store.ContentPath(p),owner.ConfiguredSettings(p.manifest.id));
+            contexts[p.manifest.id]=module.Context;return module;
+        }
+        public bool ApplyLiveSettings(string id,SettingValue[] values)
+        {
+            if(id==null || !contexts.TryGetValue(id,out var context))return false;
+            var record=owner.Manager?.Installed.FirstOrDefault(r=>r.Manifest.Id==id);
+            if(record==null || !record.Active)return false;
+            context.Update(values);return true;
         }
         bool ApplyLiveCrosshair()
         {

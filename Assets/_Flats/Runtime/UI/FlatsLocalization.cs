@@ -15,6 +15,27 @@ public static class FlatsLocalization
     }
     static readonly List<Template> templates = new List<Template>();
     static readonly Regex placeholder = new Regex(@"\{([0-9]+)\}");
+    // Mod API 1.2.0: exact-match entries a running module registers for its own labels.
+    // They never override the shipped table and disappear with the returned handle.
+    static readonly List<IReadOnlyDictionary<string, string>> extra = new List<IReadOnlyDictionary<string, string>>();
+    public static IDisposable AddTranslations(IReadOnlyDictionary<string, string> chineseEntries)
+    {
+        if (chineseEntries == null) throw new ArgumentNullException(nameof(chineseEntries));
+        extra.Add(chineseEntries);
+        Changed?.Invoke();
+        return new TranslationHandle(chineseEntries);
+    }
+    sealed class TranslationHandle : IDisposable
+    {
+        IReadOnlyDictionary<string, string> entries;
+        public TranslationHandle(IReadOnlyDictionary<string, string> e) { entries = e; }
+        public void Dispose()
+        {
+            if (entries == null) return;
+            if (extra.Remove(entries)) Changed?.Invoke();
+            entries = null;
+        }
+    }
     static Font chineseFont;
     public static event Action Changed;
     public static bool IsChinese => Language == "zh-Hant";
@@ -74,6 +95,8 @@ public static class FlatsLocalization
                 }
         }
         if (chinese.TryGetValue(source, out string translated)) return translated;
+        foreach (var entries in extra)
+            if (entries.TryGetValue(source, out translated) && !string.IsNullOrEmpty(translated)) return translated;
         if (source.IndexOf('\n') >= 0)
         {
             var lines = source.Split('\n');
@@ -97,5 +120,5 @@ public static class FlatsLocalization
         return source;
     }
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void Reset() { language = null; chinese = null; templates.Clear(); chineseFont = null; Changed = null; }
+    static void Reset() { language = null; chinese = null; templates.Clear(); extra.Clear(); chineseFont = null; Changed = null; }
 }

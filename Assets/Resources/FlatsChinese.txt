@@ -998,3 +998,31 @@ Preset	預設組合
 Setting	設定項目
 Value	數值
 Close this page or app to leave without overwriting data.	請關閉此頁面或 App 離開，資料不會被覆蓋。
+Low cost	效能負擔：低
+Medium cost	效能負擔：中
+High cost	效能負擔：高
+Extreme cost	效能負擔：極高
+Save your changes to {0}?	要儲存 {0} 的變更嗎？
+Restore {0} defaults?	要還原 {0} 的預設值嗎？
+Saved and applied.	已儲存並套用。
+Saved. Applies when the mod is running.	已儲存；模組執行時套用。
+Graphics are managed by {0}.	畫面設定由 {0} 管理。
+Open mod settings	開啟模組設定
+Graphics settings	畫面設定
+Resolve requirements	解決需求
+Incompatible	不相容
+Downloading...	下載中…
+Download in progress	下載中
+Incompatible: {0}	不相容：{0}
+{0} - {1} of {2} results	第 {0} - {1} 筆，共 {2} 筆
+{0} - {1} of {2} downloads	第 {0} - {1} 筆，共 {2} 個下載
+Waiting for another download to finish.	等待其他下載完成。
+Checking and installing the download...	正在檢查並安裝下載的套件…
+You can return to the game. Restore storage access or a compatible backup, then retry or restart FLATS.	你可以先回到遊戲。恢復儲存空間存取或相容的備份後，再重試或重新啟動 FLATS。
+Use the official Mod service to install or change these modules, then restart FLATS. No files were downloaded.	請使用官方模組服務安裝或變更這些模組，然後重新啟動 FLATS。沒有下載任何檔案。
+Version {0} · {1}	版本 {0} · {1}
+Installed. Manage this mod in Installed. External changes apply after restarting FLATS.	已安裝。請到「已安裝」管理此模組。外部變更會在重新啟動 FLATS 後套用。
+The download could not be installed. Try again or check with your catalogue provider. Your existing mods were kept.	無法安裝這個下載。請再試一次或聯絡目錄提供者。現有模組已保留。
+Technical details	技術細節
+Package not found or exceeds 64 MB.	找不到套件，或套件超過 64 MB。
+Missing or oversized manifest.json.	缺少 manifest.json，或該檔案過大。

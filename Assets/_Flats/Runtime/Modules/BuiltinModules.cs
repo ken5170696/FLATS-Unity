@@ -170,6 +170,8 @@ namespace Flats.Modules
             ModAdapters.Register(CrosshairSettingsSpec.Adapter,ModuleScope.ClientOnly);
             // Changes enemy balance for everyone in the match, so it is session-only.
             ModAdapters.Register(Flats.Core.EnemyTuning.Adapter,ModuleScope.RequiredForSession);
+            // Enlarges the local player's own lens image only, so it stays client-only.
+            ModAdapters.Register(Flats.Core.ScopeView.Adapter,ModuleScope.ClientOnly);
             string directory=Application.persistentDataPath;
 #if UNITY_EDITOR
             var testRoot=Environment.GetEnvironmentVariable("FLATS_MOD_TEST_ROOT");
@@ -226,6 +228,46 @@ namespace Flats.Modules
                 Notice=Profiles.RestartRequired?"Saved to selected profile. Restart required.":"Saved";return true;
             }
             catch(Exception e){Notice="Could not save; previous settings retained. "+e.Message;return false;}
+        }
+        // Mod API 1.2.0: any installed module's declared settings, one normalized value
+        // per setting, read from the selected profile's ProfileModule.json record.
+        public SettingValue[] ConfiguredSettings(string id)
+        {
+            var specs=Center?.Installed.FirstOrDefault(p=>p.manifest.id==id)?.manifest.settings;
+            var entry=document.modules.FirstOrDefault(m=>m.id==id);
+            SettingValue[] stored=null;
+            if(!string.IsNullOrEmpty(entry?.json))
+                try { var record=JsonUtility.FromJson<SettingValuesDocument>(entry.json);if(record!=null && record.schema==2)stored=record.values; }
+                catch(Exception) { stored=null; }
+            return ModuleSettingsSchema.Normalize(specs,stored);
+        }
+        public bool Configure(string id,SettingValue[] values)
+        {
+            if(id==CrosshairModule.Id)return Configure(values);
+            try
+            {
+                var package=Center.Installed.FirstOrDefault(p=>p.manifest.id==id);
+                if(package==null)throw new InvalidOperationException("Module is not installed");
+                var normalized=ModuleSettingsSchema.Normalize(package.manifest.settings,values);
+                var copy=JsonUtility.FromJson<ModuleSettingsDocument>(JsonUtility.ToJson(document));
+                var entries=copy.modules.ToList();var entry=entries.FirstOrDefault(m=>m.id==id);
+                if(entry==null){entry=new ModuleSetting{id=id,requested=Requested(id)};entries.Add(entry);}
+                entry.version=package.manifest.version;entry.json=JsonUtility.ToJson(new SettingValuesDocument{values=normalized});
+                copy.modules=entries.ToArray();SaveDocument(copy);
+                bool live=!Profiles.RestartRequired && Center.ApplyLiveSettings(id,normalized);
+                Notice=Profiles.RestartRequired?"Saved to selected profile. Restart required.":live?"Saved and applied.":"Saved. Applies when the mod is running.";return true;
+            }
+            catch(Exception e){Notice="Could not save; previous settings retained. "+e.Message;return false;}
+        }
+        public bool PreviewSettings(string id,SettingValue[] values)
+        {
+            try
+            {
+                var package=Center?.Installed.FirstOrDefault(p=>p.manifest.id==id);
+                if(package==null || Profiles.RestartRequired)return false;
+                return Center.ApplyLiveSettings(id,ModuleSettingsSchema.Normalize(package.manifest.settings,values));
+            }
+            catch(Exception e){Debug.LogWarning("MOD_PREVIEW "+e.GetType().Name+": "+e.Message);return false;}
         }
         void OnDestroy() { Center?.Dispose(); if(Manager!=null)Manager.Dispose(); if(Instance==this)Instance=null; }
     }
