@@ -342,7 +342,7 @@ public sealed partial class ModuleManagementPage
         if(show){if(busy)return;busy=true;category.interactable=false;ShowDetail();}
         try{await action();if(this!=null && isActiveAndEnabled){if(tab!="Explore")RenderLocal();else ShowDetail();if(show)notice.text=Service.Notice;}}
         catch(OperationCanceledException) { }
-        catch(Exception e){if(this!=null && isActiveAndEnabled){notice.text="Could not complete the action. "+e.Message;}Debug.LogWarning("MOD_CENTER_ACTION "+e.GetType().Name);}
+        catch(Exception e){if(this!=null && isActiveAndEnabled){notice.text="Could not complete the action. "+e.Message;}Debug.LogWarning("MOD_CENTER_ACTION "+e.GetType().Name+": "+e.Message);}
         finally{if(show){busy=false;if(this!=null && isActiveAndEnabled){category.interactable=tab=="Explore" || tab=="Installed"&&Service.Source!=null;ShowDetail();}}}
     }
     async void LoadArtwork(RawImage image,string url,int generation)

@@ -72,10 +72,21 @@ namespace Flats.Modules
             foreach (var file in Directory.GetFiles(path))
             {
                 if ((File.GetAttributes(file) & FileAttributes.ReparsePoint) != 0) throw new IOException("Refusing linked file cleanup");
-                File.Delete(file);
+                RetryTransient(() => File.Delete(file));
             }
             foreach (var sub in Directory.GetDirectories(path)) DeleteTree(sub);
-            Directory.Delete(path);
+            RetryTransient(() => Directory.Delete(path));
+        }
+        // Windows antivirus and search indexing briefly hold handles on freshly extracted files, so a
+        // directory move or delete right after extraction can fail with "Access to the path is denied".
+        // Retry a few times before failing the transaction; a persistent error still surfaces.
+        static void RetryTransient(Action action)
+        {
+            for (int attempt = 0; ; attempt++)
+            {
+                try { action(); return; }
+                catch (Exception e) when ((e is IOException || e is UnauthorizedAccessException) && attempt < 5) { Thread.Sleep(100 * (attempt + 1)); }
+            }
         }
         public string BeginStaging()
         {
@@ -254,7 +265,7 @@ namespace Flats.Modules
                         }
                     }
                 }
-                else Directory.Move(content, destination);
+                else RetryTransient(() => Directory.Move(content, destination));
                 WriteReceipt(p); return p;
             }
         }
