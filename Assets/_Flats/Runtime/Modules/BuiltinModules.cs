@@ -259,6 +259,16 @@ namespace Flats.Modules
             }
             catch(Exception e){Notice="Could not save; previous settings retained. "+e.Message;return false;}
         }
+        public bool PreviewSettings(string id,SettingValue[] values)
+        {
+            try
+            {
+                var package=Center?.Installed.FirstOrDefault(p=>p.manifest.id==id);
+                if(package==null || Profiles.RestartRequired)return false;
+                return Center.ApplyLiveSettings(id,ModuleSettingsSchema.Normalize(package.manifest.settings,values));
+            }
+            catch(Exception e){Debug.LogWarning("MOD_PREVIEW "+e.GetType().Name+": "+e.Message);return false;}
+        }
         void OnDestroy() { Center?.Dispose(); if(Manager!=null)Manager.Dispose(); if(Instance==this)Instance=null; }
     }
 }

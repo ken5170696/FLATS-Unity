@@ -15,6 +15,19 @@ namespace Flats.Modules
         public IModSource Source { get; private set; }
         public InstalledPackage[] Installed { get; private set; } = new InstalledPackage[0];
         public InstalledPackage[] Running { get; private set; } = new InstalledPackage[0];
+        public InstalledPackage GraphicsOverride
+        {
+            get
+            {
+                foreach(var p in Running)
+                {
+                    if(p?.manifest==null || !ModRules.OverridesGraphics(p.manifest))continue;
+                    var record=owner.Manager?.Installed.FirstOrDefault(r=>r.Manifest.Id==p.manifest.id);
+                    if(record!=null && record.Active)return p;
+                }
+                return null;
+            }
+        }
         public bool Ready { get; private set; }
         public bool InitializationComplete { get; private set; }
         public bool CanRetryInitialization { get { return !disposed && InitializationComplete && !Ready && !owner.ReadOnly && !activationStarted; } }

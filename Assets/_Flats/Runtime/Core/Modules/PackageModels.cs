@@ -31,6 +31,11 @@ namespace Flats.Modules
         public string adapter, payload;
         public ModuleSettingSpec[] settings;
         public ModulePreset[] presets;
+        // Mod API 1.3.0: game features this module takes over while it runs. "graphics" hands the
+        // game's own graphics settings page to the module (the page shows a notice and a link).
+        public string[] overrides;
+
+        public static readonly string[] KnownOverrides = { "graphics" };
 
         public const string OpenGameMinimum = "0.0.0", OpenGameMaximum = "1000.0.0";
 
@@ -68,6 +73,11 @@ namespace Flats.Modules
                 ModuleSettingsSchema.Validate(CrosshairSettingsSpec.Specs(), presets);
             }
             else ModuleSettingsSchema.Validate(settings, presets);
+            var takeovers = overrides ?? new string[0];
+            if (takeovers.Length > 8) throw new InvalidDataException("Too many overrides");
+            foreach (var o in takeovers)
+                if (Array.IndexOf(KnownOverrides, o) < 0) throw new InvalidDataException("Unknown override: " + o + " (expected graphics)");
+            if (takeovers.Distinct().Count() != takeovers.Length) throw new InvalidDataException("Duplicate override");
             if (kind == "crosshair" && (crosshairStyle < 0 || crosshairStyle > 2 || float.IsNaN(crosshairSize) || float.IsInfinity(crosshairSize) || crosshairSize < 6 || crosshairSize > 64 || scope != "ClientOnly"))
                 throw new InvalidDataException("Crosshair packages require ClientOnly scope, style 0-2 and size 6-64");
             if (kind == "managed")
@@ -98,7 +108,7 @@ namespace Flats.Modules
         // API 1.1.0 adds manifest schema 2 (data packages, settings, presets); 1.2.0 adds the
         // module context (installed directory, live setting values), the optional setting
         // group/performance fields and Flats.Rendering.RenderPolicy. 1.x packages still load.
-        public const string GameVersion = "5.4.5", ApiVersion = "1.2.0";
+        public const string GameVersion = "5.4.5", ApiVersion = "1.3.0";
         public const long MaxArchive = 64L * 1024 * 1024, MaxExpanded = 256L * 1024 * 1024;
         public static void Id(string id)
         {
@@ -144,6 +154,11 @@ namespace Flats.Modules
                 return "";
             }
             catch (Exception e) { return e.Message; }
+        }
+        // Mod API 1.3.0: true when a manifest declares the graphics override.
+        public static bool OverridesGraphics(PackageManifest m)
+        {
+            return m?.overrides != null && Array.IndexOf(m.overrides, "graphics") >= 0;
         }
         // official.* modules come only from the official source. A local ZIP must not be able to
         // take over an official identity such as the built-in crosshair binding.

@@ -82,7 +82,7 @@ public sealed partial class ModuleManagementPage
         ShowPreview(!ModuleSettings);
         if(ModuleSettings)
         {
-            settingsForm.Bind(package.manifest.settings,package.manifest.presets,genericDraft,values=>{genericDraft=values;RefreshDraft();});
+            settingsForm.Bind(package.manifest.settings,package.manifest.presets,genericDraft,values=>{genericDraft=values;RefreshDraft();Host.PreviewSettings(settingsModuleId,genericDraft);});
             RefreshDraft();var first=settingsForm.GetComponentInChildren<Selectable>();if(first!=null)Focus(first);
         }
         else if(Generic)
@@ -120,7 +120,29 @@ public sealed partial class ModuleManagementPage
         if(!saved){draftNotice.text=Host.Notice;return false;}
         if(leave)FinishSettings();else RefreshDraft();return true;
     }
-    void FinishSettings() { settingsOpen=false;detailOpen=false;settingsModuleId=CrosshairModule.Id;ShowPreview(true);Reload();FocusSelected(); }
+    void FinishSettings()
+    {
+        // Whatever was previewed, the running module ends on the saved values.
+        if(ModuleSettings)Host.PreviewSettings(settingsModuleId,Host.ConfiguredSettings(settingsModuleId));
+        settingsOpen=false;detailOpen=false;settingsModuleId=CrosshairModule.Id;
+        if(restricted){restricted=false;Close();return;}
+        ShowPreview(true);Reload();FocusSelected();
+    }
+    // Settings-only visit opened from another screen (the graphics settings notice). From the main
+    // menu this is the ordinary Mod Center; in a paused match only the settings page is shown and
+    // leaving it returns to the pause menu.
+    bool restricted;
+    public void OpenModuleSettings(string id)
+    {
+        if(Menu.current=="Modules"){OpenSettings(id);return;}
+        if(Menu.gameState=="Main"){Open();if(Menu.current=="Modules")OpenSettings(id);return;}
+        if(Menu.current!="Main")return;
+        Initialize();optionsWereActive=mainOptions.activeSelf;mainOptions.SetActive(false);mainScreen.SetActive(false);
+        Menu.current="Modules";gameObject.SetActive(true);restricted=true;
+        tab="Installed";detailOpen=false;settingsOpen=false;Resize();Reload();
+        OpenSettings(id);
+        if(!settingsOpen){restricted=false;Close();}
+    }
     void LeaveSettings()
     {
         if(!Dirty){FinishSettings();return;}

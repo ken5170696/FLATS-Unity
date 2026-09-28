@@ -1,6 +1,6 @@
-# Mod SDK preview — API 1.2.0
+# Mod SDK preview — API 1.3.0
 
-This preview supports crosshair data packages, data modules for game adapters (manifest schema 2), the existing managed module contract, and (API 1.2.0) a module context, setting groups and a render policy for client-side rendering modules. It does not expose weapons, maps or game modes as supported third-party APIs. Game compatibility and API compatibility are separate: declare both ranges, with an inclusive minimum and exclusive maximum.
+This preview supports crosshair data packages, data modules for game adapters (manifest schema 2), the existing managed module contract, and (API 1.2.0) a module context, setting groups and a render policy for client-side rendering modules, plus (API 1.3.0) a graphics-settings override and live preview of unsaved settings. It does not expose weapons, maps or game modes as supported third-party APIs. Game compatibility and API compatibility are separate: declare both ranges, with an inclusive minimum and exclusive maximum.
 
 FLATS 5.4.3 to 5.4.5 use API 1.1.0, which reads manifest schemas 1 and 2. FLATS 5.4.2 players use API 1.0.0 and only schema 1, so a schema 2 package is unavailable to them rather than misread. A schema 2 package declares `apiMinimum` 1.1.0 or later; a package that relies on the 1.2.0 additions below declares 1.2.0.
 
@@ -53,6 +53,13 @@ The host validates the complete requested set before activation, orders dependen
 Lifecycle callbacks are synchronous on the Unity main thread. Do not block them with downloads or disk work. Marshal Unity object access back to the main thread; cancel and join owned asynchronous work during cleanup, and never mutate scene objects after disposal. The host cannot automatically cancel work that a managed extension starts outside its lifetime. Activation changes normally take effect at restart; loading a DLL is not hot unloading, and disabling it does not unload its assembly.
 
 Managed ZIPs declare `kind: managed`, a safe relative `.dll` `assembly` path and a public parameterless `entryType` implementing `IFirstPartyModule`. The implementation's ID, version, scope, API/game ranges, dependencies and conflicts must exactly match the package manifest. Desktop Mono can load these DLLs with the game's privileges: **this is not a sandbox**. Web and IL2CPP/AOT reject executable packages. No claim of mobile managed-module support is made.
+
+## Graphics override and live preview (API 1.3.0)
+
+FLATS 5.4.6 raises the Mod API to 1.3.0. Both additions are optional; 1.x packages load unchanged.
+
+- `overrides: ["graphics"]` (manifest, any kind): while this module runs and is active, the game's own Graphics section in Settings is covered by a notice ("Graphics are managed by <module>") with a button that leaves Settings and opens this module's settings page in the Mod Center. From a paused match the button opens a settings-only visit that returns to the pause menu. Only `graphics` is recognised; other values are rejected at installation. A package that declares it needs `apiMinimum` 1.3.0.
+- Live preview: while a settings page is open, every draft change is handed to the running module through `IModuleContext.SettingsChanged` before it is saved; leaving the page hands the saved values back. A module that applies its settings live therefore previews them, and a module should treat `SettingsChanged` as idempotent. A preset such as "Original" that restores the untouched picture while the module stays loaded gives players a one-button comparison.
 
 ## Module context and render policy (API 1.2.0)
 
