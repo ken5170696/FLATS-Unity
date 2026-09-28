@@ -4,44 +4,99 @@ using Flats.Core.Roguelike;
 using UnityEngine;
 using UnityEngine.UI;
 
-// HUD text and the run screens (shop, reward pick, route, chapter end). The screen is an
-// authored prefab (Prefabs/UI/Roguelike/RogueScreen.prefab) instantiated under the shared Menu
-// canvas; rows instantiate the authored RogueOfferRow template. Presentation only: every
-// click becomes a command to the authority.
+// HUD binding and the run screens (shop, reward pick, route, chapter end). The HUD and the screen are
+// authored prefabs (Resources/UI/Roguelike/RogueHud, RogueScreen) instantiated under the shared canvases;
+// rows instantiate the authored RogueOfferRow template. Presentation only: every click becomes a command
+// to the authority.
 public partial class RoguelikeController
 {
     RogueScreenView screen;
+    RogueHudView hudView;
     string screenMode = "";              // "", shop, reward, route, chapterend
     int txCounter;
     readonly Dictionary<string, string> pendingTx = new Dictionary<string, string>();   // txId -> itemId while awaiting the authority
+    float bossMaxHp;
+
+    public delegate void OfferSink(string icon, string name, string effect, string price, string rarity, string action, bool interactable, string status, Action onAction);
 
     // ---------------------------------------------------------------- HUD
     void RefreshHud()
     {
-        if (scoreText == null || state == null) return;
+        if (state == null) return;
         var me = LocalPlayer;
         string money = me != null ? RogueMoney.Format(me.walletMinor) : "0";
-        string stage = T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth));
-        string line;
+        string stage = state.Chapter + "-" + RogueDepth.StageInChapter(state.depth);
+        if (hudView == null)
+        {
+            if (scoreText != null) scoreText.text = "$" + money + "  " + T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)) + "  " + ObjectiveHudText();
+            return;
+        }
+        var enc = state.encounter;
+        hudView.SetTop(stage, "$" + money, state.phase == RunPhase.Combat ? AliveEnemies.ToString() : "");
         switch (state.phase)
         {
-            case RunPhase.Prep: line = "$" + money + "  " + stage + "  " + T("Prep: shop open, ready when done"); break;
+            case RunPhase.Prep: hudView.SetObjective("Coin", T("Prep"), screenDismissed ? T("Press {0} to reopen the shop", FlatsControls.Label("Interact", FlatsControls.UsingGamepad)) : T("Shop is open. Ready up when done.")); break;
             case RunPhase.Combat:
                 {
-                    var enc = state.encounter;
-                    var def = RogueCatalog.Encounter(enc.IsFinale ? enc.finaleId : enc.objectiveId);
-                    string progress = objectiveRunner != null ? objectiveRunner.ProgressText : (objectiveDone ? "done" : objectiveKills + "/" + objectiveKillsNeeded);
-                    line = "$" + money + "  " + stage + "  " + (def != null ? T(def.Name) : "") + " " + progress + "  " + T("Enemies {0}", AliveEnemies);
-                    if (me != null && !string.IsNullOrEmpty(me.build.ultimate)) line += "  " + T("Ult {0}%", me.ultimateCharge);
+                    string id = enc.IsFinale ? enc.finaleId : enc.objectiveId;
+                    var def = RogueCatalog.Encounter(id);
+                    string progress = ObjectivePart(0);
+                    if (progress == "" && objectiveRunner == null) progress = objectiveDone ? T("Cleared") : objectiveKills + " / " + objectiveKillsNeeded;
+                    hudView.SetObjective(RogueIcons.ForEncounter(id), def != null ? T(def.Name) : T("Objective"), progress);
                     break;
                 }
-            case RunPhase.Cleared: line = "$" + money + "  " + stage + "  " + T("Cleared"); break;
-            case RunPhase.Reward: line = "$" + money + "  " + stage + "  " + T("Pick a reward"); break;
-            case RunPhase.Route: line = "$" + money + "  " + T("Chapter {0} complete: choose a route", state.Chapter); break;
-            case RunPhase.ChapterEnd: line = "$" + money + "  " + T("Chapter shop: continue or evacuate"); break;
-            default: line = "$" + money + "  " + stage; break;
+            case RunPhase.Cleared: hudView.SetObjective("Check", T("Cleared"), ""); break;
+            case RunPhase.Reward: hudView.SetObjective("Coin", T("Pick a reward"), ""); break;
+            case RunPhase.Route: hudView.SetObjective("Stage", T("Chapter {0} complete", state.Chapter), T("Choose a route")); break;
+            case RunPhase.ChapterEnd: hudView.SetObjective("Coin", T("Chapter shop"), T("Continue or evacuate")); break;
+            default: hudView.SetObjective("", "", ""); break;
         }
-        scoreText.text = line;
+        bool combat = state.phase == RunPhase.Combat;
+        var ev = combat ? RogueCatalog.Encounter(enc.eventId) : null; var em = combat ? RogueCatalog.Encounter(enc.emergencyId) : null;
+        hudView.SetEvent("Settings5", ev != null ? T(ev.Name) + (ObjectivePart(1) != "" ? "  " + ObjectivePart(1) : "") : "", false);
+        hudView.SetEvent("Warning", em != null ? T(em.Name) + (ObjectivePart(2) != "" ? "  " + ObjectivePart(2) : "") : "", true);
+        RefreshBoss(combat);
+        RefreshAbilities(me);
+        RefreshSquad(me);
+    }
+
+    void RefreshBoss(bool combat)
+    {
+        var boss = combat ? FindFinaleEnemy() : null;
+        var dr = boss != null ? boss.GetComponent<DamageReceiver>() : null;
+        if (dr == null || dr.hitPoints <= 0) { hudView.HideBoss(); bossMaxHp = 0; return; }
+        if (bossMaxHp <= 0 || dr.hitPoints > bossMaxHp) bossMaxHp = dr.hitPoints;
+        var def = RogueCatalog.Encounter(state.encounter.finaleId);
+        hudView.SetBoss("Enemy", (def != null ? T(def.Name) : T("Target")) + (boss.Invulnerable ? "  " + T("Shielded") : ""), bossMaxHp > 0 ? dr.hitPoints / bossMaxHp : 0);
+    }
+
+    void RefreshAbilities(RunPlayer me)
+    {
+        var rp = LocalRoguePlayer();
+        if (me == null || rp == null) { hudView.SetAbility(true, "", "", 0, "", false, false); hudView.SetAbility(false, "", "", 0, "", false, false); return; }
+        bool hasUlt = !string.IsNullOrEmpty(me.build.ultimate);
+        hudView.SetAbility(true, "Ultimate", RogueIcons.KeyHint("Ultimate"), rp.UltimateActive ? rp.UltimateRemaining : me.ultimateCharge / 100f, rp.UltimateActive ? "" : me.ultimateCharge + "%", rp.UltimateActive, hasUlt);
+        bool hasTac = !string.IsNullOrEmpty(me.build.tactical);
+        hudView.SetAbility(false, hasTac ? RogueIcons.ForItem(RogueCatalog.Item(me.build.tactical)) : "", RogueIcons.KeyHint("Tactical"), rp.TacticalReadiness, rp.TacticalValue, rp.TacticalActive, hasTac);
+    }
+
+    void RefreshSquad(RunPlayer me)
+    {
+        var entries = new List<RogueHudView.SquadEntry>();
+        foreach (var p in state.players)
+        {
+            if (!p.connected || (me != null && p.key == me.key)) continue;
+            var go = RogueWorld.PlayerByKey(p.key);
+            var rp = go != null ? go.GetComponent<RoguePlayer>() : null; var dr = go != null ? go.GetComponent<DamageReceiver>() : null;
+            float max = rp != null ? rp.MaxHealth() : 1000f, hp = dr != null ? Mathf.Max(0, dr.hitPoints) : (p.life == PlayerLife.Alive ? max : 0);
+            entries.Add(new RogueHudView.SquadEntry
+            {
+                name = p.name, icon = RogueIcons.ForLife(p.life), hp = p.life == PlayerLife.Alive ? (max > 0 ? hp / max : 0) : 0,
+                state = p.life == PlayerLife.Downed ? T("Downed") : p.life == PlayerLife.Dead ? T("Dead") : (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) && p.ready ? T("Ready") : "",
+                tint = p.life == PlayerLife.Alive ? new Color(0.3f, 0.75f, 0.4f) : p.life == PlayerLife.Downed ? new Color(1f, 0.7f, 0.1f) : new Color(0.95f, 0.3f, 0.35f)
+            });
+        }
+        hudView.SetSquad(entries);
     }
 
     // ---------------------------------------------------------------- screens
@@ -78,11 +133,9 @@ public partial class RoguelikeController
         screenMode = "";
     }
 
-    void ShowShop(RunPlayer me, bool chapterEnd)
+    /// <summary>Shop rows (offers + reroll) for the prep screen and the overview's shop tab.</summary>
+    void AddShopRows(RunPlayer me, OfferSink add)
     {
-        screen.SetTitle(chapterEnd ? T("Chapter {0} Shop", state.Chapter) : T("Shop  Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)),
-            T("Wallet ${0}   Rerolls {1}   {2}", RogueMoney.Format(me.walletMinor), me.rerollsLeft, BuildSummary(me.build)));
-        screen.ClearRows();
         for (int i = 0; i < me.offers.Length; i++)
         {
             var offer = me.offers[i]; var def = RogueCatalog.Item(offer.itemId);
@@ -90,30 +143,38 @@ public partial class RoguelikeController
             int index = i;
             string status = offer.sold ? T("Bought") : me.build.RejectReason(def) != null ? T(me.build.RejectReason(def)) : me.walletMinor < offer.priceMinor ? T("Not enough money") : "";
             bool pending = pendingTx.ContainsValue(offer.itemId);
-            screen.AddRow(T(def.Name), EffectLine(def, me.build), "$" + RogueMoney.Format(offer.priceMinor), RarityText(def), offer.sold ? "" : T("Buy"),
+            add(RogueIcons.ForItem(def), T(def.Name), EffectLine(def, me.build), "$" + RogueMoney.Format(offer.priceMinor), RarityText(def), offer.sold ? "" : T("Buy"),
                 !offer.sold && status == "" && !pending, pending ? T("Buying...") : status,
                 () => Buy(me, index, offer));
         }
         long reroll = RogueShop.RerollPriceMinor(state.Chapter);
-        screen.AddRow(T("Reroll offers"), T("New offers for this visit. Limited per visit; the same offers return if you leave and come back."), "$" + RogueMoney.Format(reroll), "", T("Reroll"),
-            me.rerollsLeft > 0 && me.walletMinor >= reroll, me.rerollsLeft > 0 ? "" : T("No rerolls left"),
+        add("Reload", T("Reroll offers"), T("New offers for this visit. Limited per visit; the same offers return if you leave and come back."), "$" + RogueMoney.Format(reroll), "", T("Reroll"),
+            me.rerollsLeft > 0 && me.walletMinor >= reroll, me.rerollsLeft > 0 ? T("{0} left", me.rerollsLeft) : T("No rerolls left"),
             () => Command(new RogueCommandMessage { kind = "buy", tx = new ShopTransaction { txId = NextTx(), runId = state.runId, shopVersion = me.shopVersion, reroll = true, expectedPriceMinor = reroll } }));
+    }
+
+    void ShowShop(RunPlayer me, bool chapterEnd)
+    {
+        screen.SetTitle("Coin", chapterEnd ? T("Chapter {0} Shop", state.Chapter) : T("Shop  Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)),
+            T("Rerolls {0}   {1}", me.rerollsLeft, BuildSummary(me.build)), "$" + RogueMoney.Format(me.walletMinor));
+        screen.ClearRows();
+        AddShopRows(me, (icon, name, effect, price, rarity, action, interactable, status, onAction) => screen.AddRow(icon, name, effect, price, rarity, action, interactable, status, onAction));
         if (chapterEnd)
         {
-            screen.SetFooter(T("Continue"), () => Command(new RogueCommandMessage { kind = "continue" }), T("Evacuate"), () => ConfirmEvacuate(),
+            screen.SetFooter(T("Continue"), "Arrow", () => Command(new RogueCommandMessage { kind = "continue" }), T("Evacuate"), "Quit", () => ConfirmEvacuate(),
                 T("Continue travels to {0}. Evacuate banks this run's record and ends it.", RouteText(state.mapId, state.routeTag)));
         }
         else
         {
             bool ready = me.ready;
-            screen.SetFooter(T(ready ? "Not ready" : "Ready"), () => Command(new RogueCommandMessage { kind = "ready", flag = !ready }), null, null,
-                ReadyText());
+            screen.SetFooter(T(ready ? "Not ready" : "Ready"), ready ? "Reset" : "Check", () => Command(new RogueCommandMessage { kind = "ready", flag = !ready }), null, null, null,
+                ReadyText() + "  " + T("TAB: overview"));
         }
     }
 
     void ShowReward(RunPlayer me)
     {
-        screen.SetTitle(T("Cleared: {0}", T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth))), T("Pick one. It is free."));
+        screen.SetTitle("Check", T("Cleared: {0}", T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth))), T("Pick one. It is free."), "$" + RogueMoney.Format(me.walletMinor));
         screen.ClearRows();
         for (int i = 0; i < me.rewardOffers.Length; i++)
         {
@@ -121,7 +182,7 @@ public partial class RoguelikeController
             if (def == null) continue;
             int index = i;
             string status = me.build.RejectReason(def) != null ? T(me.build.RejectReason(def)) : "";
-            screen.AddRow(T(def.Name), EffectLine(def, me.build), T("Free"), RarityText(def), T("Take"), status == "" && pendingTx.Count == 0, status,
+            screen.AddRow(RogueIcons.ForItem(def), T(def.Name), EffectLine(def, me.build), T("Free"), RarityText(def), T("Take"), status == "" && pendingTx.Count == 0, status,
                 () => Command(new RogueCommandMessage { kind = "buy", tx = new ShopTransaction { txId = NextTx(), runId = state.runId, shopVersion = me.shopVersion, offerIndex = index, expectedPriceMinor = 0, rewardPick = true } }));
         }
         screen.SetFooter(null, null, null, null, "");
@@ -129,14 +190,14 @@ public partial class RoguelikeController
 
     void ShowRoute(RunPlayer me)
     {
-        screen.SetTitle(T("Chapter {0} complete", state.Chapter), T(IsAuthority ? "Choose the next chapter's route." : "The host chooses the route."));
+        screen.SetTitle("Stage", T("Chapter {0} complete", state.Chapter), T(IsAuthority ? "Choose the next chapter's route." : "The host chooses the route."), "$" + RogueMoney.Format(me.walletMinor));
         screen.ClearRows();
         for (int i = 0; i < state.routeOptions.Length; i++)
         {
             var parts = state.routeOptions[i].Split('|');
             var map = RogueCatalog.Map(parts[0]); var route = RogueCatalog.Route(parts.Length > 1 ? parts[1] : "");
             int index = i;
-            screen.AddRow(T(route.Name) + ": " + (map != null ? T(map.SceneName) : parts[0]), T(route.Brief), RouteRewardText(route), route.Tag == "danger" ? T("Risky") : route.Tag == "safe" ? T("Safer") : "", T("Go"),
+            screen.AddRow(RogueIcons.ForRoute(route.Tag), T(route.Name) + ": " + (map != null ? T(map.SceneName) : parts[0]), T(route.Brief), RouteRewardText(route), route.Tag == "danger" ? T("Risky") : route.Tag == "safe" ? T("Safer") : "", T("Go"),
                 IsAuthority, IsAuthority ? "" : T("Host decides"), () => Command(new RogueCommandMessage { kind = "route", index = index }));
         }
         screen.SetFooter(null, null, null, null, "");
@@ -148,6 +209,7 @@ public partial class RoguelikeController
         pendingTx[txId] = offer.itemId;
         Command(new RogueCommandMessage { kind = "buy", tx = new ShopTransaction { txId = txId, runId = state.runId, shopVersion = me.shopVersion, offerIndex = index, expectedPriceMinor = offer.priceMinor } });
         RefreshScreens();
+        if (overview != null) FillOverview();
     }
 
     string NextTx() { return localKey + ":" + (++txCounter) + ":" + DateTime.UtcNow.Ticks; }
@@ -162,6 +224,7 @@ public partial class RoguelikeController
         if (e.flag) Log(item == "" ? T("Rerolled") : e.minor > 0 ? T("Bought {0} for ${1}", ItemName(item), RogueMoney.Format(e.minor)) : T("Bought {0}", ItemName(item)));
         else if (status != "Duplicate") Log(T("Purchase failed: {0}", T(reason == "" ? status : reason)));
         if (screen != null) RefreshScreens();
+        if (overview != null) FillOverview();
     }
 
     void ConfirmEvacuate()

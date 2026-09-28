@@ -63,6 +63,7 @@ public sealed class MovingSupplyRunner : RogueEventRunner
     {
         a = Point(0); b = Point(1);
         drone = RogueWorld.Cube("SupplyDrone", a + Vector3.up * 6f, new Vector3(2f, 0.8f, 2f), RogueWorld.Gold, true);
+        RogueWaypoint.Attach(drone, "Coin", "Supply drone", RogueWorld.Gold, 1.2f, 1);
         dmg = drone.AddComponent<RogueDamageable>(); dmg.OnHit = (d, s) => { if (machine != null) machine.OnDamaged(d); };
         if (Authority) machine = new MovingSupplyEvent(600);
         Banner("Moving Supply: shoot the drone down before it leaves!", 3);
@@ -86,6 +87,7 @@ public sealed class AlarmCacheRunner : RogueEventRunner
     public override void Begin()
     {
         cache = RogueWorld.Cube("AlarmCache", Point(0), new Vector3(1.6f, 1.2f, 1.6f), RogueWorld.Gold, true);
+        RogueWaypoint.Attach(cache, "Coin", "Alarm cache", RogueWorld.Gold, 1.8f, 1);
         it = cache.AddComponent<RogueInteractable>(); it.Action = "cache:open"; it.Prompt = "Open the cache (calls reinforcements)";
         if (Authority) machine = new AlarmCacheEvent(100);
     }
@@ -129,6 +131,7 @@ public sealed class PowerRerouteRunner : RogueEventRunner
     public override void Begin()
     {
         breaker = RogueWorld.Cube("Breaker", Point(0), new Vector3(1f, 2f, 0.6f), RogueWorld.Blue, true);
+        RogueWaypoint.Attach(breaker, "Settings5", "Breaker", RogueWorld.Blue, 2.2f, 1);
         it = breaker.AddComponent<RogueInteractable>(); it.Action = "breaker:flip"; it.Prompt = "Flip the breaker";
         if (Authority) machine = new PowerRerouteEvent();
     }
@@ -156,6 +159,7 @@ public sealed class RepairDeviceRunner : RogueEventRunner
     public override void Begin()
     {
         device = RogueWorld.Cube("SideDevice", Point(0), new Vector3(1.6f, 2f, 1.6f), RogueWorld.White, true);
+        RogueWaypoint.Attach(device, "Settings5", "Repair device", RogueWorld.Blue, 2.2f, 1);
         it = device.AddComponent<RogueInteractable>(); it.Action = "sidedevice"; it.Prompt = "Repair (optional)";
         if (Authority) machine = new RepairDeviceEvent(800, 0.025);
     }
@@ -228,6 +232,7 @@ public sealed class LureCrateRunner : RogueEventRunner
     public override void Begin()
     {
         crate = RogueWorld.Cube("LureCrate", Point(0), new Vector3(1.2f, 1.2f, 1.2f), RogueWorld.Pink2, true);
+        RogueWaypoint.Attach(crate, "Square", "Lure crate", RogueWorld.Pink2, 1.6f, 1);
         crate.GetComponent<Collider>().isTrigger = true;
         carry = crate.AddComponent<RogueCarryable>(); carry.Action = "lure"; carry.Prompt = "Pick up the lure (enemies follow it)";
         if (Authority) machine = new LureCrateEvent();
@@ -265,6 +270,7 @@ public sealed class GasLeakRunner : RogueEventRunner
         for (int i = 0; i < 3; i++)
         {
             switches[i] = RogueWorld.Cube("VentSwitch" + i, Point(i), new Vector3(1f, 2.2f, 0.6f), RogueWorld.Green, true);
+            RogueWaypoint.Attach(switches[i], "Warning", "Vent {0}|" + (i + 1), RogueWorld.Green, 2.4f, 2).Pulse = true;
             var it = switches[i].AddComponent<RogueInteractable>(); it.Action = "vent:" + i; it.Prompt = "Vent switch (hold)"; it.Radius = 3.5f;
             RogueWorld.Beacon("VentBeacon" + i, Point(i), RogueWorld.Green).transform.SetParent(switches[i].transform, true);
         }
@@ -342,6 +348,7 @@ public sealed class PowerOutageRunner : RogueEventRunner
     public override void Begin()
     {
         generator = RogueWorld.Cube("Generator", Point(0), new Vector3(1.6f, 2.2f, 1.6f), RogueWorld.Gold, true);
+        RogueWaypoint.Attach(generator, "Warning", "Generator", RogueWorld.Gold, 2.4f, 2).Pulse = true;
         var it = generator.AddComponent<RogueInteractable>(); it.Action = "generator"; it.Prompt = "Restart the generator (hold 8 s)"; it.Radius = 4f;
         RogueWorld.Beacon("GeneratorBeacon", Point(0), RogueWorld.Gold).transform.SetParent(generator.transform, true);
         SetDark(true);
@@ -384,9 +391,11 @@ public sealed class MobileBombRunner : RogueEventRunner
     {
         disposal = Point(1);
         bomb = RogueWorld.Cube("MobileBomb", Point(0), new Vector3(1.1f, 1.1f, 1.1f), new Color(0.15f, 0.15f, 0.15f), true);
+        RogueWaypoint.Attach(bomb, "Warning", "Bomb", new Color(1f, 0.35f, 0.35f), 1.6f, 2).Pulse = true;
         bomb.GetComponent<Collider>().isTrigger = true;
         carry = bomb.AddComponent<RogueCarryable>(); carry.Action = "bomb"; carry.Prompt = "Pick up the bomb";
         ring = RogueWorld.Ring("DisposalZone", disposal, 4f, RogueWorld.Green); beacon = RogueWorld.Beacon("DisposalBeacon", disposal, RogueWorld.Green);
+        RogueWaypoint.Attach(beacon, "Check", "Disposal zone", RogueWorld.Green, 2.5f, 1);
         if (Authority) { machine = new MobileBombEvent(75, 15); Banner("A bomb is armed! Carry it to the disposal point.", 3); }
     }
     public override void Tick(float dt)
@@ -446,6 +455,7 @@ public sealed class ReinforcementSignalRunner : RogueEventRunner
     public override void Begin()
     {
         device = RogueWorld.Cube("SignalDevice", Point(0), new Vector3(1.4f, 3f, 1.4f), RogueWorld.Pink2, true);
+        RogueWaypoint.Attach(device, "Warning", "Signal device", RogueWorld.Pink2, 3.2f, 2).Pulse = true;
         RogueWorld.Beacon("SignalBeacon", Point(0), RogueWorld.Pink2).transform.SetParent(device.transform, true);
         dmg = device.AddComponent<RogueDamageable>(); dmg.OnHit = (d, s) => { if (machine != null) machine.OnDamaged(d); };
         if (Authority) { machine = new ReinforcementSignalEvent(1500, 100); Banner("A signal device is calling reinforcements. Destroy it!", 3); }

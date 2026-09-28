@@ -22,7 +22,8 @@ namespace Flats.Core.Roguelike
         {
             long coins = minor / MinorPerCoin;
             long rem = Math.Abs(minor % MinorPerCoin);
-            return rem == 0 ? coins.ToString() : coins + "." + (rem / 10);
+            long tenth = rem / 10;
+            return tenth == 0 ? coins.ToString() : coins + "." + tenth;   // sub-tenth remainders are never shown (no "358.0")
         }
 
         public static long Clamp(long minor)

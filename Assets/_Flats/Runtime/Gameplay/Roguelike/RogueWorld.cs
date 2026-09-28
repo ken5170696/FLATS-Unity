@@ -17,7 +17,13 @@ public static class RogueWorld
 
     public static Material Unlit(Color c)
     {
-        if (unlit == null) unlit = new Material(Shader.Find("Unlit/Color"));
+        if (unlit == null)
+        {
+            // Authored material on the FLATS world shader ("Texture Only"), so it exists in player builds; the built-in
+            // Unlit/Color shader is stripped from players because no scene asset references it.
+            unlit = Resources.Load<Material>("UI/Roguelike/RogueFlat");
+            if (unlit == null) unlit = new Material(Shader.Find("Sprites/Default"));
+        }
         var m = new Material(unlit) { color = c };
         return m;
     }

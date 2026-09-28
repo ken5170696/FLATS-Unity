@@ -200,7 +200,7 @@ public class DamageReceiver : MonoBehaviour
 		{
 			return;
 		}
-		if (receivedData[1] == 1 && !userIsPlayer && !myAI.vip && RoguelikeMode.Coop)
+		if (receivedData[1] == 1 && !userIsPlayer && (myAI == null || !myAI.vip) && RoguelikeMode.Coop)   // myAI binds in Start; a hit can arrive earlier
 		{
 			float headDamage = RogueHooks.ModifyIncomingDamage(this, receivedData[0], shooter);
 			hitPoints -= headDamage;
@@ -238,7 +238,7 @@ public class DamageReceiver : MonoBehaviour
 				base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, receivedData[2]);
 			}
 		}
-		else if (!userIsPlayer && !myAI.vip && (Menu.network == 0 || Multiplayer.rule == 8 || RoguelikeMode.Coop))
+		else if (!userIsPlayer && (myAI == null || !myAI.vip) && (Menu.network == 0 || Multiplayer.rule == 8 || RoguelikeMode.Coop))
 		{
 			int num = 0;
 			num = ((!Singleplayer.chance) ? UnityEngine.Random.Range(0, 60) : UnityEngine.Random.Range(0, 12));
@@ -426,6 +426,7 @@ public class DamageReceiver : MonoBehaviour
 			return;
 		}
 		died = true;
+		if (mt == null) mt = base.transform;   // the Die RPC can reach a network copy before Start ran
 		if (userIsPlayer && RoguelikeMode.Active) RogueHooks.OnPlayerDied(this);
 		GameObject gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
 		if (gameObject == null)
@@ -713,7 +714,7 @@ public class DamageReceiver : MonoBehaviour
 				}
 			}
 		}
-		else if (Menu.gameState == "Singleplayer")
+		else if (Menu.gameState == "Singleplayer" && myAI != null && myAI.primaryWeapon != null)
 		{
 			GameObject gameObject11 = UnityEngine.Object.Instantiate(Resources.Load("Weapons/Weapon" + myAI.primaryWeaponIndex), mt.position + Vector3.up * 3f + Vector3.forward * 2f, Quaternion.identity) as GameObject;
 			GameObject gameObject12 = UnityEngine.Object.Instantiate(Resources.Load("Weapons/Weapon" + myAI.secondaryWeaponIndex), mt.position + Vector3.up * 3f + Vector3.forward * 2f, Quaternion.identity) as GameObject;
@@ -745,7 +746,7 @@ public class DamageReceiver : MonoBehaviour
 				gameObject14.transform.localEulerAngles = new Vector3(-90f, 0f, 0f);
 			}
 		}
-		else if (Menu.isMaster())
+		else if (Menu.isMaster() && myAI != null && myAI.primaryWeapon != null)   // an enemy killed before its weapons were bound drops nothing
 		{
 			Gun component13 = myAI.primaryWeapon.gameObject.GetComponent<Gun>();
 			Gun component14 = myAI.primaryWeapons.GetChild(myAI.secondaryWeaponIndex).gameObject.GetComponent<Gun>();

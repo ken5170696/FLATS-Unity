@@ -63,9 +63,8 @@ public partial class RoguelikeController
         objectiveTextTimer -= dt;
         if (objectiveTextTimer > 0 || !IsAuthority) return;
         objectiveTextTimer = 1f;
-        string composed = objectiveRunner != null ? objectiveRunner.ProgressText : "";
-        if (eventRunner != null && eventRunner.StatusText != "") composed += "|" + eventRunner.StatusText;
-        if (emergencyRunner != null && emergencyRunner.StatusText != "") composed += "|" + emergencyRunner.StatusText;
+        // always three parts (objective|event|emergency) so every client can place each line on the HUD
+        string composed = (objectiveRunner != null ? objectiveRunner.ProgressText : "") + "|" + (eventRunner != null ? eventRunner.StatusText : "") + "|" + (emergencyRunner != null ? emergencyRunner.StatusText : "");
         if (composed == lastSentObjectiveText) return;
         lastSentObjectiveText = composed;
         Notify(new RogueEventMessage { kind = "objtext", text = composed });
@@ -80,7 +79,7 @@ public partial class RoguelikeController
     /// <summary>HUD line fragments for the objective and any running event/emergency (already translated by the runner).</summary>
     string ObjectiveHudText()
     {
-        return objectiveText.Replace("|", "  ");
+        return objectiveText.Replace("|", "  ").Trim();
     }
 
     // ---------------------------------------------------------------- events

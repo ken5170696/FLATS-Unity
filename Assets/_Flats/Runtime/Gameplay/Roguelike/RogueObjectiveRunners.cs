@@ -14,6 +14,7 @@ public sealed class CaptureRunner : RogueObjectiveRunner
         center = c.PlanPoint(0);
         ring = RogueWorld.Ring("CaptureZone", center, Radius, RogueWorld.Blue);
         beacon = RogueWorld.Beacon("CaptureBeacon", center, RogueWorld.Blue);
+        RogueWaypoint.Attach(beacon, "Load", "Capture zone", RogueWorld.Blue, 2.5f, 3);
         if (c.IsAuthority) machine = new CaptureObjective(Mathf.Clamp(plan.players, 1, 4));
     }
     public override void Tick(float dt)
@@ -34,10 +35,12 @@ public sealed class CarryRunner : RogueObjectiveRunner
     {
         Vector3 start = c.PlanPoint(0); dropPoint = c.PlanPoint(1);
         crate = RogueWorld.Cube("SupplyCrate", start, new Vector3(1.4f, 1.0f, 1.4f), RogueWorld.Gold, true);
+        RogueWaypoint.Attach(crate, "Square", "Supply crate", RogueWorld.Gold, 1.6f, 3);
         crate.GetComponent<Collider>().isTrigger = true;
         carry = crate.AddComponent<RogueCarryable>(); carry.Action = "carry"; carry.Prompt = "Pick up the crate";
         ring = RogueWorld.Ring("DropZone", dropPoint, 4f, RogueWorld.Gold);
         beacon = RogueWorld.Beacon("DropBeacon", dropPoint, RogueWorld.Gold);
+        RogueWaypoint.Attach(beacon, "Check", "Drop zone", RogueWorld.Gold, 2.5f, 2);
         initial = Mathf.Max(1f, Vector3.Distance(start, dropPoint));
         if (c.IsAuthority) machine = new CarryObjective(initial);
     }
@@ -96,6 +99,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
     {
         center = c.PlanPoint(0);
         device = RogueWorld.Cube("RepairDevice", center, new Vector3(2f, 2.4f, 2f), RogueWorld.White, true);
+        RogueWaypoint.Attach(device, "Shield", "Protect the device", RogueWorld.Blue, 2.2f, 3);
         interact = device.AddComponent<RogueInteractable>(); interact.Action = "repair"; interact.Prompt = "Repair"; interact.Radius = 4f;
         beacon = RogueWorld.Beacon("RepairBeacon", center, RogueWorld.White);
         if (c.IsAuthority) machine = new ProtectObjective(1000, 0.02);
@@ -138,6 +142,7 @@ public sealed class BreakoutRunner : RogueObjectiveRunner
         exit = c.PlanPoint(0);
         ring = RogueWorld.Ring("ExtractionZone", exit, Radius, RogueWorld.Green);
         beacon = RogueWorld.Beacon("ExtractionBeacon", exit, RogueWorld.Green);
+        RogueWaypoint.Attach(beacon, "Arrow", "Exit", RogueWorld.Green, 2.5f, 3);
         if (c.IsAuthority) machine = new BreakoutObjective(c.State.ValidMembers());
     }
     public override void Tick(float dt)
@@ -205,6 +210,7 @@ public sealed class VaultRunner : RogueObjectiveRunner
         {
             var p = c.PlanPoint(i);
             cells[i] = RogueWorld.Cube("PowerCell" + i, p, new Vector3(1.2f, 1.8f, 1.2f), RogueWorld.Blue, true);
+            RogueWaypoint.Attach(cells[i], "Ammo", "Power cell {0}|" + (i + 1), RogueWorld.Blue, 2f, i == 0 ? 3 : 1);
             var it = cells[i].AddComponent<RogueInteractable>(); it.Action = "cell:" + i; it.Prompt = "Charge cell " + (i + 1); it.Radius = 3.5f;
         }
         if (c.IsAuthority) machine = new VaultObjective(1000);
@@ -214,10 +220,12 @@ public sealed class VaultRunner : RogueObjectiveRunner
         if (machine == null) return;
         if (core == null) core = Controller.FindFinaleEnemy();
         if (core != null) core.Invulnerable = !machine.Exposed;
-        machine.Tick(dt);
+        if (core != null || !machine.Exposed) machine.Tick(dt);   // a charged cell keeps the core exposed until it actually arrives with the last wave
+        else ProgressText = RoguelikeController.T("Vault core exposed! {0}%", 0);
         ProgressText = machine.Exposed ? RoguelikeController.T("Vault core exposed! {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.T("Charge cell {0}/3", Mathf.Min(3, machine.CellsCharged + 1));
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
     }
+    public int CellsCharged { get { return machine != null ? machine.CellsCharged : -1; } }
     public override void OnCommand(RogueCommandMessage cmd)
     {
         if (machine == null || !cmd.text.StartsWith("cell:")) return;
@@ -232,7 +240,13 @@ public sealed class VaultRunner : RogueObjectiveRunner
             Controller.Notify(new RogueEventMessage { kind = "cell", index = i });
         }
     }
-    public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "cell" && e.index >= 0 && e.index < 3 && cells[e.index] != null) cells[e.index].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.Gold); }
+    public override void OnClientEvent(RogueEventMessage e)
+    {
+        if (e.kind != "cell" || e.index < 0 || e.index > 2 || cells[e.index] == null) return;
+        cells[e.index].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.Gold);
+        RogueWaypoint.Hide(cells[e.index], true);
+        if (e.index + 1 < 3 && cells[e.index + 1] != null) { var wp = cells[e.index + 1].GetComponent<RogueWaypoint>(); if (wp != null) wp.Priority = 3; }
+    }
     public override void OnEnemyKilled(RogueEnemyRole role) { if (role != null && role.RoleId == "role.finale" && machine != null) machine.OnDamaged(99999); }
     public override void Dispose() { foreach (var c in cells) RogueWorld.Destroy(c); }
 }
@@ -245,9 +259,11 @@ public sealed class ConvoyRunner : RogueObjectiveRunner
     {
         start = c.PlanPoint(0); end = c.PlanPoint(1);
         carrier = RogueWorld.Cube("ConvoyCarrier", start, new Vector3(2.4f, 2f, 3.6f), RogueWorld.Pink2, true);
+        RogueWaypoint.Attach(carrier, "Enemy", "Carrier", RogueWorld.Pink2, 2.4f, 3);
         damageable = carrier.AddComponent<RogueDamageable>(); damageable.Invulnerable = true;
         damageable.OnHit = (dmg, shooter) => { if (machine != null && machine.OnDamaged(dmg)) { } };
         beacon = RogueWorld.Beacon("ConvoyExit", end, RogueWorld.Pink2);
+        RogueWaypoint.Attach(beacon, "Warning", "Carrier exit", RogueWorld.Pink2, 2.5f, 1);
         if (c.IsAuthority) machine = new ConvoyObjective(3000);
     }
     public override void Tick(float dt)

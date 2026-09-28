@@ -199,5 +199,10 @@ public partial class RoguelikeController
         if (role == null || liveEnemies.ContainsKey(role.InstanceId)) return;
         liveEnemies[role.InstanceId] = role;
         if (!IsAuthority) Singleplayer.enemy++;
+        if (role.RoleId == "role.finale" && state != null)
+        {
+            var def = RogueCatalog.Encounter(state.encounter.finaleId);
+            RogueWaypoint.Attach(role.gameObject, "Enemy", def != null ? def.Name : "Target", new Color(1f, 0.12f, 0.5f), 2.6f, 4);
+        }
     }
 }

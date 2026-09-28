@@ -1439,3 +1439,89 @@ You are the host now.	你現在是主機。
 {0} joined the squad.	{0} 加入了小隊。
 Press {0} to reopen the shop	按 {0} 重新開啟商店
 Bounty +{0}%	賞金 +{0}%
+After this stage	本關結束後
+Alarm cache	警報寶箱
+Alive	存活
+Bomb	炸彈
+Bounties are paid per kill; headshots pay x{0}.	每次擊殺都會支付賞金；爆頭為 x{0}。
+Bounties this stage are multiplied.	本關賞金加成。
+Bounty rules	賞金規則
+Breaker	斷路器
+Build	配置
+Buy one in the shop; it charges from kills.	在商店購買；擊殺會累積充能。
+Capture zone	佔領區
+Carrier	運輸車
+Carrier exit	運輸車出口
+Chapter shop	章節商店
+Charge {0}%   Press {1}	充能 {0}%　按 {1}
+Checkpoint	存檔點
+Choose a route	選擇路線
+Continue or evacuate	續行或撤離
+Cores {0}/{1}	核心 {0}/{1}
+Damage taken	承受傷害
+Damage x{0}   Magazine x{1}   Reload time x{2}	傷害 x{0}　彈匣 x{1}　換彈時間 x{2}
+Damage {0}   Magazine {1}   RPM {2}   Reload {3}s   Headshot x{4}	傷害 {0}　彈匣 {1}　射速 {2}　換彈 {3} 秒　爆頭 x{4}
+Dead	死亡
+Difficulty {0}	難度 {0}
+Disposal zone	處理區
+Downed	倒地
+Drop zone	投放區
+Earned ${0}   Spent ${1}	已賺 ${0}　已花 ${1}
+Enemies	敵人
+Every player is paid for every kill; the same enemy never pays twice.	每位玩家都能從每次擊殺獲得賞金；同一敵人不會重複支付。
+Explosives	爆裂物
+Generator	發電機
+Headshot x{0}	爆頭 x{0}
+Health	生命
+Kills {0}   Headshots {1}   Deaths {2}   Rescues {3}	擊殺 {0}　爆頭 {1}　死亡 {2}　救援 {3}
+Lure crate	誘餌箱
+Marked elite	被標記的精英
+Next shop	下次商店
+No core	沒有核心
+No weapon data	沒有武器資料
+Per player budget   Objective ${0}   Bonus cap ${1}   Event cap ${2}	每人預算　目標 ${0}　加成上限 ${1}　事件上限 ${2}
+Power cell {0}	電池 {0}
+Prep	準備
+Press {0}	按 {0}
+Protect the device	保護裝置
+Radius x{0}	半徑 x{0}
+Reduced by mods and cores	由改件與核心減免
+Repair device	維修裝置
+Rerolls {0}   {1}	重抽 {0}　{1}
+Revive {0}	救起 {0}
+Reward	獎勵
+Risk contract	風險契約
+Route	路線
+Saved at each prep; deepest {0}	每次準備階段存檔；最深 {0}
+Shielded	護盾中
+Shop	商店
+Signal device	訊號裝置
+Solo run	單人局
+Spawn first.	請先重生。
+Speed	速度
+Spread x{0}   Penetrate {1}   Ricochet {2}   Extra pellets {3}	散佈 x{0}　穿透 {1}　跳彈 {2}　額外彈丸 {3}
+Squad	小隊
+Stage bounty	本關賞金
+Stage time	本關時間
+Supply crate	補給箱
+Supply drone	補給無人機
+TAB / Esc: close   Q / E: switch tab   Wallet ${0}	TAB / Esc：關閉　Q / E：切換頁籤　錢包 ${0}
+TAB: overview	TAB：總覽
+Target	目標
+The shop opens between stages.	商店在關卡之間開放。
+Tier {0}/{1}   Body x{2}   Head x{3}	階級 {0}/{1}　身體 x{2}　頭部 x{3}
+Tier {0}/{1}   Jump height x{2}	階級 {0}/{1}　跳躍高度 x{2}
+Tier {0}/{1}   Reserve {2}   Reload time x{3}	階級 {0}/{1}　備彈 {2}　換彈時間 x{3}
+Tier {0}/{1}   {2}	階級 {0}/{1}　{2}
+Ultimate	絕招
+Vent {0}	通風閥 {0}
+Wallet	錢包
+Wallet ${0}   Kills {1}   HS {2}   Deaths {3}   Rescues {4}	錢包 ${0}　擊殺 {1}　爆頭 {2}　死亡 {3}　救援 {4}
+Wallet ${0}   Rerolls {1}	錢包 ${0}　重抽 {1}
+Waves {0}   Cap {1}   Enemy tier {2}	波數 {0}　同時上限 {1}　敵人階級 {2}
+You	你
+{0} left	剩 {0} 次
+{0} players   Team earned ${1}	{0} 名玩家　團隊已賺 ${1}
+Player	玩家
+Run	本局
+TAB or Esc closes   Q or E switches tabs   Wallet ${0}	TAB 或 Esc 關閉　Q 或 E 切換頁籤　錢包 ${0}

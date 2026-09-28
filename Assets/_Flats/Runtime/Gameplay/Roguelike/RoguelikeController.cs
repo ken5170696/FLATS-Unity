@@ -47,6 +47,7 @@ public partial class RoguelikeController : MonoBehaviour
         // live counters (enemies alive, ultimate charge) change without a state broadcast
         hudRefresh -= Time.deltaTime;
         if (hudRefresh <= 0 && runStarted) { hudRefresh = 0.5f; RefreshHud(); }
+        TickOverview();
     }
 
     void OnDestroy()
@@ -79,6 +80,8 @@ public partial class RoguelikeController : MonoBehaviour
         if (ambientObject != null) ambient = ambientObject.GetComponents<AudioSource>();
         sceneReady = true;
         SetupMusic();
+        hudView = RogueHudView.Open(hud);
+        if (hudView != null) scoreText.enabled = false;   // the roguelike HUD replaces the legacy score line
 
         // Wait for the local player: legacy Singleplayer/Multiplayer Start spawns Flatman.
         float wait = 0;

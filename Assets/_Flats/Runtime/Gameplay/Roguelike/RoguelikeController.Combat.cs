@@ -29,7 +29,11 @@ public partial class RoguelikeController
         while (!leaving)
         {
             if (state == null) { yield return null; continue; }
-            if (IsAuthority && machine != null) AuthorityTick(Time.deltaTime);
+            if (IsAuthority && machine != null)
+            {
+                try { AuthorityTick(Time.deltaTime); }
+                catch (Exception ex) { Debug.LogException(ex); }   // one bad frame must not stop the run for every player
+            }
             yield return null;
         }
     }
@@ -129,7 +133,8 @@ public partial class RoguelikeController
             while (AliveEnemies >= state.encounter.concurrentCap && state.phase == RunPhase.Combat) yield return new WaitForSeconds(0.5f);
             if (state.phase != RunPhase.Combat) break;
             int instanceId = machine.InstanceIdFor(waveIndex, i);
-            SpawnEnemy(instanceId, wave.roles[i], wave.elite[i], ref lastPoint);
+            try { SpawnEnemy(instanceId, wave.roles[i], wave.elite[i], ref lastPoint); }
+            catch (Exception ex) { Debug.LogException(ex); }
             yield return new WaitForSeconds(0.6f);
         }
         spawning = false;
@@ -219,6 +224,21 @@ public partial class RoguelikeController
 
     // ---------------------------------------------------------------- objective (stage 1 slice: Clear; others plug in via RogueObjectiveRunner)
     RogueObjectiveRunner objectiveRunner;
+#if UNITY_EDITOR
+    public RogueObjectiveRunner DebugObjectiveRunner { get { return objectiveRunner; } }
+    /// <summary>Validation only: ends the current combat as cleared (remaining waves skipped, live enemies killed).</summary>
+    public void DebugSkipStage()
+    {
+        if (!IsAuthority || state == null || state.phase != RunPhase.Combat) return;
+        nextWave = state.encounter.waves.Length; spawning = false; objectiveDone = true;
+        foreach (var e in new List<RogueEnemyRole>(liveEnemies.Values))
+        {
+            if (e == null) continue;
+            e.Invulnerable = false;
+            var d = e.GetComponent<DamageReceiver>(); if (d != null) d.ApplyDamage(999999f, 0, transform);
+        }
+    }
+#endif
 
     void StartObjective()
     {
@@ -381,7 +401,7 @@ public partial class RoguelikeController
         if (state == null) return "";
         var me = LocalPlayer;
         string outcome = T(state.end == RunEnd.Evacuated ? "Evacuated" : state.end == RunEnd.Wiped ? "Squad wiped" : "Run ended");
-        string mine = me != null ? "\n" + T("Earned {0}  Kills {1}  Headshots {2}", RogueMoney.Format(me.earnedMinor), me.kills, me.headshots) : "";
+        string mine = me != null ? "\n" + T("Earned {0}  Kills {1}  Headshots {2}", "$" + RogueMoney.Format(me.earnedMinor), me.kills, me.headshots) : "";
         return outcome + "\n" + T("Chapter {0}  Stage {1}  Depth {2}", state.Chapter, RogueDepth.StageInChapter(state.depth), state.deepestDepth) + mine;
     }
 

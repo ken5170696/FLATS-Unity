@@ -240,7 +240,7 @@ public class RoguePlayer : MonoBehaviour
 
     public void OnLanded() { airJumpsLeft = Stats.DoubleJump ? 1 : 0; }
 
-    float MaxHealth() { return 1000f * (1f + Menu.myCharacter.defense * 0.1f) * (float)Stats.HealthMul; }
+    public float MaxHealth() { return 1000f * (1f + Menu.myCharacter.defense * 0.1f) * (float)Stats.HealthMul; }
 
     public void OnKill(Transform victim, bool headshot)
     {
@@ -270,6 +270,7 @@ public class RoguePlayer : MonoBehaviour
     // ---------------------------------------------------------------- abilities (local owner)
     void Update()
     {
+        if (!isMine) SyncWaypoint();   // teammates' copies carry the revive marker; my own is never shown
         if (!isMine || controller == null) return;
         if (ultimateActive != "" && Time.time >= ultimateUntil) EndUltimate();
         var cc = GetComponent<CharacterController>();
@@ -305,7 +306,7 @@ public class RoguePlayer : MonoBehaviour
         float duration = id == "ult.lethal_shot" || id == "ult.invincible" ? 5f : id == "ult.emergency_revive" ? 0f : 8f;
         if (duration <= 0) return;
         ultimateActive = id;
-        ultimateUntil = Time.time + duration;
+        ultimateUntil = Time.time + duration; ultimateDuration = duration;
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null) ctrl.Banner(RoguelikeController.ItemName(id) + "!", 2f);
         if (id == "ult.enemy_sight") RogueEnemyRole.SetOutlines(true, transform.position, 80f);
@@ -315,6 +316,45 @@ public class RoguePlayer : MonoBehaviour
     {
         if (ultimateActive == "ult.enemy_sight") RogueEnemyRole.SetOutlines(false, Vector3.zero, 0);
         ultimateActive = "";
+    }
+
+    // ---------------------------------------------------------------- HUD readouts
+    /// <summary>0..1 readiness of the equipped tactical (1 = usable now).</summary>
+    public float TacticalReadiness
+    {
+        get
+        {
+            if (Stats.Dash) return dashCharges > 0 ? 1f : Mathf.Clamp01(1f - (dashCooldownUntil - Time.time) / Mathf.Max(0.1f, 6f * (float)Stats.DashCooldownMul));
+            if (Stats.Shield) return Time.time >= shieldCooldownUntil ? 1f : Mathf.Clamp01(1f - (shieldCooldownUntil - Time.time) / 12f);
+            if (Stats.DoubleJump) return airJumpsLeft > 0 ? 1f : 0.35f;
+            return 0f;
+        }
+    }
+    /// <summary>Short value shown on the tactical slot (dash charges, shield active).</summary>
+    public string TacticalValue
+    {
+        get
+        {
+            if (Stats.Dash) return dashCharges + "/" + Stats.DashCharges;
+            if (Stats.Shield) return Time.time < shieldUntil ? Mathf.CeilToInt(shieldUntil - Time.time) + "s" : "";
+            return "";
+        }
+    }
+    public bool TacticalActive { get { return (Stats.Shield && Time.time < shieldUntil) || (Stats.Dash && Time.time < dashCooldownUntil - 5.5f * (float)Stats.DashCooldownMul); } }
+    public bool UltimateActive { get { return ultimateActive != ""; } }
+    public float UltimateRemaining { get { return ultimateActive == "" ? 0f : Mathf.Clamp01((ultimateUntil - Time.time) / ultimateDuration); } }
+    float ultimateDuration = 8f;
+    /// <summary>Downed teammates carry a revive waypoint; the local player's own marker is never shown.</summary>
+    RogueWaypoint downedWaypoint;
+    void SyncWaypoint()
+    {
+        if (Downed && downedWaypoint == null) { downedWaypoint = RogueWaypoint.Attach(gameObject, "Medkit", "Revive {0}|" + DisplayName(), new Color(1f, 0.35f, 0.45f), 1.6f, 5); downedWaypoint.Pulse = true; }
+        else if (!Downed && downedWaypoint != null) { RogueWaypoint.Detach(gameObject); downedWaypoint = null; }
+    }
+    public string DisplayName()
+    {
+        var ctrl = RoguelikeController.Instance; var me = ctrl != null && ctrl.State != null ? ctrl.State.Player(Key) : null;
+        return me != null && !string.IsNullOrEmpty(me.name) ? me.name : gameObject.name;
     }
 
     public bool LethalShot { get { return ultimateActive == "ult.lethal_shot"; } }

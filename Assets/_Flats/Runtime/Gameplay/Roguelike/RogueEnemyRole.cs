@@ -23,7 +23,7 @@ public class RogueEnemyRole : MonoBehaviour
     [System.NonSerialized] public float lastHitDamage;
     public bool Invulnerable;
     bool huntMarked;
-    public bool HuntMarked { get { return huntMarked; } set { huntMarked = value; if (value) { var g = new GameObject("HuntMark"); g.transform.SetParent(transform, false); AddQuad(g, new Material(Shader.Find("Unlit/Color")), new Color(1f, 0.85f, 0.2f), new Vector3(0, 4.2f, 0), new Vector3(1.2f, 1.2f, 1), 45); foreach (var r in g.GetComponentsInChildren<Renderer>()) r.gameObject.layer = gameObject.layer; } } }
+    public bool HuntMarked { get { return huntMarked; } set { huntMarked = value; if (value) { RogueWaypoint.Attach(gameObject, "Sight", "Marked elite", new Color(1f, 0.85f, 0.2f), 2.6f, 3); var g = new GameObject("HuntMark"); g.transform.SetParent(transform, false); AddQuad(g, RogueWorld.Unlit(Color.white), new Color(1f, 0.85f, 0.2f), new Vector3(0, 4.2f, 0), new Vector3(1.2f, 1.2f, 1), 45); foreach (var r in g.GetComponentsInChildren<Renderer>()) r.gameObject.layer = gameObject.layer; } } }
     float markedUntil, slowUntil, slowScale = 1f;
     RoguePlayer markedBy;
     public bool Marked { get { return Time.time < markedUntil; } }
@@ -36,7 +36,7 @@ public class RogueEnemyRole : MonoBehaviour
         {
             markVisual = new GameObject("Mark");
             markVisual.transform.SetParent(transform, false);
-            AddQuad(markVisual, new Material(Shader.Find("Unlit/Color")), new Color(1f, 0.35f, 0.7f), new Vector3(0, 3.3f, 0), new Vector3(0.7f, 0.7f, 1), 45);
+            AddQuad(markVisual, RogueWorld.Unlit(Color.white), new Color(1f, 0.35f, 0.7f), new Vector3(0, 3.3f, 0), new Vector3(0.7f, 0.7f, 1), 45);
             foreach (var r in markVisual.GetComponentsInChildren<Renderer>()) r.gameObject.layer = gameObject.layer;
         }
         markVisual.SetActive(true);
@@ -122,7 +122,7 @@ public class RogueEnemyRole : MonoBehaviour
         if (string.IsNullOrEmpty(kind) && !Elite) return;
         marker = new GameObject("RoleMarker");
         marker.transform.SetParent(transform, false);
-        var mat = new Material(Shader.Find("Unlit/Color"));
+        var mat = RogueWorld.Unlit(Color.white);
         Color c = Elite ? new Color(1f, 0.85f, 0.2f) : new Color(0.95f, 0.95f, 0.95f);
         switch (kind)
         {
@@ -168,7 +168,7 @@ public class RogueEnemyRole : MonoBehaviour
         {
             outline = new GameObject("SightOutline");
             outline.transform.SetParent(transform, false);
-            var mat = new Material(Shader.Find("Unlit/Color"));
+            var mat = RogueWorld.Unlit(Color.white);
             AddQuad(outline, mat, new Color(1f, 0.35f, 0.7f), new Vector3(0, 1.4f, 0), new Vector3(1.4f, 3.0f, 1), 0);
             foreach (var r in outline.GetComponentsInChildren<Renderer>()) { r.gameObject.layer = LayerMask.NameToLayer("Default"); r.material.renderQueue = 4000; }
         }

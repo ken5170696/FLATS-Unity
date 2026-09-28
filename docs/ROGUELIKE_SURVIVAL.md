@@ -21,6 +21,15 @@ a personal shop, builds, events and chapter routes.
   and a 20% wallet tax. If nobody is alive (and no Emergency Revive is armed) the run ends.
 - **Controls**: everything Classic uses, plus *Ultimate* (default `F` / left bumper) and
   *Tactical* (default `C` / D-pad down). Both are rebindable in Settings › Control.
+- **HUD**: top-left chips (stage, wallet, enemies alive), the objective panel (icon, name,
+  progress, event and emergency lines), a boss bar for finale targets, ability slots (tactical
+  and ultimate with cooldown/charge fill and the bound key) and a squad list. Every objective
+  or event prop, finale enemy, marked elite and downed teammate shows a **waypoint**: an icon
+  with its distance in metres, clamped to the screen edge with an arrow when off screen.
+- **TAB overview**: `Tab` (pad *Back*) opens a tabbed panel — *Shop* (buy during prep),
+  *Player* (health, stats, cores, mods, ultimate charge), *Squad* (every player's state and
+  wallet), *Weapons* (both guns with the build's multipliers applied) and *Run* (stage, map,
+  route, budget, checkpoint). `Q`/`E`, `1`–`5` or the bumpers switch tabs; `Tab`/`Esc` close it.
 - **Checkpoints**: written only at safe boundaries (a stage's Prep, or the chapter shop).
   `Play › Roguelike › Continue` resumes the last checkpoint. The Classic profile and its
   scores are never touched.
@@ -54,6 +63,10 @@ the per-player budget at about 7× the chapter-1 value.
 | Unity adapters | `Assets/_Flats/Runtime/Gameplay/Roguelike/` | `RoguelikeController` (on the SingleplayerController prefab), `RoguePlayer`, `RogueEnemyRole`, hooks, transport, save store |
 | Menu entry | `Assets/_Flats/Runtime/UI/Menu.Roguelike.cs` | Play page tile and the mode page |
 | Screens | `Assets/Resources/UI/Roguelike/RogueScreen.prefab`, `RogueOfferRow.prefab` | authored uGUI; `RogueScreenView` binds them |
+| HUD | `Assets/Resources/UI/Roguelike/RogueHud.prefab` (`RogueHudView`, squad row and waypoint templates inside) | instantiated under the gameplay `UI` canvas when a run starts; `RogueWaypoint` components on world objects feed the markers |
+| TAB overview | `Assets/Resources/UI/Roguelike/RogueOverview.prefab`, `RogueStatRow.prefab` | `RogueOverviewView` (tabs, rows); `RoguelikeController.Overview.cs` fills the tabs |
+| Icons | `Assets/Resources/UI/Roguelike/RogueIconSet.prefab`, sprites in `Assets/_Flats/Art/UI/Textures/` (+ `Roguelike/`) | `RogueIcons` looks sprites up by file name; add a sprite to the set to use it |
+| World props | `Assets/Resources/UI/Roguelike/RogueFlat.mat` | the flat material objective props and enemy markers instantiate (FLATS "Texture Only" shader, so it ships in players) |
 | Text | `Assets/Resources/FlatsChinese.txt` | every string is an English key with a Chinese entry |
 
 Mode identity: `Singleplayer.rule == 5` (solo) or `Multiplayer.rule == 9` (co-op), read through
@@ -72,5 +85,9 @@ do not read any of the mode's state.
 - **Map candidate points**: objectives use the map's `SpawnPoints`, `WayPoints` and `PhaseSkippers`
   transforms as candidates and filter them by NavMesh reachability at runtime; Warehouse and
   NightLand carry the `droplinks` tag so one-way-drop content is excluded there.
+- **UI**: the prefabs above are the authoring source — edit them in the Prefab stage (fonts,
+  colours, spacing, anchors). Views only bind text, sprites and fill amounts; they never rebuild
+  the tree. To give a new prop a waypoint call `RogueWaypoint.Attach(go, iconName, labelKey,
+  tint, height, priority)`; the label key is translated per client.
 - **Balance**: `tools/unity-validation/roguelike-tests` (private) runs the pure rules and a fixed-seed
   economy simulation for 1/2/4 players and several headshot rates.

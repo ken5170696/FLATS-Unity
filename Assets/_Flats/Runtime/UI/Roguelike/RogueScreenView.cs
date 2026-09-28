@@ -15,7 +15,11 @@ public class RogueScreenView : MonoBehaviour
     public ScrollRect scroll;
     public Button primary, secondary;
     public RogueOfferRowView rowTemplate;
-    public Image paper;
+    public Image paper, titleIcon, walletIcon, primaryIcon, secondaryIcon;
+    public Text walletText;
+
+    /// <summary>True while the TAB overview sits on top; the screen then leaves focus handling to it.</summary>
+    public static bool Suspended;
 
     const string ScreenState = "RogueScreen";
     string previousState;
@@ -69,10 +73,15 @@ public class RogueScreenView : MonoBehaviour
         Destroy(gameObject);
     }
 
-    public void SetTitle(string heading, string sub)
+    public void SetTitle(string heading, string sub) { SetTitle("Stage", heading, sub, null); }
+
+    public void SetTitle(string iconName, string heading, string sub, string wallet)
     {
         if (title != null) title.text = heading;
         if (subtitle != null) subtitle.text = sub;
+        RogueIcons.Apply(titleIcon, iconName);
+        if (walletText != null) { walletText.text = wallet ?? ""; walletText.gameObject.SetActive(!string.IsNullOrEmpty(wallet)); }
+        if (walletIcon != null) { RogueIcons.Apply(walletIcon, "Coin"); walletIcon.gameObject.SetActive(!string.IsNullOrEmpty(wallet)); }
     }
 
     public void ClearRows()
@@ -89,42 +98,39 @@ public class RogueScreenView : MonoBehaviour
 
     public RogueOfferRowView AddRow(string name, string effect, string price, string rarity, string actionText, bool interactable, string status, Action onAction)
     {
+        return AddRow("", name, effect, price, rarity, actionText, interactable, status, onAction);
+    }
+
+    public RogueOfferRowView AddRow(string iconName, string name, string effect, string price, string rarity, string actionText, bool interactable, string status, Action onAction)
+    {
         if (rowTemplate == null || rowsContent == null) return null;
         var row = Instantiate(rowTemplate, rowsContent, false);
         row.gameObject.SetActive(true);
         row.name = "Row-" + name;
-        if (row.title != null) row.title.text = name;
-        if (row.effect != null) row.effect.text = effect;
-        if (row.price != null) row.price.text = price;
-        if (row.rarity != null) row.rarity.text = rarity;
-        if (row.status != null) row.status.text = status;
-        if (row.actionLabel != null) row.actionLabel.text = actionText;
-        if (row.action != null)
-        {
-            row.action.gameObject.SetActive(!string.IsNullOrEmpty(actionText));
-            row.action.interactable = interactable;
-            row.action.onClick.RemoveAllListeners();
-            row.action.onClick.AddListener(() => { PlayPress(); if (onAction != null) onAction(); });
-        }
-        if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject == null && interactable && row.action != null)
-            EventSystem.current.SetSelectedGameObject(row.action.gameObject);
+        RogueOfferRowView.Bind(row, iconName, name, effect, price, rarity, actionText, interactable, status, onAction, PlayPress);
         return row;
     }
 
     public void SetFooter(string primaryText, Action onPrimary, string secondaryText, Action onSecondary, string note)
     {
-        Bind(primary, primaryLabel, primaryText, onPrimary);
-        Bind(secondary, secondaryLabel, secondaryText, onSecondary);
+        SetFooter(primaryText, "Check", onPrimary, secondaryText, "Quit", onSecondary, note);
+    }
+
+    public void SetFooter(string primaryText, string primaryIconName, Action onPrimary, string secondaryText, string secondaryIconName, Action onSecondary, string note)
+    {
+        Bind(primary, primaryLabel, primaryIcon, primaryText, primaryIconName, onPrimary);
+        Bind(secondary, secondaryLabel, secondaryIcon, secondaryText, secondaryIconName, onSecondary);
         if (footerNote != null) footerNote.text = note ?? "";
     }
 
-    void Bind(Button button, Text label, string text, Action action)
+    void Bind(Button button, Text label, Image icon, string text, string iconName, Action action)
     {
         if (button == null) return;
         bool show = !string.IsNullOrEmpty(text);
         button.gameObject.SetActive(show);
         if (!show) return;
         if (label != null) label.text = text;
+        if (icon != null) { RogueIcons.Apply(icon, iconName); icon.gameObject.SetActive(icon.sprite != null); }
         button.onClick.RemoveAllListeners();
         button.onClick.AddListener(() => { PlayPress(); if (action != null) action(); });
     }
@@ -141,6 +147,7 @@ public class RogueScreenView : MonoBehaviour
     {
         // Menu.Start re-enables the HUD canvas about a second after a scene loads; the screen stays on top until it closes.
         if (hudCanvas != null && hudCanvas.enabled) hudCanvas.enabled = false;
+        if (Suspended) return;   // the TAB overview owns input and focus while it is open
         // Escape / pad Cancel steps out of the shop during Prep (reopen with Interact); the pause menu is reachable from there.
         var pad = InControl.InputManager.ActiveDevice;
         if (Input.GetKeyDown(KeyCode.Escape) || (pad != null && pad.Action2.WasPressed))
