@@ -63,6 +63,7 @@ public sealed class ModuleSettingsForm : MonoBehaviour
             views.Add(view);
         }
         if (scroll != null) { Canvas.ForceUpdateCanvases(); scroll.verticalNormalizedPosition = 1; }
+        var presetButtons = new List<Button>();
         if (presets != null && presetTemplate != null)
         {
             presetTemplate.gameObject.SetActive(false);
@@ -76,7 +77,44 @@ public sealed class ModuleSettingsForm : MonoBehaviour
                 button.GetComponentInChildren<Text>().text = preset.name;
                 var chosen = preset;
                 button.onClick.AddListener(() => Replace(ModuleSettingsSchema.Apply(specs, Draft, chosen)));
+                presetButtons.Add(button);
             }
+        }
+        LinkNavigation(presetButtons);
+    }
+
+    // Explicit up/down links between rows (automatic navigation skipped sliders and jumped from a row
+    // to the preset buttons because the next rows were scrolled out of view). Left/right move between a
+    // row's two buttons; sliders keep left/right for their value (explicit links stay null there).
+    void LinkNavigation(List<Button> presetButtons)
+    {
+        var primaries = new List<Selectable>();
+        var secondaries = new List<Selectable>();
+        foreach (var view in views)
+        {
+            var primary = view.Primary;
+            if (primary == null || !primary.gameObject.activeInHierarchy) continue;
+            primaries.Add(primary); secondaries.Add(view.Secondary);
+        }
+        Selectable firstPreset = presetButtons.Count > 0 ? presetButtons[0] : null;
+        Selectable lastPrimary = primaries.Count > 0 ? primaries[primaries.Count - 1] : null;
+        for (int i = 0; i < primaries.Count; i++)
+        {
+            var up = i > 0 ? primaries[i - 1] : null;
+            var down = i + 1 < primaries.Count ? primaries[i + 1] : firstPreset;
+            var primary = primaries[i]; var secondary = secondaries[i];
+            primary.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = up, selectOnDown = down, selectOnRight = secondary, wrapAround = false };
+            if (secondary != null)
+                secondary.navigation = new Navigation { mode = Navigation.Mode.Explicit, selectOnUp = up, selectOnDown = down, selectOnLeft = primary, wrapAround = false };
+        }
+        for (int i = 0; i < presetButtons.Count; i++)
+        {
+            presetButtons[i].navigation = new Navigation
+            {
+                mode = Navigation.Mode.Explicit, selectOnUp = lastPrimary, wrapAround = false,
+                selectOnLeft = i > 0 ? presetButtons[i - 1] : null, selectOnRight = i + 1 < presetButtons.Count ? presetButtons[i + 1] : null,
+                selectOnDown = presetButtons[i].navigation.selectOnDown,
+            };
         }
     }
 
@@ -84,6 +122,13 @@ public sealed class ModuleSettingsForm : MonoBehaviour
 
     void Set(string id, string value)
     {
+        // A choice setting named "preset" whose value is a declared preset id applies that preset, so the
+        // row's arrows and the preset buttons produce the same draft.
+        if (id == "preset")
+        {
+            var preset = presetList.FirstOrDefault(p => p.id == value);
+            if (preset != null) { Replace(ModuleSettingsSchema.Apply(specs, Draft, preset)); return; }
+        }
         Replace(ModuleSettingsSchema.Normalize(specs, Draft.Where(v => v.id != id).Append(new SettingValue { id = id, value = value })));
     }
 

@@ -66,6 +66,19 @@ public sealed class ModuleSettingRowView : MonoBehaviour
     string shown;
     string Show() { return shown; }
 
+    // The control a controller lands on for this row, and the optional second control to its right.
+    public Selectable Primary
+    {
+        get
+        {
+            if (spec == null) return null;
+            if (spec.type == "int" || spec.type == "float") return slider;
+            if (spec.type == "bool") return toggle;
+            return previous;
+        }
+    }
+    public Selectable Secondary => spec != null && (spec.type == "choice" || spec.type == "color") ? next : null;
+
     public void Show(string current)
     {
         shown = current; binding = true;
