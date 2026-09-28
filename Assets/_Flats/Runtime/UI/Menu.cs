@@ -396,9 +396,9 @@ public partial class Menu : MonoBehaviour
         if (syncExplanation != null)
         {
 #if UNITY_WEBGL && !UNITY_EDITOR
-            syncExplanation.GetComponent<Text>().text = "Save files: Export on source; Import old save here.\nPreview before replacing the current save.\n\nBrowsers cannot use UDP LAN Sync.\nUse save files to transfer your progress.\n\nLegacy cloud restoration is unavailable.\nThe ID/Receive entry cannot recover old cloud data.";
+            syncExplanation.GetComponent<Text>().text = "Export a save file here, then use Import old save on the other device.\nBrowsers cannot use LAN Sync; use save files instead.\nLegacy cloud data cannot be restored.";
 #else
-            syncExplanation.GetComponent<Text>().text = "Save files: Export on source; Import old save here.\nPreview before replacing the current save.\n\nLAN Sync (native builds, same network):\nOpen source first, then receiver; confirm scores.\nOnly ID + scores transfer, not gameplay.\n\nLegacy cloud restoration is unavailable.\nThe ID/Receive entry cannot recover old cloud data.";
+            syncExplanation.GetComponent<Text>().text = "Export a save file here, then use Import old save on the other device.\nLAN Sync (native builds, same network): open the source first, then the receiver.\nLegacy cloud data cannot be restored.";
 #endif
         }
 		anim = GetComponent<Animator>();
@@ -532,6 +532,7 @@ public partial class Menu : MonoBehaviour
 				adFree = false;
 				version = text;
 				SaveDataController.Save();
+				Flats.Account.FlatsAccountService.NoteFreshProfile();
 				Debug.Log("This is the first play.");
 				update.transform.GetChild(1).GetComponent<Text>().text = "FLATS " + text + " preview";
 				update.transform.GetChild(2).GetComponent<Text>().text = "Welcome to FLATS.\nSingleplayer and Photon online play.\nOnline play requires an internet connection.";
@@ -669,6 +670,8 @@ public partial class Menu : MonoBehaviour
 		{
 			adForWin.Visible = false;
 		}
+		// Profile is loaded: restore a cached cloud session silently and reconcile.
+		Flats.Account.FlatsAccountService.OnMainMenuReady();
 		version = FlatsPreferences.GetString("version");
 		currentSurvivalScore = myCurrent.survival_Score;
 		currentSurvivalPhase = myCurrent.survival_Phase;

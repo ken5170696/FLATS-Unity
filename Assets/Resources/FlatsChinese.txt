@@ -1026,3 +1026,53 @@ The download could not be installed. Try again or check with your catalogue prov
 Technical details	技術細節
 Package not found or exceeds 64 MB.	找不到套件，或套件超過 64 MB。
 Missing or oversized manifest.json.	缺少 manifest.json，或該檔案過大。
+Account	帳號
+Cloud account not configured	尚未設定雲端帳號
+This build has no Unity Cloud project, so saves stay on this device.	這個版本沒有連結 Unity Cloud 專案，存檔只保留在這台裝置。
+Cloud account unavailable	雲端帳號無法使用
+Verification mode keeps saves local.	驗證模式下存檔只保留在本機。
+Signing in...	登入中…
+Finish signing in with Google in your browser, then return here.	請在瀏覽器中完成 Google 登入，再回到這裡。
+Syncing...	同步中…
+Signed in	已登入
+Signed in as {0}	已登入：{0}
+Last sync: {0}	上次同步：{0}
+Your save syncs to this account.	你的存檔會同步到這個帳號。
+Sync problem: {0}	同步發生問題：{0}
+Sign-in failed	登入失敗
+Not signed in	尚未登入
+Sign in with Google to keep your profile, progress and settings on every device.	使用 Google 登入，讓個人檔案、進度與設定在每台裝置上都能保留。
+Sign in with Google	使用 Google 登入
+Sign out	登出
+Sync now	立即同步
+Session expired. Sign in again to keep syncing.	登入已過期，請重新登入以繼續同步。
+Cloud save is ready; it will be applied on the main menu.	雲端存檔已就緒，回到主選單後套用。
+Which save do you want to keep?	要保留哪一份存檔？
+This device and your account have different saves.	這台裝置與你的帳號有不同的存檔。
+Cloud: {0}, {1} kills, survival {2}, saved {3}	雲端：{0}，{1} 次擊殺，生存 {2}，儲存於 {3}
+This device: {0}, {1} kills, survival {2}	這台裝置：{0}，{1} 次擊殺，生存 {2}
+Use cloud replaces this device's save (a backup is kept). Keep device uploads this save to the cloud.	「使用雲端」會取代這台裝置的存檔（會保留備份）；「保留本機」會把這份存檔上傳到雲端。
+Use cloud	使用雲端
+Keep device	保留本機
+unknown time	時間不明
+Upload this device's save?	要上傳這台裝置的存檔嗎？
+This device last synced with a different account.	這台裝置上次是與另一個帳號同步。
+Upload keeps it as this account's cloud save. Not now leaves the cloud empty; the device save is unchanged.	「上傳」會把它作為這個帳號的雲端存檔；「暫不」則雲端維持空白，裝置存檔不變。
+Not now	暫不
+Google sign-in is not available in the browser version yet. Use Export save and Import old save to move progress.	瀏覽器版本目前無法使用 Google 登入。請用「匯出存檔／匯入舊存檔」轉移進度。
+Export a save file here, then use Import old save on the other device.	在這裡匯出存檔，再到另一台裝置使用「匯入舊存檔」。
+Browsers cannot use LAN Sync; use save files instead.	瀏覽器無法使用區域網路同步，請改用存檔檔案。
+LAN Sync (native builds, same network): open the source first, then the receiver.	區域網路同步（原生版本、同一網路）：先開啟來源裝置，再開啟接收裝置。
+Legacy cloud data cannot be restored.	舊版雲端資料無法還原。
+Sign-in timed out. Try again.	登入逾時，請再試一次。
+The sign-in token could not be read.	無法讀取登入憑證。
+The sign-in token was not issued by Google.	登入憑證不是由 Google 核發。
+The sign-in token belongs to a different app.	登入憑證屬於其他應用程式。
+The sign-in token does not match this sign-in attempt.	登入憑證與這次登入不符。
+The sign-in token has expired.	登入憑證已過期。
+Google sign-in failed.	Google 登入失敗。
+Google did not return a sign-in token.	Google 沒有回傳登入憑證。
+Google sign-in script could not be loaded.	無法載入 Google 登入元件。
+The sign-in reply does not match this attempt.	登入回應與這次登入不符。
+The sign-in reply has no token.	登入回應沒有憑證。
+Unexpected callback path.	登入回應路徑不正確。
