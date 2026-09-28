@@ -178,6 +178,8 @@ public class RogueHudView : MonoBehaviour
                 pos = dir * scale;
                 angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
             }
+            // keep markers out of the objective panel band at the top centre (the panel is authored 320 wide under the top edge)
+            if (Mathf.Abs(pos.x) < 200f && pos.y > half.y - 112f) pos.y = half.y - 112f;
             if (m.rect != null) m.rect.anchoredPosition = pos;
             if (m.arrow != null) { m.arrow.gameObject.SetActive(!onScreen); if (m.arrowRect != null) m.arrowRect.localRotation = Quaternion.Euler(0, 0, angle); }
             if (m.icon != null && (m.icon.sprite == null || m.icon.sprite.name != wp.Icon)) RogueIcons.Apply(m.icon, wp.Icon);
