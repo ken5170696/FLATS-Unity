@@ -23,7 +23,7 @@ public sealed class ScopeViewPresenter : MonoBehaviour
     public float OverlayDiameter { get; private set; }
     public bool OverlayActive { get { return overlay != null; } }
 
-    Transform mask;
+    Transform mask, anchor;
     Vector3 authoredMaskScale;
     Camera sightCamera, eye;
     float authoredFieldOfView, requested, baseFraction, lookScale = 1f;
@@ -67,7 +67,7 @@ public sealed class ScopeViewPresenter : MonoBehaviour
 
     void Initialize(Transform anchor, Transform maskTransform, Camera camera, Camera eyeCamera, FlatsSightTarget sightTarget, float scale, int textureScale, bool useOverlay)
     {
-        mask = maskTransform; authoredMaskScale = mask.localScale;
+        mask = maskTransform; authoredMaskScale = mask.localScale; this.anchor = anchor;
         sightCamera = camera; authoredFieldOfView = camera.fieldOfView;
         eye = eyeCamera; target = sightTarget; requested = scale;
         // Lens diameter on screen at the authored scale. The mask is a flat disc facing the
@@ -123,7 +123,21 @@ public sealed class ScopeViewPresenter : MonoBehaviour
             // Same on-screen diameter the world-space lens would have at this scale.
             OverlayDiameter = baseFraction * height * AppliedScale;
             overlay.Layout(OverlayDiameter, target != null ? target.Target : null);
+            if (overlay.image != null) overlay.image.uvRect = WorldLensUv();
         }
+    }
+
+    // The authored world-space lens canvas may be mounted rotated or facing backwards; the
+    // sight camera's image roll compensates for that on the world lens. The overlay samples
+    // the same texture directly, so it mirrors each axis the world lens shows reversed
+    // relative to the eye pose, and therefore looks exactly like the world lens did.
+    Rect WorldLensUv()
+    {
+        var worldImage = mask != null ? mask.GetComponentInChildren<RawImage>(true) : null;
+        if (worldImage == null || anchor == null) return new Rect(0, 0, 1, 1);
+        bool flipX = Vector3.Dot(worldImage.transform.right, anchor.right) < 0f;
+        bool flipY = Vector3.Dot(worldImage.transform.up, anchor.up) < 0f;
+        return new Rect(flipX ? 1f : 0f, flipY ? 1f : 0f, flipX ? -1f : 1f, flipY ? -1f : 1f);
     }
 
     void LateUpdate()
