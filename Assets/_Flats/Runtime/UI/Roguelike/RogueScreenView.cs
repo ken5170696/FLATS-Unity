@@ -65,7 +65,7 @@ public class RogueScreenView : MonoBehaviour
         FPSController.enableCamRotate = previousCamRotate || Menu.current == "Playing";
         if (Menu.current == "Playing") { UnityEngine.Cursor.lockState = CursorLockMode.Locked; UnityEngine.Cursor.visible = false; }
         if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(previousSelection);
-        if (hudCanvas != null && hudWasEnabled) hudCanvas.enabled = true;
+        if (hudCanvas != null && (hudWasEnabled || Menu.current == "Playing")) hudCanvas.enabled = true;
         Destroy(gameObject);
     }
 
@@ -129,6 +129,8 @@ public class RogueScreenView : MonoBehaviour
         button.onClick.AddListener(() => { PlayPress(); if (action != null) action(); });
     }
 
+    static bool confirmOpen() { var v = FindObjectOfType<ConfirmationDialogView>(); return v != null && v.gameObject.activeInHierarchy; }
+
     static void PlayPress()
     {
         var menu = Menu.Current;
@@ -139,8 +141,15 @@ public class RogueScreenView : MonoBehaviour
     {
         // Menu.Start re-enables the HUD canvas about a second after a scene loads; the screen stays on top until it closes.
         if (hudCanvas != null && hudCanvas.enabled) hudCanvas.enabled = false;
+        // Escape / pad Cancel steps out of the shop during Prep (reopen with Interact); the pause menu is reachable from there.
+        var pad = InControl.InputManager.ActiveDevice;
+        if (Input.GetKeyDown(KeyCode.Escape) || (pad != null && pad.Action2.WasPressed))
+        {
+            var ctrl = RoguelikeController.Instance;
+            if (ctrl != null && !confirmOpen()) { ctrl.DismissScreen(); return; }
+        }
         // Keep controller focus inside the screen; a stray click elsewhere must not strand the pad.
-        if (EventSystem.current == null) return;
+        if (EventSystem.current == null || confirmOpen()) return;
         var selected = EventSystem.current.currentSelectedGameObject;
         if (selected != null && selected.transform.IsChildOf(transform)) return;
         if (primary != null && primary.gameObject.activeInHierarchy && primary.interactable) { EventSystem.current.SetSelectedGameObject(primary.gameObject); return; }

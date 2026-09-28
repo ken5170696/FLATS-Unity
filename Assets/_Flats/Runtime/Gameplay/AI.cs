@@ -252,6 +252,18 @@ public class AI : MonoBehaviour
 						}
 					}
 				}
+				if (RoguelikeMode.Active)
+				{
+					// a planted lure pulls attention; a flanker prefers the player that is NOT the closest when there are several
+					var lure = RogueHooks.LureTarget();
+					if (lure != null) { targets.Remove(lure); targets.Insert(0, lure); closestEnemy = null; }
+					else if (roleFlanker && closestEnemy != null && targets.Count > 1)
+					{
+						Transform other = null;
+						foreach (Transform t in targets) if (t != null && t != closestEnemy && t.tag == "Player" && (other == null || Vector3.Distance(mt.position, t.position) < Vector3.Distance(mt.position, other.position))) other = t;
+						if (other != null) closestEnemy = other;
+					}
+				}
 				if (closestEnemy != null)
 				{
 					targets.RemoveAt(targets.IndexOf(closestEnemy));
@@ -1301,7 +1313,14 @@ public class AI : MonoBehaviour
 	{
 		if (target == null) return false;
 		float num = Vector3.Distance(mt.position, target.position);
-		return num < attackRange;
+		float range = attackRange;
+		if (RoguelikeMode.Active)
+		{
+			range *= RogueHooks.EnemyRangeScale();
+			// marksmen hold their distance: too close means "not in range" so they back off toward a farther waypoint (Search)
+			if (rolePreferredRange >= 80f && num < rolePreferredRange * 0.35f) return false;
+		}
+		return num < range;
 	}
 
 	private bool CanSeeTarget(Transform target)

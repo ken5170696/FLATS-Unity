@@ -17,9 +17,45 @@ public class RogueEnemyRole : MonoBehaviour
     static readonly List<RogueEnemyRole> all = new List<RogueEnemyRole>();
     static bool outlinesOn; static Vector3 outlineOrigin; static float outlineRange;
 
-    GameObject marker, outline;
+    GameObject marker, outline, markVisual;
     AI ai;
     bool applied;
+    [System.NonSerialized] public float lastHitDamage;
+    public bool Invulnerable;
+    bool huntMarked;
+    public bool HuntMarked { get { return huntMarked; } set { huntMarked = value; if (value) { var g = new GameObject("HuntMark"); g.transform.SetParent(transform, false); AddQuad(g, new Material(Shader.Find("Unlit/Color")), new Color(1f, 0.85f, 0.2f), new Vector3(0, 4.2f, 0), new Vector3(1.2f, 1.2f, 1), 45); foreach (var r in g.GetComponentsInChildren<Renderer>()) r.gameObject.layer = gameObject.layer; } } }
+    float markedUntil, slowUntil, slowScale = 1f;
+    RoguePlayer markedBy;
+    public bool Marked { get { return Time.time < markedUntil; } }
+    public RoguePlayer MarkedBy { get { return Marked ? markedBy : null; } }
+
+    public void Mark(float until, RoguePlayer by)
+    {
+        markedUntil = Mathf.Max(markedUntil, until); markedBy = by;
+        if (markVisual == null)
+        {
+            markVisual = new GameObject("Mark");
+            markVisual.transform.SetParent(transform, false);
+            AddQuad(markVisual, new Material(Shader.Find("Unlit/Color")), new Color(1f, 0.35f, 0.7f), new Vector3(0, 3.3f, 0), new Vector3(0.7f, 0.7f, 1), 45);
+            foreach (var r in markVisual.GetComponentsInChildren<Renderer>()) r.gameObject.layer = gameObject.layer;
+        }
+        markVisual.SetActive(true);
+    }
+
+    public void Slow(float until, float scale)
+    {
+        slowUntil = until; slowScale = Mathf.Clamp(scale, 0.2f, 1f);
+    }
+
+    void Update()
+    {
+        if (markVisual != null && markVisual.activeSelf && !Marked) markVisual.SetActive(false);
+        if (ai != null)
+        {
+            var agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+            if (agent != null && agent.enabled) { float baseSpeed = ai.defaultSpeed; if (Time.time < slowUntil) agent.speed = Mathf.Min(agent.speed, baseSpeed * slowScale); }
+        }
+    }
 
     public static RogueEnemyRole Attach(GameObject go, string roleId, int instanceId, bool elite)
     {
@@ -63,6 +99,8 @@ public class RogueEnemyRole : MonoBehaviour
     /// <summary>Shield bearers take reduced damage from the front (a readable, counterable weakness: flank them).</summary>
     public float ModifyIncomingDamage(float damage, Transform shooter)
     {
+        if (Invulnerable) return 0f;
+        if (Marked) damage *= 1.12f;
         if (Def == null || Def.FrontReduction <= 0 || shooter == null) return damage;
         Vector3 toShooter = shooter.position - transform.position; toShooter.y = 0;
         if (Vector3.Angle(transform.forward, toShooter) <= 60f) return damage * (1f - (float)Def.FrontReduction);

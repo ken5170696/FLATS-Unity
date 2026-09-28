@@ -16,6 +16,10 @@ public class RoguePlayer : MonoBehaviour
     public bool InfiniteAmmo { get { return ultimateActive == "ult.infinite_fire"; } }
     public bool Invincible { get { return ultimateActive == "ult.invincible"; } }
     public string ActiveUltimate { get { return ultimateActive; } }
+    public bool IsMine { get { return isMine; } }
+    public string Key { get { return KeyOfSelf(); } }
+    public bool Carrying;
+    public Flats.Core.Roguelike.EffectChainRules Chain { get; private set; }
 
     FPSController controller;
     DamageReceiver receiver;
@@ -23,6 +27,8 @@ public class RoguePlayer : MonoBehaviour
     string ultimateActive = "";
     float ultimateUntil;
     float bleedOut;
+    int downRequest, downAcked = -1, downRefused = -1;
+    PlayerLife authorityLife = PlayerLife.Alive; int lifeEpoch;
     int airJumpsLeft;
     float shieldHp, shieldUntil, shieldCooldownUntil, dashCooldownUntil;
     int dashCharges;
@@ -40,6 +46,7 @@ public class RoguePlayer : MonoBehaviour
     {
         Build = new PlayerBuild();
         Stats = BuildStats.Compute(Build);
+        Chain = new Flats.Core.Roguelike.EffectChainRules(Stats);
         controller = GetComponent<FPSController>();
         receiver = GetComponent<DamageReceiver>();
         isMine = Menu.network == 0 || (GetComponent<PhotonView>() != null && GetComponent<PhotonView>().isMine);
@@ -73,6 +80,7 @@ public class RoguePlayer : MonoBehaviour
         if (build == null) return;
         Build = build.Clone();
         Stats = BuildStats.Compute(Build);
+        Chain = new Flats.Core.Roguelike.EffectChainRules(Stats);
         if (controller == null) return;
         ApplyToGuns();
         dashCharges = Stats.DashCharges;
@@ -120,6 +128,7 @@ public class RoguePlayer : MonoBehaviour
         if (ctrl == null || ctrl.State == null) return false;
         var me = ctrl.LocalPlayer;
         bool selfRevive = me != null && me.build.ultimate == "ult.emergency_revive" && !me.reviveUsed && me.ultimateCharge >= 100;
+        if (authorityLife == PlayerLife.Dead || authorityLife == PlayerLife.Spectating) return false;   // the authority already ruled this player dead
         if (Menu.network == 0 && !selfRevive) return false;   // solo: death (the controller ends the run)
         if (Menu.network == 0 && selfRevive)
         {
@@ -132,7 +141,8 @@ public class RoguePlayer : MonoBehaviour
         bleedOut = BleedOutSeconds;
         receiver.hitPoints = 1f;
         if (controller != null) controller.enableFire = false;
-        ctrl.Command(new RogueCommandMessage { kind = "downed" });
+        downRequest++;
+        ctrl.Command(new RogueCommandMessage { kind = "downed", index = downRequest });
         ctrl.Banner(RoguelikeController.T("You are down! Hold on for a revive."), 3f);
         StartCoroutine(DownedRoutine());
         return true;
@@ -143,17 +153,18 @@ public class RoguePlayer : MonoBehaviour
         while (Downed && bleedOut > 0)
         {
             bleedOut -= Time.deltaTime;
-            var ctrl = RoguelikeController.Instance;
-            var me = ctrl != null ? ctrl.LocalPlayer : null;
-            if (me != null && me.life == PlayerLife.Alive) { Revive(); yield break; }   // the authority revived us (teammate or emergency revive)
+            // only a revive that the authority ruled AFTER acknowledging this down counts (F01); a refused down means we were already dead
+            if (downRefused == downRequest) { break; }
+            if (downAcked == downRequest && authorityLife == PlayerLife.Alive) { Revive(); yield break; }
+            if (downAcked == downRequest && (authorityLife == PlayerLife.Dead || authorityLife == PlayerLife.Spectating)) { break; }
             yield return null;
         }
         if (Downed)
         {
             Downed = false;
             var ctrl = RoguelikeController.Instance;
-            if (ctrl != null) ctrl.Command(new RogueCommandMessage { kind = "died" });
-            if (receiver != null) receiver.ApplyDamage(99999f, -1, transform);   // headshot -1: no mortal roll, real death now
+            if (ctrl != null && authorityLife != PlayerLife.Dead) ctrl.Command(new RogueCommandMessage { kind = "died" });
+            if (receiver != null) receiver.RogueForceDie();   // bleed-out: an adjudicated death, never a simulated hit (F03)
         }
     }
 
@@ -170,10 +181,35 @@ public class RoguePlayer : MonoBehaviour
 
     IEnumerator SpawnProtection(float seconds) { yield return new WaitForSeconds(seconds); DamageReceiver.invincibility = false; }
 
+    public void AcknowledgeDown(int request) { if (request == downRequest) downAcked = request; }
+    public void RefuseDown(int request) { if (request == downRequest) downRefused = request; }
+
+    /// <summary>Authoritative life from the run state (every copy). Remote copies mirror the downed pose; the owner reconciles.</summary>
+    public void ApplyLife(PlayerLife life, int epoch)
+    {
+        authorityLife = life; lifeEpoch = epoch;
+        if (!isMine)
+        {
+            Downed = life == PlayerLife.Downed;
+            if (controller != null) controller.enableFire = !Downed;
+        }
+    }
+
+    /// <summary>Session end or scene exit: no timed effect, shield or downed timer survives.</summary>
+    public void CancelAll()
+    {
+        StopAllCoroutines();
+        EndUltimate();
+        shieldHp = 0; shieldUntil = 0; assaultBuffUntil = 0; reloadBurstUntil = 0; suppressionStacks = 0;
+        Downed = false; Carrying = false;
+        if (controller != null && isMine) controller.enableFire = true;
+    }
+
     public void OnDied()
     {
         Downed = false;
-        ultimateActive = "";
+        EndUltimate();
+        shieldHp = 0;
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null && isMine) ctrl.Command(new RogueCommandMessage { kind = "died" });
     }
@@ -190,6 +226,7 @@ public class RoguePlayer : MonoBehaviour
     {
         if (Downed) return 0f;
         float s = (float)Stats.SpeedMul;
+        if (Carrying) s *= (float)Stats.CarrySpeedMul;
         if (Time.time < assaultBuffUntil) s *= 1f + (float)Stats.AssaultKillSpeed;
         return s;
     }
@@ -237,7 +274,11 @@ public class RoguePlayer : MonoBehaviour
         if (ultimateActive != "" && Time.time >= ultimateUntil) EndUltimate();
         var cc = GetComponent<CharacterController>();
         if (cc != null && cc.isGrounded) OnLanded();
-        if (Menu.current != "Playing" || Downed) return;
+        var ctrlPrep = RoguelikeController.Instance;
+        if (ctrlPrep != null && ctrlPrep.ScreenDismissed && Menu.current == "Playing" && (FlatsControls.Down("Interact") || FlatsControls.PadState("Change", 1))) { ctrlPrep.ReopenScreen(); return; }
+        if (Menu.current != "Playing") return;
+        // a downed player may still trigger Emergency Revive (F11); everything else waits for a rescue
+        if (Downed) { if (FlatsControls.Down("Ultimate") || FlatsControls.PadState("Ultimate", 1)) TryUltimate(); return; }
         if (FlatsControls.Down("Ultimate") || FlatsControls.PadState("Ultimate", 1)) TryUltimate();
         if (FlatsControls.Down("Tactical") || FlatsControls.PadState("Tactical", 1)) TryTactical();
         TickReviveInteraction();
@@ -307,7 +348,7 @@ public class RoguePlayer : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- reviving a downed teammate
-    float reviveHeld; RoguePlayer reviveTarget;
+    float reviveHeld, reviveSlice; RoguePlayer reviveTarget;
     void TickReviveInteraction()
     {
         if (Menu.network == 0) return;
@@ -322,15 +363,15 @@ public class RoguePlayer : MonoBehaviour
         var ctrl = RoguelikeController.Instance;
         if (FlatsControls.Held("Interact"))
         {
-            if (reviveTarget != target) { reviveTarget = target; reviveHeld = 0; }
-            reviveHeld += Time.deltaTime * (float)Stats.ReviveSpeedMul;
+            if (reviveTarget != target) { reviveTarget = target; reviveHeld = 0; reviveSlice = 0; }
+            reviveHeld += Time.deltaTime * (float)Stats.ReviveSpeedMul; reviveSlice += Time.deltaTime;
             if (ctrl != null) ctrl.Banner(RoguelikeController.T("Reviving... {0}", Mathf.CeilToInt(Mathf.Max(0, ReviveHoldSeconds - reviveHeld))), 0.3f);
-            if (reviveHeld >= ReviveHoldSeconds)
+            if (reviveSlice >= 0.25f)
             {
-                reviveHeld = 0;
-                var view = target.GetComponent<PhotonView>();
-                string victimKey = view != null && view.owner != null ? (!string.IsNullOrEmpty(view.owner.UserId) ? view.owner.UserId : view.owner.NickName + "#" + view.owner.ID) : "";
-                if (ctrl != null) ctrl.Command(new RogueCommandMessage { kind = "revive", text = victimKey });
+                // the authority adds up the slices and revives at three seconds of continuous, in-range holding
+                string victimKey = RogueWorld.KeyOf(target.gameObject);
+                if (ctrl != null) ctrl.Command(new RogueCommandMessage { kind = "revive", text = victimKey, value = reviveSlice });
+                reviveSlice = 0;
             }
         }
         else { reviveHeld = 0; if (ctrl != null) ctrl.Banner(RoguelikeController.T("Hold {0} to revive", FlatsControls.Label("Interact", FlatsControls.UsingGamepad)), 0.3f); }

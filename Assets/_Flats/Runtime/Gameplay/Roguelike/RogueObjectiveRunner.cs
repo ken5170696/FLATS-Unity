@@ -2,11 +2,9 @@ using Flats.Core.Roguelike;
 using UnityEngine;
 
 /// <summary>
-/// Authority-side bridge between a stage's objective definition and the world. Each runner
-/// owns the world objects it creates and releases them in Dispose. The controller only asks
-/// Succeeded/ProgressText and forwards enemy deaths and player commands.
-/// "obj.clear" needs no runner (the controller counts the planned enemies). Other objectives,
-/// events, emergencies and finales register their runners here as they are implemented.
+/// Bridge between a stage's objective definition and the world. Visuals are built on every
+/// client from the replicated plan anchors; only the authority owns the pure machine and
+/// evaluates Succeeded. "obj.clear" needs no runner (the controller counts planned enemies).
 /// </summary>
 public abstract class RogueObjectiveRunner
 {
@@ -15,6 +13,7 @@ public abstract class RogueObjectiveRunner
     public bool Succeeded { get; protected set; }
     public bool Failed { get; protected set; }
     public string ProgressText { get; protected set; }
+    public virtual double RewardFraction { get { return 1.0; } }
 
     public static RogueObjectiveRunner Create(RoguelikeController controller, EncounterPlan plan)
     {
@@ -22,16 +21,25 @@ public abstract class RogueObjectiveRunner
         string id = plan.IsFinale ? plan.finaleId : plan.objectiveId;
         switch (id)
         {
+            case "obj.capture": runner = new CaptureRunner(); break;
+            case "obj.carry": runner = new CarryRunner(); break;
+            case "obj.protect": runner = new ProtectRunner(); break;
+            case "obj.breakout": runner = new BreakoutRunner(); break;
+            case "fin.commander": runner = new CommanderRunner(); break;
+            case "fin.vault": runner = new VaultRunner(); break;
+            case "fin.convoy": runner = new ConvoyRunner(); break;
             case "obj.clear": return null;
-            default:
-                // objectives without a runner yet degrade to Clear so a stage can never get stuck
-                Debug.Log("FLATS_ROGUE_OBJECTIVE fallback to clear for " + id);
-                return null;
+            default: Debug.Log("FLATS_ROGUE_OBJECTIVE fallback to clear for " + id); return null;
         }
+        runner.Controller = controller; runner.Plan = plan; runner.ProgressText = "";
+        runner.Build(controller, plan);
+        return runner;
     }
 
+    public abstract void Build(RoguelikeController controller, EncounterPlan plan);
     public virtual void Tick(float dt) { }
     public virtual void OnEnemyKilled(RogueEnemyRole role) { }
     public virtual void OnCommand(RogueCommandMessage cmd) { }
+    public virtual void OnClientEvent(RogueEventMessage e) { }
     public virtual void Dispose() { }
 }

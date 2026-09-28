@@ -71,7 +71,12 @@ public static class RogueSaveStore
         catch (Exception e) { LastError = e.Message; Debug.LogWarning("FLATS_ROGUE_LOAD_FAILED " + e.Message); return null; }
     }
 
-    public static bool HasCheckpoint() { return File.Exists(RunPath) || File.Exists(RunPath + ".bak"); }
+    public static bool HasCheckpoint()
+    {
+        if (File.Exists(RunPath) || File.Exists(RunPath + ".bak")) return true;
+        try { return Directory.Exists(Path.GetDirectoryName(RunPath)) && Directory.GetFiles(Path.GetDirectoryName(RunPath), Path.GetFileName(RunPath) + ".generation-*").Length > 0; }
+        catch (System.Exception) { return false; }
+    }
 
     /// <summary>Removes the checkpoint after a run ends or the player abandons it. Backups are kept by the record layer.</summary>
     public static void ClearCheckpoint()

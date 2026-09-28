@@ -920,7 +920,7 @@ public class Multiplayer : MonoBehaviour
 		{
 			base.gameObject.GetPhotonView().RPC("Log", PhotonTargets.AllBuffered, pp.NickName + " quit game.");
 		}
-		if (!end && ((rule != 1 && rule != 6 && rule != 8 && (PunTeams.PlayersPerTeam[PunTeams.Team.red].Count == 0 || PunTeams.PlayersPerTeam[PunTeams.Team.blue].Count == 0)) || (PhotonNetwork.playerList.Length == 1 && rule != 8 && rule != RoguelikeMode.CoopRule)))
+		if (!end && ((rule != 1 && rule != 6 && rule != 8 && rule != RoguelikeMode.CoopRule && (PunTeams.PlayersPerTeam[PunTeams.Team.red].Count == 0 || PunTeams.PlayersPerTeam[PunTeams.Team.blue].Count == 0)) || (PhotonNetwork.playerList.Length == 1 && rule != 8 && rule != RoguelikeMode.CoopRule)))
 		{
 			end = true;
 			GameObject.Find("Menu").BroadcastMessage("GameOver", SendMessageOptions.DontRequireReceiver);

@@ -1567,7 +1567,8 @@ public partial class Menu : MonoBehaviour
             ShowConfirm("Local match", "The offline room could not be created. Please try again.", null, "OK", null);
             yield break;
         }
-        PhotonNetwork.player.SetTeam(rule == 1 || rule == 6 ? PunTeams.Team.none : PunTeams.Team.red);
+        if (rule == RoguelikeMode.CoopRule) botCount = 0;   // the roguelike squad spawns its own enemies; PvP bots do not belong to it
+        PhotonNetwork.player.SetTeam(rule == 1 || rule == 6 || rule == RoguelikeMode.CoopRule ? PunTeams.Team.none : PunTeams.Team.red);
         network = 2; waitBackground = false; gameState = "Multiplayer";
         current = "Playing"; Time.timeScale = 1f;
         backButton.SetActive(false);

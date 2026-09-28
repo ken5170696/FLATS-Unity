@@ -143,7 +143,12 @@ public partial class Menu
         {
             // Actions added after the screen was authored reuse the last authored row as their template.
             var template = list.content.Find("Binding" + (actionIndex - 1));
-            if (template != null) { var clone = Instantiate(template.gameObject, list.content, false); clone.name = "Binding" + actionIndex; clone.transform.SetSiblingIndex(template.GetSiblingIndex() + 1); row = clone.transform.Find("Button"); }
+            if (template != null)
+            {
+                var clone = Instantiate(template.gameObject, list.content, false); clone.name = "Binding" + actionIndex; clone.transform.SetSiblingIndex(template.GetSiblingIndex() + 1); row = clone.transform.Find("Button");
+                string action = (list == controllerList ? FlatsControls.PadActions : FlatsControls.KeyboardActions)[actionIndex];
+                foreach (var target in clone.GetComponentsInChildren<PreviewTarget>(true)) { target.action = action; target.title = ActionName(action, list == controllerList); target.description = ""; }
+            }
         }
         var button = row.GetComponent<Button>();
         rows.Add(button);

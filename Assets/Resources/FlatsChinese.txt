@@ -1363,3 +1363,79 @@ Tactical skill (Roguelike)	戰術技能（Roguelike）
 Pick up / exchange / revive	拾取／交換／救援
 Co-op roguelike for 1-4 players.\nEarn bounty for kills (headshots x1.5),\nbuy upgrades between stages, choose routes.\nThe objective sets the difficulty.	1～4 人合作 Roguelike。\n擊殺獲得賞金（爆頭 1.5 倍），\n關間購買升級，選擇路線。\n目標設定即為難度。
 Cleared: {0}	已清除：{0}
+Hold {0}%	佔領 {0}%
+Go to the zone	前往區域
+Delivered	已送達
+Crate {0} m from the drop	補給箱距投放點 {0} m
+Repair {0}%  Device {1}%	修復 {0}%　裝置 {1}%
+Device lost: clear the area	裝置已毀：改為清剿
+At the exit {0}/{1}	抵達出口 {0}/{1}
+Commander exposed! {0}%	指揮官暴露！{0}%
+Kill the guard ({0})	消滅護衛（{0}）
+Vault core exposed! {0}%	金庫核心暴露！{0}%
+Charge cell {0}/3	充能電池 {0}/3
+Cell {0} charged: the core is exposed!	電池 {0} 已充能：核心暴露！
+Carrier stopped! Destroy it {0}%	載具停下了！摧毀它 {0}%
+Kill the escort ({0})  Carrier {1}%	消滅護衛（{0}）　載具 {1}%
+Carrier escaped: clear the area	載具逃脫：改為清剿
+The carrier reached the exit. Clear the area for half the reward.	載具抵達出口。清剿殘敵可得一半獎勵。
+The device was destroyed. Clear the area instead.	裝置被摧毀。改為清剿區域。
+The commander is exposed!	指揮官暴露了！
+Hold {0}: {1}	按住 {0}：{1}
+{0}: {1}	{0}：{1}
+Pick up the crate	撿起補給箱
+Repair	修復
+Charge cell {0}	充能電池 {0}
+Open the cache (calls reinforcements)	打開寶箱（會召來增援）
+Flip the breaker	切換斷路器
+Repair (optional)	修復（可選）
+Pick up the lure (enemies follow it)	撿起誘敵箱（敵人會追著它）
+Vent switch (hold)	排風開關（按住）
+Restart the generator (hold 8 s)	重啟發電機（按住 8 秒）
+Pick up the bomb	撿起炸彈
+Moving Supply: shoot the drone down before it leaves!	移動補給：在無人機離開前擊落它！
+Drone {0} s	無人機 {0} 秒
+Alarm cache: optional	警報寶箱：可選
+Cache opening {0} s	寶箱開啟中 {0} 秒
+Alarm! Reinforcements incoming.	警報！增援來襲。
+Low gravity in the marked area.	標記區域內低重力。
+Low gravity zone	低重力區
+Breaker: optional	斷路器：可選
+Power rerouted {0} s	供電改道 {0} 秒
+Power rerouted: enemy shields and jammers are down, their sight is halved.	供電改道：敵人護盾與干擾器失效，視野減半。
+Flip the breaker: for 60 s enemy shields and jammers lose power and enemies see half as far.	切換斷路器：60 秒內敵人護盾與干擾器斷電，敵人視野減半。
+Optional repair {0}%	可選修復 {0}%
+Risk contract active	風險合約生效中
+Risk contract accepted: +25% enemy damage, +40% bounty.	已接受風險合約：敵人傷害 +25%，賞金 +40%。
+Accept	接受
+Decline	拒絕
+Elite Hunt: a marked elite is on the map.	精英獵殺：地圖上有一名被標記的精英。
+Hunt the marked elite	獵殺被標記的精英
+Elite down!	精英已擊倒！
+Lure planted {0} s	誘敵箱已放置 {0} 秒
+Lure carried: press Interact to plant	搬運誘敵箱中：按互動鍵放置
+Lure crate: optional	誘敵箱：可選
+Lure planted: enemies are drawn to it.	誘敵箱已放置：敵人被吸引過去。
+Gas leak in {0} s! Activate 2 of 3 vent switches.	{0} 秒後毒霧外洩！啟動 3 個排風開關中的 2 個。
+Gas in {0} s  Switches {1}/2	毒霧 {0} 秒　開關 {1}/2
+GAS LEAKING! Switches {0}/2	毒霧外洩中！開關 {0}/2
+Gas is leaking! You can still contain it: 2 switches.	毒霧正在外洩！仍可遏止：2 個開關。
+Gas contained	毒霧已遏止
+Power outage! Restart the generator.	供電中斷！重啟發電機。
+Generator {0}/8 s  Outage {1} s	發電機 {0}/8 秒　斷電 {1} 秒
+The generator failed: bounty -25% this stage.	發電機失敗：本關賞金 -25%。
+A bomb is armed! Carry it to the disposal point.	炸彈已啟動！把它搬到處理點。
+Bomb {0} s  {1} m to disposal	炸彈 {0} 秒　距處理點 {1} m
+Bomb disposed!	炸彈已處理！
+A signal device is calling reinforcements. Destroy it!	信號裝置正在召喚增援。摧毀它！
+Signal device: waves {0}/4	信號裝置：增援波 {0}/4
+{0} complete!	{0} 完成！
+{0} failed.	{0} 失敗。
+Host changed: waiting for the new host...	主機更換：等待新主機…
+The host left. Back to the safe node; the stage restarts.	主機離開。回到安全點，本關重新開始。
+You are the host now.	你現在是主機。
+{0} left the squad.	{0} 離開了小隊。
+{0} rejoined.	{0} 重新加入。
+{0} joined the squad.	{0} 加入了小隊。
+Press {0} to reopen the shop	按 {0} 重新開啟商店
+Bounty +{0}%	賞金 +{0}%

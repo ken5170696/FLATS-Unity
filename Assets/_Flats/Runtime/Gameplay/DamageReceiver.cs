@@ -200,7 +200,17 @@ public class DamageReceiver : MonoBehaviour
 		{
 			return;
 		}
-		if (receivedData[1] == 1 && !userIsPlayer && !myAI.vip && (Menu.network == 0 || Multiplayer.rule == 8 || RoguelikeMode.Coop))
+		if (receivedData[1] == 1 && !userIsPlayer && !myAI.vip && RoguelikeMode.Coop)
+		{
+			float headDamage = RogueHooks.ModifyIncomingDamage(this, receivedData[0], shooter);
+			hitPoints -= headDamage;
+			if (hitPoints > 0f) { killer = shooter; return; }
+			command = "head";
+			killer = shooter;
+			base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, receivedData[2]);
+			return;
+		}
+		if (receivedData[1] == 1 && !userIsPlayer && !myAI.vip && (Menu.network == 0 || Multiplayer.rule == 8))
 		{
 			command = "head";
 			killer = shooter;
@@ -250,6 +260,16 @@ public class DamageReceiver : MonoBehaviour
 		{
 			killer = shooter;
 		}
+	}
+
+	/// <summary>Roguelike bleed-out: the authority already ruled the death; no hit, shield, invincibility or downed check applies.</summary>
+	public void RogueForceDie()
+	{
+		if (died || !userIsPlayer) return;
+		command = "normal";
+		killer = mt;
+		if (Menu.network == 0) Die(0);
+		else if (Menu.network != 1 && base.gameObject.GetPhotonView().isMine) base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, 0);
 	}
 
 	public void ApplyDamage(float damage, int headshot, Transform shooter)

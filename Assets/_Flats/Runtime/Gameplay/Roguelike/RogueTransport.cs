@@ -61,6 +61,8 @@ public sealed class RogueCommandMessage
 {
     public string kind = "";          // ready, buy, route, continue, evacuate, ult, downed, died, revive, interact, switch, pickup, drop, delivered, exit
     public string playerKey = "";
+    public string runId = "";
+    public int epoch;
     public bool flag;
     public int index = -1;
     public string text = "";
@@ -74,6 +76,8 @@ public sealed class RogueEventMessage
 {
     public string kind = "";          // bounty, banner, phase, downed, revived, died, wipe, ult, objective, event, emergency, log
     public string playerKey = "";
+    public string runId = "";
+    public int epoch;
     public string text = "";
     public long minor;
     public bool flag;

@@ -7,6 +7,9 @@ using UnityEngine;
 // Stage flow, spawning, kills and the wipe check. Authority only, except where noted.
 public partial class RoguelikeController
 {
+#if UNITY_EDITOR
+    public static string DebugForceObjective, DebugForceEvent, DebugForceEmergency;
+#endif
     readonly Dictionary<int, RogueEnemyRole> liveEnemies = new Dictionary<int, RogueEnemyRole>();
     readonly RoguePacing pacing = new RoguePacing();
     int nextWave;
@@ -15,6 +18,11 @@ public partial class RoguelikeController
     int objectiveKillsNeeded, objectiveKills;
 
     public int AliveEnemies { get { int n = 0; foreach (var e in liveEnemies.Values) if (e != null) n++; return n; } }
+    public bool WavesDone { get { return state != null && nextWave >= state.encounter.waves.Length && !spawning; } }
+    public bool StageObjectiveDone { get { return objectiveDone; } }
+    public bool CommanderDead { get { return commanderDied; } }
+    bool commanderDied;
+    public RogueEnemyRole FindFinaleEnemy() { foreach (var e in liveEnemies.Values) if (e != null && e.RoleId == "role.finale") return e; return null; }
 
     IEnumerator RunLoop()
     {
@@ -58,10 +66,24 @@ public partial class RoguelikeController
     {
         var map = RogueCatalog.Map(state.mapId);
         if (!machine.BeginCombat(map)) yield break;
+#if UNITY_EDITOR
+        // Editor-only validation override (never compiled into a player): force a specific objective/event/emergency for the stage.
+        if (!string.IsNullOrEmpty(DebugForceObjective)) { if (DebugForceObjective.StartsWith("fin.")) { state.encounter.finaleId = DebugForceObjective; state.encounter.objectiveId = ""; } else { state.encounter.objectiveId = DebugForceObjective; state.encounter.finaleId = ""; } }
+        if (DebugForceEvent != null) state.encounter.eventId = DebugForceEvent;
+        if (DebugForceEmergency != null) state.encounter.emergencyId = DebugForceEmergency;
+        if (DebugForceObjective != null && DebugForceObjective.StartsWith("fin.") && !System.Array.Exists(state.encounter.waves[state.encounter.waves.Length - 1].roles, r => r == "role.finale"))
+        {
+            var last = state.encounter.waves[state.encounter.waves.Length - 1];
+            var r = new System.Collections.Generic.List<string>(last.roles); var e = new System.Collections.Generic.List<bool>(last.elite); var w = new System.Collections.Generic.List<int>(last.weights);
+            r.Add("role.finale"); e.Add(true); w.Add(600); last.roles = r.ToArray(); last.elite = e.ToArray(); last.weights = w.ToArray();   // appended so existing slot ids stay aligned with InstanceIdFor
+            RogueEconomy.Reserve(state.ledger, new[] { "role.finale" }, new[] { 600 });
+        }
+#endif
         CloseScreens();
-        nextWave = 0; objectiveDone = false; stageEnding = false;
+        nextWave = 0; objectiveDone = false; stageEnding = false; commanderDied = false;
         objectiveKillsNeeded = RogueDirector.CountEnemies(state.encounter); objectiveKills = 0;
         RespawnDeadPlayers();
+        ChoosePlanPoints();
         Broadcast();
         var enc = state.encounter;
         string title = "@" + (enc.IsFinale ? RogueCatalog.Encounter(enc.finaleId).Name : RogueCatalog.Encounter(enc.objectiveId).Name);
@@ -74,6 +96,7 @@ public partial class RoguelikeController
         if (!string.IsNullOrEmpty(enc.eventId)) Notify(new RogueEventMessage { kind = "log", text = "Event: {0}|@" + RogueCatalog.Encounter(enc.eventId).Name });
         if (!string.IsNullOrEmpty(enc.emergencyId)) Notify(new RogueEventMessage { kind = "log", text = "Warning: {0}|@" + RogueCatalog.Encounter(enc.emergencyId).Name });
         StartObjective();
+        StartEvents();
     }
 
     // ---------------------------------------------------------------- combat
@@ -89,6 +112,7 @@ public partial class RoguelikeController
             nextWave++;
         }
         TickObjective(dt);
+        TickEvents(dt);
         if (!stageEnding && objectiveDone && nextWave >= waves.Length && AliveEnemies == 0 && !spawning)
             StartCoroutine(EndStage());
     }
@@ -162,7 +186,8 @@ public partial class RoguelikeController
         liveEnemies.Remove(role.InstanceId);
         if (!IsAuthority || machine == null || state.phase != RunPhase.Combat) return;
         string killerKey = KeyOfTransform(killer);
-        var payout = machine.EnemyKilled(role.InstanceId, killerKey, headshot);
+        if (role.RoleId == "role.finale") commanderDied = true;
+        var payout = machine.EnemyKilled(role.InstanceId, killerKey, headshot, JammedKeys());
         objectiveKills++;
         if (payout.Total > 0)
         {
@@ -172,6 +197,8 @@ public partial class RoguelikeController
             Broadcast();
         }
         OnObjectiveEnemyKilled(role);
+        if (eventRunner != null) eventRunner.OnEnemyKilled(role);
+        if (emergencyRunner != null) emergencyRunner.OnEnemyKilled(role);
     }
 
     /// <summary>An enemy left the field without dying (recovered, despawned): its bounty is void.</summary>
@@ -214,13 +241,22 @@ public partial class RoguelikeController
 
     void OnObjectiveEnemyKilled(RogueEnemyRole role) { if (objectiveRunner != null) objectiveRunner.OnEnemyKilled(role); }
 
-    void OnObjectiveInput(RogueCommandMessage cmd) { if (objectiveRunner != null) objectiveRunner.OnCommand(cmd); }
+    void OnObjectiveInput(RogueCommandMessage cmd)
+    {
+        if (cmd.text != null && cmd.text.StartsWith("hit:")) { OnWorldHit(cmd.text.Substring(4), (float)cmd.value, cmd.playerKey); return; }
+        if (cmd.text != null && cmd.text.StartsWith("equip:")) { int idx; if (int.TryParse(cmd.text.Substring(6), out idx)) { var pl = state.Player(cmd.playerKey); if (pl != null && pl.build.primaryWeapon == idx) OnEquipRequest(cmd.playerKey, idx); } return; }
+        if (objectiveRunner != null) objectiveRunner.OnCommand(cmd);
+        if (eventRunner != null) eventRunner.OnCommand(cmd);
+        if (emergencyRunner != null) emergencyRunner.OnCommand(cmd);
+    }
 
     void CompleteObjective()
     {
         if (objectiveDone) return;
         objectiveDone = true;
+        double fraction = objectiveRunner != null ? objectiveRunner.RewardFraction : 1.0;
         var pay = machine.ObjectiveCompleted();
+        if (fraction < 1.0 && pay.Total > 0) { /* half reward: the ledger already paid; claw back the difference from each wallet */ foreach (var p in state.players) { var v = pay.Minor.ContainsKey(p.key) ? pay.Minor[p.key] : 0; long back = RogueMoney.MulFraction(v, 1.0 - fraction); p.walletMinor = RogueMoney.Clamp(p.walletMinor - back); p.earnedMinor -= back; } }
         Notify(new RogueEventMessage { kind = "banner", text = pay.Total > 0 ? "Objective complete!\n+{0} each|" + RogueMoney.Format(FirstValue(pay)) : "Objective complete!", value = 3 });
         if (objectiveRunner != null) objectiveRunner.Dispose();
         objectiveRunner = null;
@@ -233,6 +269,8 @@ public partial class RoguelikeController
     IEnumerator EndStage()
     {
         stageEnding = true;
+        if (eventRunner != null && !eventRunner.Finished) { eventRunner.Tick(0); }
+        DisposeEvents();
         machine.StageCleared();
         Notify(new RogueEventMessage { kind = "banner", text = "Stage cleared!", value = 2.5 });
         Broadcast();
@@ -257,7 +295,7 @@ public partial class RoguelikeController
         if (!machine.ContinueChapter()) yield break;
         WriteCheckpoint();
         Broadcast();
-        leaving = true;
+        leaving = true; travelling = true;
         Notify(new RogueEventMessage { kind = "banner", text = "Travelling to {0}...|" + RogueCatalog.Map(state.mapId).SceneName, value = 3 });
         yield return new WaitForSeconds(1f);
         var map = RogueCatalog.Map(state.mapId);
@@ -282,8 +320,9 @@ public partial class RoguelikeController
     {
         if (info.sender != null && !info.sender.IsMasterClient) return;
         var incoming = RogueSaveStore.FromJson<RunState>(json);
-        if (incoming != null) RoguelikeMode.PendingResume = new RunSaveDocument { run = incoming, localPlayerKey = localKey };
-        leaving = true;
+        if (incoming != null && (state == null || incoming.runId == state.runId)) { if (PhotonNetwork.isMasterClient) RoguelikeMode.PendingResume = new RunSaveDocument { run = incoming, localPlayerKey = localKey }; }
+        else if (incoming != null) return;
+        leaving = true; travelling = true;
         StartCoroutine(TravelRoutine(buildIndex));
     }
 
@@ -311,8 +350,9 @@ public partial class RoguelikeController
 
     IEnumerator EndRun()
     {
-        leaving = true;
+        leaving = true; endedHandled = true;
         Broadcast();
+        CleanupSession();
         if (IsAuthority)
         {
             var meta = RogueSaveStore.ReadMeta();
@@ -324,6 +364,15 @@ public partial class RoguelikeController
         // the shared Game Over flow shows the singleplayer result screen; Menu.Results reads our summary text
         Multiplayer.end = Menu.network != 0;
         GameObject.Find("Menu").BroadcastMessage("GameOver", SendMessageOptions.DontRequireReceiver);
+    }
+
+    /// <summary>HUD visibility follows the play state, not the value captured when a screen opened.</summary>
+    public void RestoreHud()
+    {
+        if (screen != null) return;
+        var hudObject = GameObject.Find("UI");
+        var canvas = hudObject != null ? hudObject.GetComponent<Canvas>() : null;
+        if (canvas != null && FindLocalPlayer() != null) canvas.enabled = true;
     }
 
     /// <summary>Summary shown on the result screen (Menu.Results asks for it when the mode is active).</summary>
@@ -343,7 +392,9 @@ public partial class RoguelikeController
         if (FindLocalPlayer() == null && spawnPoints != null)
         {
             foreach (var cam in FindObjectsOfType<WatchCamera>()) Destroy(cam.gameObject);
+            foreach (var pending in FindObjectsOfType<Respawn>()) Destroy(pending);   // an old ragdoll must not spawn a spectator over the new player
             Instantiate(Resources.Load("Flatman"), spawnPoints.GetChild(UnityEngine.Random.Range(0, spawnPoints.childCount)).position, Quaternion.identity);
+            RestoreHud();
         }
     }
 
@@ -353,7 +404,9 @@ public partial class RoguelikeController
         var me = LocalPlayer;
         if (me == null || me.life != PlayerLife.Alive || FindLocalPlayer() != null || spawnPoints == null || Menu.network == 0) return;
         foreach (var cam in FindObjectsOfType<WatchCamera>()) Destroy(cam.gameObject);
+        foreach (var pending in FindObjectsOfType<Respawn>()) Destroy(pending);
         PhotonNetwork.Instantiate("Flatman", spawnPoints.GetChild(UnityEngine.Random.Range(0, spawnPoints.childCount)).position, Quaternion.identity, 0, null);
         if (menu != null) menu.StartCoroutine("BackgroundColor", "FadeOut");
+        RestoreHud();
     }
 }

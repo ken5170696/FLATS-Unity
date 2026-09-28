@@ -38,9 +38,7 @@ public partial class RoguelikeController : MonoBehaviour
 
     void Awake()
     {
-        if (!RoguelikeMode.Active) { Destroy(this); return; }
-        Instance = this;
-        RoguelikeMode.RunInProgress = true;
+        ExtraEnemyDamageMul = 1f;
     }
 
     float hudRefresh;
@@ -56,11 +54,15 @@ public partial class RoguelikeController : MonoBehaviour
         if (Instance == this) Instance = null;
         CleanupWorld();
         RoguelikeMode.RunInProgress = false;
+        if (!travelling) RoguelikeMode.PendingResume = null;
     }
 
     IEnumerator Start()
     {
-        if (!RoguelikeMode.Active) yield break;
+        yield return null;   // let Multiplayer.Awake/Start settle the rule first
+        if (!RoguelikeMode.Active) { Destroy(this); yield break; }
+        Instance = this;
+        RoguelikeMode.RunInProgress = true;
         localKey = RoguelikeMode.LocalPlayerKey;
         transport = Menu.network == 0 ? (IRogueTransport)new OfflineRogueTransport(this) : new PhotonRogueTransport(GetComponent<PhotonView>());
 
@@ -122,11 +124,18 @@ public partial class RoguelikeController : MonoBehaviour
             }
         }
 
+        if (resume == null && Menu.network != 0) resume = CoopResumeCandidate(keys);
         if (resume != null && resume.run != null)
         {
             state = resume.run;
             state.authorityEpoch++;
-            foreach (var p in state.players) { p.connected = keys.Contains(p.key) || Menu.network == 0; p.ready = false; if (p.life != PlayerLife.Alive) p.life = PlayerLife.Alive; }
+            if (Menu.network == 0 && !string.IsNullOrEmpty(resume.localPlayerKey) && resume.localPlayerKey != localKey)
+            {
+                // a co-op checkpoint continued alone: the saved local player becomes "local", everyone else is offline
+                var mine = state.Player(resume.localPlayerKey) ?? (state.players.Length > 0 ? state.players[0] : null);
+                if (mine != null) mine.key = localKey;
+            }
+            foreach (var p in state.players) { p.connected = keys.Contains(p.key); p.ready = false; if (p.life != PlayerLife.Alive) p.life = PlayerLife.Alive; }
             machine = new RunMachine(state);
             for (int i = 0; i < keys.Count; i++) if (state.Player(keys[i]) == null) machine.AddPlayer(keys[i], names[i], primaries[i], secondaries[i]);
             if (state.phase != RunPhase.Prep && state.phase != RunPhase.ChapterEnd) state.phase = RunPhase.Prep;
@@ -163,9 +172,9 @@ public partial class RoguelikeController : MonoBehaviour
         OnStateChanged();
     }
 
-    void Notify(RogueEventMessage e)
+    public void Notify(RogueEventMessage e)
     {
-        if (state != null) state.eventSeq++;
+        if (state != null) { state.eventSeq++; e.runId = state.runId; e.epoch = state.authorityEpoch; }
         if (transport != null && Menu.network != 0) transport.SendEvent(state != null ? state.eventSeq : 0, RogueSaveStore.ToJson(e));
         ApplyEvent(e);
     }
@@ -180,7 +189,7 @@ public partial class RoguelikeController : MonoBehaviour
         if (state != null && incoming.authorityEpoch == state.authorityEpoch && incoming.eventSeq < state.eventSeq) return;
         state = incoming;
         machine = null;       // clients never simulate
-        lastAppliedSeq = state.eventSeq;
+        lastAppliedSeq = Mathf.Max(lastAppliedSeq, state.eventSeq);
         OnStateChanged();
     }
 
@@ -189,9 +198,11 @@ public partial class RoguelikeController : MonoBehaviour
     {
         if (info.sender != null && !info.sender.IsMasterClient) return;
         if (seq <= lastAppliedSeq) return;
-        lastAppliedSeq = seq;
         var e = RogueSaveStore.FromJson<RogueEventMessage>(json);
-        if (e != null) ApplyEvent(e);
+        if (e == null) return;
+        if (state != null && (e.runId != state.runId || e.epoch < state.authorityEpoch)) return;   // stale authority or another run
+        lastAppliedSeq = seq;
+        ApplyEvent(e);
     }
 
     [PunRPC]
@@ -206,6 +217,7 @@ public partial class RoguelikeController : MonoBehaviour
     {
         if (cmd == null) return;
         cmd.playerKey = localKey;
+        if (state != null) { cmd.runId = state.runId; cmd.epoch = state.authorityEpoch; }
         if (IsAuthority) ReceiveCommand(RogueSaveStore.ToJson(cmd), -1);
         else transport.SendCommand(RogueSaveStore.ToJson(cmd));
     }
@@ -223,8 +235,10 @@ public partial class RoguelikeController : MonoBehaviour
             cmd.playerKey = KeyOf(sender);          // never trust a self-declared key
         }
         else cmd.playerKey = localKey;
+        if (!string.IsNullOrEmpty(cmd.runId) && (cmd.runId != state.runId || cmd.epoch < state.authorityEpoch)) return;   // a command from an older run/authority
         var player = state.Player(cmd.playerKey);
-        if (player == null) return;
+        if (player == null || !player.connected) return;
+        bool hostOnly = Menu.network == 0 || cmd.playerKey == localKey;   // route/continue/evacuate belong to the host
         switch (cmd.kind)
         {
             case "ready":
@@ -240,33 +254,26 @@ public partial class RoguelikeController : MonoBehaviour
                 }
                 break;
             case "route":
-                if (machine.ChooseRoute(cmd.index)) { WriteCheckpoint(); Broadcast(); }
+                if (hostOnly && machine.ChooseRoute(cmd.index)) { WriteCheckpoint(); Broadcast(); }
                 break;
             case "continue":
-                if (state.phase == RunPhase.ChapterEnd) StartCoroutine(ContinueChapter());
+                if (hostOnly && state.phase == RunPhase.ChapterEnd) StartCoroutine(ContinueChapter());
                 break;
             case "evacuate":
-                if (machine.Evacuate()) StartCoroutine(EndRun());
+                if (hostOnly && machine.Evacuate()) StartCoroutine(EndRun());
                 break;
             case "downed":
-                if (machine.PlayerDowned(cmd.playerKey)) { pacing.OnPlayerDowned(state.stageSeconds); Notify(new RogueEventMessage { kind = "downed", playerKey = cmd.playerKey, text = player.name }); Broadcast(); CheckWipe(); }
+                if (machine.PlayerDowned(cmd.playerKey)) { pacing.OnPlayerDowned(state.stageSeconds); Notify(new RogueEventMessage { kind = "downed", playerKey = cmd.playerKey, text = player.name, index = cmd.index }); Broadcast(); CheckWipe(); }
+                else Notify(new RogueEventMessage { kind = "downrefused", playerKey = cmd.playerKey, index = cmd.index });
                 break;
             case "died":
                 if (machine.PlayerDied(cmd.playerKey)) { Notify(new RogueEventMessage { kind = "died", playerKey = cmd.playerKey, text = player.name }); Broadcast(); CheckWipe(); }
                 break;
             case "revive":
-                {
-                    var victim = state.Player(cmd.text);
-                    if (victim != null && victim.life == PlayerLife.Downed)
-                    {
-                        var pay = machine.Rescued(cmd.playerKey, cmd.text);
-                        Notify(new RogueEventMessage { kind = "revived", playerKey = cmd.text, text = player.name, minor = pay.Total });
-                        Broadcast();
-                    }
-                }
+                ReviveHold(cmd.playerKey, cmd.text, (float)cmd.value);
                 break;
             case "ult":
-                if (machine.SpendUltimate(cmd.playerKey))
+                if ((player.life == PlayerLife.Alive || player.build.ultimate == "ult.emergency_revive") && machine.SpendUltimate(cmd.playerKey))
                 {
                     if (player.build.ultimate == "ult.emergency_revive")
                     {
@@ -286,6 +293,11 @@ public partial class RoguelikeController : MonoBehaviour
     // ---------------------------------------------------------------- presentation refresh
     void OnStateChanged()
     {
+        if (state != null && state.phase == RunPhase.Combat) BuildClientWorld();
+        else if (state != null && !IsAuthority && state.phase != RunPhase.Combat) DisposeEvents();
+        if (state != null && state.phase != RunPhase.Prep) screenDismissed = false;
+        ApplyLives();
+        HandleEndedOnClient();
         RefreshHud();
         RefreshScreens();
         var me = LocalPlayer;
@@ -306,12 +318,20 @@ public partial class RoguelikeController : MonoBehaviour
                 break;
             case "banner": Banner(Decode(e.text), (float)(e.value > 0 ? e.value : 3)); break;
             case "log": Log(Decode(e.text)); break;
-            case "downed": Log(T("{0} is down!", e.text)); break;
+            case "downed": Log(T("{0} is down!", e.text)); { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.AcknowledgeDown(e.index); } break;
+            case "downrefused": { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.RefuseDown(e.index); } break;
             case "died": Log(T("{0} died.", e.text)); break;
             case "revived": Log(T(e.flag ? "Emergency revive: {0}" : "Revived: {0}", e.text)); break;
             case "tx": OnTransactionResult(e); break;
-            case "ult": Log(e.text == "" ? T("Ultimate used") : T("Ultimate: {0}", ItemName(e.text))); break;
+            case "ult": Log(e.text == "" ? T("Ultimate used") : T("Ultimate: {0}", ItemName(e.text))); OnUltimateConfirmed(e); break;
             case "objective": Log(e.text); break;
+            case "objtext": ApplyObjectiveText(e.text); break;
+            case "equip": OnEquipEvent(e); break;
+            default:
+                if (objectiveRunner != null) objectiveRunner.OnClientEvent(e);
+                if (eventRunner != null) eventRunner.OnClientEvent(e);
+                if (emergencyRunner != null) emergencyRunner.OnClientEvent(e);
+                break;
         }
     }
 
@@ -401,6 +421,7 @@ public partial class RoguelikeController : MonoBehaviour
     void CleanupWorld()
     {
         StopAllCoroutines();
+        DisposeEvents();
         foreach (var e in liveEnemies.Values) if (e != null) { /* scene objects are destroyed with the scene */ }
         liveEnemies.Clear();
         CloseScreens();

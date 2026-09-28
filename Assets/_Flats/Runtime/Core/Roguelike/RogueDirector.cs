@@ -25,6 +25,7 @@ namespace Flats.Core.Roguelike
         public double enemyHealthMul = 1, enemyDamageMul = 1;
         public int enemyStatTier;
         public int totalWeight;
+        public int[] points = new int[0];         // candidate indices chosen by the authority for objective/event anchors (shared by every client)
 
         public bool IsFinale { get { return !string.IsNullOrEmpty(finaleId); } }
     }

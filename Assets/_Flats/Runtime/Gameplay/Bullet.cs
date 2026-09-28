@@ -42,7 +42,10 @@ public class Bullet : MonoBehaviour
 	public bool grenade;
 
 	public bool hand;
-
+	// Roguelike Survival effect chain: 0 direct, 1 chain, 2 homing, 3 explosion, 4 ricochet, 5 penetrate (Flats.Core.Roguelike.DamageKind).
+	[System.NonSerialized] public int rogueKind;
+	[System.NonSerialized] public int rogueDepth;
+	[System.NonSerialized] public string rogueRootShot;
 	private float radius;
 
 	private float dist;
@@ -53,6 +56,7 @@ public class Bullet : MonoBehaviour
 	{
 		mt = base.transform;
 		startPosition = mt.position;
+		if (string.IsNullOrEmpty(rogueRootShot)) rogueRootShot = GetInstanceID().ToString();
 	}
 
 	private IEnumerator Start()
@@ -170,7 +174,12 @@ public class Bullet : MonoBehaviour
 			trailPath.Add(mt.position);
 		}
 		ContactPoint contactPoint = col.contacts[0];
-		if (hand || col.gameObject.layer == LayerMask.NameToLayer("Default") || col.gameObject.layer == LayerMask.NameToLayer("Glass") || col.gameObject.layer == LayerMask.NameToLayer("BulletOnly"))
+		if (RoguelikeMode.Active && playerShooter != null && !grenade && RogueHooks.OnBulletHitWorld(this, col))
+		{
+			base.GetComponent<Collider>().enabled = false;
+			UnityEngine.Object.Destroy(base.gameObject);
+			return;
+		}		if (hand || col.gameObject.layer == LayerMask.NameToLayer("Default") || col.gameObject.layer == LayerMask.NameToLayer("Glass") || col.gameObject.layer == LayerMask.NameToLayer("BulletOnly"))
 		{
 			if (grenade)
 			{
@@ -180,6 +189,12 @@ public class Bullet : MonoBehaviour
 			if (shooter != null)
 			{
 				gameObject.GetComponent<ParticleSystem>().startColor = shooter.GetChild(0).GetComponent<Renderer>().material.color;
+			}
+			if (RoguelikeMode.Active && playerShooter != null && !grenade && RogueHooks.TryRicochet(this, col))
+			{
+				base.GetComponent<Collider>().enabled = false;
+				UnityEngine.Object.Destroy(base.gameObject);
+				return;
 			}
 		}
 		else
@@ -198,7 +213,8 @@ public class Bullet : MonoBehaviour
 				DamageReceiver component = col.gameObject.GetComponent<DamageReceiver>();
 				if ((bool)component)
 				{
-					component.ApplyDamage(damage, 0, shooter);
+					component.ApplyDamage(damage, rogueKind != 0 ? -1 : 0, shooter);
+					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) { RogueHooks.OnBulletHitEnemy(this, component, damage, false); RogueHooks.TryPenetrate(this, col); }
 				}
 				else if (col.gameObject.name == "PhaseSkipper")
 				{
@@ -227,14 +243,17 @@ public class Bullet : MonoBehaviour
 				if ((bool)component2)
 				{
 					GameObject gameObject2 = component2.gameObject;
-					if (component2.hitPoints - damage <= 0f && gameObject2.tag == "Enemy")
+					bool derived = rogueKind != 0;
+					// co-op roguelike: the flag only reports the hit part; the master decides lethality from its own hit points
+					if ((component2.hitPoints - damage <= 0f || RoguelikeMode.Coop) && gameObject2.tag == "Enemy" && !derived)
 					{
 						component2.ApplyDamage(damage, 1, shooter);
 					}
 					else
 					{
-						component2.ApplyDamage(damage, 0, shooter);
+						component2.ApplyDamage(damage, derived ? -1 : 0, shooter);
 					}
+					if (RoguelikeMode.Active && !component2.userIsPlayer) { RogueHooks.OnBulletHitEnemy(this, component2, damage, !derived); RogueHooks.TryPenetrate(this, col); }
 				}
 				base.GetComponent<Collider>().enabled = false;
 			}
@@ -283,6 +302,7 @@ public class Bullet : MonoBehaviour
 		{
 			return;
 		}
+		if (RoguelikeMode.Active) RogueHooks.SteerHoming(this, GetComponent<Rigidbody>());
 		if (shooter != null && !played && mt != null && Camera.main.gameObject != null)
 		{
 			bool flag = false;

@@ -235,7 +235,10 @@ namespace Flats.Core.Roguelike
             return id + indexInWave;
         }
 
-        public Payout EnemyKilled(int instanceId, string killerKey, bool headshot)
+        public Payout EnemyKilled(int instanceId, string killerKey, bool headshot) { return EnemyKilled(instanceId, killerKey, headshot, null); }
+
+        /// <summary>jammedKeys: players inside a live jammer's field get no ultimate charge from this kill (money is unaffected).</summary>
+        public Payout EnemyKilled(int instanceId, string killerKey, bool headshot, IList<string> jammedKeys)
         {
             if (State.phase != RunPhase.Combat) return new Payout();
             var payout = RogueEconomy.PayKill(State.ledger, instanceId, headshot, State.ValidMembers(), State.stageBountyMul);
@@ -243,18 +246,19 @@ namespace Flats.Core.Roguelike
             var killer = State.Player(killerKey);
             if (killer != null && payout.Total > 0) { killer.kills++; if (headshot) killer.headshots++; }
             var slot = State.ledger.Find(instanceId);
-            if (slot != null && payout.Total > 0) ChargeUltimates(slot.weight, killerKey);
+            if (slot != null && payout.Total > 0) ChargeUltimates(slot.weight, killerKey, jammedKeys);
             return payout;
         }
 
         public bool EnemyCancelled(int instanceId) { return RogueEconomy.Cancel(State.ledger, instanceId); }
 
-        private void ChargeUltimates(int weight, string killerKey)
+        private void ChargeUltimates(int weight, string killerKey, IList<string> jammedKeys)
         {
             // kills charge the killer most and the squad a little; safe rooms never charge (no kills there)
             foreach (var p in State.players)
             {
                 if (!p.connected || string.IsNullOrEmpty(p.build.ultimate)) continue;
+                if (jammedKeys != null && jammedKeys.IndexOf(p.key) >= 0) continue;
                 int gain = p.key == killerKey ? Math.Max(2, weight / 20) : Math.Max(1, weight / 60);
                 p.ultimateCharge = Math.Min(100, p.ultimateCharge + gain);
             }
@@ -501,6 +505,18 @@ namespace Flats.Core.Roguelike
         }
 
         public void Abandon() { State.end = RunEnd.Abandoned; State.phase = RunPhase.Ended; }
+
+        /// <summary>New authority after a host change mid-stage: void the stage's unpaid slots, return to Prep and re-open the shops.</summary>
+        public bool RestartPrepAfterHostChange()
+        {
+            if (State.phase == RunPhase.Ended) return false;
+            foreach (var slot in State.ledger.slots) if (!slot.paid) slot.cancelled = true;
+            foreach (var p in State.players) { p.ready = false; if (p.life != PlayerLife.Alive) p.life = PlayerLife.Alive; p.rewardOffers = new ShopOffer[0]; }
+            State.phase = RunPhase.Prep;
+            OpenShops(false);
+            Persist();
+            return true;
+        }
 
         /// <summary>A checkpoint may be written only at a consistent boundary.</summary>
         public bool AtCheckpointBoundary() { return State.phase == RunPhase.Prep || State.phase == RunPhase.ChapterEnd; }

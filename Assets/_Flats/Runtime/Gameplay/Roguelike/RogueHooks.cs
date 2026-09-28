@@ -6,7 +6,7 @@ using UnityEngine;
 /// when the mode is inactive, so Classic modes keep their exact behaviour. Legacy files only
 /// gain one-line branches guarded by RoguelikeMode.Active.
 /// </summary>
-public static class RogueHooks
+public static partial class RogueHooks
 {
     static RoguelikeController Controller { get { return RoguelikeController.Instance; } }
 
@@ -57,7 +57,9 @@ public static class RogueHooks
     public static float EnemyDamageMul()
     {
         var c = Controller;
-        return c != null && c.State != null ? (float)c.State.encounter.enemyDamageMul : 1f;
+        if (c == null || c.State == null) return 1f;
+        float extra = c.ExtraEnemyDamageMul <= 0 ? 1f : c.ExtraEnemyDamageMul;
+        return (float)c.State.encounter.enemyDamageMul * extra;
     }
 
     /// <summary>Lethal damage on a player: enter the downed state instead of dying. Returns true when handled.</summary>
@@ -115,7 +117,8 @@ public static class RogueHooks
     {
         if (!RoguelikeMode.Active || ai == null || instanceId <= 0) return;
         string roleId = roleIndex == 100 ? "role.finale" : roleIndex >= 0 && roleIndex < RogueCatalog.EnemyRoles.Length ? RogueCatalog.EnemyRoles[roleIndex].Id : RogueCatalog.EnemyRoles[0].Id;
-        RogueEnemyRole.Attach(ai.gameObject, roleId, instanceId, elite != 0);
+        var role = RogueEnemyRole.Attach(ai.gameObject, roleId, instanceId, elite != 0);
+        if (Controller != null) Controller.RegisterEnemy(role);
     }
 
     /// <summary>Front-facing damage reduction, and the Lethal Shot ultimate (regular enemies die, finale targets take x3).</summary>
@@ -142,6 +145,11 @@ public static class RogueHooks
         var role = receiver.GetComponent<RogueEnemyRole>();
         if (role == null || Controller == null) return;
         Controller.OnEnemyDied(role, killer, headshot);
+        if (killer != null && killer.tag == "Player")
+        {
+            OnPlayerKilledEnemy(killer, receiver.transform, headshot);
+            OnKillExplosion(killer, receiver.transform, role.lastHitDamage);
+        }
     }
 
     /// <summary>Shared kill effects for the killing player (marker charge, adrenaline heal, assault buff).</summary>

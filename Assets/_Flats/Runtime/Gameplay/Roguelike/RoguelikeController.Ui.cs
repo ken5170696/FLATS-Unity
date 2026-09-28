@@ -58,7 +58,7 @@ public partial class RoguelikeController
             case RunPhase.Route: wanted = "route"; break;
             case RunPhase.ChapterEnd: wanted = "chapterend"; break;
         }
-        if (wanted == "") { CloseScreens(); return; }
+        if (wanted == "" || (screenDismissed && wanted == "shop")) { CloseScreens(); return; }
         if (screen == null) screen = RogueScreenView.Open(this);
         if (screen == null) return;
         screenMode = wanted;
@@ -158,6 +158,7 @@ public partial class RoguelikeController
         var parts = e.text.Split('|');
         string status = parts.Length > 0 ? parts[0] : "", reason = parts.Length > 1 ? parts[1] : "", item = parts.Length > 2 ? parts[2] : "", txId = parts.Length > 3 ? parts[3] : "";
         pendingTx.Remove(txId);
+        if (e.flag) ApplyTransactionEffects(txId, item);
         if (e.flag) Log(item == "" ? T("Rerolled") : e.minor > 0 ? T("Bought {0} for ${1}", ItemName(item), RogueMoney.Format(e.minor)) : T("Bought {0}", ItemName(item)));
         else if (status != "Duplicate") Log(T("Purchase failed: {0}", T(reason == "" ? status : reason)));
         if (screen != null) RefreshScreens();

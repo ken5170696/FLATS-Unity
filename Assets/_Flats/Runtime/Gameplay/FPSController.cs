@@ -1050,7 +1050,7 @@ public partial class FPSController : MonoBehaviour
 						{
 							actions.Dispatch(Flats.Core.PlayerAction.Smash);
 						}
-						else if (enableFire)
+						else if (enableFire && !(RoguelikeMode.Active && RogueHooks.CarryingBlocksFire(this)))
 						{
 							actions.Dispatch(Flats.Core.PlayerAction.Shoot);
 						}
@@ -1199,7 +1199,7 @@ public partial class FPSController : MonoBehaviour
 			}
 			if (!jumping && !movedWithGravity)
 			{
-				cc.Move(Vector3.down * Time.deltaTime * 9.81f);
+				cc.Move(Vector3.down * Time.deltaTime * 9.81f * (RoguelikeMode.Active ? RogueHooks.GravityScale(this) : 1f));
 			}
 			if (Menu.changedSettings)
 			{

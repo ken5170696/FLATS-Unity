@@ -181,7 +181,7 @@ namespace Flats.Core.Roguelike
             new EncounterDef("ev.moving_supply", "Moving Supply", "A supply drone crosses the map. Shoot it down before it leaves to claim the crate.", 1, 2, 90, 0.2, null, null, null),
             new EncounterDef("ev.alarm_cache", "Alarm Cache", "Open the cache for a high bounty. Opening it calls a reinforcement wave.", 2, 2, 80, 0.4, null, null, null),
             new EncounterDef("ev.low_gravity", "Low Gravity", "Gravity is halved in the marked area for this stage.", 2, 3, 60, 0.1, null, new[] { "droplinks" }, new[] { "obj.capture" }),
-            new EncounterDef("ev.power_reroute", "Power Reroute", "Flip the breaker: doors change, opening a shortcut for 60 s.", 3, 3, 60, 0.15, new[] { "indoor" }, null, null),
+            new EncounterDef("ev.power_reroute", "Power Reroute", "Flip the breaker: for 60 s enemy shields and jammers lose power and enemies see half as far.", 3, 3, 60, 0.15, new[] { "indoor" }, null, null),
             new EncounterDef("ev.repair_device", "Repair Device", "An optional device can be repaired while enemies attack it. Reward on completion.", 1, 2, 80, 0.3, null, null, new[] { "obj.protect" }),
             new EncounterDef("ev.risk_contract", "Risk Contract", "Accept: enemies deal +25% damage this stage, bounty +40%. Decline at no cost.", 2, 2, 70, 0.4, null, null, null),
             new EncounterDef("ev.elite_hunt", "Elite Hunt", "A marked elite roams the map. Killing it pays a large bounty.", 3, 2, 80, 0.5, null, null, null),
