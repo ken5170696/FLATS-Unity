@@ -12,6 +12,8 @@ public sealed class FlatsSightTarget : MonoBehaviour
     float imageRoll;
     // Integer multiple of the template size the runtime target currently uses.
     public int RenderScale { get; private set; } = 1;
+    // The live lens image; replaced by SetRenderScale, so consumers re-read it after each call.
+    public RenderTexture Target { get { return target; } }
     void Start()
     {
         var owner = GetComponentInParent<FPSController>();

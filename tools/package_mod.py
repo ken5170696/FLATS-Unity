@@ -63,13 +63,15 @@ def check_payload(manifest, folder):
 
 def check_scope_view(value):
     """Mirror the game's scope.view@1 payload rules; unknown keys are refused here so typos surface."""
-    allowed = {'schema', 'preserveMagnification', 'renderTextureScale', 'lenses'}
+    allowed = {'schema', 'preserveMagnification', 'renderTextureScale', 'presentation', 'lenses'}
     if not isinstance(value, dict) or set(value) - allowed:
-        raise ValueError('scope.view@1 payload accepts only schema, preserveMagnification, renderTextureScale and lenses')
+        raise ValueError('scope.view@1 payload accepts only schema, preserveMagnification, renderTextureScale, presentation and lenses')
     if value.get('schema') != 1:
         raise ValueError('scope.view@1 payload needs schema 1')
     if type(value.get('preserveMagnification', True)) is not bool:
         raise ValueError('preserveMagnification must be true or false')
+    if value.get('presentation', 'world') not in ('world', 'overlay'):
+        raise ValueError('presentation must be world or overlay')
     texture = value.get('renderTextureScale', 1)
     if type(texture) is not int or not 1 <= texture <= 4:
         raise ValueError('renderTextureScale must be an integer between 1 and 4')

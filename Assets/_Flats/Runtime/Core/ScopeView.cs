@@ -22,7 +22,13 @@ namespace Flats.Core
         public bool preserveMagnification = true;
         // Integer multiple of the authored 256x256 sight render texture (1-4).
         public int renderTextureScale = 1;
+        // "world" (default): the enlarged lens image stays on the world-space sight canvas.
+        // "overlay": while aiming, the local screen shows a scope body ring with the lens
+        // image, a reticle and edge shading inside it, like a full-size telescopic sight.
+        public string presentation = PresentationWorld;
         public ScopeViewLens[] lenses;
+
+        public const string PresentationWorld = "world", PresentationOverlay = "overlay";
 
         public const float MinimumScale = 1f, MaximumScale = 3f;
         public const int MinimumTextureScale = 1, MaximumTextureScale = 4;
@@ -33,6 +39,8 @@ namespace Flats.Core
             if (schema != 1) throw new InvalidDataException("Unsupported scope view schema (expected 1)");
             if (renderTextureScale < MinimumTextureScale || renderTextureScale > MaximumTextureScale)
                 throw new InvalidDataException("renderTextureScale must be an integer between " + MinimumTextureScale + " and " + MaximumTextureScale);
+            if (!string.IsNullOrEmpty(presentation) && presentation != PresentationWorld && presentation != PresentationOverlay)
+                throw new InvalidDataException("Unknown scope view presentation: " + presentation + " (expected world or overlay)");
             if (lenses == null) return;
             for (int i = 0; i < lenses.Length; i++)
             {
@@ -61,6 +69,8 @@ namespace Flats.Core
         public static bool Active { get; private set; }
         public static bool PreserveMagnification { get; private set; } = true;
         public static int RenderTextureScale { get; private set; } = 1;
+        // True while an active module asks for the screen-space scope presentation.
+        public static bool Overlay { get; private set; }
         static ScopeViewPayload payload;
 
         // 1 for the reflex sight, unknown lenses and while no module is active.
@@ -71,10 +81,11 @@ namespace Flats.Core
             if (value == null) throw new ArgumentNullException(nameof(value));
             value.Validate();
             if (Active) throw new InvalidOperationException("Another scope view module is already active");
-            payload = value; PreserveMagnification = value.preserveMagnification; RenderTextureScale = value.renderTextureScale; Active = true;
+            payload = value; PreserveMagnification = value.preserveMagnification; RenderTextureScale = value.renderTextureScale;
+            Overlay = value.presentation == ScopeViewPayload.PresentationOverlay; Active = true;
         }
 
-        public static void Reset() { payload = null; PreserveMagnification = true; RenderTextureScale = 1; Active = false; }
+        public static void Reset() { payload = null; PreserveMagnification = true; RenderTextureScale = 1; Overlay = false; Active = false; }
 
         // Largest usable scale for a lens image whose diameter is `baseFraction` of the viewport
         // height at scale 1: the enlarged image must stay within `limit` of the shorter viewport

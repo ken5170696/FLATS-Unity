@@ -1,11 +1,24 @@
 {
   "schema": 1,
+  "presentation": "overlay",
   "preserveMagnification": true,
   "renderTextureScale": 4,
   "lenses": [
-    { "lens": "2x", "scale": 1.5 },
-    { "lens": "4x", "scale": 1.8 },
-    { "lens": "6x", "scale": 2.1 },
-    { "lens": "8x", "scale": 2.4 }
+    {
+      "lens": "2x",
+      "scale": 1.5
+    },
+    {
+      "lens": "4x",
+      "scale": 1.8
+    },
+    {
+      "lens": "6x",
+      "scale": 2.1
+    },
+    {
+      "lens": "8x",
+      "scale": 2.4
+    }
   ]
 }
