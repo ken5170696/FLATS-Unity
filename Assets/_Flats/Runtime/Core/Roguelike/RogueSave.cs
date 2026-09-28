@@ -1,0 +1,96 @@
+using System;
+using System.Collections.Generic;
+
+namespace Flats.Core.Roguelike
+{
+    /// <summary>On-disk run checkpoint. Separate from the Classic profile; its own schema.</summary>
+    [Serializable]
+    public sealed class RunSaveDocument
+    {
+        public const int CurrentSchema = 1;
+        public int schema = CurrentSchema;
+        public string savedAtUtc = "";
+        public string gameVersion = "";
+        public string localPlayerKey = "";     // whose checkpoint this is (solo or the host's copy)
+        public RunState run = new RunState();
+    }
+
+    /// <summary>Out-of-run progress: records and unlocks only. Never permanent power.</summary>
+    [Serializable]
+    public sealed class RogueMetaDocument
+    {
+        public const int CurrentSchema = 1;
+        public int schema = CurrentSchema;
+        public int runsStarted, runsEvacuated, runsWiped;
+        public int deepestDepth;
+        public long mostEarnedMinor;
+        public int mostKills, mostHeadshots;
+        public string[] seenItems = new string[0];       // codex: which cores/mods/ultimates were ever owned
+        public string[] clearedFinales = new string[0];
+        public string lastRunId = "";
+    }
+
+    public static class RogueSave
+    {
+        public const string RunFileName = "roguelike-run-v1.json";
+        public const string MetaFileName = "roguelike-meta-v1.json";
+
+        /// <summary>Structural validation for a loaded run. Errors mean "do not resume"; the caller shows them.</summary>
+        public static List<string> Validate(RunSaveDocument doc)
+        {
+            var errors = new List<string>();
+            if (doc == null) { errors.Add("empty document"); return errors; }
+            if (doc.schema > RunSaveDocument.CurrentSchema) { errors.Add("newer save format (" + doc.schema + ")"); return errors; }
+            if (doc.schema < 1) errors.Add("invalid schema");
+            var run = doc.run;
+            if (run == null) { errors.Add("missing run"); return errors; }
+            if (string.IsNullOrEmpty(run.runId)) errors.Add("missing run id");
+            if (run.rulesVersion != RogueCatalog.RulesVersion) errors.Add("rules version " + run.rulesVersion + " differs from " + RogueCatalog.RulesVersion);
+            if (run.contentHash != RogueCatalog.ContentHash()) errors.Add("content differs from this build");
+            if (run.depth < 1 || run.depth > RogueDepth.MaxDepth) errors.Add("depth out of range");
+            if (run.difficulty < 1 || run.difficulty > RogueDepth.MaxDifficulty) errors.Add("difficulty out of range");
+            if (run.phase != RunPhase.Prep && run.phase != RunPhase.ChapterEnd) errors.Add("checkpoint is not at a safe boundary");
+            if (run.players == null || run.players.Length == 0 || run.players.Length > 4) errors.Add("player count out of range");
+            if (RogueCatalog.Map(run.mapId) == null) errors.Add("unknown map " + run.mapId);
+            var keys = new HashSet<string>();
+            if (run.players != null)
+                foreach (var p in run.players)
+                {
+                    if (p == null || string.IsNullOrEmpty(p.key)) { errors.Add("player without key"); continue; }
+                    if (!keys.Add(p.key)) errors.Add("duplicate player " + p.key);
+                    if (p.walletMinor < 0 || p.walletMinor > RogueMoney.MaxWallet) errors.Add("wallet out of range for " + p.key);
+                    if (p.ultimateCharge < 0 || p.ultimateCharge > 100) errors.Add("ultimate charge out of range for " + p.key);
+                    if (p.build == null) { errors.Add("missing build for " + p.key); continue; }
+                    foreach (var e in p.build.Validate()) errors.Add(p.key + ": " + e);
+                    if (p.offers != null) foreach (var o in p.offers) if (o == null || RogueCatalog.Item(o.itemId) == null || o.priceMinor < 0) errors.Add("bad offer for " + p.key);
+                }
+            return errors;
+        }
+
+        /// <summary>Applies a run's end to the meta record; idempotent per run id.</summary>
+        public static bool RecordRunEnd(RogueMetaDocument meta, RunState run, string localPlayerKey)
+        {
+            if (meta == null || run == null || run.phase != RunPhase.Ended || meta.lastRunId == run.runId) return false;
+            meta.lastRunId = run.runId;
+            if (run.end == RunEnd.Evacuated) meta.runsEvacuated++; else if (run.end == RunEnd.Wiped) meta.runsWiped++;
+            if (run.deepestDepth > meta.deepestDepth) meta.deepestDepth = run.deepestDepth;
+            var me = run.Player(localPlayerKey);
+            if (me != null)
+            {
+                if (me.earnedMinor > meta.mostEarnedMinor) meta.mostEarnedMinor = me.earnedMinor;
+                if (me.kills > meta.mostKills) meta.mostKills = me.kills;
+                if (me.headshots > meta.mostHeadshots) meta.mostHeadshots = me.headshots;
+                var seen = new List<string>(meta.seenItems);
+                foreach (var id in me.build.cores) if (!seen.Contains(id)) seen.Add(id);
+                foreach (var id in me.build.mods) if (!seen.Contains(id)) seen.Add(id);
+                if (!string.IsNullOrEmpty(me.build.ultimate) && !seen.Contains(me.build.ultimate)) seen.Add(me.build.ultimate);
+                if (!string.IsNullOrEmpty(me.build.tactical) && !seen.Contains(me.build.tactical)) seen.Add(me.build.tactical);
+                meta.seenItems = seen.ToArray();
+            }
+            var cleared = new List<string>(meta.clearedFinales);
+            foreach (var h in run.history) if (!string.IsNullOrEmpty(h.finaleId) && !cleared.Contains(h.finaleId)) cleared.Add(h.finaleId);
+            meta.clearedFinales = cleared.ToArray();
+            return true;
+        }
+    }
+}
