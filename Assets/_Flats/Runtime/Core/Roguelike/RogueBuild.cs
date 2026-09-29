@@ -13,6 +13,7 @@ namespace Flats.Core.Roguelike
         public string ultimate = "";
         public int healthTier, damageTier, magazineTier, speedTier;   // 0..StatTiers
         public int primaryWeapon = -1, secondaryWeapon = -1;          // WeaponCatalog indices; -1 = character default
+        public MetaLoadout meta = new MetaLoadout();                  // out-of-run skills and armory (Meta/BuildStats.Meta.cs)
 
         public PlayerBuild Clone()
         {
@@ -21,6 +22,7 @@ namespace Flats.Core.Roguelike
                 cores = (string[])cores.Clone(), mods = (string[])mods.Clone(), tactical = tactical, ultimate = ultimate,
                 healthTier = healthTier, damageTier = damageTier, magazineTier = magazineTier, speedTier = speedTier,
                 primaryWeapon = primaryWeapon, secondaryWeapon = secondaryWeapon,
+                meta = meta != null ? meta.Clone() : new MetaLoadout(),
             };
         }
 
@@ -130,7 +132,7 @@ namespace Flats.Core.Roguelike
     /// items -> clamps. Conditional bonuses (range, stacks, bursts) are exposed as parameters and
     /// evaluated by the adapter with the same clamps, so a test can check the whole envelope.
     /// </summary>
-    public sealed class BuildStats
+    public sealed partial class BuildStats
     {
         public double HealthMul = 1, DamageMul = 1, MagazineMul = 1, ReserveMul = 1, SpeedMul = 1, ReloadTimeMul = 1;
         public double HeadshotDamageMul = 1, BodyDamageMul = 1, DamageTakenMul = 1, JumpHeightMul = 1, SpreadMul = 1;
@@ -201,6 +203,8 @@ namespace Flats.Core.Roguelike
             if (s.Dash && s.DashCharges < 1) s.DashCharges = 1;
             if (!s.Dash) s.DashCharges = 0;
 
+            ApplyMeta(s, b);   // out-of-run skills and armory, bounded by SkillTree's design rule
+
             // clamps: hard envelope regardless of stacking
             s.DamageMul = Math.Min(MaxTotalDamageMul, s.DamageMul);
             s.SpeedMul = Math.Min(MaxTotalSpeedMul, Math.Max(0.5, s.SpeedMul));
@@ -210,6 +214,7 @@ namespace Flats.Core.Roguelike
             s.DamageTakenMul = Math.Max(MinDamageTakenMul, s.DamageTakenMul);
             s.HeadshotDamageMul = Math.Min(2.0, s.HeadshotDamageMul);
             s.JumpHeightMul = Math.Min(1.5, s.JumpHeightMul);
+            ClampMeta(s);
             return s;
         }
 
