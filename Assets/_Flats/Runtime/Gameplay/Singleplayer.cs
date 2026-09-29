@@ -542,8 +542,9 @@ public class Singleplayer : MonoBehaviour
 		int nextStage = Menu.RandomAvailableStageIndex();
 		if (nextStage == Application.loadedLevel)
 		{
+			// the next map after the current one, wrapping within the maps this build contains (Troy is build index 8 when present)
 			nextStage++;
-			if (nextStage > 7)
+			if (nextStage > Menu.LastAvailableStage + 2)
 			{
 				nextStage = 2;
 			}
