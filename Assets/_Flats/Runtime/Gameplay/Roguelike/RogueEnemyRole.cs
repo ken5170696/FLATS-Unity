@@ -5,7 +5,7 @@ using UnityEngine;
 /// <summary>
 /// Battlefield role on a Flatman_Enemy. Attached on every client (from AI.SyncTeam) so the
 /// silhouette marker, health and front reduction agree everywhere; the authority also uses the
-/// instance id to pay the bounty exactly once. Visuals stay flat geometry in the FLATS style.
+/// instance id to pay the bounty exactly once. Role icons stay readable above the head from every viewing angle.
 /// </summary>
 public class RogueEnemyRole : MonoBehaviour
 {
@@ -21,9 +21,37 @@ public class RogueEnemyRole : MonoBehaviour
     AI ai;
     bool applied;
     [System.NonSerialized] public float lastHitDamage;
-    public bool Invulnerable;
+    bool invulnerable;
+    /// <summary>Set by objective runners on the authority; replicated to every client so local hit resolution agrees.</summary>
+    public bool Invulnerable
+    {
+        get { return invulnerable; }
+        set
+        {
+            if (invulnerable == value) return;
+            invulnerable = value;
+            var ctrl = RoguelikeController.Instance;
+            if (ctrl != null && ctrl.IsAuthority && Menu.network != 0) ctrl.Notify(new RogueEventMessage { kind = "inv", index = InstanceId, flag = value });
+        }
+    }
+    public void ApplyInvulnerable(bool value) { invulnerable = value; }
     bool huntMarked;
-    public bool HuntMarked { get { return huntMarked; } set { huntMarked = value; if (value) { RogueWaypoint.Attach(gameObject, "Sight", "Marked elite", new Color(1f, 0.85f, 0.2f), 2.6f, 3); var g = new GameObject("HuntMark"); g.transform.SetParent(transform, false); AddQuad(g, RogueWorld.Unlit(Color.white), new Color(1f, 0.85f, 0.2f), new Vector3(0, 4.2f, 0), new Vector3(1.2f, 1.2f, 1), 45); foreach (var r in g.GetComponentsInChildren<Renderer>()) r.gameObject.layer = gameObject.layer; } } }
+    public bool HuntMarked
+    {
+        get { return huntMarked; }
+        set
+        {
+            if (!RoguelikeMode.Active || huntMarked == value) return;
+            huntMarked = value;
+            if (value) RogueWaypoint.Attach(gameObject, "Sight", "Marked elite", new Color(1f, 0.85f, 0.2f), 2.6f, 3);
+            else
+            {
+                var waypoint = GetComponent<RogueWaypoint>();
+                if (waypoint != null && waypoint.Label == "Marked elite") RogueWaypoint.Detach(gameObject);
+            }
+            BuildMarker();
+        }
+    }
     float markedUntil, slowUntil, slowScale = 1f;
     RoguePlayer markedBy;
     public bool Marked { get { return Time.time < markedUntil; } }
@@ -59,8 +87,10 @@ public class RogueEnemyRole : MonoBehaviour
 
     public static RogueEnemyRole Attach(GameObject go, string roleId, int instanceId, bool elite)
     {
+        if (!RoguelikeMode.Active) return null;
         var role = go.GetComponent<RogueEnemyRole>();
         if (role == null) role = go.AddComponent<RogueEnemyRole>();
+        if (go.GetComponent<RogueHitReaction>() == null) go.AddComponent<RogueHitReaction>();
         role.Configure(roleId, instanceId, elite);
         return role;
     }
@@ -114,29 +144,22 @@ public class RogueEnemyRole : MonoBehaviour
         return false;
     }
 
-    // ---------------------------------------------------------------- flat markers
+    public float AimSpreadScale(float distance)
+    {
+        return RoguelikeMode.Active ? (float)RogueEnemyAim.SpreadScale(Def, distance, ai != null ? ai.stats_Attack : 0) : 1f;
+    }
+
+    // ---------------------------------------------------------------- role icon billboard
     void BuildMarker()
     {
         if (marker != null) Destroy(marker);
-        string kind = Def != null ? Def.Marker : "crown";
-        if (string.IsNullOrEmpty(kind) && !Elite) return;
+        if (!RoguelikeMode.Active) return;
         marker = new GameObject("RoleMarker");
         marker.transform.SetParent(transform, false);
-        var mat = RogueWorld.Unlit(Color.white);
-        Color c = Elite ? new Color(1f, 0.85f, 0.2f) : new Color(0.95f, 0.95f, 0.95f);
-        switch (kind)
-        {
-            case "spikes": AddQuad(marker, mat, c, new Vector3(0, 2.4f, 0), new Vector3(0.9f, 0.5f, 1), 45); AddQuad(marker, mat, c, new Vector3(0, 2.4f, 0), new Vector3(0.9f, 0.5f, 1), -45); break;
-            case "antenna-tall": AddQuad(marker, mat, c, new Vector3(0, 3.0f, 0), new Vector3(0.12f, 1.6f, 1), 0); AddQuad(marker, mat, c, new Vector3(0, 3.8f, 0), new Vector3(0.5f, 0.12f, 1), 0); break;
-            case "shield": AddQuad(marker, mat, new Color(0.35f, 0.55f, 1f), new Vector3(0, 1.3f, 1.1f), new Vector3(1.6f, 1.8f, 1), 0); break;
-            case "stripe": AddQuad(marker, mat, c, new Vector3(0, 1.2f, 0.55f), new Vector3(0.25f, 1.8f, 1), 0); break;
-            case "antenna-dish": AddQuad(marker, mat, c, new Vector3(0, 3.0f, 0), new Vector3(0.12f, 1.2f, 1), 0); AddQuad(marker, mat, c, new Vector3(0, 3.6f, 0), new Vector3(0.9f, 0.9f, 1), 0); break;
-            case "crown": AddQuad(marker, mat, c, new Vector3(0, 2.6f, 0), new Vector3(1.0f, 0.4f, 1), 0); break;
-        }
-        if (Elite && kind != "crown") AddQuad(marker, mat, new Color(1f, 0.85f, 0.2f), new Vector3(0, 2.7f, 0), new Vector3(0.6f, 0.2f, 1), 0);
-        foreach (var r in marker.GetComponentsInChildren<Renderer>()) r.gameObject.layer = gameObject.layer;
+        marker.transform.localPosition = Vector3.up * 8f;
+        var view = marker.AddComponent<RogueRoleMarker>();
+        view.Configure(Def != null ? Def.Marker : "Warning", Elite, RoleId == "role.finale", HuntMarked);
     }
-
     static void AddQuad(GameObject parent, Material mat, Color color, Vector3 localPos, Vector3 scale, float zRot)
     {
         var q = GameObject.CreatePrimitive(PrimitiveType.Quad);

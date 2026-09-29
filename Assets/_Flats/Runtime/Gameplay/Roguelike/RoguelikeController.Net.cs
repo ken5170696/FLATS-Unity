@@ -114,6 +114,7 @@ public partial class RoguelikeController
         var rr = ro.GetComponent<RoguePlayer>();
         held += Mathf.Clamp(seconds, 0f, 0.6f) * (rr != null ? (float)rr.Stats.ReviveSpeedMul : 1f);
         reviveHold[key] = held;
+        Notify(new RogueEventMessage { kind = "revprog", playerKey = victim, text = r.name, value = Mathf.Clamp01(held / RoguePlayer.ReviveHoldSeconds) });
         if (held < RoguePlayer.ReviveHoldSeconds) return;
         reviveHold.Remove(key);
         var pay = machine.Rescued(rescuer, victim);

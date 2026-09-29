@@ -37,7 +37,7 @@ public sealed class CarryRunner : RogueObjectiveRunner
         crate = RogueWorld.Cube("SupplyCrate", start, new Vector3(1.4f, 1.0f, 1.4f), RogueWorld.Gold, true);
         RogueWaypoint.Attach(crate, "Crate", "Supply crate", RogueWorld.Gold, 1.6f, 3);
         crate.GetComponent<Collider>().isTrigger = true;
-        carry = crate.AddComponent<RogueCarryable>(); carry.Action = "carry"; carry.Prompt = "Pick up the crate";
+        carry = crate.AddComponent<RogueCarryable>(); carry.Action = "carry"; carry.Prompt = "Pick up the crate"; carry.DisplayName = "Supply crate";
         ring = RogueWorld.Ring("DropZone", dropPoint, 4f, RogueWorld.Gold);
         beacon = RogueWorld.Beacon("DropBeacon", dropPoint, RogueWorld.Gold);
         RogueWaypoint.Attach(beacon, "Check", "Drop zone", RogueWorld.Gold, 2.5f, 2);
@@ -64,8 +64,10 @@ public sealed class CarryRunner : RogueObjectiveRunner
     }
     void SetHolder(string key)
     {
+        string previous = carry.HolderKey;
         carry.HolderKey = key;
         Controller.Notify(new RogueEventMessage { kind = "carry", text = "SupplyCrate|" + key });
+        if (machine.Status != ObjectiveStatus.Succeeded) RogueCarryable.AnnounceHolder(Controller, "Supply crate", previous, key);
         foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = RogueWorld.KeyOf(go) == key && key != ""; }
     }
     public override void OnCommand(RogueCommandMessage cmd)

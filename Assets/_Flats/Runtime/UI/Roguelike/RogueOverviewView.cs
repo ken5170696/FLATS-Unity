@@ -20,6 +20,7 @@ public class RogueOverviewView : MonoBehaviour
     public Button close;
     public RogueStatRowView statTemplate;
     public RogueOfferRowView offerTemplate;
+    [Header("Two columns")] public GameObject body; public RectTransform leftContent, coresGrid, modsGrid; public RogueCardView cardTemplate; public RogueStatRowView compactTemplate; public Text coresHeading, modsHeading;
     public Color tabActive = new Color(0.8f, 0.098f, 0.4f, 1f), tabIdle = new Color(1f, 1f, 1f, 0.8f), tabTextActive = Color.white, tabTextIdle = new Color(0.2f, 0.2f, 0.2f, 1f);
 
     public int Current { get; private set; }
@@ -123,6 +124,43 @@ public class RogueOverviewView : MonoBehaviour
 
     public void SetFooter(string text) { if (footer != null) footer.text = text ?? ""; }
 
+    /// <summary>Two-column layout (stats left, card grids right) or the single list.</summary>
+    public void UseTwoColumns(bool two)
+    {
+        if (body != null) body.SetActive(two);
+        if (scroll != null) scroll.gameObject.SetActive(!two);
+        if (two && cardTemplate == null) { var p = Resources.Load<GameObject>("UI/Roguelike/RogueCard"); if (p != null) cardTemplate = p.GetComponent<RogueCardView>(); }
+        if (two && compactTemplate == null) { var p = Resources.Load<GameObject>("UI/Roguelike/RogueStatRowCompact"); if (p != null) compactTemplate = p.GetComponent<RogueStatRowView>(); }
+    }
+
+    public RogueStatRowView AddLeftStat(string iconName, string label, string value, string sub, float bar, Color tint)
+    {
+        var template = compactTemplate != null ? compactTemplate : statTemplate;
+        if (template == null || leftContent == null) return null;
+        var row = Instantiate(template, leftContent, false);
+        row.gameObject.SetActive(true);
+        row.name = "Left-" + label;
+        row.Bind(iconName, label, value, sub, bar, tint);
+        return row;
+    }
+
+    public RogueCardView AddCard(bool cores, string iconName, string title, string sub, Color tint, bool empty)
+    {
+        var grid = cores ? coresGrid : modsGrid;
+        if (cardTemplate == null || grid == null) return null;
+        var card = Instantiate(cardTemplate, grid, false);
+        card.gameObject.SetActive(true);
+        card.name = "Card-" + title;
+        card.Bind(iconName, title, sub, tint, empty);
+        return card;
+    }
+
+    public void SetGridHeadings(string cores, string mods)
+    {
+        if (coresHeading != null) coresHeading.text = cores ?? "";
+        if (modsHeading != null) modsHeading.text = mods ?? "";
+    }
+
     public void ClearRows() { ClearRows(false); }
 
     public void ClearRows(bool keepScroll)
@@ -137,6 +175,16 @@ public class RogueOverviewView : MonoBehaviour
             if ((statTemplate != null && child == statTemplate.gameObject) || (offerTemplate != null && child == offerTemplate.gameObject)) continue;
             child.SetActive(false);
             Destroy(child);
+        }
+        foreach (var container in new[] { leftContent, coresGrid, modsGrid })
+        {
+            if (container == null) continue;
+            for (int i = container.childCount - 1; i >= 0; i--)
+            {
+                var child = container.GetChild(i).gameObject;
+                if ((statTemplate != null && child == statTemplate.gameObject) || (cardTemplate != null && child == cardTemplate.gameObject) || (compactTemplate != null && child == compactTemplate.gameObject)) continue;
+                child.SetActive(false); Destroy(child);
+            }
         }
         if (scroll != null) { if (keepScroll) StartCoroutine(RestoreScroll(scrollPos)); else scroll.verticalNormalizedPosition = 1f; }
     }

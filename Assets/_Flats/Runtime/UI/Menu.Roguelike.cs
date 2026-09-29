@@ -22,7 +22,6 @@ public partial class Menu
     internal bool HandleRoguelikeNavigation(int button)
     {
         if (gameState != "Main") return false;
-        if (current == "Play" && button == 2) { if (!fliping) StartCoroutine(ShowRoguelike()); return true; }
         if (current != "Roguelike") return false;
         if (fliping) return true;
         StartCoroutine(RoguelikeMenu(button));
@@ -33,6 +32,7 @@ public partial class Menu
     {
         fliping = true; PlayMenuSound(pressSE); anim.SetBool("Fade", true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
+        HideModeList();
         RestorePlayTiles();
         current = "Roguelike"; backButton.SetActive(true); quitButton.SetActive(false);
         LoadRoguelikeCheckpoint();
@@ -58,7 +58,7 @@ public partial class Menu
         else bt[3].text = roguelikeCheckpointError != null ? "Checkpoint unreadable" : "No checkpoint";
         bt[4].text = "Start Run";
         bt[5].text = "Back";
-        buttons[0].sprite = images[22]; buttons[1].sprite = images[19]; buttons[2].sprite = roguelikeMap < 0 ? images[23] : images[12 + roguelikeMap];
+        buttons[0].sprite = images[22]; buttons[1].sprite = images[19]; buttons[2].sprite = roguelikeMap < 0 ? images[23] : MapImage(roguelikeMap);
         buttons[3].sprite = images[21]; buttons[4].sprite = images[18]; buttons[5].sprite = images[41];
     }
 
@@ -68,9 +68,8 @@ public partial class Menu
         {
             fliping = true; PlayMenuSound(cancelSE); anim.SetBool("Fade", true);
             yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-            BackToMainMenu(); current = "Play"; backButton.SetActive(true); RefreshPlayTiles();
+            BackToMainMenu(); ShowSingleplayerPage();
             anim.SetBool("Fade", false); fliping = false;
-            EventSystem.current.SetSelectedGameObject(buttons[2].transform.parent.gameObject);
             yield break;
         }
         PlayMenuSound(pressSE);
@@ -88,7 +87,7 @@ public partial class Menu
             yield break;
         }
         if (button == 1) { roguelikeDifficulty = roguelikeDifficulty % 3 + 1; RefreshRoguelikeTiles(); yield break; }
-        if (button == 2) { roguelikeMap = roguelikeMap >= 5 ? -1 : roguelikeMap + 1; RefreshRoguelikeTiles(); yield break; }
+        if (button == 2) { roguelikeMap = roguelikeMap >= 6 ? -1 : roguelikeMap + 1; RefreshRoguelikeTiles(); yield break; }
         if (button == 3)
         {
             if (roguelikeCheckpoint == null)
@@ -120,6 +119,7 @@ public partial class Menu
         if (!waitBackground && PhotonNetwork.connected) PhotonNetwork.Disconnect();
         anim.SetBool("Fade", true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
+        HideModeList();
         StartCoroutine("BackgroundColor", "FadeIn");
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
         int buildIndex;
@@ -131,7 +131,7 @@ public partial class Menu
         }
         else
         {
-            buildIndex = roguelikeMap < 0 ? Random.Range(2, 8) : roguelikeMap + 2;
+            buildIndex = roguelikeMap < 0 ? Random.Range(2, 9) : roguelikeMap + 2;
             RoguelikeMode.Difficulty = roguelikeDifficulty;
         }
         Singleplayer.rule = RoguelikeMode.SoloRule;

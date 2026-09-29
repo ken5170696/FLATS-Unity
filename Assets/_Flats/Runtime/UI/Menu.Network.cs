@@ -442,22 +442,13 @@ public partial class Menu
 			gameState = "Multiplayer";
 			voteMap.text = "Vote map";
 			voteMap.gameObject.SetActive(true);
+			ShowVoteList();
 			int time = 10;
 			while (time > 0)
 			{
 				voteMap.text = "Vote map " + time;
-				bt[0].text = stageName[0] + " : " + vote[0].mapValue;
-				bt[1].text = stageName[1] + " : " + vote[1].mapValue;
-				bt[2].text = stageName[2] + " : " + vote[2].mapValue;
-				bt[3].text = stageName[3] + " : " + vote[3].mapValue;
-				bt[4].text = stageName[4] + " : " + vote[4].mapValue;
-				bt[5].text = stageName[5] + " : " + vote[5].mapValue;
-				buttons[0].sprite = images[12];
-				buttons[1].sprite = images[13];
-				buttons[2].sprite = images[14];
-				buttons[3].sprite = images[15];
-				buttons[4].sprite = images[16];
-				buttons[5].sprite = images[17];
+				for (int i = 0; i < 6; i++) { bt[i].text = stageName[i] + " : " + vote[i].mapValue; buttons[i].sprite = MapImage(i); }
+				RefreshVoteList();   // the list shows every map, including the seventh
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(1f));
 				time--;
 				if (time <= 0)
@@ -469,6 +460,7 @@ public partial class Menu
 			anim.SetBool("Fade", true);
 			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
 			voteMap.gameObject.SetActive(false);
+			HideModeList();
 			network = 2;
 			Debug.Log("Network mode:" + network);
 			while (!PhotonNetwork.isMasterClient)
@@ -479,7 +471,7 @@ public partial class Menu
 			int num;
 			if (vote[0].mapValue == 0)
 			{
-				num = vote[UnityEngine.Random.Range(0, 6)].mapKey + 2;
+				num = vote[UnityEngine.Random.Range(0, OfflineMaps.Length)].mapKey + 2;
 			}
 			else
 			{

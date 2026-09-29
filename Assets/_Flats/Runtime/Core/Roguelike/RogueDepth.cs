@@ -35,6 +35,14 @@ namespace Flats.Core.Roguelike
             return Math.Min(4.5, Saturate(depth, 3.0, 40.0) * (0.85 + 0.15 * d));
         }
 
+        /// <summary>Enemy health scale for the squad size: +12% per extra player on top of the larger wave counts, so four
+        /// players face both more and sturdier enemies without turning every rifleman into a bullet sponge.</summary>
+        public static double SquadHealthScale(int players)
+        {
+            int p = players < 1 ? 1 : (players > 4 ? 4 : players);
+            return 1.0 + 0.12 * (p - 1);
+        }
+
         /// <summary>Enemy outgoing damage multiplier; hard-capped at +120% so late enemies never one-shot a full-health player.</summary>
         public static double EnemyDamage(int depth, int difficulty)
         {

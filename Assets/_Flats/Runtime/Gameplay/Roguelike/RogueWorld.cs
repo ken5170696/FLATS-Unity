@@ -283,18 +283,22 @@ public class RogueCarryable : MonoBehaviour
     public string Action = "carry";
     public string HolderKey = "";
     public string Prompt = "Pick up";
-    Vector3 lastValid;
+    public string DisplayName = "Supply crate";     // translation key used by banners, the HUD hint and the waypoint
+    Vector3 lastValid, baseScale;
     float pressCooldown;
+    string lastHolder = "";
 
-    void Start() { lastValid = transform.position; }
+    void Start() { lastValid = transform.position; baseScale = transform.localScale; }
 
     void Update()
     {
         pressCooldown -= Time.deltaTime;
         var holder = string.IsNullOrEmpty(HolderKey) ? null : RogueWorld.PlayerByKey(HolderKey);
-        if (holder != null)
+        if (HolderKey != lastHolder) { RefreshCarriedLook(holder); lastHolder = HolderKey; }
+        if (holder != null && transform.parent == null)
         {
-            transform.position = holder.transform.position + holder.transform.forward * 1.6f + Vector3.up * 1.2f;
+            // no hand socket on this carrier: held in front at chest height, shrunk
+            transform.position = holder.transform.position + holder.transform.forward * 0.9f + holder.transform.right * 0.45f + Vector3.up * 0.9f;
             transform.rotation = holder.transform.rotation;
         }
         else if (transform.position.y < -50f)
@@ -323,5 +327,60 @@ public class RogueCarryable : MonoBehaviour
             if (FlatsControls.Down("Interact") || FlatsControls.PadState("Change", 1)) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":pickup" }); pressCooldown = 0.5f; }
             else ctrl2.Banner(RoguelikeController.T("{0}: {1}", FlatsControls.Label("Interact", FlatsControls.UsingGamepad), RoguelikeController.T(Prompt)), 0.3f);
         }
+    }
+
+    GameObject socketedTo;
+    void RefreshCarriedLook(GameObject holder)
+    {
+        if (baseScale == Vector3.zero) baseScale = transform.localScale;
+        // release the previous carrier's hands
+        if (socketedTo != null) { SetCarryPose(socketedTo, false); socketedTo = null; }
+        transform.SetParent(null, true);
+        transform.localScale = holder != null ? baseScale * 0.5f : baseScale;
+        if (holder != null)
+        {
+            var fc = holder.GetComponent<FPSController>();
+            if (fc != null && fc.primaryWeapons != null && fc.primaryWeapons.parent != null)
+            {
+                // the same socket the legacy bomb mode uses: hands, weapon hidden, "Bomb" carry pose
+                transform.SetParent(fc.primaryWeapons.parent, false);
+                transform.localPosition = new Vector3(0f, 0.15f, 0.25f);
+                transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
+                SetCarryPose(holder, true);
+                socketedTo = holder;
+            }
+        }
+        var col = GetComponent<Collider>(); if (col != null) col.enabled = holder == null;
+        var wp = GetComponent<RogueWaypoint>();
+        if (wp == null) return;
+        if (holder != null)
+        {
+            var ctrl = RoguelikeController.Instance; var p = ctrl != null && ctrl.State != null ? ctrl.State.Player(HolderKey) : null;
+            wp.Label = "{0} carries: {1}|" + (p != null ? p.name : HolderKey) + "|@" + DisplayName;
+            wp.Priority = 4;
+        }
+        else { wp.Label = DisplayName; wp.Priority = 3; }
+    }
+
+    static void SetCarryPose(GameObject player, bool carrying)
+    {
+        var fc = player.GetComponent<FPSController>();
+        if (fc != null && fc.primaryWeapon != null) fc.primaryWeapon.gameObject.SetActive(!carrying);
+        var anim = player.GetComponent<Animator>();
+        if (anim != null) anim.SetBool("Bomb", carrying);
+        if (carrying && RogueWorld.KeyOf(player) == RoguelikeMode.LocalPlayerKey) { var menu = Menu.Current; if (menu != null && menu.pressSE != null) { var src = menu.GetComponent<AudioSource>(); if (src != null) src.PlayOneShot(menu.pressSE); } }
+    }
+
+    void OnDestroy() { if (socketedTo != null) SetCarryPose(socketedTo, false); }
+
+    /// <summary>Authority helper: announce a holder change to everyone (banner + log), naming the player.</summary>
+    public static void AnnounceHolder(RoguelikeController ctrl, string itemKey, string previousKey, string key)
+    {
+        if (ctrl == null || ctrl.State == null) return;
+        string who = key != "" ? key : previousKey;
+        var p = ctrl.State.Player(who);
+        string name = p != null ? p.name : who;
+        if (key != "") ctrl.Notify(new RogueEventMessage { kind = "banner", text = "{0} picked up the {1}|" + name + "|@" + itemKey, value = 2 });
+        else if (previousKey != "") ctrl.Notify(new RogueEventMessage { kind = "banner", text = "{0} put down the {1}|" + name + "|@" + itemKey, value = 2 });
     }
 }

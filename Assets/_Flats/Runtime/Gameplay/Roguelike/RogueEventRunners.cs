@@ -235,7 +235,7 @@ public sealed class LureCrateRunner : RogueEventRunner
         crate = RogueWorld.Cube("LureCrate", Point(0), new Vector3(1.2f, 1.2f, 1.2f), RogueWorld.Pink2, true);
         RogueWaypoint.Attach(crate, "Crate", "Lure crate", RogueWorld.Pink2, 1.6f, 1);
         crate.GetComponent<Collider>().isTrigger = true;
-        carry = crate.AddComponent<RogueCarryable>(); carry.Action = "lure"; carry.Prompt = "Pick up the lure (enemies follow it)";
+        carry = crate.AddComponent<RogueCarryable>(); carry.DisplayName = "Lure crate"; carry.Action = "lure"; carry.Prompt = "Pick up the lure (enemies follow it)";
         if (Authority) machine = new LureCrateEvent();
     }
     public override void Tick(float dt)
@@ -248,7 +248,7 @@ public sealed class LureCrateRunner : RogueEventRunner
         StatusText = machine.Planted ? N("Lure planted {0} s", Mathf.CeilToInt((float)machine.Countdown)) : machine.Carried ? N("Lure carried: press Interact to plant") : N("Lure crate: optional");
         Settle(machine.Status);
     }
-    void SetHolder(string key) { carry.HolderKey = key; Controller.Notify(new RogueEventMessage { kind = "carry", text = "LureCrate|" + key }); }
+    void SetHolder(string key) { string previous = carry.HolderKey; carry.HolderKey = key; Controller.Notify(new RogueEventMessage { kind = "carry", text = "LureCrate|" + key }); RogueCarryable.AnnounceHolder(Controller, "Lure crate", previous, key); }
     public override void OnCommand(RogueCommandMessage cmd)
     {
         if (machine == null) return;
@@ -394,7 +394,7 @@ public sealed class MobileBombRunner : RogueEventRunner
         bomb = RogueWorld.Cube("MobileBomb", Point(0), new Vector3(1.1f, 1.1f, 1.1f), new Color(0.15f, 0.15f, 0.15f), true);
         RogueWaypoint.Attach(bomb, "Warning", "Bomb", new Color(1f, 0.35f, 0.35f), 1.6f, 2).Pulse = true;
         bomb.GetComponent<Collider>().isTrigger = true;
-        carry = bomb.AddComponent<RogueCarryable>(); carry.Action = "bomb"; carry.Prompt = "Pick up the bomb";
+        carry = bomb.AddComponent<RogueCarryable>(); carry.DisplayName = "Bomb"; carry.Action = "bomb"; carry.Prompt = "Pick up the bomb";
         ring = RogueWorld.Ring("DisposalZone", disposal, 4f, RogueWorld.Green); beacon = RogueWorld.Beacon("DisposalBeacon", disposal, RogueWorld.Green);
         RogueWaypoint.Attach(beacon, "Check", "Disposal zone", RogueWorld.Green, 2.5f, 1);
         if (Authority) { machine = new MobileBombEvent(75, 15); Banner("A bomb is armed! Carry it to the disposal point.", 3); }
@@ -432,7 +432,7 @@ public sealed class MobileBombRunner : RogueEventRunner
     }
     void SetHolder(string key)
     {
-        carry.HolderKey = key; Controller.Notify(new RogueEventMessage { kind = "carry", text = "MobileBomb|" + key });
+        string previous = carry.HolderKey; carry.HolderKey = key; Controller.Notify(new RogueEventMessage { kind = "carry", text = "MobileBomb|" + key }); RogueCarryable.AnnounceHolder(Controller, "Bomb", previous, key);
         foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = RogueWorld.KeyOf(go) == key && key != ""; }
     }
     public override void OnCommand(RogueCommandMessage cmd)

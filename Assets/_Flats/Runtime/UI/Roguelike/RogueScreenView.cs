@@ -17,6 +17,7 @@ public class RogueScreenView : MonoBehaviour
     public RogueOfferRowView rowTemplate;
     public Image paper, titleIcon, walletIcon, primaryIcon, secondaryIcon;
     public Text walletText;
+    [Header("Reward cards")] public GameObject cardsRoot; public RectTransform cardsContent; public RogueRewardCardView cardTemplate;
 
     /// <summary>True while the TAB overview sits on top; the screen then leaves focus handling to it.</summary>
     public static bool Suspended;
@@ -85,8 +86,33 @@ public class RogueScreenView : MonoBehaviour
         if (walletIcon != null) { RogueIcons.Apply(walletIcon, "Coin"); walletIcon.gameObject.SetActive(!string.IsNullOrEmpty(wallet)); }
     }
 
+    /// <summary>Card layout (reward pick) or the list layout (shop, route).</summary>
+    public void UseCards(bool cards)
+    {
+        if (cardsRoot != null) cardsRoot.SetActive(cards);
+        if (scroll != null) scroll.gameObject.SetActive(!cards);
+        if (cards && cardTemplate == null) { var p = Resources.Load<GameObject>("UI/Roguelike/RogueRewardCard"); if (p != null) cardTemplate = p.GetComponent<RogueRewardCardView>(); }
+    }
+
+    public RogueRewardCardView AddCard(string iconName, string name, string rarity, string effect, string actionText, bool interactable, string status, Action onAction)
+    {
+        if (cardTemplate == null || cardsContent == null) return null;
+        var card = Instantiate(cardTemplate, cardsContent, false);
+        card.gameObject.SetActive(true);
+        card.name = "Card-" + name;
+        card.Bind(iconName, name, rarity, effect, actionText, interactable, status, onAction, PlayPress);
+        return card;
+    }
+
     public void ClearRows()
     {
+        if (cardsContent != null)
+            for (int i = cardsContent.childCount - 1; i >= 0; i--)
+            {
+                var child = cardsContent.GetChild(i).gameObject;
+                if (cardTemplate != null && child == cardTemplate.gameObject) continue;
+                child.SetActive(false); Destroy(child);
+            }
         if (rowsContent == null) return;
         for (int i = rowsContent.childCount - 1; i >= 0; i--)
         {
@@ -161,6 +187,12 @@ public class RogueScreenView : MonoBehaviour
         var selected = EventSystem.current.currentSelectedGameObject;
         if (selected != null && selected.transform.IsChildOf(transform)) return;
         if (primary != null && primary.gameObject.activeInHierarchy && primary.interactable) { EventSystem.current.SetSelectedGameObject(primary.gameObject); return; }
+        if (cardsRoot != null && cardsRoot.activeSelf && cardsContent != null)
+            for (int i = 0; i < cardsContent.childCount; i++)
+            {
+                var card = cardsContent.GetChild(i).GetComponent<RogueRewardCardView>();
+                if (card != null && card.gameObject.activeSelf && card.action != null && card.action.interactable) { EventSystem.current.SetSelectedGameObject(card.action.gameObject); return; }
+            }
         if (rowsContent != null)
             for (int i = 0; i < rowsContent.childCount; i++)
             {

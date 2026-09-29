@@ -59,7 +59,7 @@ namespace Flats.Core.Roguelike
                 encounterId = encounterId, depth = depth, difficulty = difficulty, players = Math.Max(1, Math.Min(4, players)),
                 mapId = map != null ? map.Id : "", routeTag = routeTag ?? "",
                 concurrentCap = RogueDepth.ConcurrentEnemyCap(depth, difficulty, players),
-                enemyHealthMul = RogueDepth.EnemyHealth(depth, difficulty), enemyDamageMul = RogueDepth.EnemyDamage(depth, difficulty),
+                enemyHealthMul = RogueDepth.EnemyHealth(depth, difficulty) * RogueDepth.SquadHealthScale(players), enemyDamageMul = RogueDepth.EnemyDamage(depth, difficulty),
                 enemyStatTier = RogueDepth.EnemyStatTier(depth, difficulty),
             };
 

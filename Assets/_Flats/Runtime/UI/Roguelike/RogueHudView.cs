@@ -20,6 +20,8 @@ public class RogueHudView : MonoBehaviour
     [Header("Squad")] public GameObject squadRoot; public RogueHudSquadRow squadTemplate;
     [Header("Waypoints")] public RectTransform waypointRoot; public RogueHudWaypoint waypointTemplate; public int maxWaypoints = 6; public float edgeInset = 36f;
     [Header("Hint")] public GameObject hintLine; public Text hintText; public Image hintIcon;
+    [Header("Revive")] public GameObject reviveRoot; public Image reviveFill; public Text reviveText;
+    float reviveShownAt = -10f;
 
     readonly List<RogueHudSquadRow> squadRows = new List<RogueHudSquadRow>();
     readonly List<RogueHudWaypoint> markers = new List<RogueHudWaypoint>();
@@ -44,6 +46,7 @@ public class RogueHudView : MonoBehaviour
         if (squadTemplate != null) squadTemplate.gameObject.SetActive(false);
         if (waypointTemplate != null) waypointTemplate.gameObject.SetActive(false);
         SetEvent("", "", false); SetEvent("", "", true); HideBoss(); SetHint("", "");
+        if (reviveRoot != null) reviveRoot.SetActive(false);
     }
 
     // ---------------------------------------------------------------- binding
@@ -79,8 +82,23 @@ public class RogueHudView : MonoBehaviour
     {
         if (bossBar != null) bossBar.SetActive(true);
         RogueIcons.Apply(bossIcon, iconName);
-        if (bossName != null) bossName.text = name ?? "";
+        if (bossName != null) bossName.text = (name ?? "") + "  " + Mathf.RoundToInt(Mathf.Clamp01(fill) * 100) + "%";
         if (bossFill != null) bossFill.fillAmount = Mathf.Clamp01(fill);
+    }
+
+    /// <summary>Revive progress around the crosshair (0..1); the ring hides itself half a second after the last update.</summary>
+    public void SetRevive(float fraction, string label)
+    {
+        if (reviveRoot == null) return;
+        reviveRoot.SetActive(true);
+        reviveShownAt = Time.unscaledTime;
+        if (reviveFill != null) reviveFill.fillAmount = Mathf.Clamp01(fraction);
+        if (reviveText != null) reviveText.text = label ?? "";
+    }
+
+    void Update()
+    {
+        if (reviveRoot != null && reviveRoot.activeSelf && Time.unscaledTime - reviveShownAt > 0.5f) reviveRoot.SetActive(false);
     }
     public void HideBoss() { if (bossBar != null) bossBar.SetActive(false); }
 

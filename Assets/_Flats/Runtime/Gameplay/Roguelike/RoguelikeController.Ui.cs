@@ -17,6 +17,9 @@ public partial class RoguelikeController
     readonly Dictionary<string, string> pendingTx = new Dictionary<string, string>();   // txId -> itemId while awaiting the authority
     float bossMaxHp;
 
+    /// <summary>Rescuer-side revive ring (the victim gets its ring from the authority's progress events).</summary>
+    public void ShowReviveRing(float fraction, string label) { if (hudView != null) hudView.SetRevive(fraction, label); }
+
     public delegate void OfferSink(string icon, string name, string effect, string price, string rarity, string action, bool interactable, string status, Action onAction);
 
     // ---------------------------------------------------------------- HUD
@@ -58,6 +61,9 @@ public partial class RoguelikeController
         RefreshBoss(combat);
         RefreshAbilities(me);
         RefreshSquad(me);
+        var rpLocal = LocalRoguePlayer();
+        if (rpLocal != null && rpLocal.Carrying) hudView.SetHint("Crate", T("Carrying: press {0} to put it down. You cannot fire.", FlatsControls.Label("Interact", FlatsControls.UsingGamepad)));
+        else hudView.SetHint("", "");
     }
 
     void RefreshBoss(bool combat)
@@ -90,8 +96,8 @@ public partial class RoguelikeController
             var rp = go != null ? go.GetComponent<RoguePlayer>() : null;
             entries.Add(new RogueHudView.SquadEntry
             {
-                name = p.name, icon = RogueIcons.ForLife(p.life), hp = p.life == PlayerLife.Alive ? (rp != null ? rp.HealthFraction() : 1f) : 0,
-                state = p.life == PlayerLife.Downed ? T("Downed") : p.life == PlayerLife.Dead ? T("Dead") : (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) && p.ready ? T("Ready") : "",
+                name = p.name, icon = rp != null && rp.Carrying && p.life == PlayerLife.Alive ? "Crate" : RogueIcons.ForLife(p.life), hp = p.life == PlayerLife.Alive ? (rp != null ? rp.HealthFraction() : 1f) : 0,
+                state = p.life == PlayerLife.Downed ? T("Downed") : p.life == PlayerLife.Dead ? T("Dead") : rp != null && rp.Carrying ? T("Carrying") : (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) && p.ready ? T("Ready") : "",
                 tint = p.life == PlayerLife.Alive ? new Color(0.3f, 0.75f, 0.4f) : p.life == PlayerLife.Downed ? new Color(1f, 0.7f, 0.1f) : new Color(0.95f, 0.3f, 0.35f)
             });
         }
@@ -154,6 +160,7 @@ public partial class RoguelikeController
 
     void ShowShop(RunPlayer me, bool chapterEnd)
     {
+        screen.UseCards(false);
         screen.SetTitle("Coin", chapterEnd ? T("Chapter {0} Shop", state.Chapter) : T("Shop  Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)),
             T("Rerolls {0}   {1}", me.rerollsLeft, BuildSummary(me.build)), "$" + RogueMoney.Format(me.walletMinor));
         screen.ClearRows();
@@ -174,6 +181,7 @@ public partial class RoguelikeController
     void ShowReward(RunPlayer me)
     {
         screen.SetTitle("Check", T("Cleared: {0}", T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth))), T("Pick one. It is free."), "$" + RogueMoney.Format(me.walletMinor));
+        screen.UseCards(true);
         screen.ClearRows();
         for (int i = 0; i < me.rewardOffers.Length; i++)
         {
@@ -181,14 +189,16 @@ public partial class RoguelikeController
             if (def == null) continue;
             int index = i;
             string status = me.build.RejectReason(def) != null ? T(me.build.RejectReason(def)) : "";
-            screen.AddRow(RogueIcons.ForItem(def), T(def.Name), EffectLine(def, me.build), T("Free"), RarityText(def), T("Take"), status == "" && pendingTx.Count == 0, status,
-                () => Command(new RogueCommandMessage { kind = "buy", tx = new ShopTransaction { txId = NextTx(), runId = state.runId, shopVersion = me.shopVersion, offerIndex = index, expectedPriceMinor = 0, rewardPick = true } }));
+            Action take = () => Command(new RogueCommandMessage { kind = "buy", tx = new ShopTransaction { txId = NextTx(), runId = state.runId, shopVersion = me.shopVersion, offerIndex = index, expectedPriceMinor = 0, rewardPick = true } });
+            if (screen.AddCard(RogueIcons.ForItem(def), T(def.Name), RarityText(def), EffectLine(def, me.build), T("Take"), status == "" && pendingTx.Count == 0, status, take) == null)
+                screen.AddRow(RogueIcons.ForItem(def), T(def.Name), EffectLine(def, me.build), T("Free"), RarityText(def), T("Take"), status == "" && pendingTx.Count == 0, status, take);
         }
         screen.SetFooter(null, null, null, null, "");
     }
 
     void ShowRoute(RunPlayer me)
     {
+        screen.UseCards(false);
         screen.SetTitle("Stage", T("Chapter {0} complete", state.Chapter), T(IsAuthority ? "Choose the next chapter's route." : "The host chooses the route."), "$" + RogueMoney.Format(me.walletMinor));
         screen.ClearRows();
         for (int i = 0; i < state.routeOptions.Length; i++)

@@ -213,7 +213,9 @@ public class Bullet : MonoBehaviour
 				DamageReceiver component = col.gameObject.GetComponent<DamageReceiver>();
 				if ((bool)component)
 				{
-					component.ApplyDamage(damage, rogueKind != 0 ? -1 : 0, shooter);
+					if (RoguelikeMode.Active && damage > 0f && (Menu.network == 0 || (shooter != null && shooter.GetComponent<PhotonView>() != null && shooter.GetComponent<PhotonView>().isMine)))
+						component.RogueReactToHit(shooter, false);
+					component.ApplyBulletDamage(damage, rogueKind != 0 ? -1 : 0, shooter);
 					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) { RogueHooks.OnBulletHitEnemy(this, component, damage, false); RogueHooks.TryPenetrate(this, col); }
 				}
 				else if (col.gameObject.name == "PhaseSkipper")
@@ -244,14 +246,16 @@ public class Bullet : MonoBehaviour
 				{
 					GameObject gameObject2 = component2.gameObject;
 					bool derived = rogueKind != 0;
+					if (RoguelikeMode.Active && damage > 0f && (Menu.network == 0 || (shooter != null && shooter.GetComponent<PhotonView>() != null && shooter.GetComponent<PhotonView>().isMine)))
+						component2.RogueReactToHit(shooter, !derived);
 					// co-op roguelike: the flag only reports the hit part; the master decides lethality from its own hit points
 					if ((component2.hitPoints - damage <= 0f || RoguelikeMode.Coop) && gameObject2.tag == "Enemy" && !derived)
 					{
-						component2.ApplyDamage(damage, 1, shooter);
+						component2.ApplyBulletDamage(damage, 1, shooter);
 					}
 					else
 					{
-						component2.ApplyDamage(damage, derived ? -1 : 0, shooter);
+						component2.ApplyBulletDamage(damage, derived ? -1 : 0, shooter);
 					}
 					if (RoguelikeMode.Active && !component2.userIsPlayer) { RogueHooks.OnBulletHitEnemy(this, component2, damage, !derived); RogueHooks.TryPenetrate(this, col); }
 				}

@@ -80,6 +80,8 @@ public partial class Menu : MonoBehaviour
 	public Image[] buttons;
 
 	public Sprite[] images;
+	public Sprite troyMapImage;   // Map6: images[18] onward are function icons, so the seventh map thumbnail has its own field
+	private Sprite MapImage(int map) { return map == 6 ? troyMapImage : images[12 + map]; }
 
 	public Sprite[] weapons;
 
@@ -1110,6 +1112,7 @@ public partial class Menu : MonoBehaviour
 		stageName[3] = "Department Store";
 		stageName[4] = "Warehouse";
 		stageName[5] = "Night Land";
+		stageName[6] = "Troy";
 		stageText = new Dictionary<string, int>();
 		stageText[stageName[0]] = 0;
 		stageText[stageName[1]] = 1;
@@ -1117,6 +1120,7 @@ public partial class Menu : MonoBehaviour
 		stageText[stageName[3]] = 3;
 		stageText[stageName[4]] = 4;
 		stageText[stageName[5]] = 5;
+		stageText[stageName[6]] = 6;
 		if (PhotonNetwork.inRoom && gameState != "Multiplayer")
 		{
 			rule = (int)PhotonNetwork.room.CustomProperties["R"];
@@ -1519,7 +1523,7 @@ public partial class Menu : MonoBehaviour
     private static void LoadOfflineScene(int scene) { DetachSceneTargets(); UnityEngine.SceneManagement.SceneManager.LoadScene(scene); }
     private int offlineMap;
     private bool startingOfflineMatch;
-    private static readonly string[] OfflineMaps = { "FlatCity", "UrbanPark", "BeachsideTown", "DepartmentStore", "Warehouse", "NightLand" };
+    private static readonly string[] OfflineMaps = { "FlatCity", "UrbanPark", "BeachsideTown", "DepartmentStore", "Warehouse", "NightLand", "Troy" };
 
     private void RefreshOfflineMatch()
     {
@@ -1530,7 +1534,7 @@ public partial class Menu : MonoBehaviour
         bt[4].text = "Start Offline Match";
         bt[5].text = "Back";
         buttons[0].sprite = images[36]; buttons[1].sprite = images[19];
-        buttons[2].sprite = images[38]; buttons[3].sprite = images[12 + offlineMap];
+        buttons[2].sprite = images[38]; buttons[3].sprite = MapImage(offlineMap);
         buttons[4].sprite = images[18]; buttons[5].sprite = images[41];
     }
 
@@ -1987,7 +1991,7 @@ public partial class Menu : MonoBehaviour
 			vote = new List<Map>();
             // Remote votes can arrive while DecideMap is still yielding for
             // the local fade. RPC data must exist before that UI coroutine.
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < OfflineMaps.Length; i++)
                 vote.Add(new Map { mapKey = i });
 			syncData = "";
 			roomTexts = new Text[5];

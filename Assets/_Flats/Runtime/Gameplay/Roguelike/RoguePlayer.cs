@@ -414,7 +414,7 @@ public class RoguePlayer : MonoBehaviour
         {
             if (reviveTarget != target) { reviveTarget = target; reviveHeld = 0; reviveSlice = 0; }
             reviveHeld += Time.deltaTime * (float)Stats.ReviveSpeedMul; reviveSlice += Time.deltaTime;
-            if (ctrl != null) ctrl.Banner(RoguelikeController.T("Reviving... {0}", Mathf.CeilToInt(Mathf.Max(0, ReviveHoldSeconds - reviveHeld))), 0.3f);
+            if (ctrl != null) ctrl.ShowReviveRing(reviveHeld / ReviveHoldSeconds, RoguelikeController.T("Reviving {0}", target.DisplayName()));
             if (reviveSlice >= 0.25f)
             {
                 // the authority adds up the slices and revives at three seconds of continuous, in-range holding
@@ -423,7 +423,7 @@ public class RoguePlayer : MonoBehaviour
                 reviveSlice = 0;
             }
         }
-        else { reviveHeld = 0; if (ctrl != null) ctrl.Banner(RoguelikeController.T("Hold {0} to revive", FlatsControls.Label("Interact", FlatsControls.UsingGamepad)), 0.3f); }
+        else { reviveHeld = 0; if (ctrl != null) ctrl.ShowReviveRing(0f, RoguelikeController.T("Hold {0} to revive", FlatsControls.Label("Interact", FlatsControls.UsingGamepad))); }
     }
 
     void OnDestroy()

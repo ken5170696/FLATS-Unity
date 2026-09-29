@@ -68,6 +68,7 @@ public partial class RoguelikeController
         if (!force && signature == overviewSignature) return;
         overviewSignature = signature;
         overview.ClearRows(true);
+        overview.UseTwoColumns(overview.Current == 1 && overview.body != null);
         switch (overview.Current)
         {
             case 0: FillShopTab(me); break;
@@ -100,17 +101,38 @@ public partial class RoguelikeController
         var dr = rp != null ? rp.GetComponent<DamageReceiver>() : null;
         float max = rp != null ? rp.MaxHealth() : 1000f, hp = dr != null ? Mathf.Max(0, dr.hitPoints) : max;
         overview.SetHeader("Main0", me.name, T("Kills {0}   Headshots {1}   Deaths {2}   Rescues {3}", me.kills, me.headshots, me.deaths, me.rescues));
-        overview.AddStat("Heart", T("Health"), Mathf.RoundToInt(hp) + " / " + Mathf.RoundToInt(max), T("Tier {0}/{1}   {2}", me.build.healthTier, RogueCatalog.StatTiers, Pct(stats.HealthMul)), max > 0 ? hp / max : 0, TintRed);
-        overview.AddStat("Fire", T("Damage"), Pct(stats.DamageMul), T("Tier {0}/{1}   Body x{2}   Head x{3}", me.build.damageTier, RogueCatalog.StatTiers, Round(stats.BodyDamageMul), Round(stats.HeadshotDamageMul)), (float)((stats.DamageMul - 1) / BuildStats.MaxTotalDamageMul), TintPink);
-        overview.AddStat("Ammo", T("Magazine"), Pct(stats.MagazineMul), T("Tier {0}/{1}   Reserve {2}   Reload time x{3}", me.build.magazineTier, RogueCatalog.StatTiers, Pct(stats.ReserveMul), Round(stats.ReloadTimeMul)), (float)((stats.MagazineMul - 1) / BuildStats.MaxMagazineBonus), TintBlue);
-        overview.AddStat("Jump", T("Speed"), Pct(stats.SpeedMul), T("Tier {0}/{1}   Jump height x{2}", me.build.speedTier, RogueCatalog.StatTiers, Round(stats.JumpHeightMul)), (float)((stats.SpeedMul - 1) / BuildStats.MaxSpeedBonus), TintGreen);
-        overview.AddStat("Shield", T("Damage taken"), Pct(stats.DamageTakenMul), stats.DamageTakenMul < 1 ? T("Reduced by mods and cores") : "", -1, TintInk);
-        overview.AddStat("Ultimate", T("Ultimate"), string.IsNullOrEmpty(me.build.ultimate) ? T("None") : ItemName(me.build.ultimate), string.IsNullOrEmpty(me.build.ultimate) ? T("Buy one in the shop; it charges from kills.") : T("Charge {0}%   Press {1}", me.ultimateCharge, RogueIcons.KeyHint("Ultimate")), string.IsNullOrEmpty(me.build.ultimate) ? -1 : me.ultimateCharge / 100f, TintGold);
-        overview.AddStat(string.IsNullOrEmpty(me.build.tactical) ? "Dash" : RogueIcons.ForItem(RogueCatalog.Item(me.build.tactical)), T("Tactical"), string.IsNullOrEmpty(me.build.tactical) ? T("None") : ItemName(me.build.tactical), string.IsNullOrEmpty(me.build.tactical) ? "" : T("Press {0}", RogueIcons.KeyHint("Tactical")), -1, TintBlue);
-        overview.AddStat("Core", T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), "", "", -1, TintInk);
-        foreach (var id in me.build.cores) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueOfferRowView.RarityTint(RarityText(def))); }
-        overview.AddStat("Mod", T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods), "", "", -1, TintInk);
-        foreach (var id in me.build.mods) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueOfferRowView.RarityTint(RarityText(def))); }
+        bool two = overview.body != null && overview.body.activeSelf;
+        System.Func<string, string, string, string, float, Color, RogueStatRowView> stat = two ? (System.Func<string, string, string, string, float, Color, RogueStatRowView>)overview.AddLeftStat : overview.AddStat;
+        stat("Heart", T("Health"), Mathf.RoundToInt(hp) + " / " + Mathf.RoundToInt(max), T("Tier {0}/{1}   {2}", me.build.healthTier, RogueCatalog.StatTiers, Pct(stats.HealthMul)), max > 0 ? hp / max : 0, TintRed);
+        stat("Fire", T("Damage"), Pct(stats.DamageMul), two ? T("Tier {0}/{1}   Head x{2}   Taken {3}", me.build.damageTier, RogueCatalog.StatTiers, Round(stats.HeadshotDamageMul), Pct(stats.DamageTakenMul)) : T("Tier {0}/{1}   Body x{2}   Head x{3}", me.build.damageTier, RogueCatalog.StatTiers, Round(stats.BodyDamageMul), Round(stats.HeadshotDamageMul)), (float)((stats.DamageMul - 1) / BuildStats.MaxTotalDamageMul), TintPink);
+        stat("Ammo", T("Magazine"), Pct(stats.MagazineMul), T("Tier {0}/{1}   Reserve {2}   Reload time x{3}", me.build.magazineTier, RogueCatalog.StatTiers, Pct(stats.ReserveMul), Round(stats.ReloadTimeMul)), (float)((stats.MagazineMul - 1) / BuildStats.MaxMagazineBonus), TintBlue);
+        stat("Jump", T("Speed"), Pct(stats.SpeedMul), T("Tier {0}/{1}   Jump height x{2}", me.build.speedTier, RogueCatalog.StatTiers, Round(stats.JumpHeightMul)), (float)((stats.SpeedMul - 1) / BuildStats.MaxSpeedBonus), TintGreen);
+        if (!two) stat("Shield", T("Damage taken"), Pct(stats.DamageTakenMul), stats.DamageTakenMul < 1 ? T("Reduced by mods and cores") : "", -1, TintInk);
+        stat("Ultimate", T("Ultimate"), string.IsNullOrEmpty(me.build.ultimate) ? T("None") : ItemName(me.build.ultimate), string.IsNullOrEmpty(me.build.ultimate) ? T("Buy one in the shop; it charges from kills.") : T("Charge {0}%   Press {1}", me.ultimateCharge, RogueIcons.KeyHint("Ultimate")), string.IsNullOrEmpty(me.build.ultimate) ? -1 : me.ultimateCharge / 100f, TintGold);
+        stat(string.IsNullOrEmpty(me.build.tactical) ? "Dash" : RogueIcons.ForItem(RogueCatalog.Item(me.build.tactical)), T("Tactical"), string.IsNullOrEmpty(me.build.tactical) ? T("None") : ItemName(me.build.tactical), string.IsNullOrEmpty(me.build.tactical) ? "" : T("Press {0}", RogueIcons.KeyHint("Tactical")), -1, TintBlue);
+        if (two)
+        {
+            overview.SetGridHeadings(T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods));
+            for (int i = 0; i < RogueCatalog.MaxCores; i++)
+            {
+                var def = i < me.build.cores.Length ? RogueCatalog.Item(me.build.cores[i]) : null;
+                if (def != null) overview.AddCard(true, RogueIcons.ForItem(def), T(def.Name), T(def.Effect), RogueOfferRowView.RarityTint(RarityText(def)), false);
+                else overview.AddCard(true, "Core", T("Empty core slot"), "", TintInk, true);
+            }
+            for (int i = 0; i < RogueCatalog.MaxMods; i++)
+            {
+                var def = i < me.build.mods.Length ? RogueCatalog.Item(me.build.mods[i]) : null;
+                if (def != null) overview.AddCard(false, RogueIcons.ForItem(def), T(def.Name), "", RogueOfferRowView.RarityTint(RarityText(def)), false);
+                else overview.AddCard(false, "Mod", T("Empty"), "", TintInk, true);
+            }
+        }
+        else
+        {
+            overview.AddStat("Core", T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), "", "", -1, TintInk);
+            foreach (var id in me.build.cores) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueOfferRowView.RarityTint(RarityText(def))); }
+            overview.AddStat("Mod", T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods), "", "", -1, TintInk);
+            foreach (var id in me.build.mods) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueOfferRowView.RarityTint(RarityText(def))); }
+        }
     }
 
     void FillSquadTab(RunPlayer me)

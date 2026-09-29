@@ -37,6 +37,15 @@ public class DamageReceiver : MonoBehaviour
 
 	private bool died;
 
+	// Bullet calls this before reporting damage, so local feedback never waits for the master.
+	public void RogueReactToHit(Transform source, bool headshot)
+	{
+		if (!RoguelikeMode.Active || userIsPlayer || died || !isActiveAndEnabled) return;
+		var reaction = GetComponent<RogueHitReaction>();
+		if (reaction == null) reaction = gameObject.AddComponent<RogueHitReaction>();
+		reaction.Hit(source != null ? transform.position - source.position : -transform.forward, headshot);
+	}
+
 	private string command;
 
 	private Transform shooter;
@@ -200,6 +209,9 @@ public class DamageReceiver : MonoBehaviour
 		{
 			return;
 		}
+		// The shooter's local Bullet already played this hit. Only the remote authority needs a fallback.
+		if (RoguelikeMode.Active && receivedData[0] > 0 && (shooter == null || !MyView(shooter.gameObject)))
+			RogueReactToHit(shooter, receivedData[1] == 1);
 		if (receivedData[1] == 1 && !userIsPlayer && (myAI == null || !myAI.vip) && RoguelikeMode.Coop)   // myAI binds in Start; a hit can arrive earlier
 		{
 			float headDamage = RogueHooks.ModifyIncomingDamage(this, receivedData[0], shooter);
@@ -274,14 +286,41 @@ public class DamageReceiver : MonoBehaviour
 
 	public void ApplyDamage(float damage, int headshot, Transform shooter)
 	{
+		ApplyDamageInternal(damage, headshot, shooter, false);
+	}
+
+	public void ApplyBulletDamage(float damage, int headshot, Transform shooter)
+	{
+		ApplyDamageInternal(damage, headshot, shooter, true);
+	}
+
+	private void ApplyDamageInternal(float damage, int headshot, Transform shooter, bool reactionPlayed)
+	{
 		if (Menu.gameState == "Multiplayer" && Multiplayer.end) return;
 		if ((invincibility && userIsPlayer) || damage == 0f || died)
 		{
 			return;
 		}
+		if (RoguelikeMode.Active && damage > 0f && !reactionPlayed && (Menu.network == 0 || (shooter != null && MyView(shooter.gameObject))))
+			RogueReactToHit(shooter, headshot == 1);
 		if (base.GetComponent<AudioSource>().enabled && shooter != null && shooter.gameObject.tag == "Player" && MyView(shooter.gameObject))
 		{
 			base.GetComponent<AudioSource>().PlayOneShot(damageSE);
+		}
+		if (RoguelikeMode.Coop && !userIsPlayer && Menu.network != 0 && Menu.network != 1)
+		{
+			// Roguelike co-op enemies: resolve the hit on the shooter's client (as Classic co-op does) so the kill is
+			// instant; the Die RPC carries the shooter so the authority can attribute the bounty. Role rules (shield
+			// facing, invulnerable finale cores) come from RogueHooks; invulnerability is replicated by the authority.
+			if (hitPoints <= 0f) return;
+			float rogueDamage = RogueHooks.ModifyIncomingDamage(this, damage, shooter);
+			hitPoints -= rogueDamage;
+			killer = shooter;
+			if (hitPoints > 0f) return;
+			command = headshot == 1 ? "head" : "normal";
+			var shooterView = shooter != null ? shooter.gameObject.GetPhotonView() : null;
+			base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, shooterView != null ? shooterView.viewID : 0);
+			return;
 		}
 		if (Menu.network == 0 || Multiplayer.rule == 8 || (RoguelikeMode.Coop && userIsPlayer))
 		{
@@ -426,7 +465,14 @@ public class DamageReceiver : MonoBehaviour
 			return;
 		}
 		died = true;
+		if (RoguelikeMode.Active)
+		{
+			var reaction = GetComponent<RogueHitReaction>();
+			if (reaction != null) reaction.StopReaction();
+		}
 		if (mt == null) mt = base.transform;   // the Die RPC can reach a network copy before Start ran
+		if (RoguelikeMode.Coop && !userIsPlayer && receivedData != 0) { var shooterView = PhotonView.Find(receivedData); if (shooterView != null) killer = shooterView.transform; }   // the killer is whoever announced the death
+		if (RoguelikeMode.Coop && !userIsPlayer && receivedData != 0) { var shooterView = PhotonView.Find(receivedData); if (shooterView != null) killer = shooterView.transform; }   // the killer is whoever announced the death
 		if (userIsPlayer && RoguelikeMode.Active) RogueHooks.OnPlayerDied(this);
 		GameObject gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
 		if (gameObject == null)
@@ -483,14 +529,14 @@ public class DamageReceiver : MonoBehaviour
 					GameObject.Find("SingleplayerController").GetComponent<Singleplayer>().Log("Achieved new headshot record.");
 				}
 			}
-			if (MyView(killer.gameObject))
+			if (!RoguelikeMode.Active && MyView(killer.gameObject))   // no kill-cam interruptions in the roguelike waves; the HUD already reports the bounty
 			{
 				Supershot.PlayKill(effectCamera, ct, gameObject.transform, true);
 			}
 		}
 		else if (command == "mortal" && ct != null)
 		{
-			if (MyView(killer.gameObject))
+			if (!RoguelikeMode.Active && MyView(killer.gameObject))
 			{
 				Supershot.PlayKill(effectCamera, ct, gameObject.transform, false);
 			}

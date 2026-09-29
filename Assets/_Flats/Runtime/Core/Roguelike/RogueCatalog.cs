@@ -24,13 +24,14 @@ namespace Flats.Core.Roguelike
     /// <summary>Enemy battlefield role. Weight drives bounty normalisation; the adapter maps the rest onto the legacy AI.</summary>
     public sealed class EnemyRoleDef
     {
-        public readonly string Id, Name, Marker;
+        public readonly string Id, Name, Marker, Brief;
+        public readonly double AimNear, AimMid, AimFar;
         public readonly int Weight;                 // bounty weight in hundredths (100 = rifleman)
         public readonly double HealthMul, SpeedMul, DamageMul, FrontReduction, PreferredRange;
         public readonly int[] Weapons;              // allowed primary weapon indices (WeaponCatalog)
         public readonly int MinDepth;
-        public EnemyRoleDef(string id, string name, string marker, int weight, double healthMul, double speedMul, double damageMul, double frontReduction, double preferredRange, int minDepth, params int[] weapons)
-        { Id = id; Name = name; Marker = marker; Weight = weight; HealthMul = healthMul; SpeedMul = speedMul; DamageMul = damageMul; FrontReduction = frontReduction; PreferredRange = preferredRange; MinDepth = minDepth; Weapons = weapons; }
+        public EnemyRoleDef(string id, string name, string marker, int weight, double healthMul, double speedMul, double damageMul, double frontReduction, double preferredRange, int minDepth, string brief, double aimNear, double aimMid, double aimFar, params int[] weapons)
+        { Id = id; Name = name; Marker = marker; Weight = weight; HealthMul = healthMul; SpeedMul = speedMul; DamageMul = damageMul; FrontReduction = frontReduction; PreferredRange = preferredRange; MinDepth = minDepth; Weapons = weapons; Brief = brief; AimNear = aimNear; AimMid = aimMid; AimFar = aimFar; }
     }
 
     /// <summary>Objective, general event, emergency or finale. Compatibility is by map tags; cooldown is in stages.</summary>
@@ -157,13 +158,13 @@ namespace Flats.Core.Roguelike
 
         public static readonly EnemyRoleDef[] EnemyRoles =
         {
-            // id, name, marker, weight, hp, speed, dmg, frontReduction, range, minDepth, weapons
-            new EnemyRoleDef("role.rifleman", "Rifleman", "", 100, 1.0, 1.0, 1.0, 0.0, 40, 1, 4, 5, 6, 7),
-            new EnemyRoleDef("role.rusher", "Rusher", "spikes", 120, 0.7, 1.6, 1.0, 0.0, 8, 1, 8, 9, 12, 13),
-            new EnemyRoleDef("role.marksman", "Marksman", "antenna-tall", 130, 0.8, 0.9, 1.4, 0.0, 90, 2, 10, 11),
-            new EnemyRoleDef("role.shieldbearer", "Shield Bearer", "shield", 160, 1.6, 0.75, 0.8, 0.6, 20, 3, 0, 1, 2, 3),
-            new EnemyRoleDef("role.flanker", "Flanker", "stripe", 120, 0.9, 1.25, 1.0, 0.0, 25, 2, 0, 1, 2, 3),
-            new EnemyRoleDef("role.jammer", "Jammer", "antenna-dish", 150, 1.1, 0.9, 0.7, 0.0, 30, 4, 12, 13),
+            // id, name, icon, weight, hp, speed, dmg, frontReduction, range, minDepth, brief, near/mid/far spread, weapons
+            new EnemyRoleDef("role.rifleman", "Rifleman", "Fire", 100, 1.0, 1.0, 1.0, 0.0, 40, 1, "步槍持續壓制；利用掩體換位，避免近距離對射。", 0.06, 0.35, 0.8, 4, 5, 6, 7),
+            new EnemyRoleDef("role.rusher", "Rusher", "Jump", 120, 0.7, 1.6, 1.0, 0.0, 8, 1, "快速貼身以霰彈或手槍攻擊；拉開距離優先擊倒。", 0.1, 0.6, 1.0, 8, 9, 12, 13),
+            new EnemyRoleDef("role.marksman", "Marksman", "Sight", 130, 0.8, 0.9, 1.4, 0.0, 90, 2, "遠距離精準高傷射擊；切斷視線後繞側突進。", 0.03, 0.15, 0.4, 10, 11),
+            new EnemyRoleDef("role.shieldbearer", "Shield Bearer", "Shield", 160, 1.6, 0.75, 0.8, 0.6, 20, 3, "正面護盾減傷；繞到側後方集中火力。", 0.06, 0.4, 0.85, 0, 1, 2, 3),
+            new EnemyRoleDef("role.flanker", "Flanker", "Dash", 120, 0.9, 1.25, 1.0, 0.0, 25, 2, "高速繞側分散火力；留意側翼並與隊友互相掩護。", 0.06, 0.4, 0.85, 0, 1, 2, 3),
+            new EnemyRoleDef("role.jammer", "Jammer", "Settings5", 150, 1.1, 0.9, 0.7, 0.0, 30, 4, "周圍三十公尺阻止大招充能；優先擊倒或離開干擾範圍。", 0.08, 0.45, 0.9, 12, 13),
         };
         public const int EliteWeightMultiplier = 2, FinaleWeightMultiplier = 6;
 
@@ -211,6 +212,7 @@ namespace Flats.Core.Roguelike
             new MapDef("map.departmentstore", "DepartmentStore", 5, "indoor", "vertical"),
             new MapDef("map.warehouse", "Warehouse", 6, "indoor", "droplinks"),
             new MapDef("map.nightland", "NightLand", 7, "outdoor", "droplinks", "dark"),
+            new MapDef("map.troy", "Troy", 8, "outdoor", "open", "water"),
         };
 
         public static readonly RouteDef[] Routes =
@@ -291,14 +293,20 @@ namespace Flats.Core.Roguelike
             return RogueMoney.Coins((long)Math.Round(price));
         }
 
-        /// <summary>Deterministic content hash (FNV-1a over ids and prices) used for room compatibility.</summary>
+        /// <summary>Deterministic content hash (FNV-1a over item data and role aim/icon data) used for room compatibility.</summary>
         public static string ContentHash()
         {
             ulong h = 14695981039346656037UL;
             Action<string> mix = s => { foreach (char c in s) { h ^= c; h = unchecked(h * 1099511628211UL); } };
             mix(RulesVersion);
             foreach (var i in AllItems()) { mix(i.Id); mix(i.BasePrice.ToString()); mix(i.Effect); }
-            foreach (var r in EnemyRoles) { mix(r.Id); mix(r.Weight.ToString()); }
+            foreach (var r in EnemyRoles)
+            {
+                mix(r.Id); mix(r.Weight.ToString()); mix(r.Marker); mix(r.Brief);
+                mix(r.AimNear.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+                mix(r.AimMid.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+                mix(r.AimFar.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+            }
             foreach (var e in Objectives) mix(e.Id);
             foreach (var e in Events) mix(e.Id);
             foreach (var e in Emergencies) mix(e.Id);
@@ -337,6 +345,8 @@ namespace Flats.Core.Roguelike
                 }
             foreach (var r in EnemyRoles)
             {
+                if (string.IsNullOrWhiteSpace(r.Brief) || string.IsNullOrWhiteSpace(r.Marker)) errors.Add("role without brief/icon: " + r.Id);
+                if (!(r.AimNear >= 0.02 && r.AimNear <= r.AimMid && r.AimMid <= r.AimFar && r.AimFar <= 1)) errors.Add("role aim out of range: " + r.Id);
                 if (r.Weight <= 0) errors.Add("role weight must be positive: " + r.Id);
                 foreach (var w in r.Weapons) if (w < 0 || w >= WeaponCatalog.Count) errors.Add("role weapon out of range: " + r.Id);
             }

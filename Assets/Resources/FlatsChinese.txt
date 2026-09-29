@@ -1524,3 +1524,24 @@ You	你
 Player	玩家
 Run	本局
 TAB or Esc closes   Q or E switches tabs   Wallet ${0}	TAB 或 Esc 關閉　Q 或 E 切換頁籤　錢包 ${0}
+Carrying	搬運中
+{0} picked up the {1}	{0} 拿起了{1}
+{0} put down the {1}	{0} 放下了{1}
+Carrying: press {0} to put it down. You cannot fire.	搬運中：按 {0} 放下。搬運時無法開火。
+{0} carries: {1}	{0} 拿著：{1}
+Endless phases of enemies. Your score is the record.	無盡的敵人波次，分數就是你的紀錄。
+Co-op for 1-4 players: bounties, shop, routes and checkpoints.	1–4 人合作：賞金、商店、路線與存檔點。
+A different rule every phase.	每個階段不同的規則。
+Only headshots count.	只有爆頭才算數。
+Free practice against bots.	與機器人自由練習。
+Learn the controls.	學習操作方式。
+Cycle the map used by Survival, Assortment, Headshot and Training.	切換生存、混搭、爆頭與訓練使用的地圖。
+Continue available	可續玩
+Random	隨機
+{0} is reviving you	{0} 正在救你
+Reviving {0}	正在救起 {0}
+Common	普通
+Empty core slot	空核心槽
+Empty	空
+Tier {0}/{1}   Head x{2}   Taken {3}	階級 {0}/{1}　頭部 x{2}　承受 {3}
+Troy	特洛伊城

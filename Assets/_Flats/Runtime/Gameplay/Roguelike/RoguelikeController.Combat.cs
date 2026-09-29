@@ -78,7 +78,7 @@ public partial class RoguelikeController
         Broadcast();
         var enc = state.encounter;
         string title = "@" + (enc.IsFinale ? RogueCatalog.Encounter(enc.finaleId).Name : RogueCatalog.Encounter(enc.objectiveId).Name);
-        for (int i = 3; i > 0; i--)
+        for (int i = 2; i > 0; i--)
         {
             Notify(new RogueEventMessage { kind = "banner", text = "Stage {0}-{1}: {2}\nstart in {3}...|" + state.Chapter + "|" + RogueDepth.StageInChapter(state.depth) + "|" + title + "|" + i, value = 1.1 });
             yield return new WaitForSeconds(1f);
@@ -122,7 +122,7 @@ public partial class RoguelikeController
             int instanceId = machine.InstanceIdFor(waveIndex, i);
             try { SpawnEnemy(instanceId, wave.roles[i], wave.elite[i], ref lastPoint); }
             catch (Exception ex) { Debug.LogException(ex); }
-            yield return new WaitForSeconds(0.6f);
+            yield return new WaitForSeconds(waveIndex == 0 ? 0.25f : 0.45f);   // the opening wave arrives quickly
         }
         spawning = false;
     }

@@ -71,6 +71,7 @@ public partial class Menu
 
 	private void BackToMainMenu()
 	{
+		HideModeList();
 		if (gameState == "Multiplayer")
 		{
 			bt[0].text = "Resume";
@@ -389,6 +390,7 @@ public partial class Menu
 				EventSystem.current.SetSelectedGameObject(null);
 				anim.SetBool("Fade", false);
 				current = "Singleplayer";
+				ShowModeList();
 				break;
 			case 2:
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
@@ -912,6 +914,7 @@ public partial class Menu
 			{
 				if (button >= 0 && button != 5)
 				{
+					HideModeList();
 					backButton.SetActive(false);
 					if (!waitBackground && PhotonNetwork.connected)
 					{
@@ -925,7 +928,7 @@ public partial class Menu
 					{
 						if (stage == -1)
 						{
-							stage = UnityEngine.Random.Range(2, 8);
+							stage = UnityEngine.Random.Range(2, 9);
 						}
 						else
 						{
@@ -966,16 +969,17 @@ public partial class Menu
 					break;
 				case 5:
 					stage++;
-					if (stage > 5)
+					if (stage > 6)
 					{
 						stage = 0;
 					}
 					else if (stage < 0)
 					{
-						stage = 5;
+						stage = 6;
 					}
-					buttons[5].sprite = images[stage + 12];
+					buttons[5].sprite = MapImage(stage);
 					bt[5].text = stageName[stage];
+					RefreshModeListLabels();
 					break;
 				}
 			}
