@@ -53065,7 +53065,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: d55e22cd75a503440b57efc29873cf6e, type: 2}
   - {fileID: 21300000, guid: c2d5ac73b6cd08245bb4dfb86f00ecb3, type: 2}
   - {fileID: 21300000, guid: 258eab6bc598745449c60ed86738e088, type: 2}
-  troyMapImage: {fileID: 0}
+  troyMapImage: {fileID: 21300000, guid: cce9a224c8954406a852102de5ffb039, type: 3}
   roguelikeTileImage: {fileID: 21300000, guid: 269ab3eff7cc45d6a2fa6132c2b93402, type: 3}
   weapons:
   - {fileID: 0}

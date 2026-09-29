@@ -8,6 +8,8 @@ using UnityEditor.SceneManagement;
 public static class FlatsNavigationRepair {
  [MenuItem("FLATS/Navigation/Rebuild All Maps")]
  public static void Run(){Bake(new[]{"FlatCity","UrbanPark","BeachsideTown","DepartmentStore","Warehouse","NightLand","Troy","Tutorial"});}
+ [MenuItem("FLATS/Navigation/Rebuild Troy")]
+ public static void Troy(){Bake(new[]{"Troy"});}
  [MenuItem("FLATS/Navigation/Rebuild Tutorial")]
  public static void Tutorial(){Bake(new[]{"Tutorial"});}
  static void Bake(string[] maps){
@@ -35,6 +37,9 @@ public static class FlatsNavigationRepair {
    UnityEngine.AI.NavMeshBuilder.CollectSources(null,~0,NavMeshCollectGeometry.PhysicsColliders,0,new List<NavMeshBuildMarkup>(),sources);
    sources.RemoveAll(s=>s.component!=null && ((s.component is Collider && ((Collider)s.component).isTrigger) || s.component.GetComponent<Rigidbody>()!=null || s.component.GetComponent<CharacterController>()!=null));
    var settings=NavMesh.GetSettingsByID(0);settings.agentRadius=0.5f;settings.agentHeight=2;settings.agentClimb=0.4f;settings.agentSlope=45;settings.overrideVoxelSize=true;settings.voxelSize=0.2f;
+   // Troy is built at the character's real size (controller 6.4 m tall, 4 m wide, ~0.3 m step): bake for that
+   // capsule so bots never plan through gaps or over ledges the controller cannot use.
+   if(name=="Troy"){settings.agentRadius=2f;settings.agentHeight=6.4f;settings.agentClimb=0.45f;settings.voxelSize=0.4f;settings.minRegionArea=20f;settings.buildHeightMesh=true;}
    // These maps include roof/raised-platform spawns. Preserve those locations;
    // generate one-way drops over the real collision geometry so bots can leave.
    // No jump-across or upward links are introduced.
