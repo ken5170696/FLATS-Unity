@@ -5,7 +5,20 @@ using UnityEngine.UI;
 
 public static class RogueMetaUI
 {
-    public static string T(string key) { return FlatsLocalization.Translate(key); }
+    /// <summary>Translated text. The original 16 guns keep the original game's names ("Handgun 1" reads "手槍 A 型"
+    /// as on the HUD and the character screen), so one weapon never has two names.</summary>
+    public static string T(string key) { return IsLegacyGunName(key) ? RogueItemKinds.WeaponDisplayName(key) : FlatsLocalization.Translate(key); }
+    static System.Collections.Generic.HashSet<string> legacyGuns;
+    static bool IsLegacyGunName(string key)
+    {
+        if (string.IsNullOrEmpty(key)) return false;
+        if (legacyGuns == null)
+        {
+            legacyGuns = new System.Collections.Generic.HashSet<string>();
+            for (int i = 0; i < Flats.Core.WeaponCatalog.Count; i++) legacyGuns.Add(Flats.Core.WeaponCatalog.GetDefault(i).gunName);
+        }
+        return legacyGuns.Contains(key);
+    }
     public static string L(TextLine line)
     {
         var args = (string[])line.Args.Clone();

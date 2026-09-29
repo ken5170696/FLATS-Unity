@@ -170,7 +170,7 @@ public class RogueHudView : MonoBehaviour
             if (shownGun.id != shownGunId && weaponName != null)
             {
                 shownGunId = shownGun.id;
-                weaponName.text = shownGunId >= 0 && shownGunId < Flats.Core.WeaponCatalog.Count ? RogueItemKinds.WeaponDisplayName(Flats.Core.WeaponCatalog.GetDefault(shownGunId).gunName) : "";
+                weaponName.text = shownGunId >= 0 && shownGunId < Flats.Core.WeaponCatalog.Count ? RogueItemKinds.WeaponDisplayName(RogueHooks.MetaWeaponDisplay(shownGunId, Flats.Core.WeaponCatalog.GetDefault(shownGunId)).gunName) : "";
             }
             if (magazineText != null && shownGun.currentAmmo != shownMag)
             {

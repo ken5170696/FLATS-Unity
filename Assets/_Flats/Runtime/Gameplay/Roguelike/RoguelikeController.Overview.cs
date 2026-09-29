@@ -173,7 +173,7 @@ public partial class RoguelikeController
     void AddWeaponRows(FPSController fc, int index, Transform weapon, string slot, BuildStats stats)
     {
         if (index < 0 || index >= Flats.Core.WeaponCatalog.Count) return;
-        var def = Flats.Core.WeaponCatalog.GetDefault(index);
+        var def = RogueHooks.MetaWeaponDisplay(index, Flats.Core.WeaponCatalog.GetDefault(index));   // the armory variant in hand
         var gun = weapon != null ? weapon.GetComponent<Gun>() : null;
         string ammo = gun != null ? gun.currentAmmo + " / " + gun.maxAmmo : "";
         int magazine = gun != null ? Mathf.Max(1, Mathf.RoundToInt((float)(def.limitAmmo * stats.MagazineMul))) : def.limitAmmo;

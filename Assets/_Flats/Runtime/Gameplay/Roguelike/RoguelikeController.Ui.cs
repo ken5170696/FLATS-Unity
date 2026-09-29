@@ -383,7 +383,7 @@ public partial class RoguelikeController
         return slotLine == "" ? T(def.Effect) : T(def.Effect) + "\n" + slotLine;
     }
 
-    static string WeaponCatalogName(int index) { return index >= 0 && index < Flats.Core.WeaponCatalog.Count ? RogueItemKinds.WeaponDisplayName(Flats.Core.WeaponCatalog.GetDefault(index).gunName) : "?"; }
+    static string WeaponCatalogName(int index) { return index >= 0 && index < Flats.Core.WeaponCatalog.Count ? RogueItemKinds.WeaponDisplayName(RogueHooks.MetaWeaponDisplay(index, Flats.Core.WeaponCatalog.GetDefault(index)).gunName) : "?"; }
     static string Pct(double mul) { return (mul >= 1 ? "+" : "") + Math.Round((mul - 1) * 100) + "%"; }
     static string RarityText(ItemDef def) { return def.Rarity == 2 ? T("Rare") : def.Rarity == 1 ? T("Uncommon") : ""; }
     static string RouteText(string mapId, string routeTag) { var m = RogueCatalog.Map(mapId); var r = RogueCatalog.Route(routeTag); return (m != null ? T(m.SceneName) : mapId) + " (" + T(r.Name) + ")"; }

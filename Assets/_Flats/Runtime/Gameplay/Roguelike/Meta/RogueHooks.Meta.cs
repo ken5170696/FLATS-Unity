@@ -96,4 +96,17 @@ public static partial class RogueHooks
         var c = RoguelikeController.Instance;
         return RoguelikeMode.Active && c != null && c.State != null ? c.State.heat : 0;
     }
+    /// <summary>Display only: the local player's armory variant of a legacy model (name and resolved numbers),
+    /// so the HUD, the TAB weapon rows and the shop show the weapon that actually fires. Falls back to the model.</summary>
+    public static Flats.Core.WeaponDefinition MetaWeaponDisplay(int model, Flats.Core.WeaponDefinition fallback)
+    {
+        if (!RoguelikeMode.Active || fallback == null) return fallback;
+        var rp = Local;
+        var v = rp != null && rp.Stats != null ? rp.Stats.WeaponForModel(model) : null;
+        if (v == null && rp != null && rp.Build != null && rp.Build.meta != null && !rp.Build.meta.Empty) v = MetaRun.ShopVariant(rp.Build, model);   // shop: the variant a purchase would give
+        if (v == null) return fallback;
+        var r = RogueArmory.Resolve(v);
+        return new Flats.Core.WeaponDefinition(v.Name, r.Magazine, r.Reserve, r.Burst, (float)r.Damage, (float)r.Rpm, (float)r.Accuracy, (float)r.Reload, (float)r.HeadshotBonus,
+            fallback.zoom, fallback.oneShot, fallback.handgun, fallback.grenade);
+    }
 }

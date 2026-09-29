@@ -139,7 +139,7 @@ public partial class RoguelikeController
         var m = p.build != null ? p.build.meta : null;
         if (m == null || overview == null) return;
         int highest = MetaRun.SquadHighestLevel(state);
-        string gear = string.Join(" · ", new[] { m.primary, m.secondary, m.melee }.Where(id => !string.IsNullOrEmpty(id)).Select(id => T(MetaProfiles.ArmoryName(id))).ToArray());
+        string gear = string.Join(" · ", new[] { m.primary, m.secondary, m.melee }.Where(id => !string.IsNullOrEmpty(id)).Select(id => RogueMetaUI.T(MetaProfiles.ArmoryName(id))).ToArray());
         string branches = string.Join("   ", ((SkillBranch[])Enum.GetValues(typeof(SkillBranch))).Where(b => SkillTree.SpentIn(m.skills, b) > 0)
             .OrderByDescending(b => SkillTree.SpentIn(m.skills, b)).Select(b => T(b.ToString()) + " " + SkillTree.SpentIn(m.skills, b)).ToArray());
         overview.AddStat("Experience", RogueMetaUI.L(MetaText.Level(m.level)), gear,

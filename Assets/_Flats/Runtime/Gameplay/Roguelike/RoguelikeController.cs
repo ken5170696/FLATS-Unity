@@ -388,6 +388,7 @@ public partial class RoguelikeController : MonoBehaviour
     public static string DisplayName(ItemDef def)
     {
         if (def == null) return "";
+        if (def.Kind == ItemKind.Weapon) { int model = RogueCatalog.WeaponIndexOf(def.Id); if (model >= 0) return RogueItemKinds.WeaponDisplayName(RogueHooks.MetaWeaponDisplay(model, Flats.Core.WeaponCatalog.GetDefault(model)).gunName); }
         return def.Kind == ItemKind.Weapon ? RogueItemKinds.WeaponDisplayName(def.Name) : T(def.Name);
     }
 
