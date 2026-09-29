@@ -408,14 +408,23 @@ public class RogueHudView : MonoBehaviour
         // markers are sorted by priority then distance, so the first one of a pile stays and shows how many it stands for
         // ("Last enemies x3"); the others are hidden instead of stacking icons over its label
         if (markerPile.Length < shown) markerPile = new int[shown];
+        // markers of different kinds on one spot (a crate beside its drop point, both clamped to the same edge point) are stacked
+        // one marker height apart, toward the screen centre, so icons and texts never print over each other
         for (int i = 0; i < shown; i++) markerPile[i] = 1;
         for (int i = 0; i < shown; i++)
         {
             var m = markers[i]; if (m.rect == null || !m.gameObject.activeSelf) continue;
+            int moves = 0;
             for (int j = 0; j < i; j++)
             {
                 var o = markers[j];
-                if (o.rect != null && o.gameObject.activeSelf && scratch[j].Label == scratch[i].Label && (o.rect.anchoredPosition - m.rect.anchoredPosition).sqrMagnitude < 44f * 44f) { markerPile[j]++; m.gameObject.SetActive(false); break; }
+                if (o.rect == null || !o.gameObject.activeSelf || !Overlap(o.rect, m.rect)) continue;
+                if (scratch[j].Label == scratch[i].Label) { markerPile[j]++; m.gameObject.SetActive(false); break; }
+                if (++moves > shown) break;   // bounded: a crowded screen keeps the last spot rather than looping
+                float step = m.rect.sizeDelta.y * m.rect.localScale.y + 4f;
+                var p = m.rect.anchoredPosition; p.y += p.y > 0f ? -step : step;
+                m.rect.anchoredPosition = p;
+                j = -1;   // re-check against every earlier marker at the new spot
             }
         }
         for (int i = 0; i < shown; i++)
@@ -428,6 +437,14 @@ public class RogueHudView : MonoBehaviour
     }
 
     int[] markerPile = new int[8];
+
+    // two markers overlap when their scaled boxes (icon, label and distance) intersect; a small margin keeps texts apart
+    static bool Overlap(RectTransform a, RectTransform b)
+    {
+        Vector2 d = a.anchoredPosition - b.anchoredPosition;
+        Vector2 size = (a.sizeDelta * a.localScale.x + b.sizeDelta * b.localScale.x) * 0.5f;
+        return Mathf.Abs(d.x) < size.x * 0.8f && Mathf.Abs(d.y) < size.y;
+    }
 
     void HideMarkers(int from) { for (int i = from; i < markers.Count; i++) markers[i].gameObject.SetActive(false); }
 }

@@ -109,6 +109,7 @@ public class RogueIcons : MonoBehaviour
         if (id.StartsWith("em.")) return "Warning";
         if (id.StartsWith("fin.")) return "Main4";
         if (id.StartsWith("ev.")) return "Settings5";
-        switch (id) { case "obj.capture": return "Load"; case "obj.carry": return "Square"; case "obj.protect": return "Shield"; case "obj.breakout": return "Check"; default: return "Objective"; }
+        // Deliver the Crate uses the crate icon ("Square" is the plain white fill sprite, not an icon)
+        switch (id) { case "obj.capture": return "Load"; case "obj.carry": return "Crate"; case "obj.protect": return "Shield"; case "obj.breakout": return "Check"; default: return "Objective"; }
     }
 }
