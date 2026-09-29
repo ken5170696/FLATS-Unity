@@ -127,6 +127,7 @@ public class AI : MonoBehaviour
 	private void Awake()
 	{
         if (RoguelikeMode.Active) RogueEnemyStatus.Attach(gameObject);
+        if (RoguelikeMode.Coop && Menu.network == 2) RogueEnemyNetSync.Install(gameObject);   // before the first serialization on every copy
 		mt = base.transform;
 		ct = mt.Find("Camera");
 		anim = GetComponent<Animator>();
@@ -878,7 +879,12 @@ public class AI : MonoBehaviour
 					}
 					else if (Menu.network != 1 && PhotonNetwork.isMasterClient && base.gameObject.activeSelf)
 					{
-						base.gameObject.GetPhotonView().RPC("Shoot", PhotonTargets.All);
+						// Roguelike co-op: every client simulates this burst against its own copy of the players; each copy aims at the
+						// target the master chose, where that player really is on that client (F26: the victim's copy used to aim with the
+						// lagged replicated rotation, so the host was hit accurately while other players were missed)
+						var aimView = RoguelikeMode.Coop ? targets[0].GetComponent<PhotonView>() : null;
+						if (aimView != null) base.gameObject.GetPhotonView().RPC("RogueShoot", PhotonTargets.All, aimView.viewID);
+						else base.gameObject.GetPhotonView().RPC("Shoot", PhotonTargets.All);
 					}
 				}
 				yield return new WaitForSeconds(0.5f);
@@ -974,6 +980,28 @@ public class AI : MonoBehaviour
 		}
 	}
 
+	[System.NonSerialized] int rogueAimViewId = -1;
+
+	[PunRPC]
+	private void RogueShoot(int targetViewId)
+	{
+		rogueAimViewId = targetViewId;
+		StartCoroutine("Shoot");
+	}
+
+	/// <summary>Roguelike co-op, clients other than the master: point the muzzle camera at the master's chosen target as it stands here.</summary>
+	private void AimAtRogueTarget()
+	{
+		if (!RoguelikeMode.Coop || rogueAimViewId < 0 || PhotonNetwork.isMasterClient) return;
+		var view = PhotonView.Find(rogueAimViewId);
+		if (view == null || !view.gameObject.activeInHierarchy) return;
+		Vector3 forward = view.transform.position - mt.position;
+		if (forward.sqrMagnitude < 0.01f) return;
+		Quaternion aim = Quaternion.LookRotation(forward);
+		aim.eulerAngles = new Vector3(aim.eulerAngles.x + 1f, aim.eulerAngles.y, aim.eulerAngles.z);   // the master's own aim offset
+		ct.rotation = aim;
+	}
+
 	[PunRPC]
 	private void StopAttack()
 	{
@@ -990,6 +1018,7 @@ public class AI : MonoBehaviour
 	private IEnumerator Shoot()
 	{
         if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) yield break;
+        if (RoguelikeMode.Active && RogueKillPrediction.IsPredictedDead(gameObject)) yield break;   // this client already saw the kill (F07)
 		agent.speed = defaultSpeed;
 		if (currentGun.maxAmmo <= 0 && currentGun.currentAmmo <= 0)
 		{
@@ -1030,6 +1059,7 @@ public class AI : MonoBehaviour
 			base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
 			for (int i = 0; i < currentGun.burstCount; i++)
 			{
+				AimAtRogueTarget();
 				float x = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
 				float y = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
 				Vector3 velocity = ((currentGun.id != 15) ? ct.TransformDirection(x, y, 1500f) : ct.TransformDirection(x, y, 800f));
@@ -1045,7 +1075,7 @@ public class AI : MonoBehaviour
 				{
 					if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8 || RoguelikeMode.Active)
 					{
-						num = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.enemy);
+						num = Flats.Core.EnemyDamageScaling.ForPopulation(RoguelikeMode.Active ? RogueHooks.EnemyPopulation() : Singleplayer.enemy);
 					}
 					else if (Singleplayer.rule == 1 || Singleplayer.rule == 3)
 					{
@@ -1089,6 +1119,7 @@ public class AI : MonoBehaviour
 			GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, firePosition.position, mt.rotation) as GameObject;
 			mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 			base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
+			AimAtRogueTarget();
 			float ram1 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
 			float ram2 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
 			Vector3 dir = ct.TransformDirection(ram1, ram2, 1500f);
@@ -1100,7 +1131,7 @@ public class AI : MonoBehaviour
 			{
 				if (Singleplayer.rule == 0 || Singleplayer.rule == 2 || Multiplayer.rule == 8 || RoguelikeMode.Active)
 				{
-					damagePerEnemy = Flats.Core.EnemyDamageScaling.ForPopulation(Singleplayer.enemy);
+					damagePerEnemy = Flats.Core.EnemyDamageScaling.ForPopulation(RoguelikeMode.Active ? RogueHooks.EnemyPopulation() : Singleplayer.enemy);
 				}
 				else if (Singleplayer.rule == 1 || Singleplayer.rule == 3)
 				{

@@ -23,6 +23,7 @@ namespace Flats.Core.Roguelike
         public int depth, difficulty, players;
         public long budgetMinor;        // G per player
         public long objectiveMinor;     // paid once on objective success
+        public bool objectivePaid;      // retain objectiveMinor for the overview after settlement
         public long bonusBudgetMinor;   // cap for reinforcement/marked-kill extras this encounter
         public long bonusPaidMinor;
         public long eventBudgetMinor;   // separate cap for event/emergency success rewards
@@ -55,7 +56,7 @@ namespace Flats.Core.Roguelike
     /// </summary>
     public static class RogueEconomy
     {
-        public const double ObjectiveFraction = 0.5, RescueFraction = 0.1, BonusBudgetFraction = 0.3, EventBudgetFraction = 1.0;
+        public const double ObjectiveFraction = RogueCatalog.ClearRewardFraction, RescueFraction = 0.1, BonusBudgetFraction = 0.3, EventBudgetFraction = .6;
         public const double MaxStageBountyMul = 2.0;
         public const int MaxRescueRewardsPerVictimPerStage = 1;
 
@@ -147,9 +148,9 @@ namespace Flats.Core.Roguelike
         public static Payout PayObjective(EncounterLedger ledger, IList<string> validMembers, double fractionOverride)
         {
             var payout = new Payout { Reason = "objective" };
-            if (ledger.objectiveMinor <= 0 || validMembers == null) return payout;
+            if (ledger.objectivePaid || validMembers == null || validMembers.Count == 0) return payout;
             long minor = fractionOverride > 0 ? RogueMoney.MulFraction(ledger.budgetMinor, fractionOverride) : ledger.objectiveMinor;
-            ledger.objectiveMinor = 0; // once
+            ledger.objectiveMinor = minor; ledger.objectivePaid = true;
             foreach (var m in validMembers) payout.Minor[m] = minor;
             return payout;
         }
@@ -202,7 +203,8 @@ namespace Flats.Core.Roguelike
         {
             var l = Open(0, depth, difficulty, 1, routeTag);
             double hs = Math.Max(0, Math.Min(1, headshotRate));
-            return (long)(l.budgetMinor * (1 + hs * (RogueCatalog.HeadshotMoneyMultiplier - 1))) + l.objectiveMinor;
+            double fraction = RogueDepth.IsFinale(depth) ? RogueCatalog.FinaleRewardFraction : ObjectiveFraction;
+            return (long)(l.budgetMinor * (1 + hs * (RogueCatalog.HeadshotMoneyMultiplier - 1))) + RogueMoney.MulFraction(l.budgetMinor, fraction);
         }
     }
 }

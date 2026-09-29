@@ -218,7 +218,7 @@ namespace Flats.Core.Roguelike
         public static readonly SightDef[] Sights =
         {
             new SightDef { Id = "sight.iron", Name = "Iron Sights", Index = 0, Magnification = 1.0, AdsTimeMul = 0.80, AimMoveSpreadMul = 1.0, Starter = true },
-            new SightDef { Id = "sight.reflex", Name = "Reflex Sight", Index = 1, Magnification = 1.5, AdsTimeMul = 0.90, AimMoveSpreadMul = 1.0, Starter = true },
+            new SightDef { Id = "sight.reflex", Name = "Reflex Sight", Index = 1, Magnification = 1.0, AdsTimeMul = 0.90, AimMoveSpreadMul = 1.0, Starter = true },
             new SightDef { Id = "sight.2x", Name = "2x Scope", Index = 2, Magnification = 2, AdsTimeMul = 1.0, AimMoveSpreadMul = 1.15, Price = 120 },
             new SightDef { Id = "sight.4x", Name = "4x Scope", Index = 3, Magnification = 4, AdsTimeMul = 1.20, AimMoveSpreadMul = 1.40, Price = 220 },
             new SightDef { Id = "sight.6x", Name = "6x Scope", Index = 4, Magnification = 6, AdsTimeMul = 1.35, AimMoveSpreadMul = 1.70, Price = 300 },

@@ -33,19 +33,22 @@ namespace Flats.Core.Roguelike
         private readonly List<double> recharge = new List<double>();
         private double shield, shieldUntil, observedNow;
         private bool secondJumpUsed;
+        private double lastDash = double.NegativeInfinity;
         public TacticalRuntime(string id, BuildStats stats = null)
         {
             var item = RogueCatalog.Item(id); if (item == null || item.Kind != ItemKind.Tactical) throw new ArgumentException("tactical id");
             Id = id; stats = stats ?? new BuildStats();
             MaxCharges = id == "tactical.dash" ? Math.Max(1, Math.Min(2, stats.DashCharges)) : 1;
-            CooldownSeconds = id == "tactical.dash" ? 6 * RogueStateBag.Positive(stats.DashCooldownMul) : id == "tactical.shield" ? 12 : 0;
+            CooldownSeconds = id == "tactical.dash" ? RogueCatalog.DashCooldownSeconds * RogueStateBag.Positive(stats.DashCooldownMul) : id == "tactical.shield" ? 12 : 0;
         }
         public void Tick(double now) { RogueStateBag.NonNegative(now); if (now < observedNow) throw new ArgumentOutOfRangeException("now", "時間不可倒退"); observedNow = now; recharge.RemoveAll(t => t <= now); if (now >= shieldUntil) shield = 0; }
         public int Charges(double now) { Tick(now); return MaxCharges - recharge.Count; }
         public bool TryUse(double now)
         {
             Tick(now); if (Id == "tactical.doublejump" || recharge.Count >= MaxCharges) return false;
+            if (Id == "tactical.dash" && now < lastDash + RogueCatalog.DashMinIntervalSeconds) return false;
             recharge.Add(now + CooldownSeconds);
+            if (Id == "tactical.dash") lastDash = now;
             if (Id == "tactical.shield") { shield = ShieldCapacity; shieldUntil = now + ShieldDurationSeconds; }
             return true;
         }
@@ -56,6 +59,68 @@ namespace Flats.Core.Roguelike
         public bool OnJumpPressed(bool grounded) { if (grounded) { secondJumpUsed = false; return false; } if (Id != "tactical.doublejump" || secondJumpUsed) return false; secondJumpUsed = true; return true; }
         public void Reset() { secondJumpUsed = false; shield = 0; shieldUntil = 0; }
         public void Cancel() { Reset(); }
+    }
+
+    /// <summary>One instance per player/build; use the root trigger id for pellets, ricochets and penetrations.</summary>
+    public sealed class SuppressionTracker
+    {
+        public const double DecayIntervalSeconds = .5;
+        public double WindowSeconds { get; private set; }
+        public int MaxStacks { get; private set; }
+        private readonly HashSet<string> shots = new HashSet<string>(StringComparer.Ordinal);
+        private int stacks;
+        private double nextDecay = double.PositiveInfinity, observedNow;
+
+        public SuppressionTracker(BuildStats stats = null)
+        {
+            stats = stats ?? BuildStats.Compute(new PlayerBuild { cores = new[] { "core.suppression" } });
+            WindowSeconds = RogueStateBag.Positive(stats.SuppressionWindowSeconds);
+            MaxStacks = stats.SuppressionStepMax <= 0 ? 0 : (int)Math.Ceiling(stats.SuppressionStepMax / RogueStateBag.Positive(stats.SuppressionStep));
+        }
+
+        public bool OnTriggerHit(double now, string shotId)
+        {
+            Stacks(now);
+            if (string.IsNullOrEmpty(shotId)) throw new ArgumentException("shotId");
+            if (!shots.Add(shotId) || MaxStacks == 0) return false;
+            stacks = Math.Min(MaxStacks, stacks + 1);
+            nextDecay = now + WindowSeconds + DecayIntervalSeconds;
+            return true;
+        }
+
+        public int Stacks(double now)
+        {
+            RogueStateBag.NonNegative(now);
+            if (now < observedNow) throw new ArgumentOutOfRangeException("now", "時間不可倒退");
+            observedNow = now;
+            if (stacks > 0 && now >= nextDecay)
+            {
+                int lost = (int)Math.Min(stacks, 1 + Math.Floor((now - nextDecay) / DecayIntervalSeconds));
+                stacks -= lost; nextDecay += lost * DecayIntervalSeconds;
+            }
+            return stacks;
+        }
+
+        public void OnReload() { stacks /= 2; }
+        public void OnReload(double now) { Stacks(now); OnReload(); }
+        public void Clear() { shots.Clear(); stacks = 0; nextDecay = double.PositiveInfinity; observedNow = 0; }
+    }
+
+    /// <summary>Non-regenerating purchased shield. Apply temporary shields first, then pass their remaining damage here.</summary>
+    public sealed class OverShield
+    {
+        public double Remaining { get; private set; }
+        public void Grant(double maxHp) { Remaining = RogueStateBag.Positive(maxHp); }
+        public double Absorb(double damage)
+        {
+            RogueStateBag.NonNegative(damage);
+            double absorbed = Math.Min(Remaining, damage); Remaining -= absorbed;
+            return damage - absorbed;
+        }
+        public void Clear() { Remaining = 0; }
+        public double Fraction(double maxHp) { return Math.Min(1, Remaining / RogueStateBag.Positive(maxHp)); }
+        /// <summary>Reconstruct from the authoritative fraction at a stage boundary, including changed maximum health.</summary>
+        public void Restore(double maxHp, double fraction) { RogueStateBag.Positive(maxHp); RogueStateBag.Unit(fraction); Remaining = maxHp * fraction; }
     }
 
     public enum DamageKind { Direct, Chain, Homing, Explosion, Ricochet, Penetrate }
@@ -131,4 +196,3 @@ namespace Flats.Core.Roguelike
         public static double For(DamageKind kind, bool shotgunPellet = false, bool rubberRicochet = false) { double coefficient; switch (kind) { case DamageKind.Penetrate: coefficient = PenetrateSecondTarget; break; case DamageKind.Ricochet: coefficient = rubberRicochet ? RubberRicochet : Ricochet; break; case DamageKind.Explosion: coefficient = Explosion; break; case DamageKind.Chain: coefficient = Chain; break; default: coefficient = 1; break; } return coefficient * (shotgunPellet ? ShotgunPellet : 1); }
     }
 }
-

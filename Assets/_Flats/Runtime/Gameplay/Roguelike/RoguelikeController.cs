@@ -45,6 +45,7 @@ public partial class RoguelikeController : MonoBehaviour
     void Update()
     {
         // live counters (enemies alive, ultimate charge) change without a state broadcast
+        if (broadcastDue >= 0f && Time.time >= broadcastDue) Broadcast();
         hudRefresh -= Time.deltaTime;
         if (hudRefresh <= 0 && runStarted) { hudRefresh = 0.5f; RefreshHud(); }
         TickOverview();
@@ -184,11 +185,18 @@ public partial class RoguelikeController : MonoBehaviour
     /// <summary>Authority: push the full state to everyone and refresh local presentation.</summary>
     public void Broadcast()
     {
+        broadcastDue = -1f;
         if (state == null) return;
         state.eventSeq++;
         if (transport != null && Menu.network != 0) transport.SendSnapshot(RogueSaveStore.ToJson(state), -1);
         OnStateChanged();
     }
+
+    float broadcastDue = -1f;
+    int overshieldStage = -1;
+    /// <summary>Authority: a state change that can wait a moment (a kill's bounty). Kills in quick succession share one snapshot
+    /// instead of sending the whole run state once per kill, which queued up behind the Die and hit messages (F07).</summary>
+    public void BroadcastSoon() { if (broadcastDue < 0f) broadcastDue = Time.time + 0.25f; }
 
     public void Notify(RogueEventMessage e)
     {
@@ -267,7 +275,7 @@ public partial class RoguelikeController : MonoBehaviour
                 {
                     cmd.tx.playerKey = cmd.playerKey;
                     var result = machine.Buy(cmd.tx);
-                    Notify(new RogueEventMessage { kind = "tx", playerKey = cmd.playerKey, text = result.Status + "|" + result.Reason + "|" + result.ItemId + "|" + cmd.tx.txId, minor = result.PaidMinor, flag = result.Ok });
+                    Notify(new RogueEventMessage { kind = "tx", playerKey = cmd.playerKey, text = result.Status + "|" + result.Reason + "|" + result.ItemId + "|" + cmd.tx.txId + "|" + (cmd.tx.remove ? "remove" : ""), minor = result.PaidMinor, value = result.RefundMinor, flag = result.Ok });
                     if (result.Ok) Broadcast();
                 }
                 break;
@@ -275,10 +283,12 @@ public partial class RoguelikeController : MonoBehaviour
                 if (hostOnly && machine.ChooseRoute(cmd.index)) { WriteCheckpoint(); Broadcast(); }
                 break;
             case "continue":
-                if (hostOnly && state.phase == RunPhase.ChapterEnd) StartCoroutine(ContinueChapter());
+                if (hostOnly && state.phase == RunPhase.ChapterEnd && !leaving) StartCoroutine(ContinueChapter());
+                else if (!hostOnly) Notify(new RogueEventMessage { kind = "denied", playerKey = cmd.playerKey, text = "Only the host can continue or evacuate." });
                 break;
             case "evacuate":
-                if (hostOnly && machine.Evacuate()) StartCoroutine(EndRun());
+                if (hostOnly && !leaving && machine.Evacuate()) StartCoroutine(EndRun());
+                else if (!hostOnly) Notify(new RogueEventMessage { kind = "denied", playerKey = cmd.playerKey, text = "Only the host can continue or evacuate." });
                 break;
             case "downed":
                 if (machine.PlayerDowned(cmd.playerKey)) { pacing.OnPlayerDowned(state.stageSeconds); Notify(new RogueEventMessage { kind = "downed", playerKey = cmd.playerKey, text = player.name, index = cmd.index }); Broadcast(); CheckWipe(); }
@@ -306,6 +316,7 @@ public partial class RoguelikeController : MonoBehaviour
                 OnObjectiveInput(cmd);
                 break;
             case "meta": MetaLoadoutCommand(cmd); break;
+            case "overshield": machine.ReportOvershield(cmd.playerKey, cmd.value); break;   // only ever lowers the carried fraction
         }
     }
 
@@ -315,6 +326,8 @@ public partial class RoguelikeController : MonoBehaviour
         if (state != null && state.phase == RunPhase.Combat) BuildClientWorld();
         else if (state != null && !IsAuthority && state.phase != RunPhase.Combat) DisposeEvents();
         if (state != null && state.phase != RunPhase.Prep) screenDismissed = false;
+        if (state != null && state.phase != RunPhase.ChapterEnd) chapterDecisionSent = false;
+        if (state != null && state.phase != RunPhase.Combat && !IsAuthority) ExtraEnemyDamageMul = 1f;   // the stage's contract ended
         ApplyLives();
         HandleEndedOnClient();
         RefreshHud();
@@ -324,7 +337,12 @@ public partial class RoguelikeController : MonoBehaviour
         if (me != null && player != null)
         {
             var rp = player.GetComponent<RoguePlayer>();
-            if (rp != null) rp.ApplyBuild(me.build);
+            if (rp != null)
+            {
+                rp.ApplyBuild(me.build);
+                // a new stage (or a resumed run) rebuilds the shop shield from what the authority carried over
+                if (state.phase == RunPhase.Combat && overshieldStage != state.encounterCounter) { overshieldStage = state.encounterCounter; rp.RestoreOvershield(me.overshieldFraction); }
+            }
         }
     }
 
@@ -341,6 +359,9 @@ public partial class RoguelikeController : MonoBehaviour
             case "downed": MetaTeammateDowned(e.playerKey); Log(T("{0} is down!", e.text)); { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.AcknowledgeDown(e.index); } break;
             case "downrefused": { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.RefuseDown(e.index); } break;
             case "died": Log(T("{0} died.", e.text)); break;
+            case "carrydrop": RogueCarryable.ApplyDropEvent(e); break;   // the authority's drop point, the same on every client (F36)
+            case "enemymul": if (!IsAuthority) ExtraEnemyDamageMul = e.value > 0 ? (float)e.value : 1f; break;
+            case "denied": if (e.playerKey == localKey) { Log(Decode(e.text)); Banner(Decode(e.text), 2f); } break;
             case "revived": Log(T(e.flag ? "Emergency revive: {0}" : "Revived: {0}", e.text)); break;
             case "tx": OnTransactionResult(e); break;
             case "rescueshield": MetaRescueShieldEvent(e); break;

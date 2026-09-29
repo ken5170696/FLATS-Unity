@@ -43,7 +43,7 @@ public partial class RoguelikeController
         hudView.SetTop(stage, "$" + money, state.phase == RunPhase.Combat ? AliveEnemies.ToString() : "");
         switch (state.phase)
         {
-            case RunPhase.Prep: hudView.SetObjective("Coin", T("Prep"), screenDismissed ? T("Press {0} to reopen the shop", RogueInput.KeyText("Interact")) : T("Shop is open. Ready up when done.")); break;
+            case RunPhase.Prep: hudView.SetObjective("Coin", T("Prep"), screenDismissed ? T("Press {0} to reopen the shop", RogueInput.KeyText("Shop")) : T("Shop is open. Ready up when done.")); break;
             case RunPhase.Combat:
                 {
                     string id = enc.IsFinale ? enc.finaleId : enc.objectiveId;
@@ -81,7 +81,15 @@ public partial class RoguelikeController
         RefreshAbilities(me);
         RefreshSquad(me);
         var rpLocal = LocalRoguePlayer();
-        if (rpLocal != null && rpLocal.Carrying) hudView.SetHint("Crate", T("Carrying: press {0} to put it down. You cannot fire.", RogueInput.KeyText("Interact")));
+        // downed (still rescuable, F49): how long is left and who can help, kept on screen for the whole bleed-out
+        if (rpLocal != null && rpLocal.Downed)
+        {
+            string helper; float metres;
+            string line = T("You are down: {0} s left. Crawl to cover.", Mathf.CeilToInt(rpLocal.BleedOutRemaining));
+            line += rpLocal.NearestRescuer(out helper, out metres) ? "  " + T("{0} can revive you ({1} m).", helper, Mathf.RoundToInt(metres)) : "  " + T("Nobody is up to revive you.");
+            hudView.SetHint("Medkit", line);
+        }
+        else if (rpLocal != null && rpLocal.Carrying) hudView.SetHint("Crate", T("Carrying: press {0} to put it down. You cannot fire.", RogueInput.KeyText("Interact")));
         // the first stages open with enemies already on the way: say so, or a new player sprints for the marker through them
         else if (combat && state.depth <= 2 && combatSince >= 0 && Time.time - combatSince < 12f) hudView.SetHint("Enemy", T("Enemies are coming: deal with them, then head for the objective."));
         else hudView.SetHint("", "");
@@ -101,10 +109,19 @@ public partial class RoguelikeController
         // every objective ends only when the field is clear, so stragglers are marked for all of them (not the finale guard)
         bool show = combat && state.encounter != null && !state.encounter.IsFinale
             && Time.time - combatSince >= StragglerDelay && alive > 0 && alive <= StragglerCount;
+        // a straggler that died, despawned or was pooled leaves the list at once, not when the count finally reaches zero (F14)
+        for (int i = stragglers.Count - 1; i >= 0; i--)
+        {
+            var e = stragglers[i];
+            var dr = e != null ? e.GetComponent<DamageReceiver>() : null;
+            if (e != null && dr != null && !dr.Dead && liveEnemies.ContainsKey(e.InstanceId) && liveEnemies[e.InstanceId] == e) continue;
+            if (e != null) { var wp = e.GetComponent<RogueWaypoint>(); if (wp != null && wp.Label == StragglerLabel) RogueWaypoint.Detach(e.gameObject); }
+            stragglers.RemoveAt(i);
+        }
         if (show)
         {
             foreach (var e in liveEnemies.Values)
-                if (e != null && e.GetComponent<RogueWaypoint>() == null) { RogueWaypoint.Attach(e.gameObject, "Enemy", StragglerLabel, new Color(0.95f, 0.3f, 0.35f), 2.6f, 1); stragglers.Add(e); }
+                if (e != null && e.GetComponent<RogueWaypoint>() == null && e.GetComponent<DamageReceiver>() != null && !e.GetComponent<DamageReceiver>().Dead) { RogueWaypoint.Attach(e.gameObject, "Enemy", StragglerLabel, new Color(0.95f, 0.3f, 0.35f), 2.6f, 1); stragglers.Add(e); }
             return;
         }
         foreach (var e in stragglers) { var wp = e != null ? e.GetComponent<RogueWaypoint>() : null; if (wp != null && wp.Label == StragglerLabel) RogueWaypoint.Detach(e.gameObject); }
@@ -208,11 +225,23 @@ public partial class RoguelikeController
             var offer = me.offers[i]; var def = RogueCatalog.Item(offer.itemId);
             if (def == null) continue;
             int index = i;
-            string status = offer.sold ? T("Bought") : me.build.RejectReason(def) != null ? T(me.build.RejectReason(def)) : me.walletMinor < offer.priceMinor ? T("Not enough money") : "";
+            bool staleTier = (def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod) && !offer.sold && offer.tierAtSample != me.build.Tier(def.Id);
+            string status = offer.sold ? T("Bought") : staleTier ? T("Tier changed: reroll for a new price") : me.build.RejectReason(def) != null ? T(me.build.RejectReason(def)) : me.walletMinor < offer.priceMinor ? T("Not enough money") : "";
             bool pending = pendingTx.ContainsValue(offer.itemId);
             add(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build), "$" + RogueMoney.Format(offer.priceMinor), RogueItemKinds.Tag(def, RarityText(def)), offer.sold ? "" : T("Buy"),
                 !offer.sold && status == "" && !pending, pending ? T("Buying...") : status,
                 () => Buy(me, index, offer));
+        }
+        // what the player owns: every core and mod can be removed here (F40). The refund is half of what was paid for it (free
+        // rewards refund nothing), so buying it back always costs more than the refund.
+        foreach (var id in OwnedCoresAndMods(me.build))
+        {
+            var def = RogueCatalog.Item(id); if (def == null) continue;
+            string itemId = id;
+            long refund = RogueShop.RefundMinor(me.build, id);
+            bool pendingRemove = pendingTx.ContainsValue("remove:" + id);
+            add(RogueIcons.ForItem(def), DisplayName(def) + "  " + TierText(me.build, id), T("Owned") + ": " + T(def.Effect), refund > 0 ? "+$" + RogueMoney.Format(refund) : T("No refund"), RogueItemKinds.Tag(def, RarityText(def)), T("Remove"),
+                !pendingRemove, pendingRemove ? T("Removing...") : "", () => ConfirmRemove(me, itemId));
         }
         long reroll = RogueShop.RerollPriceMinor(state.Chapter);
         add("Reload", T("Reroll offers"), T("New offers for this visit. Limited per visit; the same offers return if you leave and come back."), "$" + RogueMoney.Format(reroll), "", T("Reroll"),
@@ -229,18 +258,31 @@ public partial class RoguelikeController
         AddShopRows(me, (icon, name, effect, price, rarity, action, interactable, status, onAction) => screen.AddRow(icon, name, effect, price, rarity, action, interactable, status, onAction));
         if (chapterEnd)
         {
-            screen.SetFooter(T("Continue"), "Arrow", () => Command(new RogueCommandMessage { kind = "continue" }), T("Evacuate"), "Quit", () => ConfirmEvacuate(),
-                T("Continue travels to {0}. Evacuate banks this run's record and ends it.", RouteText(state.mapId, state.routeTag)));
+            // only the host decides where the squad goes (the authority ignores anyone else): other players see who they wait for,
+            // and the host's buttons lock once a decision is on its way so a second click cannot look ignored
+            bool decides = Menu.network == 0 || IsAuthority;
+            string note = !decides ? T("Waiting for the host ({0}) to continue or evacuate.", HostName())
+                : chapterDecisionSent ? T("Travelling...")
+                : T("Continue travels to {0}. Evacuate banks this run's record and ends it.", RouteText(state.mapId, state.routeTag));
+            screen.SetFooter(T("Continue"), "Arrow", () => { if (!decides || chapterDecisionSent) return; chapterDecisionSent = true; Command(new RogueCommandMessage { kind = "continue" }); RefreshScreens(); },
+                T("Evacuate"), "Quit", () => { if (decides && !chapterDecisionSent) ConfirmEvacuate(); }, note);
+            screen.SetFooterInteractable(decides && !chapterDecisionSent, decides && !chapterDecisionSent);
+            screen.SetPrimaryHighlight(false);
             screen.SetOverview(RogueInput.OverviewLabel, () => OpenOverview());
         }
         else
         {
             bool ready = me.ready;
-            // an empty wallet in front of a full shop reads as "the shop is broken": say where money comes from instead
+            // an empty wallet in front of a full shop reads as "the shop is broken": say where money comes from, on its own line,
+            // so the ready count (who we are waiting for) is always visible
             bool affordable = false; foreach (var o in me.offers) if (!o.sold && o.priceMinor <= me.walletMinor) affordable = true;
-            string hint = !affordable && me.walletMinor < RogueMoney.Coins(10) ? T("No money yet: kills pay bounty. Ready up to start.") : ReadyText();
-            screen.SetFooter(T(ready ? "Not ready" : "Ready"), ready ? "Reset" : "Check", () => Command(new RogueCommandMessage { kind = "ready", flag = !ready }), null, null, null,
+            string hint = ReadyText();
+            if (!affordable && me.walletMinor < RogueMoney.Coins(10)) hint += "\n" + T("No money yet: kills pay bounty.");
+            // the button states what you are and what pressing it does: "Ready ✓ (cancel)" rather than a bare "Not ready"
+            screen.SetFooter(ready ? T("Ready (tap to cancel)") : T("Ready"), "Check", () => Command(new RogueCommandMessage { kind = "ready", flag = !ready }), null, null, null,
                 hint);   // the Overview button beside it already names its key
+            screen.SetFooterInteractable(true, true);
+            screen.SetPrimaryHighlight(ready);
             screen.SetOverview(RogueInput.OverviewLabel, () => OpenOverview());
         }
     }
@@ -298,25 +340,73 @@ public partial class RoguelikeController
         if (e.playerKey != localKey) return;
         var parts = e.text.Split('|');
         string status = parts.Length > 0 ? parts[0] : "", reason = parts.Length > 1 ? parts[1] : "", item = parts.Length > 2 ? parts[2] : "", txId = parts.Length > 3 ? parts[3] : "";
+        bool removal = parts.Length > 4 && parts[4] == "remove";
         pendingTx.Remove(txId);
-        if (e.flag) ApplyTransactionEffects(txId, item);
-        if (e.flag) Log(item == "" ? T("Rerolled") : e.minor > 0 ? T("Bought {0} for ${1}", ItemName(item), RogueMoney.Format(e.minor)) : T("Bought {0}", ItemName(item)));
+        if (e.flag && !removal) ApplyTransactionEffects(txId, item);
+        if (e.flag && removal) Log(T("Removed {0} (refund ${1})", ItemName(item), RogueMoney.Format((long)e.value)));
+        else if (e.flag) Log(item == "" ? T("Rerolled") : e.minor > 0 ? T("Bought {0} for ${1}", ItemName(item), RogueMoney.Format(e.minor)) : T("Bought {0}", ItemName(item)));
         else if (status != "Duplicate") Log(T("Purchase failed: {0}", T(reason == "" ? status : reason)));
         if (screen != null) RefreshScreens();
         if (overview != null) FillOverview();
     }
 
+    static List<string> OwnedCoresAndMods(PlayerBuild b)
+    {
+        var list = new List<string>(b.cores);
+        list.AddRange(b.mods);
+        return list;
+    }
+
+    /// <summary>"Tier 2/3" for cores and mods that have tiers; empty for single-tier items.</summary>
+    static string TierText(PlayerBuild b, string id)
+    {
+        int max = RogueCatalog.MaxTier(id), tier = b.Tier(id);
+        return max > 1 ? T("Tier {0}/{1}", tier, max) : "";
+    }
+
+    void ConfirmRemove(RunPlayer me, string itemId)
+    {
+        if (menu == null || me == null) return;
+        long refund = RogueShop.RefundMinor(me.build, itemId);
+        var breaks = RogueShop.RemovalBreaks(me.build, itemId);
+        string message = T("Remove {0}? Its effect ends now.", ItemName(itemId)) + "\n" + (refund > 0 ? T("Refund: ${0} (half of what you paid).", RogueMoney.Format(refund)) : T("No refund: it was free."));
+        if (breaks.Length > 0) { var names = new List<string>(); foreach (var b in breaks) names.Add(ItemName(b)); message += "\n" + T("These mods stop working without it: {0}", string.Join(", ", names.ToArray())); }
+        menu.ShowConfirm(T("Remove"), message, ok =>
+        {
+            if (!ok || state == null) return;
+            var current = LocalPlayer; if (current == null) return;
+            string txId = NextTx();
+            pendingTx[txId] = "remove:" + itemId;
+            Command(new RogueCommandMessage { kind = "buy", tx = new ShopTransaction { txId = txId, runId = state.runId, shopVersion = current.shopVersion, remove = true, removeItemId = itemId, expectedRefundMinor = RogueShop.RefundMinor(current.build, itemId) } });
+            RefreshScreens();
+            if (overview != null) FillOverview();
+        }, T("Remove"), T("Cancel"));
+    }
+
     void ConfirmEvacuate()
     {
         if (menu == null) return;
-        menu.ShowConfirm("Evacuate", "End the run here and bank your record? The checkpoint is removed.", ok => { if (ok) Command(new RogueCommandMessage { kind = "evacuate" }); }, T("Evacuate"), T("Cancel"));
+        menu.ShowConfirm("Evacuate", "End the run here and bank your record? The checkpoint is removed.", ok => { if (ok && !chapterDecisionSent) { chapterDecisionSent = true; Command(new RogueCommandMessage { kind = "evacuate" }); RefreshScreens(); } }, T("Evacuate"), T("Cancel"));
     }
 
     string ReadyText()
     {
         int ready = 0, total = 0;
-        foreach (var p in state.players) if (p.connected) { total++; if (p.ready) ready++; }
-        return total <= 1 ? T("Press Ready to start the stage.") : T("Ready {0}/{1}. The stage starts when everyone is ready.", ready, total);
+        var waiting = new List<string>();
+        foreach (var p in state.players) if (p.connected) { total++; if (p.ready) ready++; else waiting.Add(p.key == localKey ? T("you") : p.name); }
+        if (total <= 1) return T("Press Ready to start the stage.");
+        string line = T("Ready {0}/{1}. The stage starts when everyone is ready.", ready, total);
+        return waiting.Count > 0 ? line + "  " + T("Waiting for: {0}", string.Join(", ", waiting.ToArray())) : line;
+    }
+
+    bool chapterDecisionSent;
+
+    /// <summary>Display name of the player who decides (the Photon master).</summary>
+    string HostName()
+    {
+        if (Menu.network == 0 || PhotonNetwork.masterClient == null) return "";
+        var p = state != null ? state.Player(KeyOf(PhotonNetwork.masterClient)) : null;
+        return p != null && !string.IsNullOrEmpty(p.name) ? p.name : PhotonNetwork.masterClient.NickName;
     }
 
     static string BuildSummary(PlayerBuild b)
@@ -380,6 +470,9 @@ public partial class RoguelikeController
         if (def.Kind == ItemKind.Ultimate && !string.IsNullOrEmpty(b.ultimate) && b.ultimate != def.Id) return T(def.Effect) + "  " + T("Replaces {0} (charge is kept).", ItemName(b.ultimate));
         if (def.Kind == ItemKind.Weapon && b.primaryWeapon >= 0) return T(def.Effect) + "  " + T("Replaces {0}.", WeaponCatalogName(b.primaryWeapon));
         string slotLine = SlotLine(def, b);
+        // cores and mods now have tiers (F44/F45): an owned one offers the next tier
+        int maxTier = RogueCatalog.MaxTier(def.Id), tier = b.Tier(def.Id);
+        if ((def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod) && maxTier > 1) slotLine = (tier > 0 ? T("Upgrade to tier {0}/{1}", tier + 1, maxTier) : T("Tier {0}/{1}", 1, maxTier)) + (slotLine == "" ? "" : "   " + slotLine);
         return slotLine == "" ? T(def.Effect) : T(def.Effect) + "\n" + slotLine;
     }
 

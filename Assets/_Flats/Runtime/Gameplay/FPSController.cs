@@ -147,6 +147,8 @@ public partial class FPSController : MonoBehaviour
 
 	private bool padSprint;
 
+	private float rogueLift;
+
 	public static int sensitivity = 5;
 
 	public static bool edgeRendering = false;
@@ -677,7 +679,7 @@ public partial class FPSController : MonoBehaviour
 				if (ETCInput.GetButton("Jump"))
 				{
 					jumpPressTime += 1f * Time.deltaTime;
-					if (num > 0f && Mathf.Abs(num2) < 0.5f && jumpPressTime > holdTime && isGrounded())
+					if (num > 0f && Mathf.Abs(num2) < 0.5f && jumpPressTime > holdTime && isGrounded() && !RogueJumpBlocked && RogueAllows(RogueAction.Sprint))
 					{
 						num *= 1.5f;
 						num2 /= 2f;
@@ -702,7 +704,7 @@ public partial class FPSController : MonoBehaviour
 				if (ETCInput.GetButton("Reload"))
 				{
 					reloadPressTime += 1f * Time.deltaTime;
-					if (reloadPressTime > holdTime && (enableFire || grabbing))
+					if (reloadPressTime > holdTime && (enableFire || grabbing) && RogueAllows(RogueAction.SwitchWeapon))
 					{
 						if (Menu.network == 0)
 						{
@@ -716,7 +718,7 @@ public partial class FPSController : MonoBehaviour
 				}
 				else if (ETCInput.GetButtonUp("Reload"))
 				{
-					if (reloadPressTime <= holdTime && enableFire)
+					if (reloadPressTime <= holdTime && enableFire && RogueAllows(RogueAction.Reload))
 					{
 						if (Menu.network == 0)
 						{
@@ -736,7 +738,7 @@ public partial class FPSController : MonoBehaviour
 				if (ETCInput.GetButton("Zoom"))
 				{
 					zoomPressTime += 1f * Time.deltaTime;
-					if (zoomPressTime > holdTime && grabbedObject == null && enableFire && !grabbing)
+					if (zoomPressTime > holdTime && grabbedObject == null && enableFire && !grabbing && RogueAllows(RogueAction.Grenade))
 					{
 						if (Menu.network == 0)
 						{
@@ -770,7 +772,7 @@ public partial class FPSController : MonoBehaviour
 				if (ETCInput.GetButton("Fire"))
 				{
 					RaycastHit hitInfo = default(RaycastHit);
-					if (Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo, 3f, mask))
+					if (!RoguelikeMode.Active && Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo, 3f, mask))
 					{
 						if (hitInfo.collider.gameObject.layer != base.gameObject.layer)
 						{
@@ -795,7 +797,7 @@ public partial class FPSController : MonoBehaviour
 							base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
 						}
 					}
-					else if (enableFire)
+					else if (enableFire && RogueAllows(RogueAction.Fire))
 					{
 						if (Menu.network == 0)
 						{
@@ -845,7 +847,7 @@ public partial class FPSController : MonoBehaviour
 						{
 							padSprint = false;
 						}
-						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && (padSprint || FlatsControls.PadState("Sprint")))
+						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && !RogueJumpBlocked && RogueAllows(RogueAction.Sprint) && (padSprint || FlatsControls.PadState("Sprint")))
 						{
 							num *= 1.5f;
 							num2 /= 2f;
@@ -853,7 +855,7 @@ public partial class FPSController : MonoBehaviour
 						if (FlatsControls.PadState("Fire", 0))
 						{
 							RaycastHit hitInfo2 = default(RaycastHit);
-							if (Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo2, 3f, mask))
+							if (!RoguelikeMode.Active && Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo2, 3f, mask))
 							{
 								if (hitInfo2.collider.gameObject.layer != base.gameObject.layer)
 								{
@@ -878,7 +880,7 @@ public partial class FPSController : MonoBehaviour
 									base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
 								}
 							}
-							else if (enableFire)
+							else if (enableFire && RogueAllows(RogueAction.Fire))
 							{
 								if (Menu.network == 0)
 								{
@@ -890,7 +892,7 @@ public partial class FPSController : MonoBehaviour
 								}
 							}
 						}
-						if (FlatsControls.PadState("Reload", 1) && (enableFire || grabbing))
+						if (FlatsControls.PadState("Reload", 1) && (enableFire || grabbing) && RogueAllows(RogueAction.Reload))
 						{
 							if (Menu.network == 0)
 							{
@@ -974,7 +976,7 @@ public partial class FPSController : MonoBehaviour
 						{
 							if (pickPressTime <= holdTime)
 							{
-								if (enableFire || grabbing)
+								if ((enableFire || grabbing) && RogueAllows(RogueAction.SwitchWeapon))
 								{
 									if (Menu.network == 0)
 									{
@@ -1001,7 +1003,7 @@ public partial class FPSController : MonoBehaviour
 						{
 							Zoom(false);
 						}
-						if (FlatsControls.PadState("Grenade", 1) && grabbedObject == null && enableFire && !grabbing)
+						if (FlatsControls.PadState("Grenade", 1) && grabbedObject == null && enableFire && !grabbing && RogueAllows(RogueAction.Grenade))
 						{
 							if (Menu.network == 0)
 							{
@@ -1030,7 +1032,7 @@ public partial class FPSController : MonoBehaviour
                     var input = desktopSample;
 					num = input.Forward;
 					num2 = input.Right;
-					if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && input.Sprint)
+					if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && !RogueJumpBlocked && RogueAllows(RogueAction.Sprint) && input.Sprint)
 					{
 						num *= 1.5f;
 						num2 /= 2f;
@@ -1042,7 +1044,7 @@ public partial class FPSController : MonoBehaviour
 					if (input.Fire)
 					{
 						RaycastHit hitInfo3 = default(RaycastHit);
-						if (Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo3, 3f, mask))
+						if (!RoguelikeMode.Active && Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo3, 3f, mask))
 						{
 							if (hitInfo3.collider.gameObject.layer != base.gameObject.layer)
 							{
@@ -1053,20 +1055,20 @@ public partial class FPSController : MonoBehaviour
 						{
 							actions.Dispatch(Flats.Core.PlayerAction.Smash);
 						}
-						else if (enableFire && !(RoguelikeMode.Active && RogueHooks.CarryingBlocksFire(this)))
+						else if (enableFire && !(RoguelikeMode.Active && RogueHooks.CarryingBlocksFire(this)) && RogueAllows(RogueAction.Fire))
 						{
 							actions.Dispatch(Flats.Core.PlayerAction.Shoot);
 						}
 					}
-					if ((input.Reload) && enableFire)
+					if ((input.Reload) && enableFire && RogueAllows(RogueAction.Reload))
 					{
 						actions.Dispatch(Flats.Core.PlayerAction.Reload);
 					}
-					if (input.ChangeWeapon && (enableFire || grabbing))
+					if (input.ChangeWeapon && (enableFire || grabbing) && RogueAllows(RogueAction.SwitchWeapon))
 					{
 						actions.Dispatch(Flats.Core.PlayerAction.ChangeWeapons);
 					}
-					if (input.Grenade && grabbedObject == null && enableFire && !grabbing)
+					if (input.Grenade && grabbedObject == null && enableFire && !grabbing && RogueAllows(RogueAction.Grenade))
 					{
 						actions.Dispatch(Flats.Core.PlayerAction.ThrowGrenade);
 					}
@@ -1147,8 +1149,8 @@ public partial class FPSController : MonoBehaviour
 			Vector3 speed = mt.InverseTransformDirection(cc.velocity);
 			if (isGrounded())
 			{
-				anim.SetFloat("Vertical", speed.z);
-				anim.SetFloat("Horizontal", speed.x);
+				anim.SetFloat("Vertical", RoguelikeMode.Active ? RogueLocomotion.LegParam(speed.z) : speed.z);
+				anim.SetFloat("Horizontal", RoguelikeMode.Active ? RogueLocomotion.LegParam(speed.x) : speed.x);
 			}
 			else
 			{
@@ -1202,8 +1204,15 @@ public partial class FPSController : MonoBehaviour
 			}
 			if (!jumping && !movedWithGravity)
 			{
-				cc.Move(Vector3.down * Time.deltaTime * 9.81f * (RoguelikeMode.Active ? RogueHooks.GravityScale(this) : 1f));
+				cc.Move(Vector3.down * Time.deltaTime * 9.81f);
+				// The fall itself comes from the controller gravity applied in OnAnimatorMove (SimpleMove accumulates it); this constant
+				// term only cancels the legacy upward move above. Scaling the constant made a Roguelike low-gravity zone lift players
+				// 1.4 m before an unchanged fall (F23). Low gravity instead adds a lift that grows with the time spent airborne.
+				float gravityScale = RoguelikeMode.Active ? RogueHooks.GravityScale(this) : 1f;
+				if (gravityScale < 1f && !isGrounded()) { rogueLift += 9.81f * (1f - gravityScale) * Time.deltaTime; cc.Move(Vector3.up * rogueLift * Time.deltaTime); }
+				else rogueLift = 0f;
 			}
+			else rogueLift = 0f;
 			if (Menu.changedSettings)
 			{
 				if (Menu.VRmode)
@@ -1252,7 +1261,7 @@ public partial class FPSController : MonoBehaviour
 		UpdateAimPresentation();
 	}
 
-	// Roguelike: a downed player stays on the ground until revived.
+	// Roguelike: a downed player stays on the ground until revived (no jump, no sprint; it crawls).
 	private bool RogueJumpBlocked => RoguelikeMode.Active && RogueHooks.JumpBlocked(this);
 
 	private bool isGrounded()

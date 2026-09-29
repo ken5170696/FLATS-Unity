@@ -75,12 +75,14 @@ public sealed class CarryRunner : RogueObjectiveRunner
     {
         if (machine == null) return;
         var player = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (cmd.text == "carry:pickup" && player != null && !RogueCarryable.IsCarrying(player) && Vector3.Distance(player.transform.position, crate.transform.position) <= 4f && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey);
+        // the shared rule decides (alive, hands free, within reach plus tolerance); a refusal tells that player why
+        if (cmd.text == "carry:pickup") { if (RogueCarryable.AuthorizePickup(Controller, carry, player, cmd.playerKey, machine.Holder) && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey); }
         else if (cmd.text == "carry:drop" && machine.Holder == cmd.playerKey) { machine.OnDrop(); SetHolder(""); }
         else if (cmd.text == "carry:lost") { machine.OnLost(); SetHolder(""); }
     }
     public override void OnClientEvent(RogueEventMessage e)
     {
+        if (e.kind == "carrydrop") { RogueCarryable.ApplyDropEvent(e); return; }   // reaches runners when the controller has no case for it
         if (e.kind != "carry") return;
         var parts = e.text.Split('|');
         if (parts[0] != "SupplyCrate" || carry == null) return;
@@ -98,6 +100,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
 {
     ProtectObjective machine; ClearObjective fallback; GameObject device, beacon; RogueInteractable interact; Vector3 center; float damageAccum;
     readonly Dictionary<string, float> repairing = new Dictionary<string, float>();
+    readonly RogueHoldLedger ledger = new RogueHoldLedger();
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
         center = c.PlanPoint(0);
@@ -128,12 +131,18 @@ public sealed class ProtectRunner : RogueObjectiveRunner
     }
     public override void OnCommand(RogueCommandMessage cmd)
     {
-        if (machine == null || cmd.text != "repair") return;
+        if (machine == null || fallback != null || cmd.text != "repair") return;
         var player = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (player == null || Vector3.Distance(player.transform.position, center) > 5f) return;
-        repairing[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);   // credit expires unless the client keeps reporting
+        if (!RogueInteraction.AuthorityCanAct(player) || device == null || !RogueInteraction.AuthorityInReach(player, device.GetComponent<Collider>(), interact.Radius)) return;
+        // repairing together is the design (the machine counts repairers), so the device is not exclusive; each player's
+        // credit is capped by the real time that passed, and it runs out unless the client keeps reporting
+        bool inUse; float granted = ledger.Credit(cmd.playerKey, "repair", (float)cmd.value, false, out inUse);
+        float left; repairing.TryGetValue(cmd.playerKey, out left);
+        repairing[cmd.playerKey] = Mathf.Min(0.6f, left + granted);
     }
     public override void Dispose() { RogueWorld.Destroy(device); RogueWorld.Destroy(beacon); }
+    // losing the device falls back to clearing the area for half the objective reward, like the convoy's escape
+    public override double RewardFraction { get { return fallback != null ? 0.5 : 1.0; } }
 }
 
 public sealed class BreakoutRunner : RogueObjectiveRunner
@@ -207,6 +216,7 @@ public sealed class CommanderRunner : RogueObjectiveRunner
 public sealed class VaultRunner : RogueObjectiveRunner
 {
     VaultObjective machine; RogueEnemyRole core; readonly GameObject[] cells = new GameObject[3]; readonly float[] charge = new float[3];
+    readonly RogueHoldLedger ledger = new RogueHoldLedger(); const float CellRadius = 3.5f;
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
         for (int i = 0; i < 3; i++)
@@ -214,7 +224,7 @@ public sealed class VaultRunner : RogueObjectiveRunner
             var p = c.PlanPoint(i);
             cells[i] = RogueWorld.Cube("PowerCell" + i, p, new Vector3(1.2f, 1.8f, 1.2f), RogueWorld.Blue, true);
             RogueWaypoint.Attach(cells[i], "Battery", "Power cell {0}|" + (i + 1), RogueWorld.Blue, 2f, i == 0 ? 3 : 1);
-            var it = cells[i].AddComponent<RogueInteractable>(); it.Action = "cell:" + i; it.Prompt = "Charge cell " + (i + 1); it.Radius = 3.5f;
+            var it = cells[i].AddComponent<RogueInteractable>(); it.Action = "cell:" + i; it.Prompt = "Charge cell " + (i + 1); it.Radius = CellRadius;
         }
         if (c.IsAuthority) machine = new VaultObjective(1000);
     }
@@ -234,10 +244,14 @@ public sealed class VaultRunner : RogueObjectiveRunner
         if (machine == null || !cmd.text.StartsWith("cell:")) return;
         int i = cmd.text[5] - '0'; if (i < 0 || i > 2 || i != machine.CellsCharged) return;
         var player = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (player == null || Vector3.Distance(player.transform.position, cells[i].transform.position) > 5f) return;
-        charge[i] += Mathf.Clamp((float)cmd.value, 0, 0.6f);
+        if (!RogueInteraction.AuthorityCanAct(player) || cells[i] == null || !RogueInteraction.AuthorityInReach(player, cells[i].GetComponent<Collider>(), CellRadius)) return;
+        // one charger per cell: the first valid holder owns it until it stops reporting; credit never outruns real time
+        bool inUse; float granted = ledger.Credit(cmd.playerKey, "cell:" + i, (float)cmd.value, true, out inUse);
+        if (inUse) { if (ledger.NoticeDue(cmd.playerKey)) Controller.Notify(new RogueEventMessage { kind = "denied", playerKey = cmd.playerKey, text = "Someone else is using it" }); return; }
+        charge[i] += granted;
         if (charge[i] >= 4f && machine.OnCellCharged(i))
         {
+            ledger.Release("cell:" + i);
             cells[i].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.Gold);
             Controller.Notify(new RogueEventMessage { kind = "banner", text = "Cell {0} charged: the core is exposed!|" + (i + 1), value = 2 });
             Controller.Notify(new RogueEventMessage { kind = "cell", index = i });
@@ -248,6 +262,7 @@ public sealed class VaultRunner : RogueObjectiveRunner
         if (e.kind != "cell" || e.index < 0 || e.index > 2 || cells[e.index] == null) return;
         cells[e.index].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.Gold);
         RogueWaypoint.Hide(cells[e.index], true);
+        { var it = cells[e.index].GetComponent<RogueInteractable>(); if (it != null) it.Enabled = false; }   // a charged cell no longer offers a prompt
         if (e.index + 1 < 3 && cells[e.index + 1] != null) { var wp = cells[e.index + 1].GetComponent<RogueWaypoint>(); if (wp != null) wp.Priority = 3; }
     }
     public override void OnEnemyKilled(RogueEnemyRole role) { if (role != null && role.RoleId == "role.finale" && machine != null) machine.OnDamaged(99999); }

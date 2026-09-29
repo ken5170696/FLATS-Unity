@@ -18,7 +18,7 @@ public static partial class RogueHooks
         if (rp == null) return;
         var role = target.GetComponent<RogueEnemyRole>();
         if (role != null) role.lastHitDamage = damage;
-        rp.OnHit();
+        rp.OnHit(bullet.rogueRootShot);   // pellets, ricochets and penetrations of one trigger pull share one suppression stack
         // direct hits mark only with the Marker core; ricochets mark only with Angle Finder (which alone must not turn every
         // direct hit into a team-wide mark)
         bool ricochet = bullet.rogueKind == (int)DamageKind.Ricochet;
@@ -168,10 +168,10 @@ public static partial class RogueHooks
     /// <summary>A downed player cannot melee either (the smash paths do not look at enableFire). Checked on every copy.</summary>
     public static bool MeleeBlocked(FPSController player) { return JumpBlocked(player); }
 
+    /// <summary>The desktop fire send site asks before dispatching: the whole Roguelike fire rule (carrying, downed, menu, melee swing).</summary>
     public static bool CarryingBlocksFire(FPSController player)
     {
-        var rp = Of(player);
-        return rp != null && rp.Carrying;
+        return !RogueActionGate.Allows(player, RogueAction.Fire);
     }
 
     /// <summary>Ammo crate: reserves back to the build's reserve capacity on every carried weapon; magazines are untouched (no free rounds in the chamber).</summary>

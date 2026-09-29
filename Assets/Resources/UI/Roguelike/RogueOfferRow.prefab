@@ -399,6 +399,7 @@ GameObject:
   - component: {fileID: 5601358151673365753}
   - component: {fileID: 8929444431510293676}
   - component: {fileID: 6376868263418017052}
+  - component: {fileID: 8747501139955872760}
   m_Layer: 0
   m_Name: Action
   m_TagString: Untagged
@@ -490,7 +491,7 @@ MonoBehaviour:
     m_HighlightedColor: {r: 1, g: 0.45, b: 0.7, a: 1}
     m_PressedColor: {r: 0.7, g: 0.05, b: 0.35, a: 1}
     m_SelectedColor: {r: 1, g: 0.45, b: 0.7, a: 1}
-    m_DisabledColor: {r: 0.7, g: 0.7, b: 0.7, a: 0.45}
+    m_DisabledColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.6}
     m_ColorMultiplier: 1
     m_FadeDuration: 0.1
   m_SpriteState:
@@ -509,6 +510,21 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &8747501139955872760
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4636394571944532376}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9fb069921e9d4f4dbc43e92d325c5e6b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsDisabledLook
+  disabledFace: {r: 0.45, g: 0.45, b: 0.45, a: 0.7}
+  disabledContentAlpha: 0.4
+  focusScale: 1.06
 --- !u!1 &5843354412007548452
 GameObject:
   m_ObjectHideFlags: 0

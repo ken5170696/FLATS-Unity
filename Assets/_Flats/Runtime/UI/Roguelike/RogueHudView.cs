@@ -24,12 +24,27 @@ public class RogueHudView : MonoBehaviour
     [Header("Touch")] public GameObject touchRoot, touchInteract, touchOverview;   // phones: no TAB, no Interact key
     [Header("Vitals (bottom left)")] public GameObject vitalsPanel; public Image vitalsIconBack, hpFill, hpLag, shieldFill; public Text hpText, hpMaxText, vitalsStatus;
     [Header("Weapon (bottom right)")] public GameObject weaponPanel; public Text magazineText, reserveText, weaponName;
+    [Tooltip("Font size of the \" / max\" and \" / reserve\" part. The current value uses the Hp / Magazine text's own size; both parts share one " +
+        "line (one Text, rich-text sizes) so their baselines match and the spaces around the slash are equal for any digit count.")]
+    public int hpMaxSize = 13, reserveSize = 13;
+    [Tooltip("Alpha of the \" / max\" and \" / reserve\" part.")] [Range(0f, 1f)] public float secondaryAlpha = 0.7f;
     [Header("Objective progress")] public GameObject objectiveBar; public Image objectiveBarFill;
     [Header("Bounty popup")] public CanvasGroup bountyGroup; public Text bountyText;
     [Header("Layout")] public RectTransform objectiveRect, squadRect;
     [Tooltip("Pause button face drawn in the HUD style; the shared HUD's OpenMenu button underneath keeps receiving the clicks.")] public GameObject menuButton;
     [Tooltip("Canvas width (units) below which the objective drops under the chips and the squad list moves down.")] public float narrowWidth = 640f;
     public Vector2 objectiveWide = new Vector2(0f, -12f), objectiveNarrow = new Vector2(0f, -46f), squadWide = new Vector2(12f, -46f), squadNarrow = new Vector2(12f, -112f);
+    [Header("Waypoints: enemies")]
+    [Tooltip("Canvas units between an enemy's head anchor and the bottom of its marker (the marker is drawn entirely above the anchor).")]
+    public float enemyMarkerGap = 4f;
+    [Tooltip("An enemy marker fades out when the enemy is closer than the first distance (m) and fully shown beyond the second...")]
+    public Vector2 enemyFadeDistance = new Vector2(8f, 15f);
+    [Tooltip("...unless its anchor is farther than the first radius (canvas units) from the crosshair; fully shown beyond the second.")]
+    public Vector2 enemyFadeRadius = new Vector2(90f, 220f);
+    [Tooltip("Icon scale of an enemy marker near (first) and far (second, from 40 m); texts keep their size.")]
+    public Vector2 enemyIconScale = new Vector2(0.75f, 1f);
+    [Tooltip("Icon scale of other markers near (first, at 6 m) and far (second, from 60 m); texts keep their size so they stay sharp.")]
+    public Vector2 iconScale = new Vector2(1.15f, 0.8f);
     [Header("Colours")] public Color hpColor = new Color(0.3f, 0.85f, 0.45f), hpLowColor = new Color(1f, 0.32f, 0.36f), hpDownedColor = new Color(1f, 0.7f, 0.1f), ammoLowColor = new Color(1f, 0.36f, 0.4f);
     float reviveShownAt = -10f;
 
@@ -59,6 +74,12 @@ public class RogueHudView : MonoBehaviour
         if (reviveRoot != null) reviveRoot.SetActive(false);
         if (bountyGroup != null) bountyGroup.alpha = 0f;
         SetObjectiveProgress(-1f);
+        // nothing from the prefab's layout placeholders shows before the run state arrives (a co-op client waits for the host's
+        // first snapshot): top chips blank, no ability slots or squad rows, and the objective card says what we are waiting for
+        SetTop("", "", "");
+        SetAbility(true, "", "", 0f, "", false, false); SetAbility(false, "", "", 0f, "", false, false);
+        SetSquad(null);
+        if (Menu.network != 0) SetObjective("Reload", RoguelikeController.T("Syncing with the host..."), ""); else SetObjective("", "", "");
         HideLegacyVitals(true);
         FlatsLocalization.Changed += OnLanguageChanged;
     }
@@ -156,8 +177,14 @@ public class RogueHudView : MonoBehaviour
             if (hpLag != null) hpLag.fillAmount = downed ? 0f : lagFill;
             if (shieldFill != null) { float s = vitalsPlayer.ShieldFraction; shieldFill.fillAmount = s; if (shieldFill.enabled != s > 0f) shieldFill.enabled = s > 0f; }
             int hpInt = downed ? 0 : Mathf.CeilToInt(hp), maxInt = Mathf.RoundToInt(max);   // a downed player's hit points are a placeholder until the revive sets them
-            if (hpText != null && hpInt != shownHp) { if (hpInt < shownHp) lagHoldUntil = Time.unscaledTime + 0.35f; shownHp = hpInt; hpText.text = hpInt.ToString(); }
-            if (hpMaxText != null && maxInt != shownMax) { shownMax = maxInt; hpMaxText.text = "/ " + maxInt; }
+            if (hpText != null && (hpInt != shownHp || maxInt != shownMax))
+            {
+                if (hpInt < shownHp) lagHoldUntil = Time.unscaledTime + 0.35f;
+                shownHp = hpInt; shownMax = maxInt;
+                hpText.supportRichText = true;
+                hpText.text = hpInt + Secondary(" / " + maxInt, hpMaxSize);
+                if (hpMaxText != null) hpMaxText.text = "";   // older layouts: the max now shares the current value's line
+            }
             int bleed = downed ? Mathf.CeilToInt(vitalsPlayer.BleedOutRemaining) : -1;
             if (vitalsStatus != null && bleed != shownBleed) { shownBleed = bleed; vitalsStatus.text = bleed >= 0 ? RoguelikeController.T("Down {0}s", bleed) : ""; }
         }
@@ -172,13 +199,24 @@ public class RogueHudView : MonoBehaviour
                 shownGunId = shownGun.id;
                 weaponName.text = shownGunId >= 0 && shownGunId < Flats.Core.WeaponCatalog.Count ? RogueItemKinds.WeaponDisplayName(RogueHooks.MetaWeaponDisplay(shownGunId, Flats.Core.WeaponCatalog.GetDefault(shownGunId)).gunName) : "";
             }
-            if (magazineText != null && shownGun.currentAmmo != shownMag)
+            if (magazineText != null && (shownGun.currentAmmo != shownMag || shownGun.maxAmmo != shownReserve))
             {
-                shownMag = shownGun.currentAmmo; magazineText.text = shownMag.ToString();
-                magazineText.color = shownGun.limitAmmo > 0 && shownMag <= Mathf.Max(1, shownGun.limitAmmo / 4) ? ammoLowColor : Color.white;
+                shownMag = shownGun.currentAmmo; shownReserve = shownGun.maxAmmo;
+                bool low = shownGun.limitAmmo > 0 && shownMag <= Mathf.Max(1, shownGun.limitAmmo / 4);
+                // one line: "30 / 500", the reserve smaller and dimmer; the low-ammo colour tints only the magazine count
+                magazineText.supportRichText = true;
+                magazineText.color = Color.white;
+                string mag = low ? "<color=#" + ColorUtility.ToHtmlStringRGBA(ammoLowColor) + ">" + shownMag + "</color>" : shownMag.ToString();
+                magazineText.text = mag + Secondary(" / " + shownReserve, reserveSize);
+                if (reserveText != null) reserveText.text = "";   // older layouts: the reserve now shares the magazine's line
             }
-            if (reserveText != null && shownGun.maxAmmo != shownReserve) { shownReserve = shownGun.maxAmmo; reserveText.text = "/ " + shownReserve; }
         }
+    }
+
+    string Secondary(string text, int size)
+    {
+        var tint = new Color(1f, 1f, 1f, secondaryAlpha);
+        return "<size=" + Mathf.Max(1, size) + "><color=#" + ColorUtility.ToHtmlStringRGBA(tint) + ">" + text + "</color></size>";
     }
 
     // ---------------------------------------------------------------- narrow canvases (a phone held upright): the objective moves under the chips
@@ -326,6 +364,23 @@ public class RogueHudView : MonoBehaviour
     static readonly System.Comparison<RogueWaypoint> byPriorityThenDistance = (a, b) => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : (a.Position - sortEye).sqrMagnitude.CompareTo((b.Position - sortEye).sqrMagnitude);
     GameObject localPlayer; float localPlayerCheck;
     readonly List<string> markerLabelKey = new List<string>(); readonly List<int> markerDistance = new List<int>();
+    float markerBottom = float.NaN, markerTop;
+
+    // extents of the authored marker around its pivot (icon tile above, label and distance below), read once from the template
+    void MeasureMarker()
+    {
+        if (!float.IsNaN(markerBottom)) return;
+        markerBottom = 0f; markerTop = 0f;
+        if (waypointTemplate == null) return;
+        var corners = new Vector3[4];
+        foreach (var child in new Graphic[] { waypointTemplate.back, waypointTemplate.label, waypointTemplate.distance })
+        {
+            if (child == null || waypointTemplate.rect == null) continue;
+            child.rectTransform.GetWorldCorners(corners);
+            float bottom = waypointTemplate.rect.InverseTransformPoint(corners[0]).y, top = waypointTemplate.rect.InverseTransformPoint(corners[1]).y;
+            markerBottom = Mathf.Min(markerBottom, bottom); markerTop = Mathf.Max(markerTop, top);
+        }
+    }
     void TickTouch()
     {
         if (touchRoot == null) return;
@@ -362,11 +417,13 @@ public class RogueHudView : MonoBehaviour
         while (markers.Count < shown) { var m = Instantiate(waypointTemplate, waypointRoot, false); markers.Add(m); markerLabelKey.Add(null); markerDistance.Add(-1); }
         Vector2 half = canvasRect.rect.size * 0.5f;
         Camera uiCam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+        MeasureMarker();
         for (int i = 0; i < shown; i++)
         {
             var wp = scratch[i]; var m = markers[i];
             m.gameObject.SetActive(true);
-            Vector3 view = cam.WorldToViewportPoint(wp.Position);
+            bool enemy = wp.IsEnemy;
+            Vector3 view = cam.WorldToViewportPoint(wp.Position);   // an enemy's anchor is above its head and icons
             if (float.IsNaN(view.x) || float.IsNaN(view.y) || float.IsInfinity(view.x) || float.IsInfinity(view.y)) { m.gameObject.SetActive(false); continue; }   // target on the camera plane
             bool behind = view.z < 0;
             bool onScreen = !behind && view.x > 0.02f && view.x < 0.98f && view.y > 0.02f && view.y < 0.98f;
@@ -391,6 +448,9 @@ public class RogueHudView : MonoBehaviour
                 pos = dir * scale;
                 angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg - 90f;
             }
+            Vector2 anchor = pos;
+            // an enemy's marker stands entirely above its anchor (bottom-aligned) so it never covers the enemy; kept inside the top edge
+            if (onScreen && enemy) pos.y = Mathf.Min(pos.y - markerBottom + enemyMarkerGap, half.y - markerTop - 2f);
             // keep markers out of the objective panel band at the top centre (the panel is authored 320 wide under the top edge)
             if (Mathf.Abs(pos.x) < 200f && pos.y > half.y - 112f) pos.y = half.y - 112f;
             if (m.rect != null) m.rect.anchoredPosition = pos;
@@ -400,9 +460,20 @@ public class RogueHudView : MonoBehaviour
             int metres = Mathf.RoundToInt(dist);
             if (m.distance != null && markerDistance[i] != metres) { markerDistance[i] = metres; m.distance.text = metres + " m"; }   // text only when the integer changes
             if (m.back != null && m.back.color != wp.Tint) m.back.color = wp.Tint;
-            if (m.group != null) m.group.alpha = wp.Pulse ? 0.7f + 0.3f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 4f)) : onScreen ? 0.95f : 0.8f;
-            float s = onScreen ? Mathf.Lerp(1.15f, 0.8f, Mathf.InverseLerp(6f, 60f, dist)) : 0.85f;
-            if (m.rect != null) m.rect.localScale = new Vector3(s, s, 1);
+            float alpha = wp.Pulse ? 0.7f + 0.3f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 4f)) : onScreen ? 0.95f : 0.8f;
+            if (onScreen && enemy)
+            {
+                // a close enemy near the crosshair is in plain sight: its marker fades out instead of growing over the enemy and the aim point
+                float fade = Mathf.Max(Mathf.InverseLerp(enemyFadeDistance.x, enemyFadeDistance.y, dist), Mathf.InverseLerp(enemyFadeRadius.x, enemyFadeRadius.y, anchor.magnitude));
+                alpha *= fade;
+                if (alpha < 0.03f) { m.gameObject.SetActive(false); continue; }
+            }
+            if (m.group != null) m.group.alpha = alpha;
+            // only the icon tile scales with distance; the label and distance texts keep their authored size so they stay sharp
+            float s = !onScreen ? 0.85f : enemy ? Mathf.Lerp(enemyIconScale.x, enemyIconScale.y, Mathf.InverseLerp(enemyFadeDistance.x, 40f, dist))
+                : Mathf.Lerp(iconScale.x, iconScale.y, Mathf.InverseLerp(6f, 60f, dist));
+            if (m.rect != null && m.rect.localScale != Vector3.one) m.rect.localScale = Vector3.one;
+            if (m.back != null) m.back.rectTransform.localScale = new Vector3(s, s, 1);
         }
         // markers of the same kind drawn on top of each other (stragglers in one direction all clamp to the same screen-edge spot):
         // markers are sorted by priority then distance, so the first one of a pile stays and shows how many it stands for
@@ -422,7 +493,8 @@ public class RogueHudView : MonoBehaviour
                 if (scratch[j].Label == scratch[i].Label) { markerPile[j]++; m.gameObject.SetActive(false); break; }
                 if (++moves > shown) break;   // bounded: a crowded screen keeps the last spot rather than looping
                 float step = m.rect.sizeDelta.y * m.rect.localScale.y + 4f;
-                var p = m.rect.anchoredPosition; p.y += p.y > 0f ? -step : step;
+                // toward the screen centre, except an enemy's marker, which only ever moves up (away from the enemy)
+                var p = m.rect.anchoredPosition; p.y += scratch[i].IsEnemy || p.y <= 0f ? step : -step;
                 m.rect.anchoredPosition = p;
                 j = -1;   // re-check against every earlier marker at the new spot
             }

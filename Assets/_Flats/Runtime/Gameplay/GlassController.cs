@@ -12,6 +12,8 @@ public class GlassController : MonoBehaviour
 	private GameObject[] objs;
 
 	private Material mat;
+	// Combined renderer that shows mat (NightLand colour animation only).
+	private Renderer colorRenderer;
 	private Mesh runtimeMesh;
 	private MB2_TextureBakeResults runtimeBake;
 
@@ -57,7 +59,8 @@ public class GlassController : MonoBehaviour
 		if (Application.loadedLevelName == "NightLand")
 		{
 			string text = base.gameObject.name.Replace("GlassController", "");
-			mat = GameObject.Find("Glass_Baked" + text).transform.GetChild(0).GetComponent<Renderer>().material;
+			colorRenderer = GameObject.Find("Glass_Baked" + text).transform.GetChild(0).GetComponent<Renderer>();
+			mat = colorRenderer.material;
 			// Menu.Awake runs before scene Start calls, so the menu is available here.
 			colorParent = Menu.Current != null ? Menu.Current.CharacterColors : null;
 			if (colorParent != null && colorParent.childCount > 0) StartCoroutine("ColorfulGlass");
@@ -79,6 +82,12 @@ public class GlassController : MonoBehaviour
 		objs = objsInCombined.ToArray();
 		mbd.AddDeleteGameObjects(objs, null, true);
 		mbd.Apply();
+		// Every rebuild assigns the bake's shared result material to the combined renderer.
+		// Re-bind the controller-owned animated copy so the remaining panes keep their colour.
+		if (mat != null && colorRenderer != null && colorRenderer.sharedMaterial != mat)
+		{
+			colorRenderer.sharedMaterial = mat;
+		}
 	}
 
 	private IEnumerator ColorfulGlass()

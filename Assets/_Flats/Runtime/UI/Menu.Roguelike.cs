@@ -81,7 +81,8 @@ public partial class Menu
             var canvas = buttons[0].GetComponentInParent<Canvas>();
             fliping = true;
             RogueMetaHub.Open(canvas != null ? canvas.rootCanvas.transform : transform, RogueMetaStore.Copy(RogueMetaStore.Current), p => RogueMetaStore.Commit(RogueMetaStore.Copy(p)),
-                () => { fliping = false; RefreshRoguelikeTiles(); EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject); });
+                // the Esc/B that closed the hub must not also leave this page on its key-up: release the page after the press ends
+                () => StartCoroutine(ReleaseMenuInput(() => { RefreshRoguelikeTiles(); EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject); })));
             yield break;
         }
         if (button == 1) { roguelikeDifficulty = roguelikeDifficulty % 3 + 1; RefreshRoguelikeTiles(); yield break; }

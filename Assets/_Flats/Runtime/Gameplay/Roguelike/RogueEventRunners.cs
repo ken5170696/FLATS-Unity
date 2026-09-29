@@ -105,7 +105,7 @@ public sealed class AlarmCacheRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "cache:open") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (p != null && Vector3.Distance(p.transform.position, cache.transform.position) <= 4.5f && machine.Accept()) { Banner("Alarm! Reinforcements incoming.", 2.5f); it.Enabled = false; }
+        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, cache.GetComponent<Collider>(), 4.5f) && machine.Accept()) { Banner("Alarm! Reinforcements incoming.", 2.5f); it.Enabled = false; }
     }
     public override void Dispose() { RogueWorld.Destroy(cache); }
 }
@@ -147,7 +147,7 @@ public sealed class PowerRerouteRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "breaker:flip") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (p != null && Vector3.Distance(p.transform.position, breaker.transform.position) <= 4.5f && machine.Flip()) { Banner("Power rerouted: enemy shields and jammers are down, their sight is halved.", 3); it.Enabled = false; Controller.Notify(new RogueEventMessage { kind = "power", flag = true }); }
+        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, breaker.GetComponent<Collider>(), 4.5f) && machine.Flip()) { Banner("Power rerouted: enemy shields and jammers are down, their sight is halved.", 3); it.Enabled = false; Controller.Notify(new RogueEventMessage { kind = "power", flag = true }); }
     }
     public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "power") Controller.PowerRerouted = e.flag; }
     public override void Dispose() { Controller.PowerRerouted = false; RogueWorld.Destroy(breaker); }
@@ -177,7 +177,7 @@ public sealed class RepairDeviceRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "sidedevice") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (p != null && Vector3.Distance(p.transform.position, device.transform.position) <= 5f) repairing[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, device.GetComponent<Collider>(), 5f)) repairing[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
     }
     public override void Dispose() { RogueWorld.Destroy(device); }
 }
@@ -196,6 +196,8 @@ public sealed class RiskContractRunner : RogueEventRunner
             {
                 Controller.Machine.SetStageBountyMul(machine.BountyMul);
                 Controller.ExtraEnemyDamageMul = (float)machine.EnemyDamageMul;
+                // enemy shots are simulated on every client: each needs the same multiplier (it used to exist on the host only)
+                Controller.Notify(new RogueEventMessage { kind = "enemymul", value = machine.EnemyDamageMul });
                 Banner("Risk contract accepted: +25% enemy damage, +40% bounty.", 3);
                 Controller.Broadcast();
             }
@@ -254,7 +256,7 @@ public sealed class LureCrateRunner : RogueEventRunner
     {
         if (machine == null) return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (cmd.text == "lure:pickup" && p != null && !RogueCarryable.IsCarrying(p) && Vector3.Distance(p.transform.position, crate.transform.position) <= 4f && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey);
+        if (cmd.text == "lure:pickup") { if (RogueCarryable.AuthorizePickup(Controller, carry, p, cmd.playerKey, machine.Holder) && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey); }
         else if (cmd.text == "lure:drop" && machine.Holder == cmd.playerKey && machine.OnPlanted()) { SetHolder(""); Banner("Lure planted: enemies are drawn to it.", 2); }
     }
     public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "carry" && e.text.StartsWith("LureCrate|") && carry != null) { carry.HolderKey = e.text.Substring(10); ApplyLureCarrying(carry.HolderKey); Controller.LureTarget = crate != null ? crate.transform : null; } }
@@ -337,7 +339,7 @@ public sealed class GasLeakRunner : RogueEventRunner
         if (machine == null || !cmd.text.StartsWith("vent:")) return;
         int i = cmd.text[5] - '0'; if (i < 0 || i > 2) return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (p == null || Vector3.Distance(p.transform.position, switches[i].transform.position) > 5f) return;
+        if (!RogueInteraction.AuthorityCanAct(p) || !RogueInteraction.AuthorityInReach(p, switches[i].GetComponent<Collider>(), 3.5f)) return;
         Dictionary<string, float> byPlayer; if (!held.TryGetValue(i, out byPlayer)) held[i] = byPlayer = new Dictionary<string, float>();
         byPlayer[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
     }
@@ -381,7 +383,7 @@ public sealed class PowerOutageRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "generator") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (p != null && Vector3.Distance(p.transform.position, generator.transform.position) <= 5f) held[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, generator.GetComponent<Collider>(), 4f)) held[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
     }
     public override void Dispose() { SetDark(false); RogueWorld.Destroy(generator); }
 }
@@ -441,7 +443,7 @@ public sealed class MobileBombRunner : RogueEventRunner
     {
         if (machine == null || bomb == null) return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (cmd.text == "bomb:pickup" && p != null && !RogueCarryable.IsCarrying(p) && Vector3.Distance(p.transform.position, bomb.transform.position) <= 4f && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey);
+        if (cmd.text == "bomb:pickup") { if (RogueCarryable.AuthorizePickup(Controller, carry, p, cmd.playerKey, machine.Holder) && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey); }
         else if (cmd.text == "bomb:drop" && machine.Holder == cmd.playerKey) { machine.OnDrop(); SetHolder(""); }
     }
     public override void OnClientEvent(RogueEventMessage e)

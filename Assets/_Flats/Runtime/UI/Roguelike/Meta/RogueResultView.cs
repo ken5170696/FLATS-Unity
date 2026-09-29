@@ -36,11 +36,33 @@ public class RogueResultView : MonoBehaviour
     GameObject previousSelection;
     CursorLockMode previousCursorLock;
     bool previousCursorVisible;
+    static RogueResultView shown;
+    static int closedFrame = -10;
+    static bool escapeHeldAfterClose;
+    /// <summary>True while the overlay is up and until the Esc/B press that closed it is released, so the menu underneath
+    /// (the result page's Back) does not act on the same press.</summary>
+    public static bool BlocksMenuInput
+    {
+        get
+        {
+            if (shown != null || Time.frameCount <= closedFrame + 1) return true;
+            if (!escapeHeldAfterClose) return false;
+            if (Input.GetKey(KeyCode.Escape) || Input.GetKeyUp(KeyCode.Escape)) return true;
+            escapeHeldAfterClose = false;
+            return false;
+        }
+    }
+    void OnDestroy()
+    {
+        if (shown != this) return;
+        shown = null; closedFrame = Time.frameCount; escapeHeldAfterClose = Input.GetKey(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Escape);
+    }
     public static RogueResultView Show(Transform parent, RunReward reward, Contribution[] top, MetaProfile after, Action onContinue)
     {
         var prefab = Resources.Load<RogueResultView>("UI/Roguelike/Meta/RogueResultView");
         if (prefab == null) throw new InvalidOperationException("Missing RogueResultView prefab");
         var view = prefab.GetComponent<Canvas>() != null ? Instantiate(prefab) : Instantiate(prefab, parent, false);   // own overlay canvas: open as a root
+        shown = view;
         view.Bind(reward, top, after, onContinue); return view;
     }
     void Bind(RunReward result, Contribution[] top, MetaProfile profile, Action continued)

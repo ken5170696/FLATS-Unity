@@ -28,6 +28,14 @@ public class WatchCamera : MonoBehaviour
 	// including after the pause menu closes and re-enables the HUD canvas.
 	private bool hidingHud;
 
+	// Roguelike co-op spectating (a player who bled out waits for the next stage). Optional authored bar; without it the
+	// PlayerName label carries the name and the watched player's state on two lines.
+	[Tooltip("Roguelike co-op: fill of the watched player's health (optional).")]
+	public Image spectateHealth;
+	[Tooltip("Roguelike co-op: the watched player's state line (optional; defaults to the PlayerName label's second line).")]
+	public Text spectateStatus;
+	private RoguePlayer spectated;
+
 	private static GameObject[] LivingPlayers()
 	{
 		var players = new List<GameObject>();
@@ -58,11 +66,20 @@ public class WatchCamera : MonoBehaviour
 			base.gameObject.AddComponent<OVRHead>();
 			ht = GetComponent<OVRHead>();
 		}
+		if (RoguelikeMode.Coop)
+		{
+			// Dead until the next stage: not the Classic "next phase", and no respawn here (the run controller respawns us).
+			Transform explanation = mt.GetChild(0).GetChild(0).Find("Explanation");
+			Text explanationText = explanation != null ? explanation.GetComponent<Text>() : null;
+			if (explanationText != null) explanationText.text = "Waiting for the next stage...\nYou respawn when it starts.";
+			ui.enabled = true;   // a death may have hidden the HUD; the run HUD stays up while spectating
+		}
 		GameObject[] others = LivingPlayers();
 		if (others.Length > 0)
 		{
-			ui.enabled = false;
-			hidingHud = true;
+			// Roguelike co-op keeps its HUD (run state, squad, objective) while the player watches a teammate.
+			hidingHud = !RoguelikeMode.Coop;
+			if (hidingHud) ui.enabled = false;
 			for (int i = 0; i < others.Length; i++)
 			{
 				if ((bool)others[i].GetComponent<FPSController>())
@@ -121,6 +138,9 @@ public class WatchCamera : MonoBehaviour
 
 	public void ChangeCamera(int num)
 	{
+		// players who died or left since the list was built are gone; never step onto a destroyed entry
+		otherPlayers.RemoveAll(player => player == null || player.GetComponent<FPSController>() == null);
+		if (camNumber >= otherPlayers.Count) camNumber = 0;
 		if (otherPlayers.Count > 1 && !Multiplayer.end)
 		{
 			camNumber += num;
@@ -135,6 +155,7 @@ public class WatchCamera : MonoBehaviour
 			if ((bool)otherPlayers[camNumber])
 			{
 				currentCamera = otherPlayers[camNumber].GetComponent<FPSController>().myCamera.transform.GetChild(0).transform;
+				spectated = null;   // the bar follows the new target from the next frame
 			}
 			else
 			{
@@ -153,7 +174,7 @@ public class WatchCamera : MonoBehaviour
 				canvas.enabled = false;
 			return;
 		}
-		if (Menu.currentSurvivalPhase != currentPhase)
+		if (Menu.currentSurvivalPhase != currentPhase && !RoguelikeMode.Coop)
 		{
 			hidingHud = false;
 			ui.enabled = true;
@@ -193,7 +214,9 @@ public class WatchCamera : MonoBehaviour
 				}
 				else if (Menu.network != 1)
 				{
-					currentPlayerName.text = "Camera: " + otherPlayers[camNumber].gameObject.GetPhotonView().owner.NickName;
+					GameObject watched = camNumber < otherPlayers.Count ? otherPlayers[camNumber] : null;
+					if (RoguelikeMode.Coop) ShowSpectated(watched);
+					else if (watched != null) currentPlayerName.text = "Camera: " + watched.GetPhotonView().owner.NickName;
 				}
 				if (ht != null)
 				{
@@ -203,6 +226,7 @@ public class WatchCamera : MonoBehaviour
 			else
 			{
 				currentPlayerName.text = "";
+				if (spectateStatus != null) spectateStatus.text = "";
 				if (ht != null)
 				{
 					ht.enabled = true;
@@ -228,11 +252,14 @@ public class WatchCamera : MonoBehaviour
 		}
 		InputDevice activeDevice = InputManager.ActiveDevice;
 		// Switching the watched player belongs to the spectator view, not to an open menu.
-		if (Menu.current == "Playing" && (activeDevice.RightTrigger.WasPressed || activeDevice.RightBumper.WasPressed))
+		// Roguelike co-op adds keyboard switching (a dead player does not move): D / Right arrow next, A / Left arrow previous.
+		bool keyNext = RoguelikeMode.Coop && (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow));
+		bool keyPrevious = RoguelikeMode.Coop && (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow));
+		if (Menu.current == "Playing" && (activeDevice.RightTrigger.WasPressed || activeDevice.RightBumper.WasPressed || keyNext))
 		{
 			ChangeCamera(1);
 		}
-		else if (Menu.current == "Playing" && (activeDevice.LeftTrigger.WasPressed || activeDevice.LeftBumper.WasPressed))
+		else if (Menu.current == "Playing" && (activeDevice.LeftTrigger.WasPressed || activeDevice.LeftBumper.WasPressed || keyPrevious))
 		{
 			ChangeCamera(-1);
 		}
@@ -244,6 +271,38 @@ public class WatchCamera : MonoBehaviour
 				.renderMode = RenderMode.ScreenSpaceCamera;
 			mt.GetChild(0).GetChild(0).GetComponent<Canvas>()
 				.worldCamera = mt.GetChild(0).GetComponent<Camera>();
+		}
+	}
+
+	/// <summary>Roguelike co-op: who is watched and their replicated state (health, shield, downed). Weapon and ammo of
+	/// remote players are not replicated, so they are not shown.</summary>
+	private void ShowSpectated(GameObject watched)
+	{
+		RoguePlayer target = watched != null ? watched.GetComponent<RoguePlayer>() : null;
+		if (target != spectated) spectated = target;
+		PhotonView view = watched != null ? watched.GetPhotonView() : null;
+		string name = view != null && view.owner != null ? view.owner.NickName : "";
+		string state = "";
+		float health = 0f;
+		if (spectated != null)
+		{
+			health = Mathf.Clamp01(spectated.HealthFraction());
+			if (spectated.Downed) state = "Downed · needs a revive";
+			else if (spectated.ShieldFraction > 0.01f)
+				state = string.Format("Health {0}/{1} · Shield {2}%", Mathf.CeilToInt(spectated.DisplayHealth), Mathf.CeilToInt(spectated.DisplayMaxHealth), Mathf.RoundToInt(spectated.ShieldFraction * 100f));
+			else state = string.Format("Health {0}/{1}", Mathf.CeilToInt(spectated.DisplayHealth), Mathf.CeilToInt(spectated.DisplayMaxHealth));
+		}
+		string title = name != "" ? string.Format("Spectating: {0}", name) : "Spectating";
+		if (spectateStatus != null)
+		{
+			currentPlayerName.text = title;
+			spectateStatus.text = state;
+		}
+		else currentPlayerName.text = state != "" ? title + "\n" + state : title;
+		if (spectateHealth != null)
+		{
+			spectateHealth.enabled = spectated != null;
+			spectateHealth.fillAmount = spectated != null && !spectated.Downed ? health : 0f;
 		}
 	}
 

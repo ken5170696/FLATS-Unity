@@ -412,6 +412,8 @@ public partial class Menu
 				canOpen = true;
 				skipTitle = true;
 				backButton.SetActive(true);
+				// Roguelike co-op online: the squad can go back to the same room (Menu.RogueRoom).
+				SetupRogueCoopResult();
 			}
 			if (VRmode)
 			{

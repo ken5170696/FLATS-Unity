@@ -23,7 +23,8 @@ public partial class FPSController
 			return;
 		}
 		RaycastHit hitInfo = default(RaycastHit);
-		if (Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo, 3f, mask))
+		// Roguelike: Fire never becomes a melee swing near an object (X5); melee has its own input.
+		if (!RoguelikeMode.Active && Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo, 3f, mask))
 		{
 			if (hitInfo.collider.gameObject.layer != base.gameObject.layer)
 			{
@@ -48,7 +49,7 @@ public partial class FPSController
 				base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
 			}
 		}
-		else if (enableFire)
+		else if (enableFire && RogueAllows(RogueAction.Fire))
 		{
 			if (Menu.network == 0)
 			{
@@ -75,7 +76,7 @@ public partial class FPSController
 		{
 			return;
 		}
-		if (grabbedObject == null && enableFire && !isZoom && !grabbing && droppedGun == null && tapFiring)
+		if (grabbedObject == null && enableFire && !isZoom && !grabbing && droppedGun == null && tapFiring && RogueAllows(RogueAction.Grenade))
 		{
 			ltr = UnityEngine.Object.Instantiate(longTapRing, Vector3.zero, Quaternion.identity) as Transform;
 			ltr.GetChild(0).position = gesture.position;

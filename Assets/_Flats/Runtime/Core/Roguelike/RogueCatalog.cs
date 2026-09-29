@@ -76,6 +76,24 @@ namespace Flats.Core.Roguelike
         public const string RulesVersion = "1";
         public const int MaxCores = 2, MaxMods = 6, StatTiers = 5;
         public const double HeadshotMoneyMultiplier = 1.5;
+        public const double DashDistance = 20, DashSpeed = 50, DashCooldownSeconds = 6, DashMinIntervalSeconds = .3;
+        public const double TierPriceStep = .5;
+        public const double ClearRewardFraction = .2, ObjectiveRewardFraction = .3, BreakoutRewardFraction = .35, FinaleRewardFraction = .6;
+        public const double ConvoyFailureRewardMultiplier = .5;
+
+        public static int MaxTier(string id)
+        {
+            var def = Item(id);
+            if (def == null) return 0;
+            if (def.Kind == ItemKind.Core) return 3;
+            if (def.Kind != ItemKind.Mod) return def.MaxStacks;
+            switch (id)
+            {
+                case "mod.piercing_rounds": case "mod.double_bounce": case "mod.double_dash":
+                case "mod.angle_finder": case "mod.rubber_rounds": case "mod.choke": case "mod.team_radio": return 1;
+                default: return 3;
+            }
+        }
 
         // ---- tags shared by cores and mods
         public const string TagPrecision = "precision", TagAssault = "assault", TagSuppression = "suppression", TagReload = "reload",
@@ -84,7 +102,7 @@ namespace Flats.Core.Roguelike
         public static readonly ItemDef[] Supplies =
         {
             new ItemDef("supply.ammo", ItemKind.Supply, "Ammo Crate", "Refill the reserve ammunition of both weapons.", 10, 99, 0, TagGeneric),
-            new ItemDef("supply.medkit", ItemKind.Supply, "Medkit", "Restore full health now.", 12, 99, 0, TagGeneric),
+            new ItemDef("supply.medkit", ItemKind.Supply, "Overshield", "Refill a non-regenerating shield equal to maximum health. Does not stack; remaining shield persists between stages.", 12, 99, 0, TagGeneric),
             new ItemDef("supply.repair", ItemKind.Supply, "Field Repair", "Restore full health and refill ammunition.", 20, 99, 0, TagGeneric),
         };
 
@@ -98,50 +116,50 @@ namespace Flats.Core.Roguelike
 
         public static readonly ItemDef[] Cores =
         {
-            new ItemDef("core.precision", ItemKind.Core, "Precision", "Headshots deal +25% damage and bullets pierce one enemy at 60% damage. Body shots deal -10%.", 60, 1, 1, TagPrecision),
-            new ItemDef("core.assault", ItemKind.Core, "Assault", "+15% damage within 12 m, -10% beyond 30 m. A kill within 12 m grants 2 s of 30% damage reduction and +15% speed.", 60, 1, 1, TagAssault),
-            new ItemDef("core.suppression", ItemKind.Core, "Suppression", "Each hit within 1 s of the last adds +4% damage, up to +40%. +20% magazine, +20% reload time.", 60, 1, 1, TagSuppression),
-            new ItemDef("core.reloadburst", ItemKind.Core, "Reload Burst", "Reloading after firing at least 60% of the magazine grants +35% damage for 3 s.", 60, 1, 1, TagReload),
-            new ItemDef("core.ricochet", ItemKind.Core, "Ricochet", "Bullets bounce once off walls at 80% damage. Ricochet hits deal +30%.", 60, 1, 1, TagRicochet),
-            new ItemDef("core.demolition", ItemKind.Core, "Demolition", "Kills explode: 40% of the killing damage in a 6 m radius and a short knockback. Explosions never chain.", 60, 1, 1, TagDemolition),
-            new ItemDef("core.marker", ItemKind.Core, "Marker", "Your hits mark enemies for 4 s. Marked enemies take +12% damage from everyone. Marked kills by anyone charge your ultimate.", 60, 1, 1, TagMarker),
-            new ItemDef("core.mobility", ItemKind.Core, "Mobility", "+12% speed, revive 40% faster, carry objects at full speed. The first shot after a dash or a jump landing deals +20%.", 60, 1, 1, TagMobility),
+            new ItemDef("core.precision", ItemKind.Core, "Precision", "Headshots deal +25% damage and bullets pierce one enemy at 60% damage. Body shots deal -10%.", 60, 3, 1, TagPrecision),
+            new ItemDef("core.assault", ItemKind.Core, "Assault", "+15% damage within 12 m, -10% beyond 30 m. A kill within 12 m grants 2 s of 30% damage reduction and +15% speed.", 60, 3, 1, TagAssault),
+            new ItemDef("core.suppression", ItemKind.Core, "Suppression", "Each trigger hit adds +4% damage, up to +40%. After 2.5 s, lose one stack per 0.5 s. Reload keeps half. +20% magazine, +20% reload time.", 60, 3, 1, TagSuppression),
+            new ItemDef("core.reloadburst", ItemKind.Core, "Reload Burst", "Reloading after firing at least 60% of the magazine grants +35% damage for 3 s.", 60, 3, 1, TagReload),
+            new ItemDef("core.ricochet", ItemKind.Core, "Ricochet", "Bullets bounce once off walls at 80% damage. Ricochet hits deal +30%.", 60, 3, 1, TagRicochet),
+            new ItemDef("core.demolition", ItemKind.Core, "Demolition", "Kills explode: 40% of the killing damage in a 6 m radius and a short knockback. Explosions never chain.", 60, 3, 1, TagDemolition),
+            new ItemDef("core.marker", ItemKind.Core, "Marker", "Your hits mark enemies for 4 s. Marked enemies take +12% damage from everyone. Marked kills by anyone charge your ultimate.", 60, 3, 1, TagMarker),
+            new ItemDef("core.mobility", ItemKind.Core, "Mobility", "+12% speed, revive 40% faster, carry objects at full speed. The first shot after a dash or a jump landing deals +20%.", 60, 3, 1, TagMobility),
         };
 
         public static readonly ItemDef[] Mods =
         {
-            new ItemDef("mod.long_barrel", ItemKind.Mod, "Long Barrel", "Headshots deal +10% damage.", 30, 1, 0, TagPrecision),
+            new ItemDef("mod.long_barrel", ItemKind.Mod, "Long Barrel", "Headshots deal +10% damage.", 30, 3, 0, TagPrecision),
             new ItemDef("mod.piercing_rounds", ItemKind.Mod, "Piercing Rounds", "Bullets pierce one more enemy (maximum two).", 35, 1, 1, TagPrecision),
-            new ItemDef("mod.calm_hands", ItemKind.Mod, "Calm Hands", "Weapon spread reduced by 25% while aiming.", 30, 1, 0, TagPrecision),
-            new ItemDef("mod.close_quarters", ItemKind.Mod, "Close Quarters", "+10% damage within 12 m.", 30, 1, 0, TagAssault),
-            new ItemDef("mod.adrenaline", ItemKind.Mod, "Adrenaline", "Kills heal 5% of maximum health (at most 3 heals per second).", 35, 1, 1, TagAssault),
+            new ItemDef("mod.calm_hands", ItemKind.Mod, "Calm Hands", "Weapon spread reduced by 25% while aiming.", 30, 3, 0, TagPrecision),
+            new ItemDef("mod.close_quarters", ItemKind.Mod, "Close Quarters", "+10% damage within 12 m.", 30, 3, 0, TagAssault),
+            new ItemDef("mod.adrenaline", ItemKind.Mod, "Adrenaline", "Kills heal 5% of maximum health (at most 3 heals per second).", 35, 3, 1, TagAssault),
             new ItemDef("mod.choke", ItemKind.Mod, "Choke", "Shotguns fire one extra pellet.", 30, 1, 0, TagAssault),
-            new ItemDef("mod.extended_mag", ItemKind.Mod, "Extended Magazine", "+25% magazine capacity.", 30, 1, 0, TagSuppression),
-            new ItemDef("mod.heavy_rounds", ItemKind.Mod, "Heavy Rounds", "+6% damage, -3% movement speed.", 30, 1, 0, TagSuppression),
-            new ItemDef("mod.sustained_fire", ItemKind.Mod, "Sustained Fire", "Suppression stacks up to +60% instead of +40%.", 35, 1, 1, TagSuppression),
-            new ItemDef("mod.fast_hands", ItemKind.Mod, "Fast Hands", "Reload time -25%.", 30, 1, 0, TagReload),
-            new ItemDef("mod.tactical_reload", ItemKind.Mod, "Tactical Reload", "Every reload returns 2 rounds to the reserve.", 30, 1, 0, TagReload),
-            new ItemDef("mod.burst_extender", ItemKind.Mod, "Burst Extender", "Reload Burst lasts 5 s instead of 3 s.", 35, 1, 1, TagReload),
+            new ItemDef("mod.extended_mag", ItemKind.Mod, "Extended Magazine", "+25% magazine capacity.", 30, 3, 0, TagSuppression),
+            new ItemDef("mod.heavy_rounds", ItemKind.Mod, "Heavy Rounds", "+6% damage, -3% movement speed.", 30, 3, 0, TagSuppression),
+            new ItemDef("mod.sustained_fire", ItemKind.Mod, "Sustained Fire", "Suppression stacks up to +60% instead of +40%.", 35, 3, 1, TagSuppression),
+            new ItemDef("mod.fast_hands", ItemKind.Mod, "Fast Hands", "Reload time -25%.", 30, 3, 0, TagReload),
+            new ItemDef("mod.tactical_reload", ItemKind.Mod, "Tactical Reload", "Every reload returns 2 rounds to the reserve.", 30, 3, 0, TagReload),
+            new ItemDef("mod.burst_extender", ItemKind.Mod, "Burst Extender", "Reload Burst lasts 5 s instead of 3 s.", 35, 3, 1, TagReload),
             new ItemDef("mod.rubber_rounds", ItemKind.Mod, "Rubber Rounds", "Ricochets keep 100% damage.", 30, 1, 0, TagRicochet),
             new ItemDef("mod.double_bounce", ItemKind.Mod, "Double Bounce", "Bullets bounce one more time (maximum two).", 35, 1, 1, TagRicochet),
             new ItemDef("mod.angle_finder", ItemKind.Mod, "Angle Finder", "Ricochet hits mark the enemy for 4 s.", 30, 1, 0, TagRicochet, TagMarker),
-            new ItemDef("mod.bigger_boom", ItemKind.Mod, "Bigger Boom", "Explosion radius +50%.", 35, 1, 1, TagDemolition),
-            new ItemDef("mod.frag_grenades", ItemKind.Mod, "Frag Grenades", "Grenade damage +30%.", 30, 1, 0, TagDemolition),
-            new ItemDef("mod.shockwave", ItemKind.Mod, "Shockwave", "Explosions slow enemies by 40% for 2 s.", 30, 1, 0, TagDemolition),
-            new ItemDef("mod.spotter", ItemKind.Mod, "Spotter", "Marks last 3 s longer.", 30, 1, 0, TagMarker),
-            new ItemDef("mod.bounty_hunter", ItemKind.Mod, "Bounty Hunter", "Marked kills pay +10% bounty to the whole squad (bounded per stage).", 35, 1, 1, TagMarker),
+            new ItemDef("mod.bigger_boom", ItemKind.Mod, "Bigger Boom", "Explosion radius +50%.", 35, 3, 1, TagDemolition),
+            new ItemDef("mod.frag_grenades", ItemKind.Mod, "Frag Grenades", "Grenade damage +30%.", 30, 3, 0, TagDemolition),
+            new ItemDef("mod.shockwave", ItemKind.Mod, "Shockwave", "Explosions slow enemies by 40% for 2 s.", 30, 3, 0, TagDemolition),
+            new ItemDef("mod.spotter", ItemKind.Mod, "Spotter", "Marks last 3 s longer.", 30, 3, 0, TagMarker),
+            new ItemDef("mod.bounty_hunter", ItemKind.Mod, "Bounty Hunter", "Marked kills pay +10% bounty to the whole squad (bounded per stage).", 35, 3, 1, TagMarker),
             new ItemDef("mod.team_radio", ItemKind.Mod, "Team Radio", "A teammate hitting your marked enemy charges your ultimate.", 30, 1, 0, TagMarker),
             new ItemDef("mod.double_dash", ItemKind.Mod, "Double Dash", "Dash has two charges.", 35, 1, 1, TagMobility),
-            new ItemDef("mod.spring_legs", ItemKind.Mod, "Spring Legs", "Jump 30% higher.", 30, 1, 0, TagMobility),
-            new ItemDef("mod.quick_revive", ItemKind.Mod, "Quick Revive", "Revive teammates 40% faster.", 30, 1, 0, TagMobility, TagGeneric),
-            new ItemDef("mod.ammo_belt", ItemKind.Mod, "Ammo Belt", "+30% reserve ammunition.", 30, 1, 0, TagGeneric),
-            new ItemDef("mod.thick_skin", ItemKind.Mod, "Thick Skin", "Damage taken -8%.", 35, 1, 1, TagGeneric),
+            new ItemDef("mod.spring_legs", ItemKind.Mod, "Spring Legs", "Jump 30% higher.", 30, 3, 0, TagMobility),
+            new ItemDef("mod.quick_revive", ItemKind.Mod, "Quick Revive", "Revive teammates 40% faster.", 30, 3, 0, TagMobility, TagGeneric),
+            new ItemDef("mod.ammo_belt", ItemKind.Mod, "Ammo Belt", "+30% reserve ammunition.", 30, 3, 0, TagGeneric),
+            new ItemDef("mod.thick_skin", ItemKind.Mod, "Thick Skin", "Damage taken -8%.", 35, 3, 1, TagGeneric),
         };
 
         public static readonly ItemDef[] Tacticals =
         {
             new ItemDef("tactical.doublejump", ItemKind.Tactical, "Double Jump", "Passive: press Jump again in the air for a second jump. Resets on landing.", 45, 1, 1, TagMobility),
-            new ItemDef("tactical.dash", ItemKind.Tactical, "Dash", "Active: dash 8 m forward. 6 s cooldown. Stops at walls and edges.", 45, 1, 1, TagMobility, TagAssault),
+            new ItemDef("tactical.dash", ItemKind.Tactical, "Dash", "Active: dash " + DashDistance + " m forward at " + DashSpeed + " m/s. Each charge recharges in " + DashCooldownSeconds + " s. Stops at walls and edges.", 45, 1, 1, TagMobility, TagAssault),
             new ItemDef("tactical.shield", ItemKind.Tactical, "Shield", "Active: absorb 400 damage for 4 s. 12 s cooldown. Re-activating replaces the shield, it does not stack.", 45, 1, 1, TagGeneric),
         };
 
@@ -170,11 +188,11 @@ namespace Flats.Core.Roguelike
 
         public static readonly EncounterDef[] Objectives =
         {
-            new EncounterDef("obj.clear", "Clear Out", "Eliminate every enemy in the area.", 1, 0, 100, 0.5, null, null, null),
-            new EncounterDef("obj.capture", "Hold the Zone", "Stand inside the marked zone until it is secured. More players secure it faster.", 1, 1, 90, 0.5, null, null, new[] { "ev.low_gravity" }),
-            new EncounterDef("obj.carry", "Deliver the Crate", "Carry the supply crate to the drop point. The carrier cannot shoot.", 2, 1, 80, 0.5, null, new[] { "droplinks" }, null),
-            new EncounterDef("obj.protect", "Protect the Repair", "Keep the repair device alive until it reaches 100%.", 2, 1, 80, 0.5, null, null, new[] { "ev.repair_device" }),
-            new EncounterDef("obj.breakout", "Break Out", "Fight through to the extraction marker. Everyone must arrive.", 3, 2, 70, 0.6, null, null, new[] { "em.gas_leak" }),
+            new EncounterDef("obj.clear", "Clear Out", "Eliminate every enemy in the area.", 1, 0, 100, ClearRewardFraction, null, null, null),
+            new EncounterDef("obj.capture", "Hold the Zone", "Stand inside the marked zone until it is secured. More players secure it faster.", 1, 1, 90, ObjectiveRewardFraction, null, null, new[] { "ev.low_gravity" }),
+            new EncounterDef("obj.carry", "Deliver the Crate", "Carry the supply crate to the drop point. The carrier cannot shoot.", 2, 1, 80, ObjectiveRewardFraction, null, new[] { "droplinks" }, null),
+            new EncounterDef("obj.protect", "Protect the Repair", "Keep the repair device alive until it reaches 100%.", 2, 1, 80, ObjectiveRewardFraction, null, null, new[] { "ev.repair_device" }),
+            new EncounterDef("obj.breakout", "Break Out", "Fight through to the extraction marker. Everyone must arrive.", 3, 2, 70, BreakoutRewardFraction, null, null, new[] { "em.gas_leak" }),
         };
 
         public static readonly EncounterDef[] Events =
@@ -199,9 +217,9 @@ namespace Flats.Core.Roguelike
 
         public static readonly EncounterDef[] Finales =
         {
-            new EncounterDef("fin.commander", "Commander", "The commander is shielded while its guard lives. Kill the guard wave to expose it, then strike.", 5, 0, 100, 1.0, null, null, null),
-            new EncounterDef("fin.vault", "Vault", "Three power cells must be charged in order; each charge opens a window to damage the vault core.", 5, 0, 100, 1.0, null, null, null),
-            new EncounterDef("fin.convoy", "Convoy", "An escorted carrier moves along a route. Break the escort and destroy the carrier before it reaches the exit.", 5, 0, 100, 1.0, null, new[] { "droplinks" }, null),
+            new EncounterDef("fin.commander", "Commander", "The commander is shielded while its guard lives. Kill the guard wave to expose it, then strike.", 5, 0, 100, FinaleRewardFraction, null, null, null),
+            new EncounterDef("fin.vault", "Vault", "Three power cells must be charged in order; each charge opens a window to damage the vault core.", 5, 0, 100, FinaleRewardFraction, null, null, null),
+            new EncounterDef("fin.convoy", "Convoy", "An escorted carrier moves along a route. Break the escort and destroy the carrier before it reaches the exit.", 5, 0, 100, FinaleRewardFraction, null, new[] { "droplinks" }, null),
         };
 
         public static readonly MapDef[] Maps =
@@ -292,6 +310,7 @@ namespace Flats.Core.Roguelike
         {
             double price = item.BasePrice * RogueDepth.PriceMultiplier(chapter);
             if (item.Kind == ItemKind.Stat) price *= 1.0 + 0.25 * ownedStacks;   // tiers get dearer: clear marginal cost
+            if (item.Kind == ItemKind.Core || item.Kind == ItemKind.Mod) price *= 1 + TierPriceStep * Math.Max(0, ownedStacks);
             if (routeTag == "rich") price *= 1.2;
             return RogueMoney.Coins((long)Math.Round(price));
         }
@@ -302,7 +321,16 @@ namespace Flats.Core.Roguelike
             ulong h = 14695981039346656037UL;
             Action<string> mix = s => { foreach (char c in s) { h ^= c; h = unchecked(h * 1099511628211UL); } };
             mix(RulesVersion);
-            foreach (var i in AllItems()) { mix(i.Id); mix(i.BasePrice.ToString()); mix(i.Effect); }
+            foreach (var i in AllItems()) { mix(i.Id); mix(i.BasePrice.ToString()); mix(i.Effect); mix(MaxTier(i.Id).ToString()); }
+            RogueTiers.Hash(mix);
+            var defaults = new BuildStats();
+            foreach (double value in new[] { TierPriceStep, DashDistance, DashSpeed, DashCooldownSeconds, DashMinIntervalSeconds,
+                ConvoyFailureRewardMultiplier, RogueEconomy.EventBudgetFraction, (double)RogueShop.RefundNumerator, RogueShop.RefundDenominator,
+                defaults.AssaultCloseRange, defaults.MomentumShotWindowSeconds, defaults.SuppressionWindowSeconds,
+                SuppressionTracker.DecayIntervalSeconds, BuildStats.MaxReviveSpeedMul })
+                mix(value.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+            foreach (var e in Objectives) mix(e.RewardFraction.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+            foreach (var e in Finales) mix(e.RewardFraction.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
             foreach (var r in EnemyRoles)
             {
                 mix(r.Id); mix(r.Weight.ToString()); mix(r.Marker); mix(r.Brief);

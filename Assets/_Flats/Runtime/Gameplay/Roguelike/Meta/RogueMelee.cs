@@ -21,7 +21,6 @@ public sealed class RogueMelee : MonoBehaviour
     GameObject model, thrown;
     RogueMeleeIK poseDriver;
     RogueMeleeVisual visual;
-    readonly Dictionary<Renderer, bool> hidden = new Dictionary<Renderer, bool>();
     bool remoteHeld, oldHeld, touchHeld;
     bool remoteLanding;
     Vector3 landingPosition;
@@ -89,6 +88,7 @@ public sealed class RogueMelee : MonoBehaviour
         bool explicitDown = Input.GetKeyDown(MeleeKey) || InControl.InputManager.ActiveDevice.GetControl(MeleeButton).WasPressed;
         if (explicitDown && !Busy && fc.MeleeReady)
         {
+            RogueActionGate.NoteMeleeRequest(fc);   // an explicit melee input, not Fire near an object
             if (Menu.network == 0) fc.StartCoroutine("Smash");
             else GetComponent<PhotonView>().RPC("Smash", PhotonTargets.All);
         }
@@ -183,6 +183,45 @@ public sealed class RogueMelee : MonoBehaviour
             Damage(def, swing, receiver);
             if (!MeleeRules.HitsAll(def)) break;
         }
+        BreakGlass(def, origin, direction, center);
+    }
+    // 同一個揮擊範圍內、眼睛看得到的玻璃各碎一次；擁有者決定這批玻璃並廣播位置，所有端碎同一批。
+    void BreakGlass(MeleeDef def, Vector3 origin, Vector3 direction, Vector3 center)
+    {
+        int layer = LayerMask.NameToLayer("Glass"); if (layer < 0) return;
+        float radius = (float)MeleeRules.HitRadius(def);
+        Collider[] colliders = MeleeRules.HitsAll(def) ? Physics.OverlapSphere(center, radius, 1 << layer, QueryTriggerInteraction.Ignore)
+            : Physics.OverlapCapsule(origin, center, radius, 1 << layer, QueryTriggerInteraction.Ignore);
+        List<float> broken = null;
+        foreach (var c in colliders)
+        {
+            var glass = c.GetComponent<Glass>();
+            if (glass == null || glass.broken) continue;
+            Vector3 point = c.ClosestPoint(origin);
+            if (Vector3.Dot(point - origin, direction) < -.1f || !GlassVisible(origin, point)) continue;
+            if (!glass.TryBreak()) continue;
+            if (broken == null) broken = new List<float>();
+            Vector3 p = glass.transform.position; broken.Add(p.x); broken.Add(p.y); broken.Add(p.z);
+        }
+        SendGlass(broken);
+    }
+    void SendGlass(List<float> broken)
+    {
+        if (broken != null && broken.Count > 0 && Menu.network != 0) GetComponent<PhotonView>().RPC("RogueMeleeGlass", PhotonTargets.Others, broken.ToArray());
+    }
+    // 牆擋住就不碎；玻璃本身、敵人與玩家不算遮擋。
+    static bool GlassVisible(Vector3 origin, Vector3 point)
+    {
+        float distance = Vector3.Distance(origin, point) - .05f;
+        if (distance <= 0) return true;
+        foreach (var hit in Physics.RaycastAll(origin, point - origin, distance, ~0, QueryTriggerInteraction.Ignore))
+            if (hit.collider.GetComponent<Glass>() == null && hit.collider.GetComponentInParent<DamageReceiver>() == null && hit.collider.GetComponentInParent<FPSController>() == null) return false;
+        return true;
+    }
+    [PunRPC] void RogueMeleeGlass(float[] panes, PhotonMessageInfo info)
+    {
+        if (info.sender != GetComponent<PhotonView>().owner || panes == null) return;
+        for (int i = 0; i + 2 < panes.Length; i += 3) Glass.BreakAt(new Vector3(panes[i], panes[i + 1], panes[i + 2]));
     }
     public static bool Visible(Vector3 origin, DamageReceiver receiver)
     {
@@ -218,6 +257,8 @@ public sealed class RogueMelee : MonoBehaviour
             if (Physics.Raycast(thrown.transform.position, direction, out hit, step, ~0, QueryTriggerInteraction.Ignore))
             {
                 thrown.transform.position = hit.point;
+                var pane = hit.collider.GetComponent<Glass>();
+                if (Mine && pane != null && pane.TryBreak()) { Vector3 p = pane.transform.position; SendGlass(new List<float> { p.x, p.y, p.z }); }
                 var target = hit.collider.GetComponentInParent<DamageReceiver>();
                 if (Mine && target != null && !target.userIsPlayer && !target.Dead && target.gameObject.layer != gameObject.layer) Damage(def, swing, target);
                 break;
@@ -275,13 +316,8 @@ public sealed class RogueMelee : MonoBehaviour
         poseDriver.Begin(fc, visual, model.transform);
         HideWeapons(); Pose(0, false);
     }
-    void HideWeapons()
-    {
-        if (fc == null) return;
-        foreach (var weapon in new[] { fc.primaryWeapon, fc.secondaryWeapon }) if (weapon != null)
-            foreach (var r in weapon.GetComponentsInChildren<Renderer>(true))
-            { if (!hidden.ContainsKey(r)) hidden.Add(r, r.enabled); r.enabled = false; }
-    }
+    // 整個武器呈現（含瞄具鏡片 canvas 與瞄具相機）交給共用的參考計數隱藏，揮擊時也結束開鏡。
+    void HideWeapons() { if (fc != null) WeaponPresentation.Hide(fc, this); }
     void PlaceInHand(GameObject go, RogueMeleeVisual tuning)
     {
         go.transform.localPosition = tuning.HandPosition;
@@ -315,8 +351,8 @@ public sealed class RogueMelee : MonoBehaviour
     void Hide()
     {
         if (poseDriver != null) poseDriver.End();
-        foreach (var pair in hidden) if (pair.Key != null) pair.Key.enabled = pair.Value;
-        hidden.Clear(); if (model != null) { model.SetActive(false); Destroy(model); } model = null; visual = null;
+        if (fc != null) WeaponPresentation.Show(fc, this);
+        if (model != null) { model.SetActive(false); Destroy(model); } model = null; visual = null;
     }
     void Cancel()
     {

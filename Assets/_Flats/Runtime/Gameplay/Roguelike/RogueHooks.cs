@@ -59,6 +59,14 @@ public static partial class RogueHooks
         if (rp != null) rp.OnReloadStarted(magazineBefore, capacity);
     }
 
+    /// <summary>Enemies alive for the population damage scaling. Every client counts the same registered enemies (the legacy
+    /// Singleplayer.enemy counter drifts per client in co-op, so the same shot hit harder on one machine than another, F26).</summary>
+    public static int EnemyPopulation()
+    {
+        var c = Controller;
+        return c != null && c.State != null ? c.AliveEnemies : Singleplayer.enemy;
+    }
+
     /// <summary>Depth/difficulty enemy damage multiplier of the current stage (1 outside a run).</summary>
     public static float EnemyDamageMul()
     {
@@ -192,6 +200,53 @@ public static partial class RogueHooks
     }
 
     /// <summary>DamageReceiver.Die for a non-player. Runs on every client; the authority pays.</summary>
+    /// <summary>First thing a dying Roguelike enemy does on every copy: it stops being a target and a moving body at once. Its
+    /// markers go (a "Last enemies" waypoint used to stay on the invisible root for five seconds and drift with it, F14), the
+    /// navigation agent and the network transform stop (the root kept walking and replicating after death).</summary>
+    public static void OnEnemyDeathStarted(DamageReceiver receiver)
+    {
+        if (receiver == null) return;
+        var go = receiver.gameObject;
+        RogueWaypoint.Detach(go);
+        var agent = go.GetComponent<UnityEngine.AI.NavMeshAgent>();
+        if (agent != null && agent.enabled) { if (agent.isOnNavMesh) agent.isStopped = true; agent.enabled = false; }
+        var ptv = go.GetComponent<PhotonTransformView>();
+        if (ptv != null) ptv.enabled = false;
+        var sync = go.GetComponent<RogueEnemyNetSync>();
+        if (sync != null) sync.enabled = false;
+        var view = go.GetComponent<PhotonView>();
+        if (view != null) view.synchronization = ViewSynchronization.Off;
+    }
+
+    static int corpseExcludedLayers = -1;
+    /// <summary>The ragdoll starts in the pose the enemy died in (the prefab's rest pose made bodies snap upright and fall oddly)
+    /// and ignores bullets: 1 kg bullets at 1500 m/s knocked the 5-9 kg limbs across the map (F32). Roguelike only.</summary>
+    public static void PoseCorpse(DamageReceiver receiver, GameObject corpse)
+    {
+        if (receiver == null || corpse == null) return;
+        if (corpseExcludedLayers < 0)
+        {
+            corpseExcludedLayers = 0;
+            foreach (var name in new[] { "RedTeamBullet", "BlueTeamBullet" }) { int l = LayerMask.NameToLayer(name); if (l >= 0) corpseExcludedLayers |= 1 << l; }
+        }
+        foreach (var c in corpse.GetComponentsInChildren<Collider>(true)) c.excludeLayers |= corpseExcludedLayers;
+        foreach (var rb in corpse.GetComponentsInChildren<Rigidbody>(true)) rb.excludeLayers |= corpseExcludedLayers;
+        var from = receiver.transform.Find("Armature"); var to = corpse.transform.Find("Armature");
+        if (from == null || to == null) return;
+        CopyPose(from, to);
+    }
+
+    static void CopyPose(Transform from, Transform to)
+    {
+        to.localRotation = from.localRotation;
+        for (int i = 0; i < to.childCount; i++)
+        {
+            var target = to.GetChild(i);
+            var source = from.Find(target.name);
+            if (source != null) CopyPose(source, target);
+        }
+    }
+
     public static void OnEnemyDied(DamageReceiver receiver, Transform killer, bool headshot)
     {
         if (!RoguelikeMode.Active || receiver == null) return;

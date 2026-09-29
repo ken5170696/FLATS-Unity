@@ -248,117 +248,262 @@ public class RogueDamageable : MonoBehaviour
     }
 }
 
-/// <summary>Hold-to-interact switch or device. Progress is reported to the authority by each client's local player (validated by distance there).</summary>
+/// <summary>
+/// Hold-to-interact switch or device. Every frame the local player's hold must pass RogueInteraction (reach from the
+/// capsule, looking at it, line of sight, the action rule, not shooting/aiming/reloading); it is reported to the
+/// authority in slices, which re-validates reach and rate-limits the credited seconds (RogueHoldLedger).
+/// </summary>
 public class RogueInteractable : MonoBehaviour
 {
     public string Action = "";       // command text prefix, e.g. "switch:0"
-    public float Radius = 3.5f;
+    public float Radius = 3.5f;      // horizontal reach from the player's capsule axis to this collider (RogueInteraction)
     public string Prompt = "";
     public bool Enabled = true;
     float sendAccumulator;
+    bool holding;
+    int holdEpoch;
+    Collider body;
 
     void Update()
     {
-        if (!Enabled || Menu.current != "Playing") return;
-        var local = RoguelikeController.FindLocalPlayer();
-        if (local == null) return;
-        var rp = local.GetComponent<RoguePlayer>();
-        if (rp == null || rp.Downed) return;
-        if (Vector3.Distance(local.transform.position, transform.position) > Radius) return;
+        if (body == null) body = GetComponent<Collider>();
         var ctrl = RoguelikeController.Instance;
-        if (ctrl == null) return;
+        var local = Enabled && Menu.current == "Playing" && ctrl != null && body != null ? RoguelikeController.FindLocalPlayer() : null;
+        var rp = local != null ? local.GetComponent<RoguePlayer>() : null;
+        if (rp == null || rp.Downed) { Pause(); return; }
+        if (holdEpoch != RogueInteraction.HoldEpoch) { holdEpoch = RogueInteraction.HoldEpoch; Pause(); }   // a down or a carry cancelled every hold
         bool held = RogueInput.InteractHeld;
-        ctrl.NoteInteractPrompt();
+        var check = RogueInteraction.CheckHold(local, body, Radius, this, held, holding);
+        if (check.Prompt) ctrl.NoteInteractPrompt();
+        if (!check.Valid)
+        {
+            // any violation pauses the hold: the unsent time is dropped, the authority keeps what it already credited
+            Pause();
+            if (!string.IsNullOrEmpty(check.Reason)) ctrl.Banner(RoguelikeController.T(check.Reason), 0.6f);
+            return;
+        }
         if (held)
         {
+            holding = true;
+            RogueInteraction.NoteLocalHold(this);
             sendAccumulator += Time.deltaTime;
-            if (sendAccumulator >= 0.2f) { ctrl.Command(new RogueCommandMessage { kind = "objective", text = Action, value = sendAccumulator }); sendAccumulator = 0; }
+            if (sendAccumulator >= 0.2f) Send(ctrl);
         }
         else
         {
-            if (sendAccumulator > 0) { ctrl.Command(new RogueCommandMessage { kind = "objective", text = Action, value = sendAccumulator }); sendAccumulator = 0; }
+            if (sendAccumulator > 0) Send(ctrl);   // released while valid: that last part was really held
+            holding = false;
             if (!string.IsNullOrEmpty(Prompt)) ctrl.Banner(RoguelikeController.T("Hold {0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)), 0.3f);
         }
     }
+
+    void Send(RoguelikeController ctrl)
+    {
+        ctrl.Command(new RogueCommandMessage { kind = "objective", text = Action, value = sendAccumulator });
+        sendAccumulator = 0;
+    }
+
+    void Pause() { sendAccumulator = 0; holding = false; }
 }
 
-/// <summary>Carryable crate/bomb/lure: the local player picks it up or drops it with Interact; the authority decides the holder.</summary>
+/// <summary>
+/// Carryable crate/bomb/lure: the local player picks it up or drops it with Interact; the authority decides the holder.
+/// While carried it sits centred in front of the carrier's chest and both hands grip it, placed after the Animator and
+/// IKController (order 300; F37). When released, the authority computes a grounded point in front of the carrier and
+/// every copy puts it exactly there ("carrydrop" event), instead of leaving it where its own copy of the hand was (F36).
+/// </summary>
+[DefaultExecutionOrder(300)]
 public class RogueCarryable : MonoBehaviour
 {
     public string Action = "carry";
     public string HolderKey = "";
     public string Prompt = "Pick up";
     public string DisplayName = "Supply crate";     // translation key used by banners, the HUD hint and the waypoint
-    Vector3 lastValid, baseScale;
+    public float PickupRadius = 3.5f;               // horizontal reach from the player's capsule axis (RogueInteraction); the authority adds its tolerance
+    public float CarriedScale = 0.5f;
+    // Carry pose in the rig's own units, multiplied by the carrier's scale (Flatman is 4): the centre ahead of and below the chest
+    public float HoldForward = 0.26f, HoldDrop = 0.12f, GripOutset = 0.04f, GripBack = 0.03f;
+    public float PitchFollow = 0.5f, MaxPitch = 35f;          // share of the look pitch the item follows, so it stays within the arms' reach
+    public float StepBob = 0.015f, StrideLength = 0.45f;      // a small bounce per step makes a moving carrier readable (F38)
+
+    Vector3 lastValid, baseScale, carrierGround;
+    bool hasCarrierGround;
     float pressCooldown;
     string lastHolder = "";
+    Collider body;
+    GameObject socketedTo;
+    RogueCarryPose.Rig rig;
+    Vector3 lastCarrierPosition;
+    float carrierSpeed, stridePhase;
+    bool dropPending; Vector3 pendingDrop; float pendingYaw;
+    static readonly List<RogueCarryable> live = new List<RogueCarryable>();
 
-    void Start() { lastValid = transform.position; baseScale = transform.localScale; }
+    Vector3 HalfExtents { get { return (baseScale == Vector3.zero ? transform.localScale : baseScale) * 0.5f; } }
+    Vector3 CarrierGround { get { return hasCarrierGround ? carrierGround : lastValid - Vector3.up * HalfExtents.y; } }
+
+    void OnEnable() { if (!live.Contains(this)) live.Add(this); }
+    void OnDisable() { live.Remove(this); }
+    void Start() { lastValid = transform.position; baseScale = transform.localScale; body = GetComponent<Collider>(); }
 
     void Update()
     {
+        if (rig != null) rig.Restore();   // hand the arms back to the Animator before it evaluates
         pressCooldown -= Time.deltaTime;
         var holder = string.IsNullOrEmpty(HolderKey) ? null : RogueWorld.PlayerByKey(HolderKey);
-        if (HolderKey != lastHolder) { RefreshCarriedLook(holder); lastHolder = HolderKey; }
-        if (holder == null && socketedTo != null) { RefreshCarriedLook(null); }   // the carrier's object vanished: drop the pose locally; the authority releases the holder
-        if (holder != null)
+        if (HolderKey != lastHolder)
         {
-            if (socket != null) FollowSocket();
-            else
-            {
-                transform.position = holder.transform.position + holder.transform.forward * 0.9f + holder.transform.right * 0.45f + Vector3.up * 0.9f;
-                transform.rotation = holder.transform.rotation;
-            }
-            var fc = holder.GetComponent<FPSController>();
-            if (fc != null && fc.primaryWeapon != null && fc.primaryWeapon.gameObject.activeSelf) fc.primaryWeapon.gameObject.SetActive(false);   // a weapon switch re-enabled it
+            var carrier = socketedTo;
+            bool released = string.IsNullOrEmpty(HolderKey) && !string.IsNullOrEmpty(lastHolder);
+            RefreshCarriedLook(holder);
+            lastHolder = HolderKey;
+            if (released) Released(carrier);
+            else dropPending = false;   // picked up again: an older drop no longer applies
         }
+        if (holder == null && socketedTo != null)
+        {
+            // the carrier's object vanished: drop the pose here at the last ground seen under it; the authority releases the holder
+            RefreshCarriedLook(null);
+            float yaw; Place(RogueCarryPose.DropPoint(null, gameObject, HalfExtents, CarrierGround, out yaw), yaw);
+        }
+        if (holder != null) TrackCarrier(holder);
         else if (transform.position.y < -50f)
         {
             // fell out of the map: return to the last valid spot instead of blocking the objective
             transform.position = lastValid;
             var ctrl = RoguelikeController.Instance; if (ctrl != null && ctrl.IsAuthority) ctrl.Command(new RogueCommandMessage { kind = "objective", text = Action + ":lost" });
         }
-        else if (Physics.Raycast(transform.position + Vector3.up, Vector3.down, 3f)) lastValid = transform.position;
+        else if (Physics.Raycast(transform.position + Vector3.up, Vector3.down, 3f, ~0, QueryTriggerInteraction.Ignore)) lastValid = transform.position;
+        if (dropPending && string.IsNullOrEmpty(HolderKey)) { dropPending = false; Place(pendingDrop, pendingYaw); }
 
         if (Menu.current != "Playing" || pressCooldown > 0) return;
         var local = RoguelikeController.FindLocalPlayer();
-        if (local == null) return;
-        var rp = local.GetComponent<RoguePlayer>();
-        if (rp == null || rp.Downed) return;
+        var rp = local != null ? local.GetComponent<RoguePlayer>() : null;
         var ctrl2 = RoguelikeController.Instance;
-        if (ctrl2 == null) return;
+        if (rp == null || rp.Downed || ctrl2 == null) return;
+        var fps = local.GetComponent<FPSController>();
         string myKey = RogueWorld.KeyOf(local);
-        bool near = Vector3.Distance(local.transform.position, transform.position) <= 3.5f;
         if (HolderKey == myKey)
         {
             ctrl2.NoteInteractPrompt();
-            if (RogueInput.InteractDown) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":drop" }); pressCooldown = 0.5f; }
+            if (RogueInput.InteractDown && RogueActionGate.Allows(fps, RogueAction.Drop))
+            {
+                RogueActionGate.NoteInteractConsumed();
+                ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":drop" }); pressCooldown = 0.5f;
+            }
         }
-        else if (string.IsNullOrEmpty(HolderKey) && near)
+        else if (string.IsNullOrEmpty(HolderKey) && body != null)
         {
+            // same rule as every other interaction: reach from the capsule, looking at it, nothing in between, and the one focused target
+            float score;
+            if (RogueInteraction.Evaluate(local, body, PickupRadius, out score) != RogueInteraction.Result.Ok || !RogueInteraction.Focus(this, score)) return;
             ctrl2.NoteInteractPrompt();
-            if (RogueInput.InteractDown) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":pickup" }); pressCooldown = 0.5f; }
+            if (RogueInput.InteractDown)
+            {
+                RogueActionGate.NoteInteractConsumed();
+                string refusal = RogueActionGate.Refusal(fps, RogueAction.Carry);
+                if (refusal == null) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":pickup" }); pressCooldown = 0.5f; }
+                else if (refusal.Length > 0) ctrl2.Banner(RoguelikeController.T(refusal), 1.5f);
+            }
             else ctrl2.Banner(RoguelikeController.T("{0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)), 0.3f);
         }
     }
 
-    GameObject socketedTo; Transform socket;
+    void LateUpdate() { if (socketedTo != null) FollowCarrier(socketedTo, true); }
+
+    void TrackCarrier(GameObject carrier)
+    {
+        var carrierBody = RogueInteraction.BodyOf(carrier);
+        Vector3 ground;
+        if (RogueCarryPose.GroundBelow(carrierBody.Feet + Vector3.up * 0.5f, 2f, carrier, gameObject, out ground)) { carrierGround = ground; hasCarrierGround = true; }
+        // speed for the step bounce; other copies move in 10 Hz steps, so it is smoothed
+        float dt = Mathf.Max(Time.deltaTime, 0.0001f);
+        Vector3 p = carrier.transform.position, step = p - lastCarrierPosition; step.y = 0f;
+        float speed = step.magnitude / dt;
+        if (speed > 60f) speed = 0f;   // a teleport or a respawn, not walking
+        carrierSpeed = Mathf.Lerp(carrierSpeed, speed, 1f - Mathf.Exp(-dt / 0.15f));
+        stridePhase = Mathf.Repeat(stridePhase + carrierSpeed * dt / Mathf.Max(0.01f, StrideLength * Mathf.Abs(carrier.transform.lossyScale.y)) * Mathf.PI, Mathf.PI * 2f);
+        lastCarrierPosition = p;
+    }
+
+    void FollowCarrier(GameObject carrier, bool grip)
+    {
+        float s = Mathf.Abs(carrier.transform.lossyScale.y);
+        Vector3 forward = carrier.transform.forward; forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
+        var ikc = carrier.GetComponent<IKController>();
+        float pitch = ikc != null ? ikc.degree : 0f;
+        if (pitch > 180f) pitch -= 360f;
+        Quaternion frame = Quaternion.LookRotation(forward.normalized) * Quaternion.Euler(Mathf.Clamp(pitch * PitchFollow, -MaxPitch, MaxPitch), 0f, 0f);
+        Vector3 chest = rig != null ? rig.Chest.position : carrier.transform.position + Vector3.up * 1.1f * s;
+        float bob = StepBob * s * Mathf.Abs(Mathf.Sin(stridePhase)) * Mathf.Clamp01(carrierSpeed / RogueLocomotion.WalkSpeed);
+        Vector3 centre = chest + frame * new Vector3(0f, -HoldDrop * s + bob, HoldForward * s);
+        transform.SetPositionAndRotation(centre, frame);
+        if (!grip || rig == null) return;
+        Vector3 half = transform.localScale * 0.5f;
+        float side = half.x + GripOutset * s, low = -0.2f * half.y, back = -GripBack * s;
+        rig.Grip(centre + frame * new Vector3(side, low, back), centre + frame * new Vector3(-side, low, back),
+            chest + frame * new Vector3(0.35f * s, -0.3f * s, -0.1f * s), chest + frame * new Vector3(-0.35f * s, -0.3f * s, -0.1f * s));
+    }
+
+    void Released(GameObject carrier)
+    {
+        float yaw;
+        Vector3 point = RogueCarryPose.DropPoint(carrier, gameObject, HalfExtents, CarrierGround, out yaw);
+        Place(point, yaw);
+        // each client's copy of the carrier (and of its hand) differs: the authority's point is the one every copy keeps
+        var ctrl = RoguelikeController.Instance;
+        if (ctrl != null && ctrl.IsAuthority) ctrl.Notify(new RogueEventMessage { kind = "carrydrop", text = DropText(name, point, yaw) });
+    }
+
+    void Place(Vector3 point, float yaw)
+    {
+        transform.SetPositionAndRotation(point, Quaternion.Euler(0f, yaw, 0f));
+        lastValid = point;
+    }
+
+    static string DropText(string itemName, Vector3 p, float yaw)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return itemName + "|" + p.x.ToString("R", inv) + "|" + p.y.ToString("R", inv) + "|" + p.z.ToString("R", inv) + "|" + yaw.ToString("R", inv);
+    }
+
+    /// <summary>Every copy: a "carrydrop" event from the authority ("ItemName|x|y|z|yaw") places that item exactly there.</summary>
+    public static void ApplyDropEvent(RogueEventMessage e)
+    {
+        if (e == null || e.kind != "carrydrop" || string.IsNullOrEmpty(e.text)) return;
+        var parts = e.text.Split('|');
+        if (parts.Length < 5) return;
+        var inv = System.Globalization.CultureInfo.InvariantCulture; var style = System.Globalization.NumberStyles.Float;
+        float x, y, z, yaw;
+        if (!float.TryParse(parts[1], style, inv, out x) || !float.TryParse(parts[2], style, inv, out y) || !float.TryParse(parts[3], style, inv, out z) || !float.TryParse(parts[4], style, inv, out yaw)) return;
+        foreach (var item in live) if (item != null && item.name == parts[0]) item.ReceiveDrop(new Vector3(x, y, z), yaw);
+    }
+
+    void ReceiveDrop(Vector3 point, float yaw)
+    {
+        // the release has not been applied on this copy yet: keep the point until it is
+        if (!string.IsNullOrEmpty(HolderKey) || HolderKey != lastHolder) { dropPending = true; pendingDrop = point; pendingYaw = yaw; return; }
+        Place(point, yaw);
+    }
+
     void RefreshCarriedLook(GameObject holder)
     {
         if (baseScale == Vector3.zero) baseScale = transform.localScale;
-        if (socketedTo != null) { SetCarryPose(socketedTo, false); socketedTo = null; }
-        socket = null;
-        transform.localScale = holder != null ? baseScale * 0.5f : baseScale;
+        if (socketedTo != null) { if (rig != null) rig.Restore(); rig = null; SetCarryPose(socketedTo, false); socketedTo = null; }
+        transform.localScale = holder != null ? baseScale * CarriedScale : baseScale;
         if (holder != null)
         {
+            // the carry is not a child of the player, so a destroyed carrier never takes the objective with it
             var fc = holder.GetComponent<FPSController>();
-            // follow the legacy bomb socket (hands) without becoming a child of the player, so a destroyed carrier never takes the objective with it
-            if (fc != null && fc.primaryWeapons != null && fc.primaryWeapons.parent != null) socket = fc.primaryWeapons.parent;
+            if (fc != null) RogueActionGate.CancelConflicts(fc, "carry");   // aiming and a reload in progress end when the carry starts (F39)
             SetCarryPose(holder, true);
             socketedTo = holder;
-            FollowSocket();
+            rig = RogueCarryPose.Rig.Bind(holder);
+            lastCarrierPosition = holder.transform.position; carrierSpeed = 0f;
+            FollowCarrier(holder, false);
         }
-        var col = GetComponent<Collider>(); if (col != null) col.enabled = holder == null;
+        if (body == null) body = GetComponent<Collider>();
+        if (body != null) body.enabled = holder == null;
         var wp = GetComponent<RogueWaypoint>();
         if (wp == null) return;
         if (holder != null)
@@ -370,31 +515,55 @@ public class RogueCarryable : MonoBehaviour
         else { wp.Label = DisplayName; wp.Priority = 3; }
     }
 
-    void FollowSocket()
-    {
-        if (socket == null) return;
-        transform.position = socket.TransformPoint(new Vector3(0f, 0.15f, 0.25f));
-        transform.rotation = socket.rotation * Quaternion.Euler(0f, 45f, 0f);
-    }
-
     static readonly Dictionary<GameObject, int> carriedCount = new Dictionary<GameObject, int>();
-    static void SetCarryPose(GameObject player, bool carrying)
+    void SetCarryPose(GameObject player, bool carrying)
     {
         int count; carriedCount.TryGetValue(player, out count);
         count = Mathf.Max(0, count + (carrying ? 1 : -1));
         carriedCount[player] = count;
         bool holding = count > 0;   // the pose only clears when the last carried item is released
         var fc = player.GetComponent<FPSController>();
-        if (fc != null && fc.primaryWeapon != null) fc.primaryWeapon.gameObject.SetActive(!holding);
+        // hidden per owner (this item): melee, downed and carry never un-hide each other; it also ends aiming and the scope view
+        if (fc != null) { if (carrying) WeaponPresentation.Hide(fc, this); else WeaponPresentation.Show(fc, this); }
         var anim = player.GetComponent<Animator>();
         if (anim != null) anim.SetBool("Bomb", holding);
         if (carrying && RogueWorld.KeyOf(player) == RoguelikeMode.LocalPlayerKey) { var menu = Menu.Current; if (menu != null && menu.pressSE != null) { var src = menu.GetComponent<AudioSource>(); if (src != null) src.PlayOneShot(menu.pressSE); } }
     }
 
-    void OnDestroy() { if (socketedTo != null) { SetCarryPose(socketedTo, false); socketedTo = null; } }
+    void OnDestroy() { if (socketedTo != null) { if (rig != null) rig.Restore(); SetCarryPose(socketedTo, false); socketedTo = null; } }
 
     /// <summary>True when this player already carries an objective or event item (the authority refuses a second pickup).</summary>
     public static bool IsCarrying(GameObject player) { int n; return player != null && carriedCount.TryGetValue(player, out n) && n > 0; }
+
+    /// <summary>
+    /// Authority: validate a pickup request with the shared rule (alive, hands free, the item free, within reach plus
+    /// tolerance on the authority's copies). A refusal is sent to that player only ("denied" event) so the client can
+    /// show why; the first valid request wins, a later one hears who already carries it.
+    /// </summary>
+    public static bool AuthorizePickup(RoguelikeController ctrl, RogueCarryable item, GameObject player, string playerKey, string currentHolder)
+    {
+        string reason = PickupRefusal(ctrl, item, player, currentHolder);
+        if (reason == null) return true;
+        if (reason.Length > 0 && ctrl != null) ctrl.Notify(new RogueEventMessage { kind = "denied", playerKey = playerKey, text = reason });
+        return false;
+    }
+
+    static string PickupRefusal(RoguelikeController ctrl, RogueCarryable item, GameObject player, string currentHolder)
+    {
+        if (item == null || player == null) return "";
+        var rp = player.GetComponent<RoguePlayer>();
+        if (rp == null) return "";
+        if (rp.Downed) return "Can't do that while down";
+        if (rp.Carrying || IsCarrying(player)) return "You are already carrying something";
+        if (!string.IsNullOrEmpty(currentHolder))
+        {
+            var p = ctrl != null && ctrl.State != null ? ctrl.State.Player(currentHolder) : null;
+            return "{0} is already carrying it|" + (p != null ? p.name : currentHolder);
+        }
+        var col = item.body != null ? item.body : item.GetComponent<Collider>();
+        if (col == null || !RogueInteraction.AuthorityInReach(player, col, item.PickupRadius)) return "Too far away";
+        return null;
+    }
 
     /// <summary>Authority helper: announce a holder change to everyone (banner + log), naming the player.</summary>
     public static void AnnounceHolder(RoguelikeController ctrl, string itemKey, string previousKey, string key)

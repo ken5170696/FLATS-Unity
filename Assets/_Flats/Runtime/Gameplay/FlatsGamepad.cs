@@ -23,16 +23,16 @@ public static class FlatsGamepad
     const int DefaultVibration = 4;
     const int DefaultCurve = 1;
 
-    // Button per PadActions entry: Jump, Sprint, Fire, Aim, Reload, Change, Grenade, Scope, Ultimate, Tactical.
+    // Button per PadActions entry: Jump, Sprint, Fire, Aim, Reload, Change, Grenade, Scope, Ultimate, Tactical, Shop.
     public static readonly string[] PresetNames = { "Default", "Tactical", "Bumper Jumper" };
     static readonly InputControlType[][] presets =
     {
         // Common console FPS layout: grenade on the right bumper.
-        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton, InputControlType.LeftBumper, InputControlType.DPadDown },
+        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton, InputControlType.LeftBumper, InputControlType.DPadDown, InputControlType.DPadRight },
         // Grenade on B, as in the earlier FLATS layout; the bumpers stay free.
-        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.Action2, InputControlType.RightStickButton, InputControlType.LeftBumper, InputControlType.DPadDown },
+        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.Action2, InputControlType.RightStickButton, InputControlType.LeftBumper, InputControlType.DPadDown, InputControlType.DPadRight },
         // Jump on the left bumper lets players jump without leaving the look stick.
-        new[] { InputControlType.LeftBumper, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton, InputControlType.DPadUp, InputControlType.DPadDown },
+        new[] { InputControlType.LeftBumper, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton, InputControlType.DPadUp, InputControlType.DPadDown, InputControlType.DPadRight },
     };
     public static InputControlType DefaultButton(int action) => presets[0][action];
 

@@ -313,6 +313,7 @@ public partial class Menu
         private void OnLeftRoom()
         {
             ResetMatchReadiness();
+            ResetRogueRoomState();
         }
 
 		private IEnumerator Ready()
@@ -321,6 +322,10 @@ public partial class Menu
             // Each client must send exactly one Sync for this room attempt.
             if (readyStarted || !PhotonNetwork.inRoom) yield break;
             readyStarted = true;
+            // Roguelike co-op: a hub opened from the room closes first (it restores Menu.current), and the ready flags
+            // are cleared at the start so a later return to this room never sees the previous run's "everyone is ready".
+            CloseRoomHub();
+            if (RogueRoomActive) { SetLocalRoomReady(false); RefreshRogueRoom(); }
             int operation = readyOperation;
             int scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().handle;
             float deadline = Time.realtimeSinceStartup + 60f;
@@ -649,6 +654,14 @@ public partial class Menu
 					gameObject.transform.SetAsFirstSibling();
 				}
 			}
+			if (rule == RoguelikeMode.CoopRule)
+			{
+				// Roguelike co-op: per-player ready (RDY), no automatic start when the room is full.
+				roomStartSent = false;
+				SetLocalRoomReady(false);
+				RefreshRogueRoom();
+				return;
+			}
 			if (PhotonNetwork.room.PlayerCount >= PhotonNetwork.room.MaxPlayers)
 			{
                 // The existing master alone requests the handoff in OnPhotonPlayerConnected.
@@ -703,6 +716,12 @@ public partial class Menu
 			{
 				gameObject.transform.SetAsFirstSibling();
 			}
+			if (rule == RoguelikeMode.CoopRule)
+			{
+				// Roguelike co-op: the newcomer starts not ready; no full-room start and no master hand-off.
+				RefreshRogueRoom();
+				return;
+			}
 			if (PhotonNetwork.room.PlayerCount >= PhotonNetwork.room.MaxPlayers)
 			{
                 if (PhotonNetwork.isMasterClient) PhotonNetwork.SetMasterClient(newPlayer);
@@ -721,6 +740,9 @@ public partial class Menu
 			}
 			PunTeams.PlayersPerTeam[otherPlayer.GetTeam()].Remove(otherPlayer);
 			otherPlayer.CustomProperties["team"] = (byte)PunTeams.Team.none;
+			// Roguelike co-op: the ready count and the host controls follow the players still in the room.
+			RefreshRogueRoom();
+			RefreshRogueCoopResult();
 		}
 
 		private void OnPhotonCreateRoomFailed(object[] codeAndMsg)
@@ -800,6 +822,7 @@ public partial class Menu
 		{
             Debug.LogWarning("FLATS_PHOTON_DISCONNECTED state=" + PhotonNetwork.connectionStateDetailed + " wasInRoom=" + wasInRoom + " gettingRoomList=" + gettingRoomList + " gameState=" + gameState + " current=" + current);
             ResetMatchReadiness();
+            ResetRogueRoomState();
 			if (gettingRoomList)
 			{
 				Debug.Log("I got the room list, disconnected from Photon.");

@@ -84,6 +84,12 @@ public sealed class RogueWeaponSkin : MonoBehaviour
         }
         foreach (var t in skin.accessory.GetComponentsInChildren<Transform>()) t.gameObject.layer=gunModel.gameObject.layer;
     }
+    // Gun 在啟用／停用時切換本機槍的圖層（13 只給槍相機）；配件跟著切，否則瞄具相機與世界相機會看到它。
+    void LateUpdate()
+    {
+        if (accessory == null || accessory.layer == gameObject.layer) return;
+        foreach (var t in accessory.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = gameObject.layer;
+    }
     public static void Clear(Transform gunModel)
     {
         if (gunModel == null) return; var s=gunModel.GetComponent<RogueWeaponSkin>(); if(s!=null)s.Restore();

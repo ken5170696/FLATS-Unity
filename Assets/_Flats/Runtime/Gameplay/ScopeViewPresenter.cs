@@ -68,7 +68,8 @@ public sealed class ScopeViewPresenter : MonoBehaviour
     void Initialize(Transform anchor, Transform maskTransform, Camera camera, Camera eyeCamera, FlatsSightTarget sightTarget, float scale, int textureScale, bool useOverlay)
     {
         mask = maskTransform; authoredMaskScale = mask.localScale; this.anchor = anchor;
-        sightCamera = camera; authoredFieldOfView = camera.fieldOfView;
+        // The sight's calibrated field of view (true magnification) is the base the module widens and restores.
+        sightCamera = camera; authoredFieldOfView = sightTarget != null && sightTarget.BaseFieldOfView > 0f ? sightTarget.BaseFieldOfView : camera.fieldOfView;
         eye = eyeCamera; target = sightTarget; requested = scale;
         // Lens diameter on screen at the authored scale. The mask is a flat disc facing the
         // eye, so its projected height is (diameter / distance) / (2 tan(fov / 2)).

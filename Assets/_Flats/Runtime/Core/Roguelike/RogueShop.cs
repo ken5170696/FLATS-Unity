@@ -10,9 +10,10 @@ namespace Flats.Core.Roguelike
         public long priceMinor;
         public bool sold;
         public bool free;           // reward picks are free offers
+        public int tierAtSample;
     }
 
-    public enum TransactionStatus { Ok = 0, Duplicate = 1, WrongVersion = 2, UnknownItem = 3, PriceMismatch = 4, NotAllowed = 5, InsufficientFunds = 6, AlreadySold = 7, WrongPhase = 8, RerollsExhausted = 9 }
+    public enum TransactionStatus { Ok = 0, Duplicate = 1, WrongVersion = 2, UnknownItem = 3, PriceMismatch = 4, NotAllowed = 5, InsufficientFunds = 6, AlreadySold = 7, WrongPhase = 8, RerollsExhausted = 9, NotOwned = 10 }
 
     [Serializable]
     public sealed class ShopTransaction
@@ -26,6 +27,9 @@ namespace Flats.Core.Roguelike
         public long expectedPriceMinor;
         public bool reroll;         // reroll request instead of a purchase
         public bool rewardPick;     // picking from the free reward offers
+        public bool remove;
+        public string removeItemId;
+        public long expectedRefundMinor;
     }
 
     public sealed class TransactionResult
@@ -35,6 +39,7 @@ namespace Flats.Core.Roguelike
         public string ItemId = "";
         public string ReplacedItemId;
         public long PaidMinor;
+        public long RefundMinor;
         public int NewShopVersion;
         public bool Ok { get { return Status == TransactionStatus.Ok; } }
     }
@@ -49,6 +54,23 @@ namespace Flats.Core.Roguelike
     {
         public const int MaxRerollsPerVisit = 2, MaxRerollsChapterEnd = 3, RerollBaseCoins = 10;
         public const int RewardChoices = 3;
+        public const int RefundNumerator = 1, RefundDenominator = 2;
+
+        public static long RefundMinor(PlayerBuild build, string itemId)
+        {
+            return build == null ? 0 : Math.Max(0, build.PaidMinor(itemId)) * RefundNumerator / RefundDenominator;
+        }
+
+        public static string[] RemovalBreaks(PlayerBuild build, string itemId)
+        {
+            if (build == null) return new string[0];
+            var after = build.Clone();
+            if (!after.Remove(itemId)) return new string[0];
+            var broken = new List<string>();
+            foreach (var id in after.mods)
+                if (!MissingPrerequisite(RogueCatalog.Item(id), build) && MissingPrerequisite(RogueCatalog.Item(id), after)) broken.Add(id);
+            return broken.ToArray();
+        }
 
         public static long RerollPriceMinor(int chapter) { return RogueMoney.Coins((long)Math.Round(RerollBaseCoins * RogueDepth.PriceMultiplier(chapter))); }
 
@@ -63,10 +85,10 @@ namespace Flats.Core.Roguelike
             Action<ItemDef> add = def =>
             {
                 if (def == null || !taken.Add(def.Id)) return;
-                offers.Add(new ShopOffer { itemId = def.Id, priceMinor = RogueCatalog.PriceMinor(def, chapter, routeTag, build.Owned(def.Id)) });
+                offers.Add(new ShopOffer { itemId = def.Id, priceMinor = RogueCatalog.PriceMinor(def, chapter, routeTag, build.Owned(def.Id)), tierAtSample = build.Owned(def.Id) });
             };
 
-            // 1. supplies: always one ammo and one heal (the floor against ammo/health deadlock)
+            // 1. supplies: always one ammo and one persistent overshield
             add(RogueCatalog.Item("supply.ammo"));
             add(RogueCatalog.Item("supply.medkit"));
 
@@ -76,7 +98,7 @@ namespace Flats.Core.Roguelike
             // 3. a core: guaranteed while the player has none (pity), otherwise 60% (always at chapter end)
             bool needsCore = build.cores.Length == 0;
             if (needsCore || chapterEnd || rng.Chance(0.6 + route.ShopRarityBonus)) add(PickByTag(rng, RogueCatalog.Cores, build, AffinityTags(build), 0.75, taken));
-            if (chapterEnd && build.cores.Length < RogueCatalog.MaxCores) add(PickByTag(rng, RogueCatalog.Cores, build, AffinityTags(build), 0.3, taken));
+            if (chapterEnd) add(PickByTag(rng, RogueCatalog.Cores, build, AffinityTags(build), 0.3, taken));
 
             // 4. mods: two, one biased to the current affinity and one generic/transition option
             add(PickByTag(rng, RogueCatalog.Mods, build, AffinityTags(build), 0.85, taken));
@@ -101,13 +123,13 @@ namespace Flats.Core.Roguelike
             var rng = root.Derive("reward:" + runSalt + ":" + playerKey + ":" + depth);
             var taken = new HashSet<string>();
             var offers = new List<ShopOffer>();
-            Action<ItemDef> add = def => { if (def != null && taken.Add(def.Id)) offers.Add(new ShopOffer { itemId = def.Id, priceMinor = 0, free = true }); };
+            Action<ItemDef> add = def => { if (def != null && taken.Add(def.Id)) offers.Add(new ShopOffer { itemId = def.Id, priceMinor = 0, free = true, tierAtSample = build.Owned(def.Id) }); };
             add(PickStat(rng, build));
             add(PickByTag(rng, RogueCatalog.Mods, build, AffinityTags(build), 0.8, taken));
             ItemDef third = null;
             if (build.cores.Length == 0) third = PickByTag(rng, RogueCatalog.Cores, build, AffinityTags(build), 0.5, taken);
             else if (string.IsNullOrEmpty(build.tactical) && rng.Chance(0.5)) third = PickByTag(rng, RogueCatalog.Tacticals, build, AffinityTags(build), 0.5, taken);
-            else if (build.cores.Length < RogueCatalog.MaxCores && rng.Chance(0.4)) third = PickByTag(rng, RogueCatalog.Cores, build, AffinityTags(build), 0.5, taken);
+            else if (rng.Chance(0.4)) third = PickByTag(rng, RogueCatalog.Cores, build, AffinityTags(build), 0.5, taken);
             if (third == null) third = PickByTag(rng, RogueCatalog.Mods, build, new[] { RogueCatalog.TagGeneric }, 0.5, taken);
             add(third);
             while (offers.Count < RewardChoices) { var extra = PickByTag(rng, RogueCatalog.Mods, build, null, 0, taken); if (extra == null) break; add(extra); }
@@ -211,14 +233,29 @@ namespace Flats.Core.Roguelike
         /// player's processed transaction ids for de-duplication and persists the returned result.
         /// </summary>
         public static TransactionResult Apply(ShopTransaction tx, ref long walletMinor, PlayerBuild build, ShopOffer[] offers, ref int shopVersion,
-            ref int rerollsLeft, List<string> processedTx, bool shopOpen, string runId)
+            ref int rerollsLeft, List<string> processedTx, bool shopOpen, string runId, RunPhase phase = RunPhase.Prep)
         {
             var r = new TransactionResult { NewShopVersion = shopVersion };
             if (tx == null || string.IsNullOrEmpty(tx.txId)) { r.Status = TransactionStatus.NotAllowed; r.Reason = "missing transaction id"; return r; }
             if (processedTx != null && processedTx.Contains(tx.txId)) { r.Status = TransactionStatus.Duplicate; r.Reason = "already processed"; return r; }
+            if (tx.remove && (tx.rewardPick || (phase != RunPhase.Prep && phase != RunPhase.ChapterEnd))) { r.Status = TransactionStatus.WrongPhase; r.Reason = "cannot remove outside a shop"; return r; }
             if (!shopOpen) { r.Status = TransactionStatus.WrongPhase; r.Reason = "shop closed"; return r; }
             if (tx.runId != runId) { r.Status = TransactionStatus.WrongVersion; r.Reason = "different run"; return r; }
             if (tx.shopVersion != shopVersion) { r.Status = TransactionStatus.WrongVersion; r.Reason = "shop changed"; return r; }
+
+            if (tx.remove)
+            {
+                var item = RogueCatalog.Item(tx.removeItemId);
+                if (item == null || (item.Kind != ItemKind.Core && item.Kind != ItemKind.Mod) || !build.Has(item.Id))
+                { r.Status = TransactionStatus.NotOwned; r.Reason = "core or mod not owned"; return r; }
+                long refund = RefundMinor(build, item.Id);
+                if (refund != tx.expectedRefundMinor) { r.Status = TransactionStatus.PriceMismatch; r.Reason = "refund changed"; return r; }
+                if (refund > RogueMoney.MaxWallet - walletMinor) { r.Status = TransactionStatus.NotAllowed; r.Reason = "wallet limit"; return r; }
+                build.Remove(item.Id); walletMinor += refund; shopVersion++;
+                r.Status = TransactionStatus.Ok; r.ItemId = item.Id; r.RefundMinor = refund; r.NewShopVersion = shopVersion;
+                Remember(processedTx, tx.txId);
+                return r;
+            }
 
             if (tx.reroll)
             {
@@ -246,15 +283,20 @@ namespace Flats.Core.Roguelike
             if (offer == null && def.Kind != ItemKind.Supply) { r.Status = TransactionStatus.NotAllowed; r.Reason = "only supplies can be bought outside the offers"; return r; }
             r.ItemId = def.Id;
 
+            if (offer != null && (def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod) && offer.tierAtSample != build.Tier(def.Id))
+            { r.Status = TransactionStatus.PriceMismatch; r.Reason = "tier changed"; return r; }
+
             long cost = offer != null ? (offer.free ? 0 : offer.priceMinor) : RogueCatalog.PriceMinor(def, 1, "", 0);
             if (tx.expectedPriceMinor != cost) { r.Status = TransactionStatus.PriceMismatch; r.Reason = "price changed"; return r; }
             string reject = build.RejectReason(def);
             if (reject != null) { r.Status = TransactionStatus.NotAllowed; r.Reason = reject; return r; }
             if (walletMinor < cost) { r.Status = TransactionStatus.InsufficientFunds; r.Reason = "not enough money"; return r; }
+            if (cost < 0 || ((def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod) && cost > RogueMoney.MaxWallet - build.PaidMinor(def.Id)))
+            { r.Status = TransactionStatus.PriceMismatch; r.Reason = "invalid cumulative payment"; return r; }
 
             // commit
             walletMinor -= cost;
-            if (def.Kind != ItemKind.Supply) r.ReplacedItemId = build.Apply(def);
+            if (def.Kind != ItemKind.Supply) r.ReplacedItemId = build.Apply(def, cost);
             if (offer != null)
             {
                 offer.sold = true;

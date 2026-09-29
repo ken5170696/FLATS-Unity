@@ -18,8 +18,8 @@ public class RogueDownedPresentation : MonoBehaviour
     RoguePlayer player;
     Transform armature, viewCamera;
     Camera gunCamera;
-    Transform[] weapons;   // the owner's guns (in hand and holstered) are world models the main camera also sees; they would cross the view while falling
-    readonly System.Collections.Generic.List<Renderer> hiddenWeapons = new System.Collections.Generic.List<Renderer>();
+    Animator animator; AnimatorCullingMode cullingHome;
+    FPSController fps;
     CC_Grayscale gray;
     bool isMine, applied, gunCameraHome, grayHome;
     float grayAmountHome, blend;
@@ -31,10 +31,10 @@ public class RogueDownedPresentation : MonoBehaviour
     {
         player = GetComponent<RoguePlayer>();
         armature = transform.Find("Armature");
-        var fps = GetComponent<FPSController>();
+        fps = GetComponent<FPSController>();
         var view = GetComponent<PhotonView>();
         isMine = Menu.network == 0 || (view != null && view.isMine);
-        if (fps != null && isMine) weapons = new[] { fps.primaryWeapons, fps.secondaryWeapons };
+        animator = GetComponent<Animator>();
         if (fps != null && fps.myCamera != null && isMine)
         {
             viewCamera = fps.myCamera.transform.childCount > 0 ? fps.myCamera.transform.GetChild(0) : null;
@@ -77,13 +77,14 @@ public class RogueDownedPresentation : MonoBehaviour
         if (armature != null) { basePos = setPos = armature.localPosition; baseRot = setRot = armature.localRotation; }
         if (viewCamera != null) viewBase = viewSet = viewCamera.localRotation;
         if (gunCamera != null) gunCameraHome = gunCamera.enabled;
+        // The owner's body is drawn only by the Gun Camera. With it off, nothing renders the body, a CullUpdateTransforms Animator
+        // stops rewriting the bones, and IKController's per-frame chest pitch (which relies on that rewrite) accumulates: the view
+        // orbited up and down with the look pitch (F15). The downed owner keeps animating.
+        if (isMine && animator != null) { cullingHome = animator.cullingMode; animator.cullingMode = AnimatorCullingMode.AlwaysAnimate; }
         if (gray != null) { grayHome = gray.enabled; grayAmountHome = gray.amount; }
-        // weapon changes are blocked while down, so the rifle in hand is hidden once
-        if (weapons != null && isMine)
-            foreach (var root in weapons)
-                if (root != null)
-                    foreach (var r in root.GetComponentsInChildren<Renderer>())
-                        if (r.enabled) { r.enabled = false; hiddenWeapons.Add(r); }
+        // the whole weapon presentation goes away while down (renderers, the sight's lens canvas and camera) and aiming ends:
+        // hiding renderers only left a live scope image in front of the eye
+        if (isMine && fps != null) WeaponPresentation.Hide(fps, this);
     }
 
     void Restore()
@@ -93,8 +94,8 @@ public class RogueDownedPresentation : MonoBehaviour
         if (armature != null && armature.localPosition == setPos && armature.localRotation == setRot) { armature.localPosition = basePos; armature.localRotation = baseRot; }
         if (viewCamera != null && viewCamera.localRotation == viewSet) viewCamera.localRotation = viewBase;
         if (gunCamera != null) gunCamera.enabled = gunCameraHome;
-        foreach (var r in hiddenWeapons) if (r != null) r.enabled = true;
-        hiddenWeapons.Clear();
+        if (isMine && animator != null) animator.cullingMode = cullingHome;
+        if (isMine && fps != null) WeaponPresentation.Show(fps, this);
         // the saturation filter follows the player's setting, which may have changed while downed
         if (gray != null) { gray.amount = grayAmountHome; gray.enabled = FPSController.saturationFilter && !Menu.VRmode; }
     }

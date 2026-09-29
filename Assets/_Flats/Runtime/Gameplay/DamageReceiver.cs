@@ -322,6 +322,7 @@ public class DamageReceiver : MonoBehaviour
 			var shooterView = shooter != null ? shooter.gameObject.GetPhotonView() : null;
 			// packed: shooter viewID * 2 + headshot flag, so every copy (the authority included) settles the same kill the same way
 			base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, (shooterView != null ? shooterView.viewID : 0) * 2 + (headshot == 1 ? 1 : 0));
+			PhotonNetwork.SendOutgoingCommands();   // the kill leaves now, not on the next send tick (F07)
 			return;
 		}
 		if (Menu.network == 0 || Multiplayer.rule == 8 || (RoguelikeMode.Coop && userIsPlayer))
@@ -357,7 +358,7 @@ public class DamageReceiver : MonoBehaviour
 			}
 			if (RoguelikeMode.Active) damage = RogueHooks.ModifyIncomingDamage(this, damage, shooter);
 			hitPoints -= damage;
-            if (RoguelikeMode.Active && Menu.network == 0 && !userIsPlayer) RogueCombatNumber.Show(this, damage);
+            if (RoguelikeMode.Active && Menu.network == 0 && !userIsPlayer) RogueCombatNumber.Show(this, damage, headshot == 1, Flats.Core.Roguelike.DamageKind.Direct, shooter);
 			if (!userIsPlayer && myAI != null && myAI.isPatrol && myAI.targets[0] != null && !(RoguelikeMode.Active && RogueEnemyStatus.Stunned(myAI)))
 			{
 				Vector3 normalized = (myAI.targets[0].position - mt.position).normalized;
@@ -468,10 +469,13 @@ public class DamageReceiver : MonoBehaviour
 			return;
 		}
 		died = true;
+		// removal is scheduled first: an exception in any later mode hook must not leave the body (and its markers) behind forever
+		Invoke("Stop", 5f);
 		if (RoguelikeMode.Active)
 		{
 			var reaction = GetComponent<RogueHitReaction>();
 			if (reaction != null) reaction.StopReaction();
+			if (!userIsPlayer) RogueHooks.OnEnemyDeathStarted(this);
 		}
 		if (mt == null) mt = base.transform;   // the Die RPC can reach a network copy before Start ran
 		if (RoguelikeMode.Coop && !userIsPlayer && receivedData != 0)
@@ -482,11 +486,15 @@ public class DamageReceiver : MonoBehaviour
 			if (shooterView != null) killer = shooterView.transform;
 		}
 		if (userIsPlayer && RoguelikeMode.Active) RogueHooks.OnPlayerDied(this);
-		GameObject gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
+		if (RoguelikeMode.Active && !userIsPlayer) { var cc = GetComponent<CharacterController>(); if (cc != null) cc.enabled = false; }   // the body must not push the ragdoll it is replaced by
+		// a shooter that predicted this kill already dropped the ragdoll (RogueKillPrediction); the confirmed death keeps it
+		GameObject predictedCorpse = RoguelikeMode.Active && !userIsPlayer ? RogueKillPrediction.TakeCorpse(this) : null;
+		GameObject gameObject = predictedCorpse != null ? predictedCorpse : UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
 		if (gameObject == null)
 		{
 			return;
 		}
+		if (RoguelikeMode.Active && !userIsPlayer && predictedCorpse == null) RogueHooks.PoseCorpse(this, gameObject);
 		gameObject.GetComponent<AudioSource>().volume = 0.5f;
 		gameObject.GetComponent<AudioSource>().pitch = 0.75f;
 		gameObject.GetComponent<AudioSource>().PlayOneShot(damageSE);
@@ -861,7 +869,6 @@ public class DamageReceiver : MonoBehaviour
 				Multiplayer.bot--;
 			}
 		}
-		Invoke("Stop", 5f);
 	}
 
 	private void Stop()

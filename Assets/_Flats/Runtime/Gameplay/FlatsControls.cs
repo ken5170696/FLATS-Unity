@@ -5,9 +5,14 @@ using UnityEngine;
 // Gameplay bindings are independent of the fixed menu submit/cancel controls.
 public static class FlatsControls
 {
-    public static readonly string[] KeyboardActions = { "Forward", "Backward", "Left", "Right", "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Interact", "Ultimate", "Tactical" };
-    public static readonly string[] PadActions = { "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Scope", "Ultimate", "Tactical" };
-    static readonly KeyCode[] defaults = { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.LeftShift, KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.R, KeyCode.E, KeyCode.G, KeyCode.Q, KeyCode.F, KeyCode.C };
+    // "Shop" (Roguelike: reopen the dismissed shop) was added after bindings were first saved; saves without it get a free default.
+    public static readonly string[] KeyboardActions = { "Forward", "Backward", "Left", "Right", "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Interact", "Ultimate", "Tactical", "Shop" };
+    public static readonly string[] PadActions = { "Jump", "Sprint", "Fire", "Aim", "Reload", "Change", "Grenade", "Scope", "Ultimate", "Tactical", "Shop" };
+    static readonly KeyCode[] defaults = { KeyCode.W, KeyCode.S, KeyCode.A, KeyCode.D, KeyCode.Space, KeyCode.LeftShift, KeyCode.Mouse0, KeyCode.Mouse1, KeyCode.R, KeyCode.E, KeyCode.G, KeyCode.Q, KeyCode.F, KeyCode.C, KeyCode.B };
+    // Default of a late-added action when an older save already put its default on another action: the first key or button
+    // no other action uses. V (Roguelike melee) and Tab (overview) are fixed keys; the D-pad left is the fixed pad melee button.
+    static readonly KeyCode[] shopKeys = { KeyCode.B, KeyCode.H, KeyCode.N, KeyCode.T, KeyCode.Y, KeyCode.U, KeyCode.J, KeyCode.K };
+    static readonly InputControlType[] shopButtons = { InputControlType.DPadRight, InputControlType.DPadUp };
     public static event Action Changed;
     public static bool Capturing { get; set; }
     public static bool UsingGamepad { get; set; }
@@ -25,6 +30,13 @@ public static class FlatsControls
     {
         get => FlatsPreferences.GetString(KillCinematicKey) != "off";
         set { FlatsPreferences.SetString(KillCinematicKey, value ? "on" : "off"); FlatsPreferences.Save(); Changed?.Invoke(); }
+    }
+    public const string DamageNumbersKey = "ui.v1.damageNumbers";
+    // Damage numbers over hit enemies (Roguelike Survival). "off" hides them; the hit marker and sounds stay.
+    public static bool DamageNumbers
+    {
+        get => FlatsPreferences.GetString(DamageNumbersKey) != "off";
+        set { FlatsPreferences.SetString(DamageNumbersKey, value ? "on" : "off"); FlatsPreferences.Save(); Changed?.Invoke(); }
     }
     public const string AimSensitivityKey = "controls.v1.aimSensitivity";
     // Look sensitivity while aimed, on the camera sensitivity scale (Low 1, Normal 2, High 3).
@@ -58,7 +70,35 @@ public static class FlatsControls
     {
         int index = Array.IndexOf(KeyboardActions, action);
         if (index < 0) throw new ArgumentException(action);
-        return Enum.TryParse(FlatsPreferences.GetString(Key(action, false)), out KeyCode value) && ValidKey(value) ? value : defaults[index];
+        if (Enum.TryParse(FlatsPreferences.GetString(Key(action, false)), out KeyCode value) && ValidKey(value)) return value;
+        if (action != "Shop") return defaults[index];
+        // resolved once per frame: every Down("Shop") would otherwise read all the other bindings again
+        if (shopKeyFrame != Time.frameCount) { shopKeyFrame = Time.frameCount; shopKey = FreeDefault(shopKeys, action); }
+        return shopKey;
+    }
+    static int shopKeyFrame = -1, shopButtonFrame = -1;
+    static KeyCode shopKey;
+    static InputControlType shopButton;
+    // The other actions' defaults never depend on Shop, so this cannot recurse.
+    static KeyCode FreeDefault(KeyCode[] candidates, string action)
+    {
+        foreach (var key in candidates)
+        {
+            bool used = false;
+            foreach (string other in KeyboardActions) if (other != action && Keyboard(other) == key) { used = true; break; }
+            if (!used) return key;
+        }
+        return candidates[0];
+    }
+    static InputControlType FreeDefault(InputControlType[] candidates, string action)
+    {
+        foreach (var button in candidates)
+        {
+            bool used = false;
+            foreach (string other in PadActions) if (other != action && Pad(other) == button) { used = true; break; }
+            if (!used) return button;
+        }
+        return candidates[0];
     }
     public static bool ValidKey(KeyCode key) => key > KeyCode.None && key < KeyCode.JoystickButton0 && key != KeyCode.Escape && Enum.IsDefined(typeof(KeyCode), key);
     public static bool Held(string action) => !Capturing && Input.GetKey(Keyboard(action));
@@ -88,7 +128,10 @@ public static class FlatsControls
     {
         int index = Array.IndexOf(PadActions, action);
         if (index < 0) throw new ArgumentException(action);
-        return Enum.TryParse(FlatsPreferences.GetString(Key(action, true)), out InputControlType value) && Array.IndexOf(PadButtons, value) >= 0 ? value : FlatsGamepad.DefaultButton(index);
+        if (Enum.TryParse(FlatsPreferences.GetString(Key(action, true)), out InputControlType value) && Array.IndexOf(PadButtons, value) >= 0) return value;
+        if (action != "Shop") return FlatsGamepad.DefaultButton(index);
+        if (shopButtonFrame != Time.frameCount) { shopButtonFrame = Time.frameCount; shopButton = FreeDefault(shopButtons, action); }
+        return shopButton;
     }
     static bool State(InputControl control, int edge) => edge == 1 ? control.WasPressed : edge == 2 ? control.WasReleased : control.IsPressed;
     public static bool PadState(string action, int edge = 0)
@@ -166,6 +209,7 @@ public static class FlatsControls
         }
         if (swapped != null && previous != value) FlatsPreferences.SetString(Key(swapped, pad), previous);
         FlatsPreferences.SetString(Key(action, pad), value);
+        shopKeyFrame = shopButtonFrame = -1;
         FlatsPreferences.Save(); Changed?.Invoke(); return true;
     }
     // Used by layout presets; call NotifyChanged once afterwards.
@@ -173,14 +217,16 @@ public static class FlatsControls
     {
         if (Array.IndexOf(PadActions, action) < 0 || Array.IndexOf(PadButtons, button) < 0) throw new ArgumentException(action);
         FlatsPreferences.SetString(Key(action, true), button.ToString());
+        shopButtonFrame = -1;
     }
-    public static void NotifyChanged() { FlatsPreferences.Save(); Changed?.Invoke(); }
+    public static void NotifyChanged() { shopKeyFrame = shopButtonFrame = -1; FlatsPreferences.Save(); Changed?.Invoke(); }
     public static void ResetBindings(bool pad)
     {
         foreach (string action in pad ? PadActions : KeyboardActions) FlatsPreferences.DeleteKey(Key(action, pad));
         if (pad) { FlatsPreferences.DeleteKey("controllermapping"); Menu.customControlEnabled = false; }
+        shopKeyFrame = shopButtonFrame = -1;
         FlatsPreferences.Save(); Changed?.Invoke();
     }
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void ResetSession() { Changed = null; Capturing = false; UsingGamepad = false; }
+    static void ResetSession() { Changed = null; Capturing = false; UsingGamepad = false; shopKeyFrame = shopButtonFrame = -1; }
 }

@@ -11,6 +11,7 @@ public partial class RoguelikeController
     readonly Dictionary<string, float> reviveHold = new Dictionary<string, float>();      // "rescuer|victim" -> seconds held
     readonly Dictionary<string, float> reviveLastReport = new Dictionary<string, float>();
     readonly HashSet<string> appliedTx = new HashSet<string>();
+    readonly RogueHoldLedger reviveLedger = new RogueHoldLedger();
 
     // ---------------------------------------------------------------- roster and authority (Photon callbacks on the controller's object)
     void OnPhotonPlayerDisconnected(PhotonPlayer other)
@@ -51,6 +52,8 @@ public partial class RoguelikeController
     void OnMasterClientSwitched(PhotonPlayer newMaster)
     {
         if (!RoguelikeMode.Coop || state == null) return;
+        // a run that already ended has nothing left to decide; the result screen must not turn into "you are the host now" (X002)
+        if (state.phase == RunPhase.Ended || endedHandled) return;
         if (!PhotonNetwork.isMasterClient) { Banner(T("Host changed: waiting for the new host..."), 3f); return; }
         // We are the new authority: rebuild the machine from the last replicated state. A stage in progress cannot be
         // continued faithfully (spawn ownership and slot payments moved), so the squad returns to the safe node.
@@ -62,7 +65,7 @@ public partial class RoguelikeController
             foreach (var role in new List<RogueEnemyRole>(liveEnemies.Values)) if (role != null) { machine.EnemyCancelled(role.InstanceId); Destroy(role.gameObject); }
             liveEnemies.Clear();
             DisposeEvents();
-            stageEnding = false; objectiveDone = false; nextWave = 0;
+            stageEnding = false; objectiveDone = false; nextWave = 0; pacing = new RoguePacing();
             machine.RestartPrepAfterHostChange();
             Notify(new RogueEventMessage { kind = "banner", text = "The host left. Back to the safe node; the stage restarts.", value = 4 });
         }
@@ -137,18 +140,24 @@ public partial class RoguelikeController
         var r = state.Player(rescuer); var v = state.Player(victim);
         if (r == null || v == null || rescuer == victim || !r.connected || r.life != PlayerLife.Alive || v.life != PlayerLife.Downed) return;
         var ro = RogueWorld.PlayerByKey(rescuer); var vo = RogueWorld.PlayerByKey(victim);
-        if (ro == null || vo == null || Vector3.Distance(ro.transform.position, vo.transform.position) > RoguePlayer.ReviveRange + 1f) return;
+        // the same reach rule as the rescuer's prompt (to the capsule, with the authority's tolerance), and one rescuer per victim
+        if (ro == null || vo == null || !RogueInteraction.AuthorityCanAct(ro) || !RogueInteraction.AuthorityInReach(ro, vo.GetComponent<CharacterController>(), RoguePlayer.ReviveRange)) return;
+        bool inUse; float granted = reviveLedger.Credit(rescuer, "revive:" + victim, seconds, true, out inUse);
+        if (inUse) { if (reviveLedger.NoticeDue(rescuer)) Notify(new RogueEventMessage { kind = "denied", playerKey = rescuer, text = "Someone else is using it" }); return; }
         string key = rescuer + "|" + victim;
         float last; reviveLastReport.TryGetValue(key, out last);
         if (Time.time - last > 1f) reviveHold[key] = 0;   // the hold was interrupted
         reviveLastReport[key] = Time.time;
         float held; reviveHold.TryGetValue(key, out held);
         var rr = ro.GetComponent<RoguePlayer>();
-        held += Mathf.Clamp(seconds, 0f, 0.6f) * (rr != null ? (float)rr.Stats.ReviveSpeedMul : 1f);
+        // the authority's own record of the rescuer's build (a teammate's local copy only applied it at spawn)
+        var rb = r.build != null ? BuildStats.Compute(r.build) : null;
+        held += granted * (rb != null ? (float)rb.ReviveSpeedMul : rr != null ? (float)rr.Stats.ReviveSpeedMul : 1f);
         reviveHold[key] = held;
         Notify(new RogueEventMessage { kind = "revprog", playerKey = victim, text = r.name, value = Mathf.Clamp01(held / RoguePlayer.ReviveHoldSeconds) });
         if (held < RoguePlayer.ReviveHoldSeconds) return;
         reviveHold.Remove(key);
+        reviveLedger.Release("revive:" + victim);
         var pay = machine.Rescued(rescuer, victim);
         Notify(new RogueEventMessage { kind = "revived", playerKey = victim, text = r.name, minor = pay.Total });
         MetaRevived(rescuer, victim);
@@ -170,7 +179,7 @@ public partial class RoguelikeController
         switch (def.Id)
         {
             case "supply.ammo": RogueHooks.RefillAmmo(fps); break;
-            case "supply.medkit": if (dr != null) dr.hitPoints = RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)); break;
+            case "supply.medkit": rp.RestoreOvershield(1.0); break;   // the shop's shield worth the maximum health (F46); health is untouched
             case "supply.repair": RogueHooks.RefillAmmo(fps); if (dr != null) dr.hitPoints = RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)); break;
             case "stat.health": if (dr != null) dr.hitPoints += 1000f * (1f + Menu.myCharacter.defense * 0.1f) * 0.12f; break;   // heals the added amount, once
         }
@@ -217,7 +226,7 @@ public partial class RoguelikeController
         if (state == null || state.phase != RunPhase.Prep) return;
         screenDismissed = true;
         CloseScreens();
-        Banner(T("Press {0} to reopen the shop", RogueInput.KeyText("Interact")), 2.5f);
+        Banner(T("Press {0} to reopen the shop", RogueInput.KeyText("Shop")), 2.5f);
     }
 
     public void ReopenScreen()

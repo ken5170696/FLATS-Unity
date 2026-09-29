@@ -22,8 +22,59 @@ public class Glass : MonoBehaviour
 		glassMat = GetComponent<Renderer>().sharedMaterial;
 	}
 
+	// Live panes, for resolving a pane broken on another client by its (static) position.
+	private static readonly System.Collections.Generic.List<Glass> live = new System.Collections.Generic.List<Glass>();
+
+	private void OnEnable()
+	{
+		live.Add(this);
+	}
+
+	private void OnDisable()
+	{
+		live.Remove(this);
+	}
+
+	// Starts one break; false when this pane is already broken or cannot run coroutines.
+	public bool TryBreak()
+	{
+		if (broken || !isActiveAndEnabled)
+		{
+			return false;
+		}
+		StartCoroutine("Break");
+		return true;
+	}
+
+	// Breaks the pane at a position reported by another client (panes never move).
+	public static bool BreakAt(Vector3 position)
+	{
+		Glass nearest = null;
+		float best = 0.05f * 0.05f;
+		foreach (Glass glass in live)
+		{
+			float distance = (glass.transform.position - position).sqrMagnitude;
+			if (distance <= best)
+			{
+				best = distance;
+				nearest = glass;
+			}
+		}
+		return nearest != null && nearest.TryBreak();
+	}
+
 	public IEnumerator Break()
 	{
+		// Callers start Break by name without checking; a second break would remove and
+		// later re-add the pane twice in the combined mesh.
+		if (broken)
+		{
+			yield break;
+		}
+		if (gc == null)
+		{
+			Start();
+		}
 		broken = true;
 		gc.ChangeGlass(base.gameObject, broken);
 		base.GetComponent<Collider>().enabled = false;

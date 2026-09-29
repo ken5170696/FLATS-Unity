@@ -86,7 +86,7 @@ namespace Flats.Core.Roguelike
                 {
                     var p = state.players[i]; var build = p.build;
                     int tiers = build.healthTier + build.damageTier + build.magazineTier + build.speedTier;
-                    result.Rows.Add(new SimulationRow { Depth = depth, PlayerKey = p.key, IncomeMinor = p.earnedMinor - earned[i], SpendMinor = p.spentMinor - spent[i], WalletMinor = p.walletMinor, BaseBountyMinor = baseBounty, BountyMinor = bounty[i], HeadshotBonusMinor = headBonus[i], ConsumableSpendMinor = supplies[i], Cores = build.cores.Length, StatTiers = tiers, EffectiveUpgrades = build.cores.Length + build.mods.Length + tiers });
+                    result.Rows.Add(new SimulationRow { Depth = depth, PlayerKey = p.key, IncomeMinor = p.earnedMinor - earned[i], SpendMinor = p.spentMinor - spent[i], WalletMinor = p.walletMinor, BaseBountyMinor = baseBounty, BountyMinor = bounty[i], HeadshotBonusMinor = headBonus[i], ConsumableSpendMinor = supplies[i], Cores = build.cores.Length, StatTiers = tiers, EffectiveUpgrades = build.cores.Sum(id => build.Tier(id)) + build.mods.Sum(id => build.Tier(id)) + tiers });
                 }
             }
             return result;
@@ -132,4 +132,3 @@ namespace Flats.Core.Roguelike
         }
     }
 }
-

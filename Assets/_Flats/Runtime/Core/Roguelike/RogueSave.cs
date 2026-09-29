@@ -7,7 +7,7 @@ namespace Flats.Core.Roguelike
     [Serializable]
     public sealed class RunSaveDocument
     {
-        public const int CurrentSchema = 1;
+        public const int CurrentSchema = 2;
         public int schema = CurrentSchema;
         public string savedAtUtc = "";
         public string gameVersion = "";
@@ -35,6 +35,46 @@ namespace Flats.Core.Roguelike
         public const string RunFileName = "roguelike-run-v1.json";
         public const string MetaFileName = "roguelike-meta-v1.json";
 
+        /// <summary>Migrate before validation/resume. Unknown schemas are left intact for Validate to reject.</summary>
+        public static void Migrate(RunSaveDocument doc)
+        {
+            if (doc == null || doc.schema < 1 || doc.schema > RunSaveDocument.CurrentSchema || doc.run == null) return;
+            bool legacy = doc.schema == 1;
+            var run = doc.run;
+            foreach (var p in run.players ?? new RunPlayer[0])
+            {
+                if (p == null || p.build == null) continue;
+                if (legacy) { p.build.coreTiers = null; p.build.modTiers = null; p.build.corePaidMinor = null; p.build.modPaidMinor = null; }
+                p.build.Normalize();
+                if (legacy)
+                {
+                    foreach (var o in p.offers ?? new ShopOffer[0]) if (o != null) o.tierAtSample = p.build.Owned(o.itemId);
+                    foreach (var o in p.rewardOffers ?? new ShopOffer[0]) if (o != null) o.tierAtSample = p.build.Owned(o.itemId);
+                }
+            }
+            if (legacy)
+            {
+                run.rewardPaidPlayers = new string[0];
+                if (run.ledger != null && run.ledger.depth == run.depth && run.encounter != null)
+                {
+                    run.paidDepth = run.depth;
+                    run.ledger.objectivePaid = run.ledger.objectiveMinor == 0 || run.phase == RunPhase.ChapterEnd;
+                    var def = RogueCatalog.Encounter(run.encounter.IsFinale ? run.encounter.finaleId : run.encounter.objectiveId);
+                    run.ledger.objectiveMinor = RogueMoney.MulFraction(run.ledger.budgetMinor, def == null ? 0 : def.RewardFraction);
+                    var picked = new List<string>();
+                    foreach (var p in run.players ?? new RunPlayer[0])
+                    {
+                        if (p == null) continue;
+                        bool paid = run.phase == RunPhase.ChapterEnd;
+                        foreach (var o in p.rewardOffers ?? new ShopOffer[0]) if (o != null && o.sold) paid = true;
+                        if (paid) picked.Add(p.key);
+                    }
+                    run.rewardPaidPlayers = picked.ToArray();
+                }
+            }
+            doc.schema = RunSaveDocument.CurrentSchema; run.schema = RunSaveDocument.CurrentSchema;
+        }
+
         /// <summary>Structural validation for a loaded run. Errors mean "do not resume"; the caller shows them.</summary>
         public static List<string> Validate(RunSaveDocument doc)
         {
@@ -42,6 +82,7 @@ namespace Flats.Core.Roguelike
             if (doc == null) { errors.Add("empty document"); return errors; }
             if (doc.schema > RunSaveDocument.CurrentSchema) { errors.Add("newer save format (" + doc.schema + ")"); return errors; }
             if (doc.schema < 1) errors.Add("invalid schema");
+            if (doc.schema == 1) Migrate(doc);
             var run = doc.run;
             if (run == null) { errors.Add("missing run"); return errors; }
             if (string.IsNullOrEmpty(run.runId)) errors.Add("missing run id");
@@ -60,6 +101,8 @@ namespace Flats.Core.Roguelike
             if (run.history == null) errors.Add("missing history");
             if (run.routeOptions == null) errors.Add("missing route options");
             if (run.rescuesPaid == null) errors.Add("missing rescue record");
+            if (run.rewardPaidPlayers == null) errors.Add("missing reward payment record");
+            if (run.paidDepth < 0 || run.paidDepth > run.depth) errors.Add("paid depth out of range");
             if (run.phase == RunPhase.ChapterEnd && !string.IsNullOrEmpty(run.routeTag) && RogueCatalog.Route(run.routeTag).Tag != run.routeTag) errors.Add("unknown route " + run.routeTag);
             var keys = new HashSet<string>();
             if (run.players != null)
@@ -68,6 +111,8 @@ namespace Flats.Core.Roguelike
                     if (p == null || string.IsNullOrEmpty(p.key)) { errors.Add("player without key"); continue; }
                     if (!keys.Add(p.key)) errors.Add("duplicate player " + p.key);
                     if (p.walletMinor < 0 || p.walletMinor > RogueMoney.MaxWallet) errors.Add("wallet out of range for " + p.key);
+                    if (p.refundedMinor < 0) errors.Add("refund total out of range for " + p.key);
+                    if (double.IsNaN(p.overshieldFraction) || double.IsInfinity(p.overshieldFraction) || p.overshieldFraction < 0 || p.overshieldFraction > 1) errors.Add("overshield out of range for " + p.key);
                     if (p.ultimateCharge < 0 || p.ultimateCharge > 100) errors.Add("ultimate charge out of range for " + p.key);
                     if (p.rerollsLeft < 0 || p.rerollsLeft > RogueShop.MaxRerollsChapterEnd) errors.Add("rerolls out of range for " + p.key);
                     if (p.processedTx == null || p.offers == null || p.rewardOffers == null) errors.Add("missing shop record for " + p.key);

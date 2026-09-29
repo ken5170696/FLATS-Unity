@@ -116,20 +116,28 @@ public sealed class RogueEnemyStatus : MonoBehaviour
             var reaction = GetComponent<RogueHitReaction>();
             if (reaction != null) reaction.Hit(delta, false);
         }
-        if (stun > 0 && stunIcon == null) stunIcon = Icon("Ultimate", new Color(1, .85f, .2f), 3.1f);
-        if (slow > 0 && slowIcon == null) slowIcon = Icon("Reload", new Color(.25f, .75f, 1), 2.5f);
+        if (stun > 0 && stunIcon == null) stunIcon = Icon("Ultimate", new Color(1, .85f, .2f));
+        if (slow > 0 && slowIcon == null) slowIcon = Icon("Reload", new Color(.25f, .75f, 1));
         Freeze();
     }
-    GameObject Icon(string key, Color tint, float height)
+    // Status icons share the head anchor with the role icon (RogueRoleMarker): stun on its left, slow on its right, never over the head.
+    GameObject Icon(string key, Color tint)
     {
         var go = new GameObject("Status_" + key, typeof(SpriteRenderer));
         go.transform.SetParent(transform, false);
-        go.transform.localScale = Vector3.one * (.8f / Mathf.Max(.01f, transform.lossyScale.x));
-        var body = GetComponent<Collider>();
-        float top = body != null ? body.bounds.max.y - transform.position.y : height;
-        go.transform.position = transform.position + Vector3.up * (top + (key == "Ultimate" ? .8f : .2f));
         var r = go.GetComponent<SpriteRenderer>(); r.sprite = RogueIcons.Get(key); r.color = tint;
+        // RogueRoleMarker.StatusSize metres across whatever the sprite's pixels-per-unit and the enemy's scale
+        float extent = r.sprite != null ? Mathf.Max(r.sprite.bounds.size.x, r.sprite.bounds.size.y) : 1f;
+        go.transform.localScale = Vector3.one * (RogueRoleMarker.StatusSize / Mathf.Max(.01f, extent) / Mathf.Max(.01f, Mathf.Abs(transform.lossyScale.x)));
+        PlaceIcon(go, key == "Ultimate" ? 0 : 1);
         return go;
+    }
+    void PlaceIcon(GameObject icon, int slot)
+    {
+        if (icon == null) return;
+        var cam = Camera.main;
+        icon.transform.position = RogueRoleMarker.StatusSlot(gameObject, slot, cam);
+        if (cam != null) icon.transform.rotation = cam.transform.rotation;
     }
     void Freeze()
     {
@@ -159,13 +167,13 @@ public sealed class RogueEnemyStatus : MonoBehaviour
                 if (Time.time >= slowUntil) { slowUntil = 0; slowScale = 1; }
             }
         }
-        UpdateIcon(stunIcon, StunRemaining > 0); UpdateIcon(slowIcon, Time.time < slowUntil);
+        UpdateIcon(stunIcon, StunRemaining > 0, 0); UpdateIcon(slowIcon, Time.time < slowUntil, 1);
     }
-    static void UpdateIcon(GameObject icon, bool visible)
+    void UpdateIcon(GameObject icon, bool visible, int slot)
     {
         if (icon == null) return;
         icon.SetActive(visible);
-        if (Camera.main != null) icon.transform.rotation = Camera.main.transform.rotation;
+        if (visible) PlaceIcon(icon, slot);
     }
     void Restore()
     {
@@ -177,7 +185,7 @@ public sealed class RogueEnemyStatus : MonoBehaviour
         Restore();
         if (slowUntil > 0 && agent != null && agent.enabled) { var ai=GetComponent<AI>(); if(ai!=null)agent.speed=ai.defaultSpeed; }
         stunUntil=slowUntil=pushLeft=0;slowScale=1;
-        UpdateIcon(stunIcon,false);UpdateIcon(slowIcon,false);
+        UpdateIcon(stunIcon,false,0);UpdateIcon(slowIcon,false,1);
     }
     void OnDisable() { ClearEffects(); }
 }

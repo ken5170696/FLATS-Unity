@@ -64,6 +64,22 @@ public sealed class RogueEliteAffixes : MonoBehaviour
         return damage * mul;
     }
 
+    /// <summary>True when no elite rule can change a hit on this enemy (no affixes of its own, no shield aura in range), so a client
+    /// may predict its death from health alone (RogueKillPrediction).</summary>
+    public static bool Predictable(DamageReceiver enemy)
+    {
+        if (enemy == null) return false;
+        var self = Of(enemy);
+        if (self != null && self.enabled) return false;
+        var auraDef = EliteAffixes.Def("af.shield_aura");
+        foreach (var other in live)
+        {
+            if (other == null || other.gameObject == enemy.gameObject || !other.Has("af.shield_aura")) continue;
+            if (Vector3.Distance(other.transform.position, enemy.transform.position) <= auraDef.V2) return false;
+        }
+        return true;
+    }
+
     // ------------------------------------------------------------------ damage to enemies
     /// <summary>A hit on an enemy (runs where the legacy code resolves enemy damage): an ally's shield aura, and Last Stand.</summary>
     public static float OnEnemyHit(DamageReceiver enemy, float damage)

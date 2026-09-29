@@ -592,6 +592,7 @@ GameObject:
   - component: {fileID: 5315933510541556972}
   - component: {fileID: 2280800533713785286}
   - component: {fileID: 2972703916095858798}
+  - component: {fileID: 8961476523444478454}
   m_Layer: 0
   m_Name: Primary
   m_TagString: Untagged
@@ -683,7 +684,7 @@ MonoBehaviour:
     m_HighlightedColor: {r: 1, g: 0.45, b: 0.7, a: 1}
     m_PressedColor: {r: 0.7, g: 0.05, b: 0.35, a: 1}
     m_SelectedColor: {r: 1, g: 0.45, b: 0.7, a: 1}
-    m_DisabledColor: {r: 0.75, g: 0.75, b: 0.75, a: 1}
+    m_DisabledColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.6}
     m_ColorMultiplier: 1
     m_FadeDuration: 0.1
   m_SpriteState:
@@ -702,6 +703,21 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &8961476523444478454
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3306575068314423633}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9fb069921e9d4f4dbc43e92d325c5e6b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsDisabledLook
+  disabledFace: {r: 0.45, g: 0.45, b: 0.45, a: 0.7}
+  disabledContentAlpha: 0.4
+  focusScale: 1.06
 --- !u!1 &4559561914686504287
 GameObject:
   m_ObjectHideFlags: 0
@@ -1279,6 +1295,7 @@ GameObject:
   - component: {fileID: 8692910428540247493}
   - component: {fileID: 5010097932314884072}
   - component: {fileID: 4184824371651463466}
+  - component: {fileID: 4000050556135248702}
   m_Layer: 0
   m_Name: Overview
   m_TagString: Untagged
@@ -1370,7 +1387,7 @@ MonoBehaviour:
     m_HighlightedColor: {r: 1, g: 0.45, b: 0.7, a: 1}
     m_PressedColor: {r: 0.7, g: 0.05, b: 0.35, a: 1}
     m_SelectedColor: {r: 1, g: 0.45, b: 0.7, a: 1}
-    m_DisabledColor: {r: 0.75, g: 0.75, b: 0.75, a: 1}
+    m_DisabledColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.6}
     m_ColorMultiplier: 1
     m_FadeDuration: 0.1
   m_SpriteState:
@@ -1389,6 +1406,21 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &4000050556135248702
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7840324653833114026}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9fb069921e9d4f4dbc43e92d325c5e6b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsDisabledLook
+  disabledFace: {r: 0.45, g: 0.45, b: 0.45, a: 0.7}
+  disabledContentAlpha: 0.4
+  focusScale: 1.06
 --- !u!1 &7987716458339386796
 GameObject:
   m_ObjectHideFlags: 0
@@ -1786,6 +1818,7 @@ GameObject:
   - component: {fileID: 2624560991784762358}
   - component: {fileID: 5689293098259165708}
   - component: {fileID: 5114264673174562173}
+  - component: {fileID: 2703185768342307023}
   m_Layer: 0
   m_Name: Secondary
   m_TagString: Untagged
@@ -1877,7 +1910,7 @@ MonoBehaviour:
     m_HighlightedColor: {r: 1, g: 0.45, b: 0.7, a: 1}
     m_PressedColor: {r: 0.7, g: 0.05, b: 0.35, a: 1}
     m_SelectedColor: {r: 1, g: 0.45, b: 0.7, a: 1}
-    m_DisabledColor: {r: 0.75, g: 0.75, b: 0.75, a: 1}
+    m_DisabledColor: {r: 0.45, g: 0.45, b: 0.45, a: 0.6}
     m_ColorMultiplier: 1
     m_FadeDuration: 0.1
   m_SpriteState:
@@ -1896,6 +1929,21 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &2703185768342307023
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8936671354728541302}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9fb069921e9d4f4dbc43e92d325c5e6b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsDisabledLook
+  disabledFace: {r: 0.45, g: 0.45, b: 0.45, a: 0.7}
+  disabledContentAlpha: 0.4
+  focusScale: 1.06
 --- !u!1 &8941472773474827477
 GameObject:
   m_ObjectHideFlags: 0

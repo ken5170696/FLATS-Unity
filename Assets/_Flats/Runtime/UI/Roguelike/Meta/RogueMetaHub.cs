@@ -375,10 +375,13 @@ public class RogueMetaHub : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Escape) || pad != null && pad.Action2.WasPressed) { if (modal.activeSelf) DismissModal(); else Close(); return; }
         if (!modal.activeSelf && !presetName.isFocused)
         {
-            if (Input.GetKeyDown(KeyCode.Q) || pad != null && pad.LeftBumper.WasPressed) { if(CurrentPage==1&&treeLayout.Portrait) SelectBranch(treeLayout.SelectedBranch-1); else SelectPage(CurrentPage - 1); }
-            if (Input.GetKeyDown(KeyCode.E) || pad != null && pad.RightBumper.WasPressed) { if(CurrentPage==1&&treeLayout.Portrait) SelectBranch(treeLayout.SelectedBranch+1); else SelectPage(CurrentPage + 1); }
+            // tab keys come from RogueInput: a pair no gameplay action is bound to (not Q/E, which are Interact and Change by default)
+            if (RogueInput.TabPreviousDown) { if(CurrentPage==1&&treeLayout.Portrait) SelectBranch(treeLayout.SelectedBranch-1); else SelectPage(CurrentPage - 1); }
+            if (RogueInput.TabNextDown) { if(CurrentPage==1&&treeLayout.Portrait) SelectBranch(treeLayout.SelectedBranch+1); else SelectPage(CurrentPage + 1); }
         }
-        RogueMetaUI.Put(footer, RogueInput.Current == RogueInput.Scheme.Gamepad ? "LB / RB: tabs   A: select   B: back" : RogueInput.IsTouch ? "Tap a card to inspect · swipe to scroll" : "Q / E: tabs   Enter: select   Esc: back");
+        string footerText = RogueInput.Current == RogueInput.Scheme.Gamepad ? RogueMetaUI.T("LB / RB: tabs   A: select   B: back") : RogueInput.IsTouch ? RogueMetaUI.T("Tap a card to inspect · swipe to scroll")
+            : RoguelikeController.T("{0} / {1}: tabs   Enter: select   Esc: back", RogueInput.TabPreviousKey, RogueInput.TabNextKey);
+        if (footer != null && footer.text != footerText) footer.text = footerText;
         if (EventSystem.current != null)
         {
             var selected = EventSystem.current.currentSelectedGameObject;

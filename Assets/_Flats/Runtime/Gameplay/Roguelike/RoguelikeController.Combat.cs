@@ -10,7 +10,9 @@ public partial class RoguelikeController
     /// <summary>Private validation overlay hook (no public implementation): may rewrite the planned encounter before it starts.</summary>
     partial void DebugOverrideEncounter();
     readonly Dictionary<int, RogueEnemyRole> liveEnemies = new Dictionary<int, RogueEnemyRole>();
-    readonly RoguePacing pacing = new RoguePacing();
+    // pacing compares against state.stageSeconds, which restarts at 0 every stage: a pacing kept across stages remembered the last
+    // stage's release time and held the next opening wave back until that time plus the wave gap (F22). One per stage.
+    RoguePacing pacing = new RoguePacing();
     int nextWave;
     float readyCountdown = -1;
     bool objectiveDone, stageEnding;
@@ -69,6 +71,7 @@ public partial class RoguelikeController
     {
         var map = RogueCatalog.Map(state.mapId);
         if (!machine.BeginCombat(map)) yield break;
+        pacing = new RoguePacing();
         DebugOverrideEncounter();
         CloseScreens();
         nextWave = 0; objectiveDone = false; stageEnding = false; commanderDied = false;
@@ -219,7 +222,7 @@ public partial class RoguelikeController
             var marker = role.MarkedBy;
             var bonus = marker != null ? machine.MarkedKillBonus(marker.Key, payout) : null;
             if (bonus != null && bonus.Total > 0) Notify(new RogueEventMessage { kind = "log", text = "Marked kill bonus +{0}|" + RogueMoney.Format(FirstValue(bonus)) });
-            Broadcast();
+            BroadcastSoon();
         }
         OnObjectiveEnemyKilled(role);
         if (eventRunner != null) eventRunner.OnEnemyKilled(role);
@@ -279,9 +282,10 @@ public partial class RoguelikeController
     {
         if (objectiveDone) return;
         objectiveDone = true;
-        double fraction = objectiveRunner != null ? objectiveRunner.RewardFraction : 1.0;
-        var pay = machine.ObjectiveCompleted();
-        if (fraction < 1.0 && pay.Total > 0) { /* half reward: the ledger already paid; claw back the difference from each wallet */ foreach (var p in state.players) { var v = pay.Minor.ContainsKey(p.key) ? pay.Minor[p.key] : 0; long back = RogueMoney.MulFraction(v, 1.0 - fraction); p.walletMinor = RogueMoney.Clamp(p.walletMinor - back); p.earnedMinor -= back; } }
+        // a fallback success (Convoy lost, Protect device lost) pays the reduced amount directly; the old pay-then-claw-back left the
+        // team total and the banner at the full amount (F29)
+        double fraction = objectiveRunner != null ? Math.Max(0.0, Math.Min(1.0, objectiveRunner.RewardFraction)) : 1.0;
+        var pay = machine.ObjectiveCompleted(fraction);
         Notify(new RogueEventMessage { kind = "banner", text = pay.Total > 0 ? "Objective complete!\n+{0} each|" + RogueMoney.Format(FirstValue(pay)) : "Objective complete!", value = 3 });
         if (objectiveRunner != null) objectiveRunner.Dispose();
         objectiveRunner = null;
@@ -319,8 +323,10 @@ public partial class RoguelikeController
     {
         if (!machine.ContinueChapter()) yield break;
         WriteCheckpoint();
-        Broadcast();
+        // no Broadcast here: the new chapter's Prep would open the next shop on every screen for the seconds before the scene
+        // changes (purchases there would be lost with the scene). Clients receive this state with the travel RPC instead.
         leaving = true; travelling = true;
+        CloseScreens();
         Notify(new RogueEventMessage { kind = "banner", text = "Travelling to {0}...|" + RogueCatalog.Map(state.mapId).SceneName, value = 3 });
         yield return new WaitForSeconds(1f);
         var map = RogueCatalog.Map(state.mapId);

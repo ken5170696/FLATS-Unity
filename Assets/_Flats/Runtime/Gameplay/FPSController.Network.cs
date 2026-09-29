@@ -617,6 +617,10 @@ public partial class FPSController
 		}
 	}
 
+	// Roguelike: a remote copy's velocity, smoothed over ~0.15 s so network jitter no longer flips its legs between idle and
+	// a full stride (F38); the classic path below keeps the legacy 10 u/s threshold.
+	private Vector3 rogueRemoteVelocity;
+
 	private IEnumerator SyncAnimation()
 	{
 		while (true)
@@ -626,12 +630,35 @@ public partial class FPSController
 				Vector3 vector = lastPosition;
 				if (Menu.network != 1)
 				{
-					vector = mt.InverseTransformDirection(mt.position - lastPosition) / Time.deltaTime;
+					vector = mt.InverseTransformDirection(mt.position - lastPosition) / (RoguelikeMode.Active ? Mathf.Max(Time.deltaTime, 0.0001f) : Time.deltaTime);
 				}
 				if (anim == null)
 				{
 					anim = GetComponent<Animator>();
 				}
+				if (RoguelikeMode.Active)
+				{
+					rogueRemoteVelocity = Vector3.Lerp(rogueRemoteVelocity, vector, 1f - Mathf.Exp(-Time.deltaTime / 0.15f));
+					float sp = rogueRemoteVelocity.magnitude;
+					bool moving = enableControl && sp > RogueLocomotion.RemoteMinSpeed && sp < 60f;
+					anim.SetFloat("Vertical", moving ? RogueLocomotion.LegParam(rogueRemoteVelocity.z) : 0f, 0.1f, Time.deltaTime);
+					anim.SetFloat("Horizontal", moving ? RogueLocomotion.LegParam(rogueRemoteVelocity.x) : 0f, 0.1f, Time.deltaTime);
+					if (isGrounded())
+					{
+						anim.SetBool("Jump", false);
+						anim.SetBool("Run", rogueRemoteVelocity.z > 20f && !zombie);
+					}
+					else
+					{
+						anim.SetBool("Jump", true);
+						anim.SetBool("Run", false);
+					}
+					yield return new WaitForEndOfFrame();
+					lastPosition = mt.position;
+					yield return new WaitForSeconds(0f);
+					continue;
+				}
+				rogueRemoteVelocity = Vector3.zero;
 				float num = 10f;
 				if (Menu.network == 0)
 				{

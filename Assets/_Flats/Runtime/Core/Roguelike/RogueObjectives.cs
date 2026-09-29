@@ -200,7 +200,7 @@ namespace Flats.Core.Roguelike
         public ConvoyObjective(double hp = 1000) : base("fin.convoy") { Data.Put("hp", RogueStateBag.Positive(hp)); Data.Put("maxhp", hp); }
         public bool Stopped { get { return Status == ObjectiveStatus.Active && Data.Number("window") > 0; } }
         public double CarrierProgress { get { return Data.Number("carrier"); } }
-        public double FallbackRewardMultiplier { get { return Status == ObjectiveStatus.Failed ? .5 : 1; } }
+        public double FallbackRewardMultiplier { get { return Status == ObjectiveStatus.Failed ? RogueCatalog.ConvoyFailureRewardMultiplier : 1; } }
         public void OnCarrierProgress(double progress) { RogueStateBag.Unit(progress); if (Status != ObjectiveStatus.Active || Stopped) return; Data.Put("carrier", Math.Max(CarrierProgress, progress)); if (CarrierProgress >= 1) Status = ObjectiveStatus.Failed; }
         public void OnEscortKilled(int remaining) { if (remaining < 0) throw new ArgumentOutOfRangeException("remaining"); if (Status != ObjectiveStatus.Active) return; if (remaining > 0) Data.Put("cleared", 0); if (remaining == 0 && Data.Number("cleared") == 0) { Data.Put("cleared", 1); Data.Put("window", 12); } }
         public bool OnDamaged(double amount) { RogueStateBag.NonNegative(amount); if (!Stopped) return false; Data.Put("hp", Math.Max(0, Data.Number("hp") - amount)); Progress = 1 - Data.Number("hp") / Data.Number("maxhp"); if (Progress >= 1) Status = ObjectiveStatus.Succeeded; return true; }
@@ -208,6 +208,5 @@ namespace Flats.Core.Roguelike
         public ClearObjective FallbackToClear(int plannedEnemies = -1) { if (Status != ObjectiveStatus.Failed) throw new InvalidOperationException(); return new ClearObjective(plannedEnemies); }
     }
 }
-
 
 

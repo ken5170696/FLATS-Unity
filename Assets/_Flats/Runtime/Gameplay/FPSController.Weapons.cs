@@ -15,6 +15,7 @@ public partial class FPSController
 			return;
 		}
 		if (zoom && RoguelikeMode.Active && !RogueHooks.MetaCanAim(this)) return;   // armory weapons that cannot aim
+		if (zoom && !RogueAllows(RogueAction.Aim)) return;   // carrying, downed, melee swing, menu open
 		if (!Aiming && zoom)
 		{
 			if (primarySightIndex == 0)
@@ -69,8 +70,15 @@ public partial class FPSController
 	[PunRPC]
 	private IEnumerator Smash()
 	{
-		if (RoguelikeMode.Active && RogueHooks.MeleeBlocked(this))
+		if (RogueEntryRefused(RogueAction.Melee))
 		{
+			yield break;
+		}
+		// Fire near anything used to become this smash (legacy auto-melee), which also got around the carry rule (X5).
+		// In Roguelike only a melee input swings; the owner turns a Fire-made smash back into a shot.
+		if (RoguelikeMode.Active && MyView(base.gameObject) && !RogueActionGate.ExplicitMeleeThisFrame(this))
+		{
+			RogueFireInstead();
 			yield break;
 		}
         if (RoguelikeMode.Active && RogueMelee.Handles(this)) { yield return RogueMelee.Swing(this); yield break; }
@@ -179,6 +187,7 @@ public partial class FPSController
 	private IEnumerator Shoot()
 	{
         if (RoguelikeMode.Active && RogueMelee.BlocksFire(this)) yield break;
+		if (RogueEntryRefused(RogueAction.Fire)) yield break;   // carrying, downed, menu open (F39)
 		if (zombie)
 		{
 			anim.SetBool("ZombieAttack", true);
@@ -349,6 +358,11 @@ public partial class FPSController
 		{
 			yield break;
 		}
+		if (RogueEntryRefused(RogueAction.Reload)) yield break;
+		// A carry or a down cancels a reload in progress (RogueCancelWeaponConflicts). PUN starts this RPC from an
+		// IEnumerator, which StopCoroutine("Reload") cannot stop, so the coroutine checks its token after every wait.
+		int rogueToken = ++rogueReloadToken;
+		if (RoguelikeMode.Active) rogueReloadingUntil = Time.time + 1.5f + (0.5f + currentGun.reloadTime) * RogueHooks.ReloadTimeMul(this);
 		if (RoguelikeMode.Active) RogueHooks.OnReloadStarted(this, current, limit);
 		if (MyView(base.gameObject) && Aiming)
 		{
@@ -358,32 +372,40 @@ public partial class FPSController
 		base.GetComponent<AudioSource>().PlayOneShot(reloadStartSE);
 		anim.SetBool("Reload", true);
 		yield return new WaitForSeconds(0.1f);
+		if (RogueReloadCancelled(rogueToken)) yield break;
 		if (currentGun.handgun)
 		{
 			yield return new WaitForSeconds(0.05f);
+			if (RogueReloadCancelled(rogueToken)) yield break;
 		}
 		ikc.leftIK = false;
         var ammunition = Flats.Core.WeaponAmmoPolicy.Reload(current, max, limit);
         current = ammunition.Magazine;
         max = ammunition.Reserve;
 		yield return new WaitForSeconds((0.5f + currentGun.reloadTime) * (RoguelikeMode.Active ? RogueHooks.ReloadTimeMul(this) : 1f));
+		if (RogueReloadCancelled(rogueToken)) yield break;
 		if (primarySightIndex != 0)
 		{
 			yield return new WaitForSeconds(0.1f);
+			if (RogueReloadCancelled(rogueToken)) yield break;
 		}
 		anim.SetBool("Reload", false);
 		yield return new WaitForSeconds(0.5f);
+		if (RogueReloadCancelled(rogueToken)) yield break;
 		base.GetComponent<AudioSource>().PlayOneShot(reloadEndSE);
 		yield return new WaitForSeconds(0.05f);
+		if (RogueReloadCancelled(rogueToken)) yield break;
 		if (!currentGun.handgun)
 		{
 			yield return new WaitForSeconds(0.05f);
+			if (RogueReloadCancelled(rogueToken)) yield break;
 		}
 		ikc.leftIK = true;
 		if (RoguelikeMode.Active) max = Mathf.Min(currentGun.limitMaxAmmo, max + RogueHooks.ReserveReturnOnReload(this));
 		currentGun.currentAmmo = current;
 		currentGun.maxAmmo = max;
 		if (RoguelikeMode.Active) RogueHooks.MetaReloadCompleted(this, current, currentGun.limitAmmo);
+		if (rogueToken == rogueReloadToken) rogueReloadingUntil = 0f;
 		enableFire = true; firing = false;
 		yield return new WaitForSeconds(0.1f);
 	}
@@ -393,6 +415,13 @@ public partial class FPSController
 	{
 		if (zombie)
 		{
+			yield break;
+		}
+		if (RoguelikeMode.Active && MyView(base.gameObject) && !RogueActionGate.Allows(this, RogueAction.SwitchWeapon))
+		{
+			// Refused after the swap was already sent (a send site that skipped RogueAllows): the other copies swap once
+			// that swap has finished, then back, so every copy keeps the owner's weapons.
+			if (Menu.network == 2 && base.gameObject.GetPhotonView().isMine) StartCoroutine(RogueRevertRemoteSwap());
 			yield break;
 		}
 		if (MyView(base.gameObject) && Aiming)
@@ -485,6 +514,7 @@ public partial class FPSController
 		{
 			yield break;
 		}
+		if (RogueEntryRefused(RogueAction.Grenade)) yield break;
 		base.GetComponent<AudioSource>().PlayOneShot(grenadeSE);
 		if (MyView(base.gameObject) && Aiming)
 		{
@@ -529,6 +559,58 @@ public partial class FPSController
 		anim.SetBool("Grenade", false);
 		yield return new WaitForSeconds(0.1f);
 		enableFire = true; firing = false;
+	}
+
+	// ---- Roguelike action rule (RogueActionGate, F39). The owner applies the whole rule at every entry. Other copies
+	// only mirror a downed player (replicated and long-lived): a carry event landing between the owner's send and a
+	// copy's receipt must never make the copies disagree. Send sites in FPSController.cs/Touch.cs ask RogueAllows first.
+	private bool RogueAllows(RogueAction action)
+	{
+		return !RoguelikeMode.Active || RogueActionGate.Allows(this, action);
+	}
+
+	private bool RogueEntryRefused(RogueAction action)
+	{
+		if (!RoguelikeMode.Active) return false;
+		if (MyView(base.gameObject)) return !RogueActionGate.Allows(this, action);
+		return action != RogueAction.SwitchWeapon && action != RogueAction.Reload && RogueHooks.JumpBlocked(this);
+	}
+
+	private int rogueReloadToken;
+	private float rogueReloadingUntil;
+	private bool RogueReloadCancelled(int token) { return RoguelikeMode.Active && token != rogueReloadToken; }
+
+	/// <summary>Aiming or aiming-in (owner), for the hold-interaction rule.</summary>
+	public bool RogueAiming => Aiming;
+	/// <summary>A shot, reload, weapon change or grenade is under way: a hold interaction stops (F42).</summary>
+	public bool RogueWeaponBusy => firing || Time.time < rogueReloadingUntil || (anim != null && (anim.GetBool("Change") || anim.GetBool("Grenade")));
+
+	/// <summary>Carry start or going down: end aiming (owner) and a reload in progress (every copy; its rounds are never committed).</summary>
+	public void RogueCancelWeaponConflicts()
+	{
+		if (MyView(base.gameObject) && Aiming) Zoom(false);
+		if (Time.time >= rogueReloadingUntil) return;
+		rogueReloadToken++;
+		rogueReloadingUntil = 0f;
+		if (anim != null) anim.SetBool("Reload", false);
+		if (ikc != null) ikc.leftIK = true;
+		enableFire = !RogueHooks.JumpBlocked(this); firing = false;
+	}
+
+	// The owner refused a Fire-made smash (X5): fire the gun instead, through the same send path as the trigger.
+	private void RogueFireInstead()
+	{
+		if (!enableFire || !RogueActionGate.Allows(this, RogueAction.Fire)) return;
+		if (Menu.network == 0) StartCoroutine("Shoot");
+		else if (Menu.network != 1 && base.gameObject.GetPhotonView().isMine) base.gameObject.GetPhotonView().RPC("Shoot", PhotonTargets.All);
+	}
+
+	private IEnumerator RogueRevertRemoteSwap()
+	{
+		float swap = RogueHooks.MetaSwapTimeMul(this);
+		yield return new WaitForSeconds(0.25f + 0.75f * swap + 0.4f);   // ChangeWeapons' own duration plus network slack
+		var view = base.gameObject.GetPhotonView();
+		if (view != null && view.isMine && PhotonNetwork.inRoom) view.RPC("ChangeWeapons", PhotonTargets.Others);
 	}
 
 	public Vector3 GetBulletTrailOrigin()

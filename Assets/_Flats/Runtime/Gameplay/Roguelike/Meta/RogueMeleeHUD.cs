@@ -19,6 +19,8 @@ public sealed class RogueMeleeHUD : MonoBehaviour, IPointerDownHandler, IPointer
     {
         if(melee==null)return;melee.TouchHeld(true);
         var fc=melee.GetComponent<FPSController>();
+        if(fc==null||!fc.MeleeReady)return;
+        RogueActionGate.NoteMeleeRequest(fc);
         if(Menu.network==0)fc.StartCoroutine("Smash");else fc.GetComponent<PhotonView>().RPC("Smash",PhotonTargets.All);
     }
     public void OnPointerUp(PointerEventData data) { if(melee!=null)melee.TouchHeld(false); }

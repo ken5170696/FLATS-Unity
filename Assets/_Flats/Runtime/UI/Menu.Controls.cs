@@ -91,6 +91,8 @@ public partial class Menu
         if (aimSensitivity != null) aimSensitivity.GetChild(1).GetComponent<Text>().text = FlatsControls.AimSensitivityNames[FlatsControls.AimSensitivityIndex];
         var killCinematic = SettingsRow("KillCinematic");
         if (killCinematic != null) killCinematic.GetChild(1).GetComponent<Text>().text = FlatsControls.KillCinematic ? "ON" : "OFF";
+        // Authored in SettingsScreen → ExtraSettings as a copy of the KillCinematic row; builds without the row skip it.
+        SetRowValue("DamageNumbers", FlatsControls.DamageNumbers ? "ON" : "OFF");
         SetRowValue("PadPreset", FlatsGamepad.CurrentPreset() < 0 ? "Custom" : FlatsGamepad.PresetNames[FlatsGamepad.CurrentPreset()]);
         SetRowValue("PadLookH", FlatsGamepad.SpeedLabel(FlatsGamepad.LookHIndex));
         SetRowValue("PadLookV", FlatsGamepad.SpeedLabel(FlatsGamepad.LookVIndex));
@@ -120,6 +122,7 @@ public partial class Menu
         else if (row.name == "AimMode") FlatsControls.HoldToAim = !FlatsControls.HoldToAim;
         else if (row.name == "AimSensitivity") FlatsControls.AimSensitivityIndex += direction;
         else if (row.name == "KillCinematic") FlatsControls.KillCinematic = !FlatsControls.KillCinematic;
+        else if (row.name == "DamageNumbers") FlatsControls.DamageNumbers = !FlatsControls.DamageNumbers;
         else if (row.name == "PadPreset")
         {
             int count = FlatsGamepad.PresetNames.Length, current = FlatsGamepad.CurrentPreset();
@@ -206,6 +209,7 @@ public partial class Menu
         if (action == "Interact") return "Pick up / exchange / revive";
         if (action == "Ultimate") return "Ultimate (Roguelike)";
         if (action == "Tactical") return "Tactical skill (Roguelike)";
+        if (action == "Shop") return "Open shop (Roguelike)";
         if (action == "Left") return "Move left";
         if (action == "Right") return "Move right";
         return action;
@@ -219,7 +223,7 @@ public partial class Menu
             string action = BindingAction(i);
             bindingRows[i].transform.Find("Label").GetComponent<Text>().text = FlatsControls.Label(action, bindingPad);
             bindingLabels[i].text = ActionName(action, false);
-            bindingDetails[i].text = bindingPad && action == "Sprint" ? "Click to toggle" : bindingPad && action == "Change" ? "Hold to pick up" :
+            bindingDetails[i].text = bindingPad && action == "Sprint" ? "Click to toggle" : bindingPad && action == "Change" ? "Hold to pick up or interact" :
                 !bindingPad && action == "Aim" ? (FlatsControls.HoldToAim ? "Hold to aim" : "Press to toggle") : "";
             // The action name fills the row height: centred alone, at the top above a hint line.
             bindingLabels[i].alignment = bindingDetails[i].text.Length > 0 ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft;

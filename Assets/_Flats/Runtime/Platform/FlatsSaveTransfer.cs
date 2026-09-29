@@ -169,7 +169,7 @@ public static class FlatsSaveTransfer
         foreach (string action in FlatsControls.PadActions) yield return "controls.v1.pad." + action;
         yield return FlatsControls.AimModeKey;
         yield return FlatsControls.AimSensitivityKey;
-        yield return FlatsControls.KillCinematicKey;
+        yield return FlatsControls.KillCinematicKey; yield return FlatsControls.DamageNumbersKey;
         foreach (string key in FlatsGamepad.Keys) yield return key;
         yield return "controllermapping";
         yield return "touchmapping";
@@ -206,7 +206,7 @@ public static class FlatsSaveTransfer
         if (entry.kind != "string") return false;
         if (key == LanguageKey) return value == "en" || value == "zh-Hant";
         if (key == FlatsControls.AimModeKey) return value == "hold" || value == "toggle";
-        if (key == FlatsControls.KillCinematicKey) return value == "on" || value == "off";
+        if (key == FlatsControls.KillCinematicKey) return value == "on" || value == "off"; if (key == FlatsControls.DamageNumbersKey) return value == "on" || value == "off";
         if (Array.IndexOf(FlatsGamepad.Keys, key) >= 0) return FlatsGamepad.Valid(key, value);
         if (key == FlatsControls.AimSensitivityKey)
             return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int level) && level < FlatsControls.AimSensitivities.Length;

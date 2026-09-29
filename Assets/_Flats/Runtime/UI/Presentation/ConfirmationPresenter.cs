@@ -21,6 +21,7 @@ namespace Flats.UI
             Bind(view.alert,positiveBtnText,true,action);
             view.positive.gameObject.SetActive(choice);view.negative.gameObject.SetActive(choice);view.alert.gameObject.SetActive(!choice);
             confirm.SetActive(true);
+            KeepOnTop();
             ResetMessageScroll();
             if(EventSystem.current!=null)EventSystem.current.SetSelectedGameObject(choice?view.negative.gameObject:view.alert.gameObject);
         }
@@ -31,5 +32,13 @@ namespace Flats.UI
             button.onClick.AddListener(()=>{OnClickedConfirm();action?.Invoke(accepted);});
         }
         public void OnClickedConfirm(){confirm.SetActive(false);}
+        // Screens opened later under the same Menu (the Roguelike run screen and overview) are later siblings and would
+        // cover the dialog and take its clicks; a nested canvas sorts the dialog above them without touching sibling order.
+        void KeepOnTop()
+        {
+            var canvas=confirm.GetComponent<Canvas>();
+            if(canvas==null){canvas=confirm.AddComponent<Canvas>();if(confirm.GetComponent<GraphicRaycaster>()==null)confirm.AddComponent<GraphicRaycaster>();}
+            canvas.overrideSorting=true;canvas.sortingOrder=500;
+        }
     }
 }

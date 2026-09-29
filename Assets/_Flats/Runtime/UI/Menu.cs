@@ -1208,6 +1208,8 @@ public partial class Menu : MonoBehaviour
 				startNow.transform.GetChild(0).GetComponent<Text>().text = "Add bot and Start Now! " + startNowPlayer + "/" + num / 2;
 			}
 		}
+		// Back from a Roguelike co-op result with the squad: still in the room, show the room screen (Menu.RogueRoom).
+		if (gameState == "Main") ConsumeRoomReturn();
 		if (!Application.isMobilePlatform && !VRmode && GetComponent<FlatsDesktopSettings>() == null)
 			gameObject.AddComponent<FlatsDesktopSettings>().Initialize(settingsScreen.GetChild(3));
 		if (gameState == "Main")
@@ -1252,6 +1254,7 @@ public partial class Menu : MonoBehaviour
 	{
         if (TickBindingCapture()) return;
         TickLocalMatch();
+        TickRogueRoom();
 		InputDevice activeDevice = InputManager.ActiveDevice;
         if (multiplayerConnecting && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed ||
             activeDevice.Action2.WasPressed))
@@ -1271,7 +1274,7 @@ public partial class Menu : MonoBehaviour
 				return;
 			}
 		}
-		if (current != "Modules" && !fliping && !backWithCancel && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
+		if (current != "Modules" && !fliping && !backWithCancel && !RogueResultView.BlocksMenuInput && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
 		{
 			Fade(-1);
 		}
@@ -1625,7 +1628,8 @@ public partial class Menu : MonoBehaviour
 		[PunRPC]
 		private void StartNow()
 		{
-            if (readyStarted || !PhotonNetwork.inRoom) return;
+            // Roguelike co-op rooms use per-player ready (Menu.RogueRoom); a start vote never counts there.
+            if (readyStarted || !PhotonNetwork.inRoom || RogueRoomActive) return;
 			startNowPlayer++;
 			Debug.Log("Current start now player: " + startNowPlayer);
 			int num = playerCount;

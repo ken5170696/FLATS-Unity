@@ -151,6 +151,23 @@ public class RogueScreenView : MonoBehaviour
         if (footerNote != null) footerNote.text = note ?? "";
     }
 
+    /// <summary>Footer buttons stay visible but greyed when the local player may not use them (a non-host at the chapter end).</summary>
+    public void SetFooterInteractable(bool primaryOn, bool secondaryOn)
+    {
+        if (primary != null) primary.interactable = primaryOn;
+        if (secondary != null) secondary.interactable = secondaryOn;
+    }
+
+    Color primaryBaseColor; bool primaryColorKnown;
+    /// <summary>Marks the primary button as a state that is on (the player is ready): the label then says what pressing it undoes.</summary>
+    public void SetPrimaryHighlight(bool on)
+    {
+        var image = primary != null ? primary.targetGraphic as Image : null;
+        if (image == null) return;
+        if (!primaryColorKnown) { primaryBaseColor = image.color; primaryColorKnown = true; }
+        image.color = on ? Color.Lerp(primaryBaseColor, new Color(0.3f, 0.75f, 0.4f, primaryBaseColor.a), 0.65f) : primaryBaseColor;
+    }
+
     void Bind(Button button, Text label, Image icon, string text, string iconName, Action action)
     {
         if (button == null) return;

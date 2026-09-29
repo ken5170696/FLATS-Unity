@@ -402,8 +402,12 @@ public class Multiplayer : MonoBehaviour
 			}
 		}
 		yield return new WaitForSeconds(2f);
-		phaseText.text = "";
-		phaseText.enabled = false;
+		// Roguelike co-op owns the message line from here (waiting for the host, stage banners); clear only our own title
+		if (Menu.rule != RoguelikeMode.CoopRule || phaseText.text == ruleTitleText[Menu.rule])
+		{
+			phaseText.text = "";
+			phaseText.enabled = false;
+		}
 		while (true)
 		{
 			if (Menu.network == 0)

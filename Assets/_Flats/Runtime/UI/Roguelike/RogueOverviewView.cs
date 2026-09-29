@@ -234,9 +234,10 @@ public class RogueOverviewView : MonoBehaviour
         if (hudCanvas != null && hudCanvas.enabled) hudCanvas.enabled = false;
         if (confirmOpen()) return;
         var pad = InControl.InputManager.ActiveDevice;
-        // Q/E or the pad bumpers cycle tabs; TAB and Escape close (the controller owns the toggle so it can refresh state).
-        if (Input.GetKeyDown(KeyCode.Q) || (pad != null && pad.LeftBumper.WasPressed)) Select(Current - 1);
-        else if (Input.GetKeyDown(KeyCode.E) || (pad != null && pad.RightBumper.WasPressed)) Select(Current + 1);
+        // two keys no gameplay action is bound to (RogueInput picks them) or the pad bumpers cycle tabs; TAB and Escape close
+        // (the controller owns the toggle so it can refresh state)
+        if (RogueInput.TabPreviousDown) Select(Current - 1);
+        else if (RogueInput.TabNextDown) Select(Current + 1);
         for (int i = 0; i < tabs.Length && i < 9; i++) if (Input.GetKeyDown(KeyCode.Alpha1 + i)) Select(i);
         if (Input.GetKeyDown(KeyCode.Escape) || (pad != null && pad.Action2.WasPressed))
         {

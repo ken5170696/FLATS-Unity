@@ -611,9 +611,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 658383233680333634}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: a5d9865a74194254a0c7cb4fef3c33e8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.2, a: 1}
   m_RaycastTarget: 0
@@ -636,6 +636,7 @@ MonoBehaviour:
     m_VerticalOverflow: 1
     m_LineSpacing: 1
   m_Text: +$12
+  translate: 0
 --- !u!114 &4184746406485257180
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -683,7 +684,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1644938269126293214
 RectTransform:
   m_ObjectHideFlags: 0
@@ -720,9 +721,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 678227445934539545}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: a5d9865a74194254a0c7cb4fef3c33e8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 0.7}
   m_RaycastTarget: 0
@@ -745,6 +746,7 @@ MonoBehaviour:
     m_VerticalOverflow: 1
     m_LineSpacing: 1
   m_Text: / 500
+  translate: 0
 --- !u!1 &752375294970902970
 GameObject:
   m_ObjectHideFlags: 0
@@ -1310,7 +1312,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &5486763807301508572
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1347,9 +1349,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1439835670413953950}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: a5d9865a74194254a0c7cb4fef3c33e8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 0.7}
   m_RaycastTarget: 0
@@ -1372,6 +1374,7 @@ MonoBehaviour:
     m_VerticalOverflow: 1
     m_LineSpacing: 1
   m_Text: / 1500
+  translate: 0
 --- !u!1 &1687197964293179210
 GameObject:
   m_ObjectHideFlags: 0
@@ -1958,7 +1961,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0.5}
   m_AnchorMax: {x: 0, y: 0.5}
   m_AnchoredPosition: {x: 8, y: 0}
-  m_SizeDelta: {x: 84, y: 16}
+  m_SizeDelta: {x: 80, y: 28}
   m_Pivot: {x: 0, y: 0.5}
 --- !u!222 &8398187270723952071
 CanvasRenderer:
@@ -1977,9 +1980,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2204668981435541509}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: a5d9865a74194254a0c7cb4fef3c33e8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 0.8}
   m_RaycastTarget: 0
@@ -1990,18 +1993,19 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 12800000, guid: 7e97e1fb4f0f2684293e6fd3c05e5d04, type: 3}
-    m_FontSize: 11
+    m_FontSize: 12
     m_FontStyle: 0
     m_BestFit: 1
-    m_MinSize: 8
-    m_MaxSize: 11
+    m_MinSize: 10
+    m_MaxSize: 12
     m_Alignment: 3
     m_AlignByGeometry: 0
     m_RichText: 1
     m_HorizontalOverflow: 0
-    m_VerticalOverflow: 1
+    m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Assault Rifle 1
+  translate: 0
 --- !u!1 &2317595411989781261
 GameObject:
   m_ObjectHideFlags: 0
@@ -2111,8 +2115,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 0.5}
   m_AnchorMax: {x: 1, y: 0.5}
-  m_AnchoredPosition: {x: -42, y: 0}
-  m_SizeDelta: {x: 44, y: 28}
+  m_AnchoredPosition: {x: -8, y: 0}
+  m_SizeDelta: {x: 100, y: 28}
   m_Pivot: {x: 1, y: 0.5}
 --- !u!222 &6002518406144241856
 CanvasRenderer:
@@ -2131,9 +2135,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2357624856385871332}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: a5d9865a74194254a0c7cb4fef3c33e8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -2155,7 +2159,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 30
+  m_Text: 30<size=13><color=#FFFFFFB3> / 500</color></size>
+  translate: 0
 --- !u!1 &2730516993908947754
 GameObject:
   m_ObjectHideFlags: 0
@@ -4523,7 +4528,7 @@ RectTransform:
   m_AnchorMin: {x: 1, y: 0}
   m_AnchorMax: {x: 1, y: 0}
   m_AnchoredPosition: {x: -14, y: 8}
-  m_SizeDelta: {x: 170, y: 32}
+  m_SizeDelta: {x: 200, y: 32}
   m_Pivot: {x: 1, y: 0}
 --- !u!222 &5512569640524355456
 CanvasRenderer:
@@ -5664,9 +5669,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 6860654986391160212}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: a5d9865a74194254a0c7cb4fef3c33e8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.75, b: 0.2, a: 1}
   m_RaycastTarget: 0
@@ -5677,7 +5682,7 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 12800000, guid: 7e97e1fb4f0f2684293e6fd3c05e5d04, type: 3}
-    m_FontSize: 11
+    m_FontSize: 12
     m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 10
@@ -5689,6 +5694,7 @@ MonoBehaviour:
     m_VerticalOverflow: 1
     m_LineSpacing: 1
   m_Text: 
+  translate: 0
 --- !u!1 &7006012237106718399
 GameObject:
   m_ObjectHideFlags: 0
@@ -7314,7 +7320,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
   m_AnchoredPosition: {x: 42, y: -1}
-  m_SizeDelta: {x: 60, y: 22}
+  m_SizeDelta: {x: 110, y: 22}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &349368700067326971
 CanvasRenderer:
@@ -7333,9 +7339,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 8663590535746826913}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: a5d9865a74194254a0c7cb4fef3c33e8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -7357,7 +7363,8 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1
-  m_Text: 1500
+  m_Text: 1500<size=13><color=#FFFFFFB3> / 1500</color></size>
+  translate: 0
 --- !u!1 &8675225971352079430
 GameObject:
   m_ObjectHideFlags: 0

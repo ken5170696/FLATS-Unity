@@ -14,6 +14,8 @@ namespace Flats.Core.Roguelike
         public string name = "";
         public long walletMinor;
         public long earnedMinor, spentMinor;
+        public long refundedMinor;
+        public double overshieldFraction;   // carried between stages, replenished only by a purchase
         public PlayerBuild build = new PlayerBuild();
         public int ultimateCharge;           // 0..100
         public bool reviveUsed;              // once-per-run flag, survives swaps and reconnects
@@ -35,7 +37,7 @@ namespace Flats.Core.Roguelike
     [Serializable]
     public sealed class RunState
     {
-        public int schema = 1;
+        public int schema = 2;
         public string runId = "";
         public string rulesVersion = RogueCatalog.RulesVersion;
         public string contentHash = "";
@@ -59,6 +61,8 @@ namespace Flats.Core.Roguelike
         public string[] rescuesPaid = new string[0];     // RescueKey entries this stage
         public int deepestDepth = 1;
         public long teamEarnedMinor;
+        public int paidDepth;                // the ledger/plan belong to this depth, including host-change replays
+        public string[] rewardPaidPlayers = new string[0];
         public double stageSeconds;                     // authority clock within the stage
         public int riskContract;                        // 0 none, 1 accepted this stage
         public double stageBountyMul = 1;
@@ -183,19 +187,26 @@ namespace Flats.Core.Roguelike
         {
             var p = tx != null ? State.Player(tx.playerKey) : null;
             if (p == null) return new TransactionResult { Status = TransactionStatus.NotAllowed, Reason = "unknown player" };
-            bool open = State.phase == RunPhase.Prep || State.phase == RunPhase.ChapterEnd || (tx.rewardPick && State.phase == RunPhase.Reward);
+            if (Array.IndexOf(p.processedTx, tx.txId) >= 0)
+                return new TransactionResult { Status = TransactionStatus.Duplicate, Reason = "already processed", NewShopVersion = p.shopVersion };
+            bool open = tx.rewardPick
+                ? State.phase == RunPhase.Reward && !tx.remove && !tx.reroll && Array.IndexOf(State.rewardPaidPlayers, p.key) < 0
+                : State.phase == RunPhase.Prep || State.phase == RunPhase.ChapterEnd;
             var processed = new List<string>(p.processedTx);
             long wallet = p.walletMinor; int version = p.shopVersion; int rerolls = p.rerollsLeft;
             var offers = tx.rewardPick ? p.rewardOffers : p.offers;
-            if (tx.reroll && tx.expectedPriceMinor != RogueShop.RerollPriceMinor(State.Chapter))
+            if (open && !tx.remove && tx.reroll && tx.expectedPriceMinor != RogueShop.RerollPriceMinor(State.Chapter))
                 return new TransactionResult { Status = TransactionStatus.PriceMismatch, Reason = "reroll price changed", NewShopVersion = p.shopVersion };
-            var result = RogueShop.Apply(tx, ref wallet, p.build, offers, ref version, ref rerolls, processed, open, State.runId);
+            var result = RogueShop.Apply(tx, ref wallet, p.build, offers, ref version, ref rerolls, processed, open, State.runId, State.phase);
             if (result.Ok)
             {
                 p.spentMinor += result.PaidMinor;
+                p.refundedMinor += result.RefundMinor;
+                if (tx.rewardPick) { var paid = new List<string>(State.rewardPaidPlayers) { p.key }; State.rewardPaidPlayers = paid.ToArray(); }
+                if (result.ItemId == "supply.medkit") p.overshieldFraction = 1;
                 p.walletMinor = wallet; p.rerollsLeft = rerolls; p.processedTx = processed.ToArray();
                 p.shopVersion = version;
-                if (tx.reroll) { SampleShop(p, State.phase == RunPhase.ChapterEnd); p.rerollsLeft = rerolls; }
+                if (tx.reroll && !tx.remove) { SampleShop(p, State.phase == RunPhase.ChapterEnd); p.rerollsLeft = rerolls; }
                 Persist();
             }
             return result;
@@ -205,17 +216,24 @@ namespace Flats.Core.Roguelike
         public bool BeginCombat(MapDef map)
         {
             if (State.phase != RunPhase.Prep) return false;
-            State.encounterCounter++;
-            State.ledger = RogueEconomy.Open(State.encounterCounter, State.depth, State.difficulty, State.ConnectedPlayers, State.routeTag);
-            State.encounter = RogueDirector.Plan(rng, runSalt, State.encounterCounter, State.depth, State.difficulty, State.ConnectedPlayers, map, State.routeTag, State.history);
-            MetaRun.ApplyToPlan(State.encounter, State.heat, MetaRun.SquadPower(State));
-            foreach (var w in State.encounter.waves) RogueEconomy.Reserve(State.ledger, w.roles, w.weights);
-            // the wave slots were split per wave; re-split so the whole stage sums to G exactly
-            var allRoles = new List<string>(); var allWeights = new List<int>();
-            foreach (var w in State.encounter.waves) { allRoles.AddRange(w.roles); allWeights.AddRange(w.weights); }
-            State.ledger.slots.Clear(); State.ledger.nextInstanceId = 1;
-            RogueEconomy.Reserve(State.ledger, allRoles, allWeights);
-            State.rescuesPaid = new string[0];
+            if (State.paidDepth != State.depth)
+            {
+                State.encounterCounter++;
+                State.ledger = RogueEconomy.Open(State.encounterCounter, State.depth, State.difficulty, State.ConnectedPlayers, State.routeTag);
+                State.encounter = RogueDirector.Plan(rng, runSalt, State.encounterCounter, State.depth, State.difficulty, State.ConnectedPlayers, map, State.routeTag, State.history);
+                MetaRun.ApplyToPlan(State.encounter, State.heat, MetaRun.SquadPower(State));
+                foreach (var w in State.encounter.waves) RogueEconomy.Reserve(State.ledger, w.roles, w.weights);
+                // the wave slots were split per wave; re-split so the whole stage sums to G exactly
+                var allRoles = new List<string>(); var allWeights = new List<int>();
+                foreach (var w in State.encounter.waves) { allRoles.AddRange(w.roles); allWeights.AddRange(w.weights); }
+                State.ledger.slots.Clear(); State.ledger.nextInstanceId = 1;
+                RogueEconomy.Reserve(State.ledger, allRoles, allWeights);
+                State.rescuesPaid = new string[0];
+                State.rewardPaidPlayers = new string[0];
+                State.paidDepth = State.depth;
+                var objective = RogueCatalog.Encounter(State.encounter.IsFinale ? State.encounter.finaleId : State.encounter.objectiveId);
+                State.ledger.objectiveMinor = RogueMoney.MulFraction(State.ledger.budgetMinor, objective != null ? objective.RewardFraction : 0);
+            }
             State.stageSeconds = 0;
             State.riskContract = 0;
             State.stageBountyMul = 1;
@@ -313,14 +331,26 @@ namespace Flats.Core.Roguelike
             }
         }
 
-        public Payout ObjectiveCompleted()
+        public Payout ObjectiveCompleted(double rewardMultiplier = 1)
         {
             if (State.phase != RunPhase.Combat) return new Payout();
+            if (double.IsNaN(rewardMultiplier) || double.IsInfinity(rewardMultiplier) || rewardMultiplier < 0 || rewardMultiplier > 1) throw new ArgumentOutOfRangeException("rewardMultiplier");
+            if (State.ledger.objectivePaid) return new Payout();
             var def = RogueCatalog.Encounter(State.encounter.IsFinale ? State.encounter.finaleId : State.encounter.objectiveId);
-            var payout = RogueEconomy.PayObjective(State.ledger, State.ValidMembers(), def != null ? def.RewardFraction : 0);
+            State.ledger.objectiveMinor = RogueMoney.MulFraction(State.ledger.budgetMinor, (def != null ? def.RewardFraction : 0) * rewardMultiplier);
+            var payout = RogueEconomy.PayObjective(State.ledger, State.ValidMembers(), 0);
             Credit(payout);
-            foreach (var p in State.players) if (p.connected) p.ultimateCharge = Math.Min(100, p.ultimateCharge + 15);
+            if (State.ledger.objectivePaid) foreach (var p in State.players) if (p.connected) p.ultimateCharge = Math.Min(100, p.ultimateCharge + 15);
             return payout;
+        }
+
+        /// <summary>Authority reports consumed shield; increases require purchasing supply.medkit.</summary>
+        public bool ReportOvershield(string key, double fraction)
+        {
+            var p = State.Player(key);
+            if (p == null || double.IsNaN(fraction) || double.IsInfinity(fraction) || fraction < 0 || fraction > 1 || fraction > p.overshieldFraction) return false;
+            p.overshieldFraction = fraction;
+            return true;
         }
 
         public Payout EventResolved(string encounterId, bool success)
@@ -366,6 +396,7 @@ namespace Flats.Core.Roguelike
             var p = State.Player(key);
             if (p == null || p.life != PlayerLife.Alive) return false;
             p.life = PlayerLife.Downed;
+            p.overshieldFraction = 0;
             return true;
         }
 
@@ -374,6 +405,7 @@ namespace Flats.Core.Roguelike
             var p = State.Player(key);
             if (p == null || p.life == PlayerLife.Dead || p.life == PlayerLife.Spectating) return false;
             p.life = PlayerLife.Dead; p.deaths++;
+            p.overshieldFraction = 0;
             return true;
         }
 
@@ -398,7 +430,8 @@ namespace Flats.Core.Roguelike
         {
             if (State.phase != RunPhase.Combat) return false;
             var h = new EncounterHistory { depth = State.depth, objectiveId = State.encounter.objectiveId, eventId = State.encounter.eventId, emergencyId = State.encounter.emergencyId, finaleId = State.encounter.finaleId };
-            var list = new List<EncounterHistory>(State.history) { h };
+            var list = new List<EncounterHistory>(State.history);
+            list.RemoveAll(x => x.depth == State.depth); list.Add(h);
             if (list.Count > 12) list.RemoveRange(0, list.Count - 12);
             State.history = list.ToArray();
             State.phase = RunPhase.Cleared;
@@ -411,7 +444,7 @@ namespace Flats.Core.Roguelike
             if (State.phase != RunPhase.Cleared) return false;
             foreach (var p in State.players)
             {
-                p.rewardOffers = RogueShop.SampleReward(rng, runSalt, State.depth, p.key, p.build, State.routeTag);
+                p.rewardOffers = Array.IndexOf(State.rewardPaidPlayers, p.key) >= 0 ? new ShopOffer[0] : RogueShop.SampleReward(rng, runSalt, State.depth, p.key, p.build, State.routeTag);
                 p.ready = false;
             }
             State.phase = RunPhase.Reward;
@@ -524,12 +557,11 @@ namespace Flats.Core.Roguelike
 
         public void Abandon() { State.end = RunEnd.Abandoned; State.phase = RunPhase.Ended; }
 
-        /// <summary>New authority after a host change mid-stage: void the stage's unpaid slots, return to Prep and re-open the shops.</summary>
+        /// <summary>Replay the same plan and ledger after host change; paid slots, budgets and reward picks remain settled.</summary>
         public bool RestartPrepAfterHostChange()
         {
             if (State.phase == RunPhase.Ended) return false;
-            foreach (var slot in State.ledger.slots) if (!slot.paid) slot.cancelled = true;
-            foreach (var p in State.players) { p.ready = false; if (p.life != PlayerLife.Alive) p.life = PlayerLife.Alive; p.rewardOffers = new ShopOffer[0]; }
+            foreach (var p in State.players) { p.ready = false; if (p.life != PlayerLife.Alive) p.life = PlayerLife.Alive; p.rewardOffers = new ShopOffer[0]; p.shopVersion++; }
             State.phase = RunPhase.Prep;
             OpenShops(false);
             Persist();

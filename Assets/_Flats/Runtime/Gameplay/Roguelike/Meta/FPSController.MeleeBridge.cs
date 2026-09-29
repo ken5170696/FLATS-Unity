@@ -6,7 +6,9 @@ public partial class FPSController
     public Gun MeleeCurrentGun => currentGun;
     public Transform MeleeEye => ct != null ? ct : transform;
     public Camera MeleeGunCamera => gunCam;
-    public bool MeleeReady => enableFire && !grabbing && !zombie && enableControl;
+    // RogueMelee asks this before it sends Smash and when a swing starts: the Roguelike action rule refuses melee while
+    // the shop, overview or pause is open (X4), while carrying or downed.
+    public bool MeleeReady => enableFire && !grabbing && !zombie && enableControl && (!RoguelikeMode.Active || RogueActionGate.Allows(this, RogueAction.Melee));
     public void MeleeAnimation(bool active, bool animate = true)
     {
         if (active && Aiming) Zoom(false);

@@ -92,7 +92,9 @@ public partial class RoguelikeController
         var canvas = menuObject != null ? menuObject.GetComponentInParent<Canvas>() : null;
         if (canvas == null) { var any = FindObjectOfType<Canvas>(); canvas = any != null ? any.rootCanvas : null; }
         if (canvas == null || LastReward == null) yield break;
-        RogueResultView.Show(canvas.rootCanvas.transform, LastReward, LastContributions ?? new Contribution[0], RogueMetaStore.Current, () => { });
+        // co-op: closing the overlay hands controller focus to the result screen's room actions (Back to room, Armory, Leave)
+        RogueResultView.Show(canvas.rootCanvas.transform, LastReward, LastContributions ?? new Contribution[0], RogueMetaStore.Current,
+            () => { var m = Menu.Current; if (m != null) m.FocusRogueCoopResult(); });
     }
 
     /// <summary>A co-op client leaving before the end keeps the reduced "left early" reward of what it played.</summary>

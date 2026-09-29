@@ -85,26 +85,13 @@ namespace Flats.Core.Roguelike
             for (int k = 0; k < count; k++)
             {
                 var pool = new List<ItemDef>();
-                foreach (var m in RogueCatalog.Mods) if (m.Rarity == 0 && p.build.RejectReason(m) == null && !MissingPrerequisite(m, p.build)) pool.Add(m);
+                foreach (var m in RogueCatalog.Mods) if (m.Rarity == 0 && !p.build.HasMod(m.Id) && p.build.RejectReason(m) == null && !RogueShop.MissingPrerequisite(m, p.build)) pool.Add(m);
                 if (pool.Count == 0) break;
                 var pick = pool[rng.Range(0, pool.Count)];
                 p.build.Apply(pick);
                 given.Add(pick.Id);
             }
             return given;
-        }
-
-        // mods whose effect needs a core (sustained fire, burst extender, spotter) are never handed out without it
-        static bool MissingPrerequisite(ItemDef m, PlayerBuild b)
-        {
-            switch (m.Id)
-            {
-                case "mod.sustained_fire": return !b.HasCore("core.suppression");
-                case "mod.burst_extender": return !b.HasCore("core.reloadburst");
-                case "mod.spotter": case "mod.bounty_hunter": case "mod.team_radio": return !b.HasCore("core.marker");
-                case "mod.double_dash": return b.tactical != "tactical.dash";
-            }
-            return false;
         }
 
         /// <summary>The armory weapon a shop weapon item gives this player: their owned variant of that model (the original first), or null.</summary>

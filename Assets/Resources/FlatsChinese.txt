@@ -627,8 +627,8 @@ Training	訓練
 Tutorial	教學
 Training mode.	練習操作與射擊。
 Let's walk around the stages.	自由探索各個地圖。
-Phase	階段
-Wait until the next phase...	等待下一階段…
+Phase	關卡
+Wait until the next phase...	等待下一關…
 Long tap to exchange	長按交換武器
 Gun Name	武器名稱
 Damage	傷害
@@ -819,7 +819,7 @@ Capture the other team's flag\nand bring it back to my team's base.	奪取敵隊
 Blow up the other team's base.\nSeparated Offense and Defense.\n\nOffense: Set a bomb on the base.\nDefense: Defend my team's base.	炸毀敵隊基地。\n分為進攻方與防守方。\n\n進攻：在基地安裝炸彈。\n防守：保護我方基地。
 A zombie makes another zombie.	殭屍會感染其他玩家。
 Defend your team's VIP and kill the other team's VIP.	保護我方 VIP，並擊敗敵隊 VIP。
-Survive with your co-players.\nYour record is saved as the record of\nsingleplayer mode.\n\nNote: Started from phase 1\nand current score will be reset.	與隊友一起生存。\n紀錄會儲存至單人模式。\n\n注意：從第 1 階段開始，\n目前分數將重設。
+Survive with your co-players.\nYour record is saved as the record of\nsingleplayer mode.\n\nNote: Started from phase 1\nand current score will be reset.	與隊友一起生存。\n紀錄會儲存至單人模式。\n\n注意：從第 1 關開始，\n目前分數將重設。
 3 Kills	3 次擊殺
 5 Kills	5 次擊殺
 10 Kills	10 次擊殺
@@ -1005,9 +1005,9 @@ Headshot {0}x	連續爆頭 {0} 倍
 Load succeeded.	載入成功。
 Make headshots in a row.	連續命中頭部。
 Saving...	儲存中…
-Phase {0}	第 {0} 階段
+Phase {0}	第 {0} 關
 Bonus+{0}	加成 +{0}
-You cleared phase {0}!!	你通過了第 {0} 階段！
+You cleared phase {0}!!	你通過了第 {0} 關！
 start in 3 seconds...	3 秒後開始…
 start in 2 seconds...	2 秒後開始…
 start in 1 second...	1 秒後開始…
@@ -1026,7 +1026,7 @@ Duplicate	複製
 Rename	重新命名
 Manage selected	管理目前組合
 Review & switch	檢視並切換
-Score: {0} Phase: {1}	分數：{0}　階段：{1}
+Score: {0} Phase: {1}	分數：{0}　關卡：{1}
 Score: {0} HeadshotChain: {1}	分數：{0}　連續爆頭：{1}
 Score: {0} Rule: Deathmatch {1}	分數：{0}　規則：死亡競賽 {1}
 Score: {0} Rule: Team Deathmatch {1}	分數：{0}　規則：團隊死亡競賽 {1}
@@ -1253,7 +1253,7 @@ Syncing... up to a minute.	同步中…最多約一分鐘。
 Player synchronization timed out.	玩家同步逾時。
 Adjusting team members...	正在調整隊伍成員…
 Score: {0}	分數：{0}
-Died at Phase {0}	在第 {0} 階段陣亡
+Died at Phase {0}	在第 {0} 關陣亡
 Max Headshot Chain: {0}	最高連續爆頭：{0}
 Highscore!!	最高分！！
 Your level is...	你的等級是…
@@ -2051,7 +2051,7 @@ Carrying: press {0} to put it down. You cannot fire.	搬運中：按 {0} 放下�
 {0} carries: {1}	{0} 拿著：{1}
 Endless phases of enemies. Your score is the record.	無盡的敵人波次，分數就是你的紀錄。
 Co-op for 1-4 players: bounties, shop, routes and checkpoints.	1–4 人合作：賞金、商店、路線與存檔點。
-A different rule every phase.	每個階段不同的規則。
+A different rule every phase.	每一關不同的規則。
 Only headshots count.	只有爆頭才算數。
 Free practice against bots.	與機器人自由練習。
 Learn the controls.	學習操作方式。
@@ -2119,4 +2119,83 @@ the Ultimate slot	絕招欄
 the Tactical slot	戰術欄
 Charge {0}%	充能 {0}%
 Saved by an earlier version: prices and descriptions follow this version.	此存檔來自較早的版本：價格與說明依目前版本為準。
+Waiting for the host ({0}) to continue or evacuate.	等待主機（{0}）決定繼續或撤離。
+Travelling...	正在出發…
+Ready (tap to cancel)	已就緒（再按取消）
+No money yet: kills pay bounty.	還沒有錢：擊殺可賺賞金。
+Waiting for: {0}	等待：{0}
+you	你
+Only the host can continue or evacuate.	只有主機可以決定繼續或撤離。
+Syncing with the host...	正在與主機同步…
+Overshield broken	護盾已擊破
+Removed {0} (refund ${1})	已移除 {0}（退款 ${1}）
+No refund	不退款
+Removing...	移除中…
+Tier changed: reroll for a new price	階級已變更：重新整理以取得新價格
+Remove {0}? Its effect ends now.	要移除 {0} 嗎？效果會立即消失。
+Refund: ${0} (half of what you paid).	退款：${0}（實付金額的一半）。
+No refund: it was free.	不退款：這是免費取得的。
+These mods stop working without it: {0}	少了它，這些改件會失效：{0}
+Upgrade to tier {0}/{1}	升級到第 {0}/{1} 階
+Tier {0}/{1}	第 {0}/{1} 階
+Overshield	護盾
+Refill a non-regenerating shield equal to maximum health. Does not stack; remaining shield persists between stages.	補滿等同最大生命的護盾，不會自動恢復。不疊加；剩餘護盾會保留到下一關。
+Each trigger hit adds +4% damage, up to +40%. After 2.5 s, lose one stack per 0.5 s. Reload keeps half. +20% magazine, +20% reload time.	每次扣扳機命中 +4% 傷害，最高 +40%。停火 2.5 秒後每 0.5 秒失去一層；換彈保留一半。彈匣 +20%，換彈時間 +20%。
+Active: dash 20 m forward at 50 m/s. Each charge recharges in 6 s. Stops at walls and edges.	主動：以每秒 50 m 向前衝刺 20 m。每次充能 6 秒恢復。遇牆與邊緣停止。
+You are down: {0} s left. Crawl to cover.	你倒地了：剩 {0} 秒。爬到掩體後方。
+{0} can revive you ({1} m).	{0} 可以救你（{1} m）。
+Nobody is up to revive you.	目前沒有隊友能救你。
+These weapons are for Classic modes. Roguelike Survival uses its own loadout (Loadout & Armory).	這裡的武器用於一般模式。Roguelike 生存使用自己的配置（局外總部）。
+Put down what you are carrying first	請先放下手上搬運的物品
+Can't do that while down	倒地時無法這麼做
+You are already carrying something	你已經在搬運東西了
+{0} is already carrying it	{0} 已經在搬運它了
+Too far away	距離太遠
+Someone else is using it	其他人正在使用
+Something is in the way	中間有東西擋住
+Look at it to keep going	看著目標才能繼續
+Stop shooting, aiming or reloading to interact	停止射擊、瞄準或換彈才能互動
+Open shop (Roguelike)	開啟商店（Roguelike）
+Hold to pick up or interact	按住以拾取或互動
+{0} or Esc closes   {1} / {2} switches tabs   Wallet ${3}	{0} 或 Esc 關閉　{1}／{2} 切換頁籤　錢包 ${3}
+{0} / {1}: tabs   Enter: select   Esc: back	{0}／{1} 切頁・Enter 確認・Esc 返回
+Damage Numbers	傷害數字
+Show the damage of each hit above enemies (Roguelike Survival).	在敵人上方顯示每次命中的傷害（Roguelike 生存）。
+Ready · press to cancel	已就緒 · 按下可取消
+Not ready · press when ready	未就緒 · 準備好就按下
+Everyone is ready ({0}/{1}) · starting...	全員已就緒（{0}/{1}）· 即將開始…
+Ready {0}/{1} · you can start at any time	就緒 {0}/{1} · 你可以隨時開始
+Ready {0}/{1} · the run starts when everyone is ready	就緒 {0}/{1} · 全員就緒後開始
+Start now ({0}/{1} ready)	立即開始（{0}/{1} 就緒）
+You are the host: start now, or wait until everyone is ready.	你是主機：可以立即開始，或等全員就緒。
+The host can start before everyone is ready.	主機可以在全員就緒前開始。
+Not ready yet	尚未就緒
+Host	主機
+Start the run	開始這一局
+{0} of {1} players are ready. Start the run now without waiting?	{1} 名玩家中有 {0} 名已就緒。不再等待，立即開始嗎？
+Start now	立即開始
+Keep waiting	繼續等待
+Ready for the run?	準備好開始了嗎？
+The run uses your Roguelike loadout.	這一局會使用你的 Roguelike 配置。
+Change it in Loadout & Armory before you ready up.	就緒前可以在「局外總部」修改。
+Take the squad back to the room for another run, or leave the room.	帶小隊回到房間再玩一局，或離開房間。
+Waiting for the host to take the squad back to the room...	等待主機帶小隊回到房間…
+Back to room	回到房間
+Leave room	離開房間
+Leave room...	離開房間…
+Run over	本局結束
+Take the squad back to the room for another run?	要帶小隊回到房間再玩一局嗎？
+Waiting for the host	等待主機
+The host decides when the squad returns to the room.	由主機決定何時帶小隊回到房間。
+Leave the room now?	現在要離開房間嗎？
+Leave the room and return to the main menu?	要離開房間並回到主選單嗎？
+Waiting for the next stage...	等待下一關…
+You respawn when it starts.	下一關開始時重生。
+Spectating: {0}	觀戰：{0}
+Spectating	觀戰中
+Downed · needs a revive	倒地 · 需要救援
+Health {0}/{1}	生命 {0}/{1}
+Health {0}/{1} · Shield {2}%	生命 {0}/{1} · 護盾 {2}%
+Back: return the squad to the room, or leave.	返回：帶小隊回到房間，或離開。
+Waiting for the host · Back: leave the room.	等待主機 · 返回：離開房間。
 {0}: {1}	{0}：{1}

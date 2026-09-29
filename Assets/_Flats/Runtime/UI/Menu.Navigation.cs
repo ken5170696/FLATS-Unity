@@ -1483,6 +1483,7 @@ public partial class Menu
 					yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
 					if (stayRoom.isOn)
 					{
+						if (RogueRoomActive) SetLocalRoomReady(false);   // a player waiting in the background is not ready
 						waitBackground = true;
 						backButton.SetActive(false);
 						BackToMainMenu();
@@ -1512,6 +1513,12 @@ public partial class Menu
 					current = "Multiplayer";
 					break;
 				case 10:
+					if (RogueRoomActive)
+					{
+						// Roguelike co-op: Start Now is this player's ready toggle (see Menu.RogueRoom).
+						ToggleRoomReady();
+						break;
+					}
 					if (!startNowPressed)
 					{
 						base.gameObject.GetPhotonView().RPC("StartNow", PhotonTargets.AllBuffered);
@@ -1542,21 +1549,9 @@ public partial class Menu
 			}
 			else if (current == "Result" && button == -1)
 			{
-				backButton.SetActive(false);
-				Time.timeScale = 1f;
-				if (gameState == "Multiplayer")
-				{
-					wasInRoom = false;
-					PhotonNetwork.Disconnect();
-				}
-				if (adForWin != null && adForWin.Visible)
-				{
-					adForWin.Visible = false;
-				}
-				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-				anim.SetBool("Fade", false);
-				resultsScreen.gameObject.SetActive(false);
-				StartCoroutine("BackgroundColor", "FadeIn");
+				// Roguelike co-op online: Back offers Back to room (host) or Leave room instead of leaving at once.
+				if (RogueCoopOnline) ShowRogueCoopResultChoice();
+				else yield return StartCoroutine(ResultBackToMenu());
 			}
 			if (current == "Main")
 			{
@@ -1574,6 +1569,28 @@ public partial class Menu
 			{
 				Debug.Log("current:" + current + " currentDetail: null");
 			}
+			fliping = false;
+		}
+
+		/// <summary>Result Back: leaves the match (disconnecting from a room) and loads the main menu.</summary>
+		private IEnumerator ResultBackToMenu()
+		{
+			fliping = true;
+			backButton.SetActive(false);
+			Time.timeScale = 1f;
+			if (gameState == "Multiplayer")
+			{
+				wasInRoom = false;
+				PhotonNetwork.Disconnect();
+			}
+			if (adForWin != null && adForWin.Visible)
+			{
+				adForWin.Visible = false;
+			}
+			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
+			anim.SetBool("Fade", false);
+			resultsScreen.gameObject.SetActive(false);
+			StartCoroutine("BackgroundColor", "FadeIn");
 			fliping = false;
 		}
 }
