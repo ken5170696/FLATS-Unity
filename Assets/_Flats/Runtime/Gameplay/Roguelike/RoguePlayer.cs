@@ -38,6 +38,7 @@ public class RoguePlayer : MonoBehaviour
     float reloadBurstUntil;
 
     public const float BleedOutSeconds = 30f, ReviveHoldSeconds = 3f, ReviveRange = 3.5f;
+    float reviveLastHold = -10f;
 
     static bool localCancelled;
     public static void ResetLocalStatics() { localCancelled = true; }
@@ -409,6 +410,8 @@ public class RoguePlayer : MonoBehaviour
             if (Vector3.Distance(go.transform.position, transform.position) <= ReviveRange) { target = rp; break; }
         }
         if (target == null) { reviveHeld = 0; reviveTarget = null; return; }
+        if (FlatsControls.Held("Interact")) reviveLastHold = Time.time;
+        else if (Time.time - reviveLastHold > 1f) reviveHeld = 0;   // the authority forgets an interrupted hold after one second; mirror it
         var ctrl = RoguelikeController.Instance;
         if (FlatsControls.Held("Interact"))
         {
@@ -423,7 +426,7 @@ public class RoguePlayer : MonoBehaviour
                 reviveSlice = 0;
             }
         }
-        else { reviveHeld = 0; if (ctrl != null) ctrl.ShowReviveRing(0f, RoguelikeController.T("Hold {0} to revive", FlatsControls.Label("Interact", FlatsControls.UsingGamepad))); }
+        else { if (ctrl != null) ctrl.ShowReviveRing(reviveHeld / ReviveHoldSeconds, RoguelikeController.T("Hold {0} to revive", FlatsControls.Label("Interact", FlatsControls.UsingGamepad))); }
     }
 
     void OnDestroy()

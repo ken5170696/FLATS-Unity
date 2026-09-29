@@ -35,7 +35,13 @@ public partial class RoguelikeController
         sb.Append(overview.Current).Append('|').Append(state.phase).Append('|').Append(state.depth).Append('|').Append(me.walletMinor).Append('|').Append(me.shopVersion).Append('|').Append(pendingTx.Count)
           .Append('|').Append(me.kills).Append('|').Append(me.ultimateCharge).Append('|').Append(me.build.mods.Length).Append('|').Append(me.build.cores.Length).Append('|').Append(me.build.healthTier + me.build.damageTier + me.build.magazineTier + me.build.speedTier)
           .Append('|').Append(dr != null ? Mathf.RoundToInt(dr.hitPoints / 25f) : 0).Append('|').Append(AliveEnemies).Append('|').Append((int)(state.stageSeconds / 5));
-        foreach (var p in state.players) sb.Append('|').Append(p.key).Append(p.life).Append(p.connected ? 1 : 0).Append(p.ready ? 1 : 0).Append(p.walletMinor).Append(p.kills);
+        foreach (var p in state.players)
+        {
+            sb.Append('|').Append(p.key).Append(p.life).Append(p.connected ? 1 : 0).Append(p.ready ? 1 : 0).Append(p.walletMinor).Append(p.kills).Append(p.build.cores.Length).Append(p.build.mods.Length).Append(p.build.tactical).Append(p.build.ultimate).Append(p.build.healthTier + p.build.damageTier + p.build.magazineTier + p.build.speedTier);
+            var pgo = RogueWorld.PlayerByKey(p.key); var prp = pgo != null ? pgo.GetComponent<RoguePlayer>() : null;
+            sb.Append(prp != null ? Mathf.RoundToInt(prp.HealthFraction() * 20) : -1).Append(prp != null && prp.Carrying ? 'c' : '-');
+        }
+        if (overview.Current == 3) { var go = FindLocalPlayer(); var fc = go != null ? go.GetComponent<FPSController>() : null; if (fc != null) { sb.Append('|').Append(fc.primaryWeaponIndex).Append('/').Append(fc.secondaryWeaponIndex); var g2 = fc.secondaryWeapon != null ? fc.secondaryWeapon.GetComponent<Gun>() : null; if (g2 != null) sb.Append('|').Append(g2.currentAmmo).Append('/').Append(g2.maxAmmo); } }
         if (overview.Current == 3) { var go = FindLocalPlayer(); var fc = go != null ? go.GetComponent<FPSController>() : null; var g = fc != null && fc.primaryWeapon != null ? fc.primaryWeapon.GetComponent<Gun>() : null; if (g != null) sb.Append('|').Append(g.currentAmmo).Append('/').Append(g.maxAmmo); }
         return sb.ToString();
     }

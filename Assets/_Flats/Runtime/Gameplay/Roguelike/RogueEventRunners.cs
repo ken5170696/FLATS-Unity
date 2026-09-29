@@ -248,15 +248,16 @@ public sealed class LureCrateRunner : RogueEventRunner
         StatusText = machine.Planted ? N("Lure planted {0} s", Mathf.CeilToInt((float)machine.Countdown)) : machine.Carried ? N("Lure carried: press Interact to plant") : N("Lure crate: optional");
         Settle(machine.Status);
     }
-    void SetHolder(string key) { string previous = carry.HolderKey; carry.HolderKey = key; Controller.Notify(new RogueEventMessage { kind = "carry", text = "LureCrate|" + key }); RogueCarryable.AnnounceHolder(Controller, "Lure crate", previous, key); }
+    void SetHolder(string key) { string previous = carry.HolderKey; carry.HolderKey = key; Controller.Notify(new RogueEventMessage { kind = "carry", text = "LureCrate|" + key }); RogueCarryable.AnnounceHolder(Controller, "Lure crate", previous, key); ApplyLureCarrying(key); }
+    static void ApplyLureCarrying(string key) { foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = RogueWorld.KeyOf(go) == key && key != ""; } }
     public override void OnCommand(RogueCommandMessage cmd)
     {
         if (machine == null) return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (cmd.text == "lure:pickup" && p != null && Vector3.Distance(p.transform.position, crate.transform.position) <= 4f && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey);
+        if (cmd.text == "lure:pickup" && p != null && !RogueCarryable.IsCarrying(p) && Vector3.Distance(p.transform.position, crate.transform.position) <= 4f && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey);
         else if (cmd.text == "lure:drop" && machine.Holder == cmd.playerKey && machine.OnPlanted()) { SetHolder(""); Banner("Lure planted: enemies are drawn to it.", 2); }
     }
-    public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "carry" && e.text.StartsWith("LureCrate|") && carry != null) { carry.HolderKey = e.text.Substring(10); Controller.LureTarget = crate != null ? crate.transform : null; } }
+    public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "carry" && e.text.StartsWith("LureCrate|") && carry != null) { carry.HolderKey = e.text.Substring(10); ApplyLureCarrying(carry.HolderKey); Controller.LureTarget = crate != null ? crate.transform : null; } }
     public override void Dispose() { Controller.LureTarget = null; RogueWorld.Destroy(crate); }
 }
 
@@ -429,6 +430,7 @@ public sealed class MobileBombRunner : RogueEventRunner
             if (dr != null) dr.ApplyDamage(RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * 0.7f, -1, local.transform);
         }
         RogueWorld.Destroy(bomb); bomb = null;
+        foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = false; }   // the bomb is gone: nobody carries it
     }
     void SetHolder(string key)
     {
@@ -439,7 +441,7 @@ public sealed class MobileBombRunner : RogueEventRunner
     {
         if (machine == null || bomb == null) return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (cmd.text == "bomb:pickup" && p != null && Vector3.Distance(p.transform.position, bomb.transform.position) <= 4f && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey);
+        if (cmd.text == "bomb:pickup" && p != null && !RogueCarryable.IsCarrying(p) && Vector3.Distance(p.transform.position, bomb.transform.position) <= 4f && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey);
         else if (cmd.text == "bomb:drop" && machine.Holder == cmd.playerKey) { machine.OnDrop(); SetHolder(""); }
     }
     public override void OnClientEvent(RogueEventMessage e)

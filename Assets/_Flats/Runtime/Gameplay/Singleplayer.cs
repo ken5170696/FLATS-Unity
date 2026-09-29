@@ -539,7 +539,7 @@ public class Singleplayer : MonoBehaviour
 		phaseText.enabled = false;
 		menu.StartCoroutine("BackgroundColor", "Respawn");
 		yield return new WaitForSeconds(1f);
-		int nextStage = UnityEngine.Random.Range(2, 8);
+		int nextStage = Menu.RandomAvailableStageIndex();
 		if (nextStage == Application.loadedLevel)
 		{
 			nextStage++;

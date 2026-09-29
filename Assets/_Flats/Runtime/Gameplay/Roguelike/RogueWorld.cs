@@ -295,11 +295,17 @@ public class RogueCarryable : MonoBehaviour
         pressCooldown -= Time.deltaTime;
         var holder = string.IsNullOrEmpty(HolderKey) ? null : RogueWorld.PlayerByKey(HolderKey);
         if (HolderKey != lastHolder) { RefreshCarriedLook(holder); lastHolder = HolderKey; }
-        if (holder != null && transform.parent == null)
+        if (holder == null && socketedTo != null) { RefreshCarriedLook(null); }   // the carrier's object vanished: drop the pose locally; the authority releases the holder
+        if (holder != null)
         {
-            // no hand socket on this carrier: held in front at chest height, shrunk
-            transform.position = holder.transform.position + holder.transform.forward * 0.9f + holder.transform.right * 0.45f + Vector3.up * 0.9f;
-            transform.rotation = holder.transform.rotation;
+            if (socket != null) FollowSocket();
+            else
+            {
+                transform.position = holder.transform.position + holder.transform.forward * 0.9f + holder.transform.right * 0.45f + Vector3.up * 0.9f;
+                transform.rotation = holder.transform.rotation;
+            }
+            var fc = holder.GetComponent<FPSController>();
+            if (fc != null && fc.primaryWeapon != null && fc.primaryWeapon.gameObject.activeSelf) fc.primaryWeapon.gameObject.SetActive(false);   // a weapon switch re-enabled it
         }
         else if (transform.position.y < -50f)
         {
@@ -329,26 +335,21 @@ public class RogueCarryable : MonoBehaviour
         }
     }
 
-    GameObject socketedTo;
+    GameObject socketedTo; Transform socket;
     void RefreshCarriedLook(GameObject holder)
     {
         if (baseScale == Vector3.zero) baseScale = transform.localScale;
-        // release the previous carrier's hands
         if (socketedTo != null) { SetCarryPose(socketedTo, false); socketedTo = null; }
-        transform.SetParent(null, true);
+        socket = null;
         transform.localScale = holder != null ? baseScale * 0.5f : baseScale;
         if (holder != null)
         {
             var fc = holder.GetComponent<FPSController>();
-            if (fc != null && fc.primaryWeapons != null && fc.primaryWeapons.parent != null)
-            {
-                // the same socket the legacy bomb mode uses: hands, weapon hidden, "Bomb" carry pose
-                transform.SetParent(fc.primaryWeapons.parent, false);
-                transform.localPosition = new Vector3(0f, 0.15f, 0.25f);
-                transform.localRotation = Quaternion.Euler(0f, 45f, 0f);
-                SetCarryPose(holder, true);
-                socketedTo = holder;
-            }
+            // follow the legacy bomb socket (hands) without becoming a child of the player, so a destroyed carrier never takes the objective with it
+            if (fc != null && fc.primaryWeapons != null && fc.primaryWeapons.parent != null) socket = fc.primaryWeapons.parent;
+            SetCarryPose(holder, true);
+            socketedTo = holder;
+            FollowSocket();
         }
         var col = GetComponent<Collider>(); if (col != null) col.enabled = holder == null;
         var wp = GetComponent<RogueWaypoint>();
@@ -362,16 +363,31 @@ public class RogueCarryable : MonoBehaviour
         else { wp.Label = DisplayName; wp.Priority = 3; }
     }
 
+    void FollowSocket()
+    {
+        if (socket == null) return;
+        transform.position = socket.TransformPoint(new Vector3(0f, 0.15f, 0.25f));
+        transform.rotation = socket.rotation * Quaternion.Euler(0f, 45f, 0f);
+    }
+
+    static readonly Dictionary<GameObject, int> carriedCount = new Dictionary<GameObject, int>();
     static void SetCarryPose(GameObject player, bool carrying)
     {
+        int count; carriedCount.TryGetValue(player, out count);
+        count = Mathf.Max(0, count + (carrying ? 1 : -1));
+        carriedCount[player] = count;
+        bool holding = count > 0;   // the pose only clears when the last carried item is released
         var fc = player.GetComponent<FPSController>();
-        if (fc != null && fc.primaryWeapon != null) fc.primaryWeapon.gameObject.SetActive(!carrying);
+        if (fc != null && fc.primaryWeapon != null) fc.primaryWeapon.gameObject.SetActive(!holding);
         var anim = player.GetComponent<Animator>();
-        if (anim != null) anim.SetBool("Bomb", carrying);
+        if (anim != null) anim.SetBool("Bomb", holding);
         if (carrying && RogueWorld.KeyOf(player) == RoguelikeMode.LocalPlayerKey) { var menu = Menu.Current; if (menu != null && menu.pressSE != null) { var src = menu.GetComponent<AudioSource>(); if (src != null) src.PlayOneShot(menu.pressSE); } }
     }
 
-    void OnDestroy() { if (socketedTo != null) SetCarryPose(socketedTo, false); }
+    void OnDestroy() { if (socketedTo != null) { SetCarryPose(socketedTo, false); socketedTo = null; } }
+
+    /// <summary>True when this player already carries an objective or event item (the authority refuses a second pickup).</summary>
+    public static bool IsCarrying(GameObject player) { int n; return player != null && carriedCount.TryGetValue(player, out n) && n > 0; }
 
     /// <summary>Authority helper: announce a holder change to everyone (banner + log), naming the player.</summary>
     public static void AnnounceHolder(RoguelikeController ctrl, string itemKey, string previousKey, string key)

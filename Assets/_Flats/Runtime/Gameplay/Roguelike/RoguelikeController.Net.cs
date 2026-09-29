@@ -37,6 +37,7 @@ public partial class RoguelikeController
         else if (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) { var p = machine.AddPlayer(key, other.NickName, -1, -1); if (p != null) Notify(new RogueEventMessage { kind = "log", text = "{0} joined the squad.|" + p.name }); }
         StartCoroutine(SendSnapshotWhenReady(other.ID));
         Broadcast();
+        ResendInvulnerable();
     }
 
     IEnumerator SendSnapshotWhenReady(int playerId)
@@ -206,6 +207,7 @@ public partial class RoguelikeController
     }
 
     int huntInstance = -1;
+    readonly Dictionary<int, bool> pendingInvulnerable = new Dictionary<int, bool>();
     /// <summary>Finale enemies and the Elite Hunt target carry a waypoint on every client; the hunt id arrives by event and may precede the enemy.</summary>
     void BindEnemyMarkers(RogueEnemyRole role)
     {
@@ -215,6 +217,13 @@ public partial class RoguelikeController
             RogueWaypoint.Attach(role.gameObject, "Enemy", def != null ? def.Name : "Target", new Color(1f, 0.12f, 0.5f), 2.6f, 4);
         }
         if (huntInstance >= 0 && role.InstanceId == huntInstance && !role.HuntMarked) role.HuntMarked = true;
+        bool inv; if (!IsAuthority && pendingInvulnerable.TryGetValue(role.InstanceId, out inv)) role.ApplyInvulnerable(inv);
+    }
+
+    /// <summary>Late joiners get the current shield states (the setter only sends on change).</summary>
+    void ResendInvulnerable()
+    {
+        foreach (var e in liveEnemies.Values) if (e != null && e.Invulnerable) Notify(new RogueEventMessage { kind = "inv", index = e.InstanceId, flag = true });
     }
 
     public void MarkHuntTarget(int instanceId)

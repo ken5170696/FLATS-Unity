@@ -81,7 +81,11 @@ public partial class Menu : MonoBehaviour
 
 	public Sprite[] images;
 	public Sprite troyMapImage;   // Map6: images[18] onward are function icons, so the seventh map thumbnail has its own field
+	public Sprite roguelikeTileImage;   // artwork of the Roguelike Survival tile on the singleplayer mode row
 	private Sprite MapImage(int map) { return map == 6 ? troyMapImage : images[12 + map]; }
+	/// <summary>Menu map slots (0..6) whose scene is in this build; a registered map without its scene is skipped everywhere.</summary>
+	internal static int LastAvailableStage { get { return Mathf.Clamp(UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings - 3, 0, 6); } }
+	internal static int RandomAvailableStageIndex() { return UnityEngine.Random.Range(2, LastAvailableStage + 3); }
 
 	public Sprite[] weapons;
 
@@ -1467,6 +1471,11 @@ public partial class Menu : MonoBehaviour
 					Selectable component2 = roomCreation.transform.GetChild(3).GetComponent<Selectable>();
 					component2.Select();
 				}
+				else if (modeTiles != null && modeTiles.Count > 0 && (current == "Singleplayer" || (current == "Map" && !voted)))
+				{
+					// The mode row replaces the grid on these pages; controller focus starts on its first tile.
+					modeTiles.Focus(0);
+				}
 				else if (current == "Main" || (current == "Map" && !voted))
 				{
 					// Return to the tile the player was on, not always the first one.
@@ -1993,6 +2002,7 @@ public partial class Menu : MonoBehaviour
             // the local fade. RPC data must exist before that UI coroutine.
             for (int i = 0; i < OfflineMaps.Length; i++)
                 vote.Add(new Map { mapKey = i });
+            voteActors.Clear();
 			syncData = "";
 			roomTexts = new Text[5];
 			invitedRules = new List<int>();

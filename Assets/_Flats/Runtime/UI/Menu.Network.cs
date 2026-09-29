@@ -442,13 +442,13 @@ public partial class Menu
 			gameState = "Multiplayer";
 			voteMap.text = "Vote map";
 			voteMap.gameObject.SetActive(true);
-			ShowVoteList();
+			ShowVoteTiles();
 			int time = 10;
 			while (time > 0)
 			{
 				voteMap.text = "Vote map " + time;
 				for (int i = 0; i < 6; i++) { bt[i].text = stageName[i] + " : " + vote[i].mapValue; buttons[i].sprite = MapImage(i); }
-				RefreshVoteList();   // the list shows every map, including the seventh
+				RefreshVoteTiles();   // the tile row shows every map, including the seventh
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(1f));
 				time--;
 				if (time <= 0)
@@ -460,7 +460,7 @@ public partial class Menu
 			anim.SetBool("Fade", true);
 			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
 			voteMap.gameObject.SetActive(false);
-			HideModeList();
+			HideModeTiles();
 			network = 2;
 			Debug.Log("Network mode:" + network);
 			while (!PhotonNetwork.isMasterClient)
@@ -471,7 +471,7 @@ public partial class Menu
 			int num;
 			if (vote[0].mapValue == 0)
 			{
-				num = vote[UnityEngine.Random.Range(0, OfflineMaps.Length)].mapKey + 2;
+				num = vote[UnityEngine.Random.Range(0, LastAvailableStage + 1)].mapKey + 2;
 			}
 			else
 			{
@@ -489,10 +489,15 @@ public partial class Menu
 		}
 
 		[PunRPC]
-		private void VoteMap(int map)
+		private void VoteMap(int map, PhotonMessageInfo info)
 		{
+			// one vote per player, only for a map this build can load
+			int actor = info.sender != null ? info.sender.ID : -1;
+			if (map < 0 || map >= vote.Count || map > LastAvailableStage || voteActors.Contains(actor)) return;
+			voteActors.Add(actor);
 			vote[map].mapValue++;
 		}
+		private readonly HashSet<int> voteActors = new HashSet<int>();
 
 		[PunRPC]
 		private IEnumerator LoadMap(int map)

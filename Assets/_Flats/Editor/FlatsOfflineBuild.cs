@@ -30,7 +30,7 @@ public static class FlatsOfflineBuild
                 "Assets/_Flats/Scenes/MainMenu.unity", "Assets/_Flats/Scenes/Tutorial.unity",
                 "Assets/_Flats/Scenes/FlatCity.unity", "Assets/_Flats/Scenes/UrbanPark.unity",
                 "Assets/_Flats/Scenes/BeachsideTown.unity", "Assets/_Flats/Scenes/DepartmentStore.unity",
-                "Assets/_Flats/Scenes/Warehouse.unity", "Assets/_Flats/Scenes/NightLand.unity"
+                "Assets/_Flats/Scenes/Warehouse.unity", "Assets/_Flats/Scenes/NightLand.unity", "Assets/_Flats/Scenes/Troy.unity"
             };
             EditorBuildSettingsScene[] entries = new EditorBuildSettingsScene[scenes.Length];
             for (int i=0;i<scenes.Length;i++)

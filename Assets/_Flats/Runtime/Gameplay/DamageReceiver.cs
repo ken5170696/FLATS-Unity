@@ -76,6 +76,7 @@ public class DamageReceiver : MonoBehaviour
 	private IEnumerator Start()
 	{
 		mt = base.transform;
+		if (died && !userIsPlayer) yield break;   // a Die RPC beat Start on this copy: nothing to initialise
 		if (userIsPlayer)
 		{
 			myFPSController = GetComponent<FPSController>();
@@ -319,7 +320,8 @@ public class DamageReceiver : MonoBehaviour
 			if (hitPoints > 0f) return;
 			command = headshot == 1 ? "head" : "normal";
 			var shooterView = shooter != null ? shooter.gameObject.GetPhotonView() : null;
-			base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, shooterView != null ? shooterView.viewID : 0);
+			// packed: shooter viewID * 2 + headshot flag, so every copy (the authority included) settles the same kill the same way
+			base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, (shooterView != null ? shooterView.viewID : 0) * 2 + (headshot == 1 ? 1 : 0));
 			return;
 		}
 		if (Menu.network == 0 || Multiplayer.rule == 8 || (RoguelikeMode.Coop && userIsPlayer))
@@ -471,8 +473,13 @@ public class DamageReceiver : MonoBehaviour
 			if (reaction != null) reaction.StopReaction();
 		}
 		if (mt == null) mt = base.transform;   // the Die RPC can reach a network copy before Start ran
-		if (RoguelikeMode.Coop && !userIsPlayer && receivedData != 0) { var shooterView = PhotonView.Find(receivedData); if (shooterView != null) killer = shooterView.transform; }   // the killer is whoever announced the death
-		if (RoguelikeMode.Coop && !userIsPlayer && receivedData != 0) { var shooterView = PhotonView.Find(receivedData); if (shooterView != null) killer = shooterView.transform; }   // the killer is whoever announced the death
+		if (RoguelikeMode.Coop && !userIsPlayer && receivedData != 0)
+		{
+			// the announcing copy packed shooter viewID * 2 + headshot flag; the authority pays and attributes from it
+			command = (receivedData & 1) == 1 ? "head" : "normal";
+			var shooterView = PhotonView.Find(receivedData / 2);
+			if (shooterView != null) killer = shooterView.transform;
+		}
 		if (userIsPlayer && RoguelikeMode.Active) RogueHooks.OnPlayerDied(this);
 		GameObject gameObject = UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
 		if (gameObject == null)

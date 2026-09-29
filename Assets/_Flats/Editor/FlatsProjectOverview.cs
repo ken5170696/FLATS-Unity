@@ -19,7 +19,7 @@ public sealed class FlatsProjectOverview : EditorWindow
         GUILayout.Label("Scenes",EditorStyles.boldLabel);
         Scene("MainMenu","Game entry and menu navigation");
         Scene("Tutorial","First-time player flow");
-        foreach(var map in new[]{"Warehouse","NightLand","FlatCity","UrbanPark","DepartmentStore","BeachsideTown"})
+        foreach(var map in new[]{"Warehouse","NightLand","FlatCity","UrbanPark","DepartmentStore","BeachsideTown","Troy"})
             Scene(map,"Map geometry, lighting, spawns and navigation");
         GUILayout.Space(12);
         GUILayout.Label("Shared presentation",EditorStyles.boldLabel);

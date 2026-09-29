@@ -453,7 +453,8 @@ namespace Flats.Core.Roguelike
         {
             var r = rng.Derive("route:" + runSalt, State.depth);
             var maps = new List<MapDef>();
-            foreach (var m in RogueCatalog.Maps) if (m.Id != State.mapId) maps.Add(m);
+            foreach (var m in RogueCatalog.Maps) if (m.Id != State.mapId && RogueCatalog.IsAvailable(m)) maps.Add(m);
+            if (maps.Count == 0) foreach (var m in RogueCatalog.Maps) if (RogueCatalog.IsAvailable(m)) maps.Add(m);
             r.Shuffle(maps);
             var routes = new List<RouteDef>(RogueCatalog.Routes);
             r.Shuffle(routes);

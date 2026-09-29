@@ -48,6 +48,11 @@ public static class RoguelikeMode
     }
 
     /// <summary>Called with Singleplayer.ResetSharedMatchState and on every exit path: nothing of the mode survives a scene change by accident.</summary>
+    /// <summary>Scenes present in this build (index below the count); the menu and the route sampler skip the rest.</summary>
+    public static bool SceneAvailable(int buildIndex) { return buildIndex >= 0 && buildIndex < UnityEngine.SceneManagement.SceneManager.sceneCountInBuildSettings; }
+    [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+    static void InstallMapFilter() { Flats.Core.Roguelike.RogueCatalog.MapAvailable = m => SceneAvailable(m.BuildIndex); }
+
     public static void Reset()
     {
         // PendingResume is intentionally kept: chapter travel sets it right before the scene load that calls this.

@@ -331,7 +331,13 @@ public partial class RoguelikeController : MonoBehaviour
             case "objtext": ApplyObjectiveText(e.text); break;
             case "equip": OnEquipEvent(e); break;
             case "revprog": if (e.playerKey == localKey && hudView != null) hudView.SetRevive((float)e.value, T("{0} is reviving you", e.text)); break;
-            case "inv": { RogueEnemyRole role; if (!IsAuthority && liveEnemies.TryGetValue(e.index, out role) && role != null) role.ApplyInvulnerable(e.flag); break; }
+            case "inv":
+                if (!IsAuthority)
+                {
+                    pendingInvulnerable[e.index] = e.flag;   // remembered until the enemy registers (events can beat the spawn)
+                    RogueEnemyRole role; if (liveEnemies.TryGetValue(e.index, out role) && role != null) role.ApplyInvulnerable(e.flag);
+                }
+                break;
             default:
                 if (objectiveRunner != null) objectiveRunner.OnClientEvent(e);
                 if (eventRunner != null) eventRunner.OnClientEvent(e);

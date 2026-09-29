@@ -32,7 +32,7 @@ public partial class Menu
     {
         fliping = true; PlayMenuSound(pressSE); anim.SetBool("Fade", true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-        HideModeList();
+        HideModeTiles();
         RestorePlayTiles();
         current = "Roguelike"; backButton.SetActive(true); quitButton.SetActive(false);
         LoadRoguelikeCheckpoint();
@@ -87,7 +87,7 @@ public partial class Menu
             yield break;
         }
         if (button == 1) { roguelikeDifficulty = roguelikeDifficulty % 3 + 1; RefreshRoguelikeTiles(); yield break; }
-        if (button == 2) { roguelikeMap = roguelikeMap >= 6 ? -1 : roguelikeMap + 1; RefreshRoguelikeTiles(); yield break; }
+        if (button == 2) { roguelikeMap = roguelikeMap >= LastAvailableStage ? -1 : roguelikeMap + 1; RefreshRoguelikeTiles(); yield break; }
         if (button == 3)
         {
             if (roguelikeCheckpoint == null)
@@ -119,19 +119,20 @@ public partial class Menu
         if (!waitBackground && PhotonNetwork.connected) PhotonNetwork.Disconnect();
         anim.SetBool("Fade", true);
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));
-        HideModeList();
+        HideModeTiles();
         StartCoroutine("BackgroundColor", "FadeIn");
         yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
         int buildIndex;
         if (resume != null)
         {
             var map = RogueCatalog.Map(resume.run.mapId);
-            buildIndex = map != null ? map.BuildIndex : 2;
+            buildIndex = map != null && RoguelikeMode.SceneAvailable(map.BuildIndex) ? map.BuildIndex : 2;
             RoguelikeMode.Difficulty = resume.run.difficulty;
         }
         else
         {
-            buildIndex = roguelikeMap < 0 ? Random.Range(2, 9) : roguelikeMap + 2;
+            buildIndex = roguelikeMap < 0 ? RandomAvailableStageIndex() : roguelikeMap + 2;
+            if (!RoguelikeMode.SceneAvailable(buildIndex)) buildIndex = RandomAvailableStageIndex();
             RoguelikeMode.Difficulty = roguelikeDifficulty;
         }
         Singleplayer.rule = RoguelikeMode.SoloRule;

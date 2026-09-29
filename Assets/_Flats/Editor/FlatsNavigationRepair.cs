@@ -7,7 +7,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 public static class FlatsNavigationRepair {
  [MenuItem("FLATS/Navigation/Rebuild All Maps")]
- public static void Run(){Bake(new[]{"FlatCity","UrbanPark","BeachsideTown","DepartmentStore","Warehouse","NightLand","Tutorial"});}
+ public static void Run(){Bake(new[]{"FlatCity","UrbanPark","BeachsideTown","DepartmentStore","Warehouse","NightLand","Troy","Tutorial"});}
  [MenuItem("FLATS/Navigation/Rebuild Tutorial")]
  public static void Tutorial(){Bake(new[]{"Tutorial"});}
  static void Bake(string[] maps){

@@ -48,7 +48,8 @@ public sealed class CarryRunner : RogueObjectiveRunner
     {
         if (machine == null) return;
         var holder = string.IsNullOrEmpty(machine.Holder) ? null : RogueWorld.PlayerByKey(machine.Holder);
-        if (holder != null)
+        if (!string.IsNullOrEmpty(machine.Holder) && (holder == null || !Controller.State.Player(machine.Holder).connected)) { machine.OnLost(); SetHolder(""); }   // carrier left or was destroyed: the crate is free again
+        else if (holder != null)
         {
             var rp = holder.GetComponent<RoguePlayer>();
             if (rp != null && rp.Downed) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); }
@@ -74,7 +75,7 @@ public sealed class CarryRunner : RogueObjectiveRunner
     {
         if (machine == null) return;
         var player = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (cmd.text == "carry:pickup" && player != null && Vector3.Distance(player.transform.position, crate.transform.position) <= 4f && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey);
+        if (cmd.text == "carry:pickup" && player != null && !RogueCarryable.IsCarrying(player) && Vector3.Distance(player.transform.position, crate.transform.position) <= 4f && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey);
         else if (cmd.text == "carry:drop" && machine.Holder == cmd.playerKey) { machine.OnDrop(); SetHolder(""); }
         else if (cmd.text == "carry:lost") { machine.OnLost(); SetHolder(""); }
     }

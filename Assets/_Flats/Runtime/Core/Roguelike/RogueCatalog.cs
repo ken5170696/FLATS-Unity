@@ -272,6 +272,9 @@ namespace Flats.Core.Roguelike
 
         public static EnemyRoleDef Role(string id) { foreach (var r in EnemyRoles) if (r.Id == id) return r; return null; }
         public static MapDef Map(string id) { foreach (var m in Maps) if (m.Id == id) return m; return null; }
+        /// <summary>Set by the adapter: maps whose scene is not in the build are never offered or sampled.</summary>
+        public static Func<MapDef, bool> MapAvailable = m => true;
+        public static bool IsAvailable(MapDef m) { return m != null && (MapAvailable == null || MapAvailable(m)); }
         public static MapDef MapByScene(string sceneName) { foreach (var m in Maps) if (m.SceneName == sceneName) return m; return null; }
         public static readonly RouteDef NeutralRoute = new RouteDef("", "Direct Route", "No modifiers.", 1.0, 1.0, 1.0, 0.0);
         public static RouteDef Route(string tag) { if (!string.IsNullOrEmpty(tag)) foreach (var r in Routes) if (r.Tag == tag) return r; return NeutralRoute; }
