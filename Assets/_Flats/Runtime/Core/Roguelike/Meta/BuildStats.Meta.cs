@@ -57,10 +57,12 @@ namespace Flats.Core.Roguelike
 
         /// <summary>
         /// Envelope of the design rule: whatever combination of conditional skills is active at once,
-        /// meta skills add at most +30% damage, and cut incoming damage to no less than 82% (with the
-        /// +10% health node that is ~+34% effective toughness). Run items (cores, mods) are separate.
+        /// meta skills add at most +20% damage, and cut incoming damage to no less than 85% (with the
+        /// +10% health node that is ~+29% effective toughness). Run items (cores, mods) are separate.
         /// </summary>
-        public const double MaxMetaDamageBonus = 0.25, MinMetaDamageTakenMul = 0.82;
+        public const double MaxMetaDamageBonus = 0.20, MinMetaDamageTakenMul = 0.85;
+        /// <summary>Fresh Magazine: a forced headshot never deals more than this multiple of the body shot (handgun and sniper headshot bonuses are x5).</summary>
+        public const double FreshMagazineMaxMul = 2.0;
 
         public struct MetaCombat
         {

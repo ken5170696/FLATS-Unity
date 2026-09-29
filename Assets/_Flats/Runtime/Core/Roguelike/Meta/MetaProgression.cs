@@ -36,7 +36,7 @@ namespace Flats.Core.Roguelike
         public int Kills, Headshots, Rescues, Objectives, Events, FinalesCleared, MeleeKills;
         public double Seconds;
         public bool Afk;
-        public int SquadAverageLevel, Level;
+        public int SquadAverageLevel, SquadHighestLevel, Level;
         public string[] WeaponKills = new string[0];   // "weaponId|kills"
         public string Primary = "", Secondary = "", Melee = "";
         public bool UsedMeleeOnly;
@@ -53,11 +53,14 @@ namespace Flats.Core.Roguelike
         public const long OverlevelXp = 6000;            // after level 50 every chunk pays OverlevelMerits
         public const long OverlevelMerits = 60;
         public const long MaxXp = 50000000, MaxMerits = 9999999;
-        public const double LowLevelBonus = 0.25;         // squad-average level - own level >= 5 → +25% experience
+        public const double LowLevelBonus = 0.25;         // highest squad level - own level >= 5 → +25% experience
         public const int LowLevelGap = 5;
-        public const double HeatRewardStep = 0.12;
+        public const double HeatRewardStep = 0.08;
         public const int MinStagesForReward = 1;
         public const double MinSecondsForReward = 90;
+        public const int MinStagesWhenAbandoned = 2;
+        /// <summary>A full run (not abandoned, 2+ stages, 15+ minutes) pays at least this many merits and at most MeritCeiling from its base lines.</summary>
+        public const long MeritFloor = 165, MeritCeiling = 200; public const double FloorSeconds = 900;
 
         /// <summary>Experience from level L to L+1. Level 2 arrives after one ordinary first run.</summary>
         public static long XpToNext(int level)
@@ -108,12 +111,22 @@ namespace Flats.Core.Roguelike
         /// Anti-abuse: no reward without a cleared stage and 90 s of play, AFK players get none,
         /// abandoning keeps 40%, a wipe 75%, per-run totals are clamped.
         /// </summary>
+        /// <summary>Why a finished run earns nothing at all (no experience, merits, mastery, challenges, first times or heat), or "".</summary>
+        public static string Ineligible(RunFacts f)
+        {
+            if (f.Afk) return "Inactive for the whole run";
+            if (f.Kills + f.Rescues <= 0) return "No kills or revives this run";
+            if (f.StagesCleared < MinStagesForReward || f.Seconds < MinSecondsForReward) return "Clear at least one stage to earn experience";
+            if (f.End == RunEnd.Abandoned && f.StagesCleared < MinStagesWhenAbandoned) return "Leaving before stage {0} earns nothing";
+            return "";
+        }
+
         public static RunReward RunReward(RunFacts f)
         {
             var r = new RunReward { runId = f.RunId ?? "" };
             var lines = new List<RewardLine>();
-            if (f.Afk) { r.abuse = "Inactive for the whole run"; r.lines = lines.ToArray(); return r; }
-            if (f.StagesCleared < MinStagesForReward || f.Seconds < MinSecondsForReward) { r.abuse = "Clear at least one stage to earn experience"; r.lines = lines.ToArray(); return r; }
+            r.abuse = Ineligible(f);
+            if (r.abuse != "") { r.lines = lines.ToArray(); return r; }
 
             Action<string, string, long, long> add = (src, arg, xp, merits) => { if (xp != 0 || merits != 0) lines.Add(new RewardLine { source = src, arg = arg, xp = xp, merits = merits }); };
             add("Stages cleared x{0}", f.StagesCleared.ToString(), 45L * f.StagesCleared, 6L * f.StagesCleared);
@@ -122,14 +135,14 @@ namespace Flats.Core.Roguelike
             add("Objectives x{0}", f.Objectives.ToString(), 60L * f.Objectives, 4L * f.Objectives);
             add("Events x{0}", f.Events.ToString(), 40L * f.Events, 3L * f.Events);
             add("Rescues x{0}", f.Rescues.ToString(), 35L * f.Rescues, 3L * f.Rescues);
-            add("Finales x{0}", f.FinalesCleared.ToString(), 250L * f.FinalesCleared, 40L * f.FinalesCleared);
-            if (f.End == RunEnd.Evacuated) add("Evacuated", "", 120, 30);
+            add("Finales x{0}", f.FinalesCleared.ToString(), 150L * f.FinalesCleared, 20L * f.FinalesCleared);
+            if (f.End == RunEnd.Evacuated) add("Evacuated", "", 60, 15);
 
             long xpSum = 0, meritSum = 0; foreach (var l in lines) { xpSum += l.xp; meritSum += l.merits; }
             double mul = 1;
             if (f.Difficulty > 1) { double d = 0.15 * (f.Difficulty - 1); add("Difficulty +{0}%", RogueArmory.Pct(d), (long)Math.Round(xpSum * d), (long)Math.Round(meritSum * d)); }
             if (f.Heat > 0) { double h = HeatRewardStep * f.Heat; add("Heat {0} +{1}%", f.Heat + "|" + RogueArmory.Pct(h), (long)Math.Round(xpSum * h), (long)Math.Round(meritSum * h)); }
-            if (f.SquadAverageLevel - f.Level >= LowLevelGap) add("Squad catch-up +{0}%", RogueArmory.Pct(LowLevelBonus), (long)Math.Round(xpSum * LowLevelBonus), 0);
+            if (f.SquadHighestLevel - f.Level >= LowLevelGap) add("Squad catch-up +{0}%", RogueArmory.Pct(LowLevelBonus), (long)Math.Round(xpSum * LowLevelBonus), 0);
             xpSum = 0; meritSum = 0; foreach (var l in lines) { xpSum += l.xp; meritSum += l.merits; }
             if (f.End == RunEnd.Wiped) mul = 0.75;
             else if (f.End == RunEnd.Abandoned) mul = 0.40;
@@ -137,6 +150,14 @@ namespace Flats.Core.Roguelike
             {
                 add(f.End == RunEnd.Wiped ? "Squad wiped -{0}%" : "Left early -{0}%", RogueArmory.Pct(1 - mul), -(long)Math.Round(xpSum * (1 - mul)), -(long)Math.Round(meritSum * (1 - mul)));
             }
+            // merit floor/ceiling of a full run: steady progress for newer players, no windfall from a single long run
+            long meritBase = 0; foreach (var l in lines) meritBase += l.merits;
+            if (f.End != RunEnd.Abandoned && f.StagesCleared >= MinStagesWhenAbandoned && f.Seconds >= FloorSeconds)
+            {
+                long target = Math.Min(Math.Max(meritBase, MeritFloor), MeritCeiling);
+                if (target != meritBase) add(target > meritBase ? "Full run minimum" : "Run merit limit", "", 0, target - meritBase);
+            }
+            else if (meritBase > MeritCeiling) add("Run merit limit", "", 0, MeritCeiling - meritBase);
             r.lines = lines.ToArray();
             foreach (var l in r.lines) { r.xp += l.xp; r.merits += l.merits; }
             r.xp = Math.Max(0, Math.Min(r.xp, 60000));

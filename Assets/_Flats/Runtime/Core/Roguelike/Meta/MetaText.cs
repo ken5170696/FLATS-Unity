@@ -28,7 +28,7 @@ namespace Flats.Core.Roguelike
                 case SkillEffectKind.HeadshotDamage: return new TextLine("Headshot damage +{0}%.", P(e.V1));
                 case SkillEffectKind.MoveSpeed: return new TextLine("Movement speed +{0}%.", P(e.V1));
                 case SkillEffectKind.ReloadTime: return new TextLine("Reload time -{0}%.", P(e.V1));
-                case SkillEffectKind.AdsTime: return new TextLine("Aim-in time -{0}%.", P(e.V1));
+                case SkillEffectKind.AdsTime: return new TextLine("Your aim steadies {0}% faster after raising the sight.", P(e.V1));
                 case SkillEffectKind.SwapTime: return new TextLine("Weapon swap time -{0}%.", P(e.V1));
                 case SkillEffectKind.Magazine: return new TextLine("Magazine capacity +{0}%.", P(e.V1));
                 case SkillEffectKind.Reserve: return new TextLine("Reserve ammunition +{0}%.", P(e.V1));
@@ -39,7 +39,7 @@ namespace Flats.Core.Roguelike
                 case SkillEffectKind.TacticalCooldown: return new TextLine("Tactical cooldown -{0}%.", P(e.V1));
                 case SkillEffectKind.MeleeDamage: return new TextLine("Melee damage +{0}%.", P(e.V1));
                 case SkillEffectKind.HipSpread: return new TextLine("Hip-fire spread -{0}%.", P(e.V1));
-                case SkillEffectKind.FreshMagazineHeadshot: return new TextLine("The first round after a full reload always counts as a headshot.");
+                case SkillEffectKind.FreshMagazineHeadshot: return new TextLine("The first round after a full reload always counts as a headshot (at most x{0} its body damage).", N(BuildStats.FreshMagazineMaxMul));
                 case SkillEffectKind.HeadshotKillMark: return new TextLine("A headshot kill marks enemies within {0} m for {1} s.", N(e.V1), N(e.V2));
                 case SkillEffectKind.SteadyBreath: return new TextLine("Aiming without moving for {1} s: spread -{0}%.", P(e.V1), N(e.V2));
                 case SkillEffectKind.OpeningShot: return new TextLine("+{0}% damage to enemies at full health.", P(e.V1));
@@ -86,7 +86,7 @@ namespace Flats.Core.Roguelike
                 case TraitKind.DoubleTap: return new TextLine("Every {0} trigger pulls: one extra round for free.", N(w.T1));
                 case TraitKind.Pierce: return new TextLine("Rounds pass through {0} enemies.", N(w.T1));
                 case TraitKind.ArmorBreaker: return new TextLine("Ignores shields. +{0}% damage to elites.", P(w.T1));
-                case TraitKind.SnapAim: return new TextLine("Aim-in time -{0}%.", P(w.T1));
+                case TraitKind.SnapAim: return new TextLine("Aim steadies {0}% faster after raising the sight.", P(w.T1));
                 case TraitKind.StaggerOnHeadshot: return new TextLine("Headshots stagger the enemy for {0} s.", N(w.T1));
                 case TraitKind.PatientShot: return new TextLine("Every {1} s aimed without firing: next shot +{0}% damage, up to {2} steps.", P(w.T1), N(w.T2), WeaponTraitState.MaxPatientSteps.ToString());
                 case TraitKind.EmptyReloadFast: return new TextLine("Reloading an empty magazine is {0}% faster.", P(w.T1));
@@ -109,7 +109,7 @@ namespace Flats.Core.Roguelike
                 case DrawbackKind.LowReserve: return new TextLine("Reserve ammunition -{0}%.", P(d1));
                 case DrawbackKind.SlowReload: return new TextLine("Reload time +{0}%.", P(d1));
                 case DrawbackKind.SmallMagazine: return new TextLine("Small magazine.");
-                case DrawbackKind.SlowAds: return new TextLine("Aim-in time +{0}%.", P(d1));
+                case DrawbackKind.SlowAds: return new TextLine("Aim takes {0}% longer to steady after raising the sight.", P(d1));
                 case DrawbackKind.HeavyRecoil: return new TextLine("Every round of sustained fire widens spread by {0}%, up to {1}%.", P(d1), P(d2));
                 case DrawbackKind.SlowSwap: return new TextLine("Weapon swap time +{0}%.", P(d1));
                 case DrawbackKind.MoveSlow: return new TextLine("Movement speed -{0}% while carried.", P(d1));
@@ -151,7 +151,7 @@ namespace Flats.Core.Roguelike
 
         public static TextLine Sight(SightDef s)
         {
-            return new TextLine("{0}x magnification. Aim-in time x{1}. Spread while moving and aiming x{2}.", N(s.Magnification), N(s.AdsTimeMul), N(s.AimMoveSpreadMul));
+            return new TextLine("{0}x magnification. Aim settle time x{1}. Spread while moving and aiming x{2}.", N(s.Magnification), N(s.AdsTimeMul), N(s.AimMoveSpreadMul));
         }
 
         public static TextLine Heat(int level)

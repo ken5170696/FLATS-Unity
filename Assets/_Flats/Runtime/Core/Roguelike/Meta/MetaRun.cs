@@ -25,6 +25,13 @@ namespace Flats.Core.Roguelike
             return n == 0 ? 1 : (int)Math.Round(sum / (double)n);
         }
 
+        public static int SquadHighestLevel(RunState run)
+        {
+            int best = 1;
+            if (run != null) foreach (var p in run.players) if (p.connected && p.build != null && p.build.meta != null) best = Math.Max(best, p.build.meta.level);
+            return best;
+        }
+
         /// <summary>
         /// Heat modifiers and squad-power scaling on a freshly planned stage. Deterministic: extra elites
         /// are promoted from the front of each wave, so every client derives the same plan from the snapshot.
@@ -135,6 +142,7 @@ namespace Flats.Core.Roguelike
             f.MeleeKills = Math.Max(0, Math.Min(meleeKills, f.Kills));
             f.WeaponKills = ClampKills(weaponKills, f.Kills);
             f.SquadAverageLevel = SquadAverageLevel(run);
+            f.SquadHighestLevel = SquadHighestLevel(run);
             return f;
         }
 

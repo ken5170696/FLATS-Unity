@@ -343,6 +343,14 @@ namespace Flats.Core.Roguelike
         {
             EnsureShape(p);
             if (reward == null || facts == null || string.IsNullOrEmpty(reward.runId) || AlreadyRewarded(p, reward.runId)) return false;
+            if (MetaProgression.Ineligible(facts) != "")
+            {
+                // the same eligibility gates every side reward: remember the run so it cannot be replayed, grant nothing
+                var seen = new List<string>(p.rewardedRuns) { reward.runId }; if (seen.Count > RewardRing) seen.RemoveRange(0, seen.Count - RewardRing); p.rewardedRuns = seen.ToArray();
+                if (p.pendingRunId == reward.runId) p.pendingRunId = "";
+                reward.lines = new RewardLine[0]; reward.xp = 0; reward.merits = 0; reward.levelBefore = reward.levelAfter = p.Level;
+                return true;
+            }
             var lines = new List<RewardLine>(reward.lines);
             var first = new List<string>(); var mastery = new List<string>(); var done = new List<string>();
 

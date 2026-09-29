@@ -152,7 +152,7 @@ namespace Flats.Core.Roguelike
             new RangedWeaponDef { Id = "rw.ar_battle", Name = "Battle Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 7, Price = 420, Flavor = "Single heavy rounds; headshots stagger. Small magazine.", Visual = "Armory/LongBarrel", Tint = 0x5A4636,
                 Burst = 1, DamageMul = 1.9, RpmMul = 0.7, Magazine = 20, Trait = TraitKind.StaggerOnHeadshot, T1 = 0.6, Drawback = DrawbackKind.SmallMagazine, D1 = 0.5 },
             new RangedWeaponDef { Id = "rw.ar_dmr", Name = "Marksman Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 6, Price = 460, Flavor = "Hold your aim to charge the next shot. Useless from the hip.", Visual = "Armory/ScopeRail", Tint = 0x4E5D6C,
-                Burst = 1, DamageMul = 1.55, RpmMul = 0.35, Magazine = 15, Accuracy = 100, Trait = TraitKind.PatientShot, T1 = 0.12, T2 = 0.5, Drawback = DrawbackKind.NoHipFire, D1 = 3.0 },
+                Burst = 1, DamageMul = 1.55, RpmMul = 0.35, Magazine = 15, Accuracy = 100, Trait = TraitKind.PatientShot, T1 = 0.25, T2 = 0.4, Drawback = DrawbackKind.NoHipFire, D1 = 3.0 },
             new RangedWeaponDef { Id = "rw.ar_carbine", Name = "Carbine", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 280, Flavor = "Reloads from empty in a flash. Carries little spare ammunition.", Visual = "Armory/ShortStock", Tint = 0x7A8C5A,
                 Trait = TraitKind.EmptyReloadFast, T1 = 0.45, Drawback = DrawbackKind.LowReserve, D1 = 0.40, ReserveMul = 0.60 },
             // Shotguns
@@ -165,7 +165,7 @@ namespace Flats.Core.Roguelike
             new RangedWeaponDef { Id = "rw.sg_breach", Name = "Breacher", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 340, Flavor = "Devastating inside a room. Cannot aim.", Visual = "Armory/Breacher", Tint = 0x2E2E2E,
                 Trait = TraitKind.CloseRangeBonus, T1 = 0.35, T2 = 6, Drawback = DrawbackKind.NoAds },
             new RangedWeaponDef { Id = "rw.sg_slug", Name = "Slug Gun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 400, Flavor = "One heavy slug that passes through two enemies. Slow to aim.", Visual = "Armory/LongBarrel", Tint = 0x6B5B3E,
-                Burst = 1, DamageMul = 1.9, Accuracy = 95, Trait = TraitKind.Pierce, T1 = 2, Drawback = DrawbackKind.SlowAds, D1 = 0.35 },
+                Burst = 1, DamageMul = 1.9, RpmMul = 1.6, Accuracy = 95, Trait = TraitKind.Pierce, T1 = 2, Drawback = DrawbackKind.SlowAds, D1 = 0.35 },
             // Sniper rifles
             new RangedWeaponDef { Id = "rw.sr1", Name = "Sniper Rifle 1", Class = WeaponClass.Sniper, BaseModel = 10, Price = 260, Flavor = "A headshot chambers the next round fast. No hip fire.",
                 Trait = TraitKind.FollowUp, T1 = 0.60, Drawback = DrawbackKind.NoHipFire, D1 = 4.0 },
@@ -181,9 +181,9 @@ namespace Flats.Core.Roguelike
             new RangedWeaponDef { Id = "rw.hg2", Name = "Handgun 2", Class = WeaponClass.Handgun, BaseModel = 13, Price = 160, Flavor = "Headshots stagger. Recoil climbs.",
                 Trait = TraitKind.StaggerOnHeadshot, T1 = 0.4, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.10, D2 = 0.50 },
             new RangedWeaponDef { Id = "rw.hg_magnum", Name = "Magnum", Class = WeaponClass.Handgun, BaseModel = 13, Price = 360, Flavor = "Six heavy rounds; the last one hits twice as hard. Brutal recoil.", Visual = "Armory/LongBarrel", Tint = 0xC8A24A,
-                DamageMul = 2.0, RpmMul = 0.7, Magazine = 6, Trait = TraitKind.LastRoundDouble, T1 = 2.0, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.18, D2 = 0.72 },
+                DamageMul = 2.0, Magazine = 6, Trait = TraitKind.LastRoundDouble, T1 = 2.0, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.18, D2 = 0.72 },
             new RangedWeaponDef { Id = "rw.hg_machine", Name = "Machine Pistol", Class = WeaponClass.Handgun, BaseModel = 12, Price = 300, Flavor = "Three-round bursts while you keep moving. Weak at range.", Visual = "Armory/ExtendedMag", Tint = 0x5B4B8A,
-                Burst = 3, RpmMul = 4.0, Magazine = 21, DamageMul = 0.75, Trait = TraitKind.RunAndGun, T1 = 0.10, Drawback = DrawbackKind.DamageFalloff, D1 = 0.30, D2 = 20 },
+                Burst = 3, RpmMul = 4.0, Magazine = 21, DamageMul = 0.5, Trait = TraitKind.RunAndGun, T1 = 0.10, Drawback = DrawbackKind.DamageFalloff, D1 = 0.30, D2 = 20 },
             // Heavy
             new RangedWeaponDef { Id = "rw.lmg", Name = "Light Machine Gun", Class = WeaponClass.LMG, BaseModel = 14, Price = 300, Flavor = "Grows deadlier the longer it fires. Slow to aim.",
                 Trait = TraitKind.SpinUpDamage, T1 = 0.02, T2 = 0.30, Drawback = DrawbackKind.SlowAds, D1 = 0.40 },
@@ -317,9 +317,17 @@ namespace Flats.Core.Roguelike
         public static double TimeToKill(RangedWeaponDef def, double hp)
         {
             var r = Resolve(def);
-            double perCycle = r.Damage * r.Burst;
-            int cycles = (int)Math.Ceiling(hp / Math.Max(1, perCycle));
-            return Math.Max(0, cycles - 1) * CycleSeconds(r);
+            double gap = Math.Max(0.1, 60.0 / Math.Max(1, r.Rpm));
+            double perRound = r.Damage * (r.OneShot ? r.Pellets : 1);
+            double t = 0, dealt = 0; int mag = r.Magazine;
+            while (true)
+            {
+                if (mag <= 0) { t += 1.25 + r.Reload; mag = r.Magazine; }
+                dealt += perRound; mag -= r.OneShot ? r.Pellets : 1;
+                if (dealt >= hp) return t;
+                t += r.OneShot ? gap : gap;   // a shotgun's pellets leave together; every other round is one gap apart
+                if (t > 600) return t;
+            }
         }
 
         // ------------------------------------------------------------------ stat bars (0..1), all derived from data

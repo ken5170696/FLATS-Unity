@@ -36,7 +36,20 @@ namespace Flats.Core.Roguelike
     /// <summary>Stateless numbers of an armory weapon that do not depend on the fight.</summary>
     public static class WeaponRules
     {
-        public const double ConsecutiveWindow = 0.45;   // seconds after a cycle within which the next round counts as sustained fire
+        public const double ConsecutiveWindow = 0.45;
+        /// <summary>Seconds the aim needs to steady after the sight comes up, before weapon, sight and skill multipliers.</summary>
+        public const double BaseSettleSeconds = 0.35;
+        /// <summary>Spread multiplier the instant the sight comes up; it falls linearly to 1 over the settle time.</summary>
+        public const double UnsettledSpread = 2.5;
+
+        /// <summary>Spread multiplier <paramref name="secondsAimed"/> after raising the sight, for a settle time multiplier.</summary>
+        public static double SettleSpread(double secondsAimed, double settleMul)
+        {
+            double settle = BaseSettleSeconds * Math.Max(0.1, settleMul);
+            if (secondsAimed >= settle) return 1;
+            return 1 + (UnsettledSpread - 1) * (1 - Math.Max(0, secondsAimed) / settle);
+        }
+   // seconds after a cycle within which the next round counts as sustained fire
 
         public static double MoveSpeedMul(RangedWeaponDef d)
         {
@@ -153,6 +166,13 @@ namespace Flats.Core.Roguelike
             consecutive++;
             lastRoundAt = c.Now;
             return m;
+        }
+
+        /// <summary>Delay before the first round of a trigger pull (LongSpinup), asked before the coroutine fires anything.</summary>
+        public double PreFireDelay(double now)
+        {
+            if (Def == null || Def.Drawback != DrawbackKind.LongSpinup) return 0;
+            return now - lastRoundAt > lastInterval + WeaponRules.ConsecutiveWindow ? Def.D1 : 0;
         }
 
         /// <summary>The legacy gap after a round, so "consecutive" matches the real cadence.</summary>
