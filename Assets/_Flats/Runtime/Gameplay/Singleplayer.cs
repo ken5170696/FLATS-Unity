@@ -375,7 +375,7 @@ public class Singleplayer : MonoBehaviour
 		{
 			if (enemy < 8)
 			{
-				int num = UnityEngine.Random.Range(0, spawnPoint.Length);
+				int num = PickEnemySpawn();
 				GameObject gameObject = UnityEngine.Object.Instantiate(Resources.Load("Flatman_Enemy"), spawnPoint[num].position, Quaternion.identity) as GameObject;
 				num = UnityEngine.Random.Range(0, 6);
 				if (num % 2 == 1)
@@ -457,7 +457,7 @@ public class Singleplayer : MonoBehaviour
 		}
 		for (int i = 0; i < actualAssortmentEnemyCount; i++)
 		{
-			int ram = UnityEngine.Random.Range(0, spawnPoint.Length);
+			int ram = PickEnemySpawn();
 			GameObject currentEnemy = UnityEngine.Object.Instantiate(Resources.Load("Flatman_Enemy"), spawnPoint[ram].position, Quaternion.identity) as GameObject;
 			ram = ((Menu.currentAssortmentPhase < 5) ? UnityEngine.Random.Range(0, Menu.currentAssortmentPhase) : ((Menu.currentAssortmentPhase >= 10) ? 5 : UnityEngine.Random.Range(Menu.currentAssortmentPhase - 5, 6)));
 			if (currentAssortmentRule == 6)
@@ -577,7 +577,7 @@ public class Singleplayer : MonoBehaviour
 		{
 			if ((rule == 3 && respawnEnemy < 8) || (respawnEnemy < actualAssortmentEnemyCount && !cleared))
 			{
-				int ram = UnityEngine.Random.Range(0, spawnPoint.Length);
+				int ram = PickEnemySpawn();
 				GameObject currentEnemy = UnityEngine.Object.Instantiate(Resources.Load("Flatman_Enemy"), spawnPoint[ram].position, Quaternion.identity) as GameObject;
 				ram = ((Menu.currentAssortmentPhase < 5) ? UnityEngine.Random.Range(0, Menu.currentAssortmentPhase) : ((Menu.currentAssortmentPhase >= 10) ? 5 : UnityEngine.Random.Range(Menu.currentAssortmentPhase - 5, 6)));
 				if (rule == 3)
@@ -677,7 +677,7 @@ public class Singleplayer : MonoBehaviour
 		int lastPoint = -1;
 		for (int i = 0; i < enemyCount; i++)
 		{
-			int ram = UnityEngine.Random.Range(0, spawnPoint.Length);
+			int ram = PickEnemySpawn();
 			if (ram == lastPoint)
 			{
 				ram = (ram + 1) % spawnPoint.Length;
@@ -745,6 +745,27 @@ public class Singleplayer : MonoBehaviour
 			lastSkipper = phaseSkipper[num];
 		}
 		nextPhaseReady = true;
+	}
+
+
+	// Enemies never spawn on top of a player: the point is drawn from those at least 60 m from every player, or the
+	// farthest one when the map is too small for that (every map shares one SpawnPoints pool with the player).
+	private int PickEnemySpawn()
+	{
+		if (spawnPoint == null || spawnPoint.Length == 0) return 0;
+		var players = GameObject.FindGameObjectsWithTag("Player");
+		var far = new List<int>();
+		int best = -1; float bestDistance = -1f;
+		for (int i = 0; i < spawnPoint.Length; i++)
+		{
+			if (spawnPoint[i] == null) continue;
+			float nearest = float.MaxValue;
+			foreach (var player in players) if (player != null) nearest = Mathf.Min(nearest, Vector3.Distance(player.transform.position, spawnPoint[i].position));
+			if (nearest >= 60f) far.Add(i);
+			if (nearest > bestDistance) { bestDistance = nearest; best = i; }
+		}
+		if (far.Count > 0) return far[UnityEngine.Random.Range(0, far.Count)];
+		return best >= 0 ? best : UnityEngine.Random.Range(0, spawnPoint.Length);
 	}
 
 	private IEnumerator BotRespawn()
