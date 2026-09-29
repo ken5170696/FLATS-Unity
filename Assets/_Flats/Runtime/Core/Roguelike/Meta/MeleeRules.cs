@@ -18,6 +18,8 @@ namespace Flats.Core.Roguelike
     public static class MeleeRules
     {
         public const double ComboWindow = 0.8, FlurryWindow = 1.2, BackstabAngle = 70, EliteStunFloor = 0.25;
+        public const double ThrowHoldSeconds = 0.45, ThrowSpeed = 28, PickupRadius = 2.2;
+        public const double GuardMoveMultiplier = 0.65;
 
         /// <summary>Damage of one hit on one target before build multipliers.</summary>
         public static double HitDamage(MeleeDef d, MeleeSwing swing, bool fromBehind)

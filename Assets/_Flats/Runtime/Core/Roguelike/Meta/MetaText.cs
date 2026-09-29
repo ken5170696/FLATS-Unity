@@ -154,6 +154,28 @@ namespace Flats.Core.Roguelike
             return new TextLine("{0}x magnification. Aim settle time x{1}. Spread while moving and aiming x{2}.", N(s.Magnification), N(s.AdsTimeMul), N(s.AimMoveSpreadMul));
         }
 
+        public static TextLine Affix(AffixDef a)
+        {
+            switch (a.Id)
+            {
+                case "af.berserker": return new TextLine("When an ally dies within {2} m: +{0}% speed and +{1}% damage for {3} s.", P(a.V1), P(a.V2), N(EliteAffixes.BerserkerRange), N(a.V3));
+                case "af.suppressor": return new TextLine("Its hits slow you by {0}% for {1} s.", P(a.V1), N(a.V2));
+                case "af.opening": return new TextLine("+{0}% damage against a player at full health.", P(a.V1));
+                case "af.shield_aura": return new TextLine("Other enemies within {1} m take -{0}% damage.", P(a.V1), N(a.V2));
+                case "af.marksman": return new TextLine("+{0}% damage beyond {1} m.", P(a.V1), N(a.V2));
+                case "af.guardian": return new TextLine("Survives its first lethal hit, invulnerable for {0} s.", N(a.V1));
+            }
+            return new TextLine(a.Name);
+        }
+
+        /// <summary>What elite affixes a heat level brings, from EliteAffixes.Count.</summary>
+        public static TextLine HeatAffixes(int heat)
+        {
+            int elite = EliteAffixes.Count(heat, true, false), boss = EliteAffixes.Count(heat, false, true);
+            if (elite == 0 && boss == 0) return new TextLine("");
+            return new TextLine("Elites carry {0} affixes; bosses {1}.", elite.ToString(), boss.ToString());
+        }
+
         public static TextLine Heat(int level)
         {
             if (level < 1 || level > RogueHeat.MaxHeat) return new TextLine("");

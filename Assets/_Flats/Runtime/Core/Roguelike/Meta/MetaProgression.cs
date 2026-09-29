@@ -61,6 +61,9 @@ namespace Flats.Core.Roguelike
         public const int MinStagesWhenAbandoned = 2;
         /// <summary>A full run (not abandoned, 2+ stages, 15+ minutes) pays at least this many merits and at most MeritCeiling from its base lines.</summary>
         public const long MeritFloor = 165, MeritCeiling = 200; public const double FloorSeconds = 900;
+        /// <summary>Base experience (before difficulty, heat and catch-up bonuses) is limited to this many per minute of the run,
+        /// so racing chapter 1 over and over is never faster than playing on; a strong normal run stays below it (~42/min).</summary>
+        public const double BaseXpPerMinute = 50;
 
         /// <summary>Experience from level L to L+1. Level 2 arrives after one ordinary first run.</summary>
         public static long XpToNext(int level)
@@ -139,6 +142,8 @@ namespace Flats.Core.Roguelike
             if (f.End == RunEnd.Evacuated) add("Evacuated", "", 60, 15);
 
             long xpSum = 0, meritSum = 0; foreach (var l in lines) { xpSum += l.xp; meritSum += l.merits; }
+            long paceCap = (long)Math.Floor(Math.Max(0, f.Seconds) / 60.0 * BaseXpPerMinute);
+            if (xpSum > paceCap) { add("Run pace limit ({0} min)", ((int)(f.Seconds / 60)).ToString(), paceCap - xpSum, 0); xpSum = paceCap; }
             double mul = 1;
             if (f.Difficulty > 1) { double d = 0.15 * (f.Difficulty - 1); add("Difficulty +{0}%", RogueArmory.Pct(d), (long)Math.Round(xpSum * d), (long)Math.Round(meritSum * d)); }
             if (f.Heat > 0) { double h = HeatRewardStep * f.Heat; add("Heat {0} +{1}%", f.Heat + "|" + RogueArmory.Pct(h), (long)Math.Round(xpSum * h), (long)Math.Round(meritSum * h)); }
@@ -180,14 +185,14 @@ namespace Flats.Core.Roguelike
         {
             new Modifier { Text = "Enemies have +{0}% health.", EnemyHealth = 0.10 },
             new Modifier { Text = "Enemies deal +{0}% damage.", EnemyDamage = 0.08 },
-            new Modifier { Text = "Elites appear more often (+{0}% of the wave).", EliteFraction = 0.07 },
+            new Modifier { Text = "Elites appear more often (+{0}% of enemies on average).", EliteFraction = 0.07 },
             new Modifier { Text = "One fewer shop reroll per visit.", Rerolls = -1 },
             new Modifier { Text = "Enemies have +{0}% health.", EnemyHealth = 0.10 },
             new Modifier { Text = "Downed players bleed out {0}% faster.", BleedOutMul = 0.70 },
             new Modifier { Text = "Enemies deal +{0}% damage.", EnemyDamage = 0.08 },
             new Modifier { Text = "Two more enemies on the field at once.", EnemyCap = 2 },
             new Modifier { Text = "Enemies have +{0}% health.", EnemyHealth = 0.10 },
-            new Modifier { Text = "Elites appear more often (+{0}% of the wave).", EliteFraction = 0.08 },
+            new Modifier { Text = "Elites appear more often (+{0}% of enemies on average).", EliteFraction = 0.08 },
         };
 
         public static int Clamp(int heat) { return heat < 0 ? 0 : heat > MaxHeat ? MaxHeat : heat; }

@@ -70,7 +70,7 @@ namespace Flats.Core.Roguelike
         public TraitKind Trait; public double T1, T2;
         public DrawbackKind Drawback; public double D1, D2;
         public string Visual = "";             // Resources key of the authored attachment prefab ("" = none)
-        public int Tint = -1;                  // 0xRRGGBB body tint, -1 = authored colours
+        public int Tint = -1;                  // 0xRRGGBB body tint; -1 = the original all-black gun material (every armory weapon uses -1: FLATS guns are black silhouettes)
     }
 
     public enum MeleeSpecial
@@ -134,9 +134,9 @@ namespace Flats.Core.Roguelike
                 Trait = TraitKind.HeadshotRefund, T1 = 1, Drawback = DrawbackKind.SlowReload, D1 = 0.30, ReloadMul = 1.30 },
             new RangedWeaponDef { Id = "rw.smg4", Name = "SMG 4", Class = WeaponClass.SMG, BaseModel = 3, Price = 200, Flavor = "Light enough to sprint through a firefight.",
                 Trait = TraitKind.RunAndGun, T1 = 0.10, Drawback = DrawbackKind.SmallMagazine, D1 = 0.25, Magazine = 15 },
-            new RangedWeaponDef { Id = "rw.smg_viper", Name = "Viper", Class = WeaponClass.SMG, BaseModel = 3, Price = 320, Flavor = "Every hit drags the target down. Carries little spare ammunition.", Visual = "Armory/Viper", Tint = 0x2FA36B,
+            new RangedWeaponDef { Id = "rw.smg_viper", Name = "Viper", Class = WeaponClass.SMG, BaseModel = 3, Price = 320, Flavor = "Every hit drags the target down. Carries little spare ammunition.", Visual = "Armory/Viper",
                 Trait = TraitKind.SlowOnHit, T1 = 0.25, T2 = 1.2, Drawback = DrawbackKind.LowReserve, D1 = 0.35, ReserveMul = 0.65 },
-            new RangedWeaponDef { Id = "rw.smg_drum", Name = "Drum SMG", Class = WeaponClass.SMG, BaseModel = 1, Price = 380, Flavor = "A drum magazine that feeds itself on kills. Slow to reload.", Visual = "Armory/DrumMag", Tint = 0x3B3F58,
+            new RangedWeaponDef { Id = "rw.smg_drum", Name = "Drum SMG", Class = WeaponClass.SMG, BaseModel = 1, Price = 380, Flavor = "A drum magazine that feeds itself on kills. Slow to reload.", Visual = "Armory/DrumMag",
                 Magazine = 45, Trait = TraitKind.AmmoOnKill, T1 = 3, Drawback = DrawbackKind.SlowReload, D1 = 0.60, ReloadMul = 1.60 },
             // Assault rifles
             new RangedWeaponDef { Id = "rw.ar1", Name = "Assault Rifle 1", Class = WeaponClass.AssaultRifle, BaseModel = 4, Starter = true, Flavor = "Accurate and punishing at long range; takes a moment to aim.",
@@ -147,47 +147,47 @@ namespace Flats.Core.Roguelike
                 Trait = TraitKind.Pierce, T1 = 1, Drawback = DrawbackKind.SlowSwap, D1 = 0.60 },
             new RangedWeaponDef { Id = "rw.ar4", Name = "Assault Rifle 4", Class = WeaponClass.AssaultRifle, BaseModel = 7, Price = 320, Flavor = "Ignores shields and hits elites harder. Slows you down.",
                 Trait = TraitKind.ArmorBreaker, T1 = 0.20, Drawback = DrawbackKind.MoveSlow, D1 = 0.08 },
-            new RangedWeaponDef { Id = "rw.ar_bullpup", Name = "Bullpup", Class = WeaponClass.AssaultRifle, BaseModel = 4, Price = 360, Flavor = "Snaps to the sight almost instantly. Weak beyond medium range.", Visual = "Armory/Bullpup", Tint = 0xC9A66B,
+            new RangedWeaponDef { Id = "rw.ar_bullpup", Name = "Bullpup", Class = WeaponClass.AssaultRifle, BaseModel = 4, Price = 360, Flavor = "Snaps to the sight almost instantly. Weak beyond medium range.", Visual = "Armory/Bullpup",
                 Trait = TraitKind.SnapAim, T1 = 0.45, Drawback = DrawbackKind.DamageFalloff, D1 = 0.25, D2 = 25 },
-            new RangedWeaponDef { Id = "rw.ar_battle", Name = "Battle Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 7, Price = 420, Flavor = "Single heavy rounds; headshots stagger. Small magazine.", Visual = "Armory/LongBarrel", Tint = 0x5A4636,
+            new RangedWeaponDef { Id = "rw.ar_battle", Name = "Battle Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 7, Price = 420, Flavor = "Single heavy rounds; headshots stagger. Small magazine.", Visual = "Armory/LongBarrel",
                 Burst = 1, DamageMul = 1.9, RpmMul = 0.7, Magazine = 20, Trait = TraitKind.StaggerOnHeadshot, T1 = 0.6, Drawback = DrawbackKind.SmallMagazine, D1 = 0.5 },
-            new RangedWeaponDef { Id = "rw.ar_dmr", Name = "Marksman Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 6, Price = 460, Flavor = "Hold your aim to charge the next shot. Useless from the hip.", Visual = "Armory/ScopeRail", Tint = 0x4E5D6C,
+            new RangedWeaponDef { Id = "rw.ar_dmr", Name = "Marksman Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 6, Price = 460, Flavor = "Hold your aim to charge the next shot. Useless from the hip.", Visual = "Armory/ScopeRail",
                 Burst = 1, DamageMul = 1.55, RpmMul = 0.35, Magazine = 15, Accuracy = 100, Trait = TraitKind.PatientShot, T1 = 0.25, T2 = 0.4, Drawback = DrawbackKind.NoHipFire, D1 = 3.0 },
-            new RangedWeaponDef { Id = "rw.ar_carbine", Name = "Carbine", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 280, Flavor = "Reloads from empty in a flash. Carries little spare ammunition.", Visual = "Armory/ShortStock", Tint = 0x7A8C5A,
+            new RangedWeaponDef { Id = "rw.ar_carbine", Name = "Carbine", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 280, Flavor = "Reloads from empty in a flash. Carries little spare ammunition.", Visual = "Armory/ShortStock",
                 Trait = TraitKind.EmptyReloadFast, T1 = 0.45, Drawback = DrawbackKind.LowReserve, D1 = 0.40, ReserveMul = 0.60 },
             // Shotguns
             new RangedWeaponDef { Id = "rw.sg1", Name = "Shotgun 1", Class = WeaponClass.Shotgun, BaseModel = 8, Starter = true, Flavor = "Point blank hits knock enemies back. Falls apart at range.",
                 Trait = TraitKind.CloseKnockback, T1 = 3.0, T2 = 8, Drawback = DrawbackKind.DamageFalloff, D1 = 0.40, D2 = 15 },
             new RangedWeaponDef { Id = "rw.sg2", Name = "Shotgun 2", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 260, Flavor = "Close hits stun. Heavy.",
                 Trait = TraitKind.StaggerOnHit, T1 = 0.5, T2 = 10, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
-            new RangedWeaponDef { Id = "rw.sg_auto", Name = "Auto Shotgun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 440, Flavor = "Fast pellets that refund a shell on every kill. Kicks hard.", Visual = "Armory/BoxMag", Tint = 0x8B3A3A,
+            new RangedWeaponDef { Id = "rw.sg_auto", Name = "Auto Shotgun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 440, Flavor = "Fast pellets that refund a shell on every kill. Kicks hard.", Visual = "Armory/BoxMag",
                 RpmMul = 2.2, DamageMul = 0.75, Trait = TraitKind.AmmoOnKill, T1 = 1, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.10, D2 = 0.60 },
-            new RangedWeaponDef { Id = "rw.sg_breach", Name = "Breacher", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 340, Flavor = "Devastating inside a room. Cannot aim.", Visual = "Armory/Breacher", Tint = 0x2E2E2E,
+            new RangedWeaponDef { Id = "rw.sg_breach", Name = "Breacher", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 340, Flavor = "Devastating inside a room. Cannot aim.", Visual = "Armory/Breacher",
                 Trait = TraitKind.CloseRangeBonus, T1 = 0.35, T2 = 6, Drawback = DrawbackKind.NoAds },
-            new RangedWeaponDef { Id = "rw.sg_slug", Name = "Slug Gun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 400, Flavor = "One heavy slug that passes through two enemies. Slow to aim.", Visual = "Armory/LongBarrel", Tint = 0x6B5B3E,
+            new RangedWeaponDef { Id = "rw.sg_slug", Name = "Slug Gun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 400, Flavor = "One heavy slug that passes through two enemies. Slow to aim.", Visual = "Armory/LongBarrel",
                 Burst = 1, DamageMul = 1.9, RpmMul = 1.6, Accuracy = 95, Trait = TraitKind.Pierce, T1 = 2, Drawback = DrawbackKind.SlowAds, D1 = 0.35 },
             // Sniper rifles
             new RangedWeaponDef { Id = "rw.sr1", Name = "Sniper Rifle 1", Class = WeaponClass.Sniper, BaseModel = 10, Price = 260, Flavor = "A headshot chambers the next round fast. No hip fire.",
                 Trait = TraitKind.FollowUp, T1 = 0.60, Drawback = DrawbackKind.NoHipFire, D1 = 4.0 },
             new RangedWeaponDef { Id = "rw.sr2", Name = "Sniper Rifle 2", Class = WeaponClass.Sniper, BaseModel = 11, Price = 340, Flavor = "Rounds pass through two enemies. Heavy.",
                 Trait = TraitKind.Pierce, T1 = 2, Drawback = DrawbackKind.MoveSlow, D1 = 0.12 },
-            new RangedWeaponDef { Id = "rw.sr_anti", Name = "Anti-Materiel Rifle", Class = WeaponClass.Sniper, BaseModel = 11, Price = 560, Flavor = "Breaks shields and elites. Very heavy.", Visual = "Armory/MuzzleBrake", Tint = 0x55603F,
+            new RangedWeaponDef { Id = "rw.sr_anti", Name = "Anti-Materiel Rifle", Class = WeaponClass.Sniper, BaseModel = 11, Price = 560, Flavor = "Breaks shields and elites. Very heavy.", Visual = "Armory/MuzzleBrake",
                 DamageMul = 1.75, RpmMul = 0.65, Trait = TraitKind.ArmorBreaker, T1 = 0.30, Drawback = DrawbackKind.MoveSlow, D1 = 0.20 },
-            new RangedWeaponDef { Id = "rw.sr_scout", Name = "Scout Rifle", Class = WeaponClass.Sniper, BaseModel = 10, Price = 380, Flavor = "A light rifle that aims in a blink. Headshots hit less hard.", Visual = "Armory/ShortStock", Tint = 0x9AA7B0,
+            new RangedWeaponDef { Id = "rw.sr_scout", Name = "Scout Rifle", Class = WeaponClass.Sniper, BaseModel = 10, Price = 380, Flavor = "A light rifle that aims in a blink. Headshots hit less hard.", Visual = "Armory/ShortStock",
                 DamageMul = 0.8, RpmMul = 1.5, ReloadMul = 0.7, Trait = TraitKind.SnapAim, T1 = 0.40, Drawback = DrawbackKind.WeakHeadshot, D1 = 0.40 },
             // Handguns
             new RangedWeaponDef { Id = "rw.hg1", Name = "Handgun 1", Class = WeaponClass.Handgun, BaseModel = 12, Starter = true, Flavor = "Out in a heartbeat. Weak at range.",
                 Trait = TraitKind.QuickDraw, T1 = 0.60, Drawback = DrawbackKind.DamageFalloff, D1 = 0.25, D2 = 20 },
             new RangedWeaponDef { Id = "rw.hg2", Name = "Handgun 2", Class = WeaponClass.Handgun, BaseModel = 13, Price = 160, Flavor = "Headshots stagger. Recoil climbs.",
                 Trait = TraitKind.StaggerOnHeadshot, T1 = 0.4, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.10, D2 = 0.50 },
-            new RangedWeaponDef { Id = "rw.hg_magnum", Name = "Magnum", Class = WeaponClass.Handgun, BaseModel = 13, Price = 360, Flavor = "Six heavy rounds; the last one hits twice as hard. Brutal recoil.", Visual = "Armory/LongBarrel", Tint = 0xC8A24A,
+            new RangedWeaponDef { Id = "rw.hg_magnum", Name = "Magnum", Class = WeaponClass.Handgun, BaseModel = 13, Price = 360, Flavor = "Six heavy rounds; the last one hits twice as hard. Brutal recoil.", Visual = "Armory/LongBarrel",
                 DamageMul = 2.0, Magazine = 6, Trait = TraitKind.LastRoundDouble, T1 = 2.0, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.18, D2 = 0.72 },
-            new RangedWeaponDef { Id = "rw.hg_machine", Name = "Machine Pistol", Class = WeaponClass.Handgun, BaseModel = 12, Price = 300, Flavor = "Three-round bursts while you keep moving. Weak at range.", Visual = "Armory/ExtendedMag", Tint = 0x5B4B8A,
+            new RangedWeaponDef { Id = "rw.hg_machine", Name = "Machine Pistol", Class = WeaponClass.Handgun, BaseModel = 12, Price = 300, Flavor = "Three-round bursts while you keep moving. Weak at range.", Visual = "Armory/ExtendedMag",
                 Burst = 3, RpmMul = 4.0, Magazine = 21, DamageMul = 0.5, Trait = TraitKind.RunAndGun, T1 = 0.10, Drawback = DrawbackKind.DamageFalloff, D1 = 0.30, D2 = 20 },
             // Heavy
             new RangedWeaponDef { Id = "rw.lmg", Name = "Light Machine Gun", Class = WeaponClass.LMG, BaseModel = 14, Price = 300, Flavor = "Grows deadlier the longer it fires. Slow to aim.",
                 Trait = TraitKind.SpinUpDamage, T1 = 0.02, T2 = 0.30, Drawback = DrawbackKind.SlowAds, D1 = 0.40 },
-            new RangedWeaponDef { Id = "rw.lmg_saw", Name = "Saw", Class = WeaponClass.LMG, BaseModel = 14, Price = 480, Flavor = "A fast belt that slows whatever it hits. Needs a moment to spin up.", Visual = "Armory/DrumMag", Tint = 0x333A2E,
+            new RangedWeaponDef { Id = "rw.lmg_saw", Name = "Saw", Class = WeaponClass.LMG, BaseModel = 14, Price = 480, Flavor = "A fast belt that slows whatever it hits. Needs a moment to spin up.", Visual = "Armory/DrumMag",
                 RpmMul = 1.35, DamageMul = 0.8, Trait = TraitKind.SlowOnHit, T1 = 0.20, T2 = 1.0, Drawback = DrawbackKind.LongSpinup, D1 = 0.35 },
             new RangedWeaponDef { Id = "rw.gl", Name = "Grenade Launcher", Class = WeaponClass.Launcher, BaseModel = 15, Price = 420, Flavor = "Explosions stun everything they catch. Slow to swap.",
                 Trait = TraitKind.Concussion, T1 = 0.8, Drawback = DrawbackKind.SlowSwap, D1 = 0.60 },

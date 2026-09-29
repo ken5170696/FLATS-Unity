@@ -45,18 +45,31 @@ namespace Flats.Core.Roguelike
             plan.concurrentCap = Math.Min(28, plan.concurrentCap + h.EnemyCap);
             if (h.EliteFraction > 0 && plan.waves != null)
             {
-                foreach (var w in plan.waves)
+                for (int wi = 0; wi < plan.waves.Length; wi++)
                 {
+                    var w = plan.waves[wi];
                     if (w == null || w.elite == null) continue;
                     int total = w.elite.Length, elites = 0;
                     foreach (var e in w.elite) if (e) elites++;
-                    int want = Math.Min(total, elites + (int)Math.Round(total * h.EliteFraction));
+                    // expected extra elites = total * fraction; the fractional part becomes one more elite with that probability,
+                    // drawn from the plan's own id so every client promotes the same enemies (small early waves still get elites)
+                    double expected = total * h.EliteFraction;
+                    int extra = (int)Math.Floor(expected);
+                    if (Unit(plan.encounterId, wi) < expected - extra) extra++;
+                    int want = Math.Min(total, elites + extra);
                     for (int i = 0; i < total && elites < want; i++)
                         if (!w.elite[i]) { w.elite[i] = true; elites++; if (w.weights != null && i < w.weights.Length) w.weights[i] *= RogueCatalog.EliteWeightMultiplier; }
                 }
                 int sum = 0; foreach (var w in plan.waves) if (w != null && w.weights != null) foreach (var x in w.weights) sum += x;
                 plan.totalWeight = sum;
             }
+        }
+
+        static double Unit(int encounterId, int wave)
+        {
+            ulong x = unchecked((ulong)(encounterId * 73856093) ^ (ulong)(wave * 19349663) ^ 0x9E3779B97F4A7C15UL);
+            x ^= x >> 33; x = unchecked(x * 0xff51afd7ed558ccdUL); x ^= x >> 33;
+            return (x >> 11) * (1.0 / (1UL << 53));
         }
 
         public static int Rerolls(int baseRerolls, int heat) { return Math.Max(0, baseRerolls + RogueHeat.Total(heat).Rerolls); }
