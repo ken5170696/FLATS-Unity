@@ -1,4 +1,3 @@
-# meta-begin
 Elites appear more often (+{0}% of enemies on average).	菁英出現比例提高（平均增加 {0}% 的敵人）。
 Elites carry {0} affixes; bosses {1}.	菁英帶 {0} 個詞綴；首領 {1} 個。
 When an ally dies within {2} m: +{0}% speed and +{1}% damage for {3} s.	{2} 公尺內有同伴陣亡時：移速 +{0}%、傷害 +{1}%，持續 {3} 秒。
@@ -520,7 +519,6 @@ Bat	球棒
 SMG	衝鋒槍
 Saw	鋸齒
 or	或
-# meta-end
 Play	開始遊戲
 Play / Matchmaking	開始 / 配對中
 Mod	模組
