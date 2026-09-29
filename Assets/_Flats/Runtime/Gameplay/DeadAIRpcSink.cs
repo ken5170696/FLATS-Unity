@@ -15,5 +15,6 @@ public sealed class DeadAIRpcSink : MonoBehaviour
     [PunRPC] IEnumerator Search() { yield break; }
     [PunRPC] void StopAttack() { }
     [PunRPC] IEnumerator Shoot() { yield break; }
+    [PunRPC] void RogueShoot(int targetViewId, Vector3 aimError) { }
     [PunRPC] IEnumerator Reload() { yield break; }
 }

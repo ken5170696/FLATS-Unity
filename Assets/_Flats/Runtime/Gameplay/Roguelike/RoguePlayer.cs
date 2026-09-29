@@ -543,6 +543,9 @@ public class RoguePlayer : MonoBehaviour
         // the controller's capsule in world units (the player root is scaled): the old sweep used the unscaled radius from the feet
         // and only noticed a wall after the capsule was already touching it
         float scale = Mathf.Max(transform.lossyScale.x, transform.lossyScale.z), radius = cc.radius * scale * 0.95f, height = cc.height * transform.lossyScale.y;
+        // bullets, corpses and trigger-only volumes are not walls: a dash that meets them must not stop (and waste the charge)
+        int blockers = ~(LayerMask.GetMask("RedTeamBullet", "BlueTeamBullet", "BulletOnly", "Ignore Raycast"));
+        bool startedAirborne = !cc.isGrounded;
         while (travelled < total && cc != null && cc.enabled && !Downed)
         {
             float step = Mathf.Min(speed * Time.deltaTime, total - travelled);
@@ -550,10 +553,11 @@ public class RoguePlayer : MonoBehaviour
             Vector3 bottom = center + Vector3.up * (-height * 0.5f + radius + cc.stepOffset * transform.lossyScale.y), top = center + Vector3.up * (height * 0.5f - radius);
             if (top.y < bottom.y) top = bottom;
             bool blocked = false;
-            foreach (var hit in Physics.CapsuleCastAll(bottom, top, radius, dir, step + 0.1f, ~0, QueryTriggerInteraction.Ignore))
+            foreach (var hit in Physics.CapsuleCastAll(bottom, top, radius, dir, step + 0.1f, blockers, QueryTriggerInteraction.Ignore))
                 if (hit.collider != null && !hit.collider.transform.IsChildOf(transform) && hit.collider != cc && !(hit.distance <= 0f && hit.point == Vector3.zero)) { step = Mathf.Max(0f, hit.distance - 0.05f); blocked = true; break; }
             // an edge: no dash into the void (ground within reach below the next position)
-            if (!Physics.Raycast(transform.position + dir * step + Vector3.up, Vector3.down, 4f * transform.lossyScale.y, ~0, QueryTriggerInteraction.Ignore)) break;
+            // an edge: no dash into the void (skipped for a dash started in the air, which has no ground to follow)
+            if (!startedAirborne && !Physics.Raycast(transform.position + dir * step + Vector3.up, Vector3.down, 4f * transform.lossyScale.y, blockers, QueryTriggerInteraction.Ignore)) break;
             if (step > 0f) cc.Move(dir * step);
             travelled += step;
             if (blocked) break;

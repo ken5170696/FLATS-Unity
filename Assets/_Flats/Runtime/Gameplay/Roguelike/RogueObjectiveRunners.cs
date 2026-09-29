@@ -22,7 +22,7 @@ public sealed class CaptureRunner : RogueObjectiveRunner
         if (machine == null) return;
         List<string> inside; int players = RogueWorld.PlayersWithin(center, Radius, out inside);
         machine.OnOccupancy(players, RogueWorld.EnemiesWithin(center, Radius), dt);
-        ProgressText = RoguelikeController.T("Hold {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) + (players == 0 ? "  " + RoguelikeController.T("Go to the zone") : "");
+        ProgressText = RoguelikeController.F("Hold {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) + (players == 0 ? "  " + RoguelikeController.F("Go to the zone") : "");
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
     }
     public override void Dispose() { RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon); }
@@ -60,7 +60,7 @@ public sealed class CarryRunner : RogueObjectiveRunner
                 if (d <= 4f && machine.OnDelivered()) SetHolder("");
             }
         }
-        ProgressText = machine.Status == ObjectiveStatus.Succeeded ? RoguelikeController.T("Delivered") : RoguelikeController.T("Crate {0} m from the drop", Mathf.RoundToInt((float)machine.RemainingDistance));
+        ProgressText = machine.Status == ObjectiveStatus.Succeeded ? RoguelikeController.F("Delivered") : RoguelikeController.F("Crate {0} m from the drop", Mathf.RoundToInt((float)machine.RemainingDistance));
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
     }
     void SetHolder(string key)
@@ -112,7 +112,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
     }
     public override void Tick(float dt)
     {
-        if (fallback != null) { ProgressText = RoguelikeController.T("Device lost: clear the area"); Succeeded = Controller.AliveEnemies == 0 && Controller.WavesDone; return; }
+        if (fallback != null) { ProgressText = RoguelikeController.F("Device lost: clear the area"); Succeeded = Controller.AliveEnemies == 0 && Controller.WavesDone; return; }
         if (machine == null) return;
         int players = 0;
         foreach (var kv in new List<KeyValuePair<string, float>>(repairing)) { if (kv.Value > 0) players++; repairing[kv.Key] = Mathf.Max(0, kv.Value - dt); }
@@ -120,7 +120,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
         // enemies close to the device wear it down (readable: they must be pushed off it)
         int near = RogueWorld.EnemiesWithin(center, 12f);
         if (near > 0) { damageAccum += near * 25f * dt; if (damageAccum >= 5f) { machine.OnDeviceDamaged(damageAccum); damageAccum = 0; } }
-        ProgressText = RoguelikeController.T("Repair {0}%  Device {1}%", Mathf.RoundToInt((float)machine.Progress * 100), Mathf.RoundToInt((float)machine.DeviceHp / 10f));
+        ProgressText = RoguelikeController.F("Repair {0}%  Device {1}%", Mathf.RoundToInt((float)machine.Progress * 100), Mathf.RoundToInt((float)machine.DeviceHp / 10f));
         if (machine.Status == ObjectiveStatus.Failed)
         {
             fallback = machine.FallbackToClear();
@@ -180,7 +180,7 @@ public sealed class BreakoutRunner : RogueObjectiveRunner
             if (at) { machine.OnPlayerReachedExit(p.key); inside.Add(p.key); } else if (inside.Remove(p.key)) machine.OnPlayerLeftExit(p.key);
         }
         machine.Tick(dt);
-        ProgressText = RoguelikeController.T("At the exit {0}/{1}", inside.Count, Controller.State.ConnectedPlayers) + (machine.Progress > 0 ? " " + Mathf.RoundToInt((float)machine.Progress * 100) + "%" : "");
+        ProgressText = RoguelikeController.F("At the exit {0}/{1}", inside.Count, Controller.State.ConnectedPlayers) + (machine.Progress > 0 ? " " + Mathf.RoundToInt((float)machine.Progress * 100) + "%" : "");
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
     }
     public override void Dispose() { RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon); }
@@ -206,7 +206,7 @@ public sealed class CommanderRunner : RogueObjectiveRunner
             if (machine.SpawnGuardWave) { machine.AcknowledgeGuardWave(); Vector3 near = commander != null ? commander.transform.position : Controller.PlanPoint(0); for (int i = 0; i < 4; i++) Controller.SpawnExtraEnemy(i % 2 == 0 ? "role.rifleman" : "role.rusher", false, near); }
         }
         if (commander != null && commander.gameObject == null) { machine.OnDamaged(99999); }
-        ProgressText = machine.Exposed ? RoguelikeController.T("Commander exposed! {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.T("Kill the guard ({0})", Mathf.Max(0, Controller.AliveEnemies - 1));
+        ProgressText = machine.Exposed ? RoguelikeController.F("Commander exposed! {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.F("Kill the guard ({0})", Mathf.Max(0, Controller.AliveEnemies - 1));
         Succeeded = machine.Status == ObjectiveStatus.Succeeded || (commander == null && spawnedGuard && Controller.CommanderDead);
     }
     public override void OnEnemyKilled(RogueEnemyRole role) { if (role != null && role.RoleId == "role.finale") { spawnedGuard = true; if (machine != null) { machine.OnDamaged(99999); } } }
@@ -234,8 +234,8 @@ public sealed class VaultRunner : RogueObjectiveRunner
         if (core == null) core = Controller.FindFinaleEnemy();
         if (core != null) core.Invulnerable = !machine.Exposed;
         if (core != null || !machine.Exposed) machine.Tick(dt);   // a charged cell keeps the core exposed until it actually arrives with the last wave
-        else ProgressText = RoguelikeController.T("Vault core exposed! {0}%", 0);
-        ProgressText = machine.Exposed ? RoguelikeController.T("Vault core exposed! {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.T("Charge cell {0}/3", Mathf.Min(3, machine.CellsCharged + 1));
+        else ProgressText = RoguelikeController.F("Vault core exposed! {0}%", 0);
+        ProgressText = machine.Exposed ? RoguelikeController.F("Vault core exposed! {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.F("Charge cell {0}/3", Mathf.Min(3, machine.CellsCharged + 1));
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
     }
     public int CellsCharged { get { return machine != null ? machine.CellsCharged : -1; } }
@@ -287,7 +287,7 @@ public sealed class ConvoyRunner : RogueObjectiveRunner
     public override void Tick(float dt)
     {
         if (machine == null) { MoveCarrier(dt, false); return; }
-        if (fallback != null) { ProgressText = RoguelikeController.T("Carrier escaped: clear the area"); Succeeded = Controller.AliveEnemies == 0 && Controller.WavesDone; return; }
+        if (fallback != null) { ProgressText = RoguelikeController.F("Carrier escaped: clear the area"); Succeeded = Controller.AliveEnemies == 0 && Controller.WavesDone; return; }
         int escorts = Controller.AliveEnemies;
         machine.OnEscortKilled(escorts);
         bool stopped = machine.Stopped;
@@ -296,7 +296,7 @@ public sealed class ConvoyRunner : RogueObjectiveRunner
         machine.OnCarrierProgress(Mathf.Clamp01(progress));
         machine.Tick(dt);
         if (machine.Status == ObjectiveStatus.Failed) { fallback = machine.FallbackToClear(); Controller.Notify(new RogueEventMessage { kind = "banner", text = "The carrier reached the exit. Clear the area for half the reward.", value = 3 }); return; }
-        ProgressText = stopped ? RoguelikeController.T("Carrier stopped! Destroy it {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.T("Kill the escort ({0})  Carrier {1}%", escorts, Mathf.RoundToInt(progress * 100));
+        ProgressText = stopped ? RoguelikeController.F("Carrier stopped! Destroy it {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.F("Kill the escort ({0})  Carrier {1}%", escorts, Mathf.RoundToInt(progress * 100));
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
         if (Succeeded && carrier != null) { RogueWorldFx.Burst(carrier.transform.position, 6f, null); RogueWorld.Destroy(carrier); }
     }

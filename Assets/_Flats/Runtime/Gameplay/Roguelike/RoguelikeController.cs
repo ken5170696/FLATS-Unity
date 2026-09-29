@@ -424,6 +424,21 @@ public partial class RoguelikeController : MonoBehaviour
         return T(parts[0], args);
     }
 
+    /// <summary>Format in English without translating: text the authority replicates, translated by each reader.</summary>
+    public static string F(string key, params object[] args) { return args == null || args.Length == 0 ? key : string.Format(key, args); }
+
+    /// <summary>Replicated status text in the local language: the whole line when it is one template, otherwise each
+    /// double-space separated segment ("Hold 40%  Go to the zone").</summary>
+    public static string Localize(string english)
+    {
+        if (string.IsNullOrEmpty(english) || !FlatsLocalization.IsChinese) return english ?? "";
+        string whole = FlatsLocalization.Translate(english);
+        if (whole != english) return whole;
+        var parts = english.Split(new[] { "  " }, StringSplitOptions.None);
+        for (int i = 0; i < parts.Length; i++) parts[i] = FlatsLocalization.Translate(parts[i]);
+        return string.Join("  ", parts);
+    }
+
     /// <summary>Format in English, then translate through the shared table (template keys carry the values).</summary>
     public static string T(string key, params object[] args)
     {

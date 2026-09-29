@@ -121,7 +121,7 @@ public partial class RoguelikeController
         if (show)
         {
             foreach (var e in liveEnemies.Values)
-                if (e != null && e.GetComponent<RogueWaypoint>() == null && e.GetComponent<DamageReceiver>() != null && !e.GetComponent<DamageReceiver>().Dead) { RogueWaypoint.Attach(e.gameObject, "Enemy", StragglerLabel, new Color(0.95f, 0.3f, 0.35f), 2.6f, 1); stragglers.Add(e); }
+                if (e != null && e.GetComponent<RogueWaypoint>() == null && e.GetComponent<DamageReceiver>() != null && !e.GetComponent<DamageReceiver>().Dead && !RogueKillPrediction.IsPredictedDead(e.gameObject)) { RogueWaypoint.Attach(e.gameObject, "Enemy", StragglerLabel, new Color(0.95f, 0.3f, 0.35f), 2.6f, 1); stragglers.Add(e); }
             return;
         }
         foreach (var e in stragglers) { var wp = e != null ? e.GetComponent<RogueWaypoint>() : null; if (wp != null && wp.Label == StragglerLabel) RogueWaypoint.Detach(e.gameObject); }
@@ -240,7 +240,7 @@ public partial class RoguelikeController
             string itemId = id;
             long refund = RogueShop.RefundMinor(me.build, id);
             bool pendingRemove = pendingTx.ContainsValue("remove:" + id);
-            add(RogueIcons.ForItem(def), DisplayName(def) + "  " + TierText(me.build, id), T("Owned") + ": " + T(def.Effect), refund > 0 ? "+$" + RogueMoney.Format(refund) : T("No refund"), RogueItemKinds.Tag(def, RarityText(def)), T("Remove"),
+            add(RogueIcons.ForItem(def), DisplayName(def) + "  " + TierText(me.build, id), T("Owned") + (FlatsLocalization.IsChinese ? "：" : ": ") + T(def.Effect), refund > 0 ? "+$" + RogueMoney.Format(refund) : T("No refund"), RogueItemKinds.Tag(def, RarityText(def)), T("Remove"),
                 !pendingRemove, pendingRemove ? T("Removing...") : "", () => ConfirmRemove(me, itemId));
         }
         long reroll = RogueShop.RerollPriceMinor(state.Chapter);
@@ -370,7 +370,7 @@ public partial class RoguelikeController
         long refund = RogueShop.RefundMinor(me.build, itemId);
         var breaks = RogueShop.RemovalBreaks(me.build, itemId);
         string message = T("Remove {0}? Its effect ends now.", ItemName(itemId)) + "\n" + (refund > 0 ? T("Refund: ${0} (half of what you paid).", RogueMoney.Format(refund)) : T("No refund: it was free."));
-        if (breaks.Length > 0) { var names = new List<string>(); foreach (var b in breaks) names.Add(ItemName(b)); message += "\n" + T("These mods stop working without it: {0}", string.Join(", ", names.ToArray())); }
+        if (breaks.Length > 0) { var names = new List<string>(); foreach (var b in breaks) names.Add(ItemName(b)); message += "\n" + T("These mods stop working without it: {0}", string.Join(ListSeparator, names.ToArray())); }
         menu.ShowConfirm(T("Remove"), message, ok =>
         {
             if (!ok || state == null) return;
@@ -396,8 +396,11 @@ public partial class RoguelikeController
         foreach (var p in state.players) if (p.connected) { total++; if (p.ready) ready++; else waiting.Add(p.key == localKey ? T("you") : p.name); }
         if (total <= 1) return T("Press Ready to start the stage.");
         string line = T("Ready {0}/{1}. The stage starts when everyone is ready.", ready, total);
-        return waiting.Count > 0 ? line + "  " + T("Waiting for: {0}", string.Join(", ", waiting.ToArray())) : line;
+        return waiting.Count > 0 ? line + "  " + T("Waiting for: {0}", string.Join(ListSeparator, waiting.ToArray())) : line;
     }
+
+    /// <summary>Separator for a list of names in the player's language (Chinese lists use the enumeration comma).</summary>
+    static string ListSeparator { get { return FlatsLocalization.IsChinese ? "、" : ", "; } }
 
     bool chapterDecisionSent;
 

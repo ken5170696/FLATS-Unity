@@ -53,6 +53,7 @@ public class Glass : MonoBehaviour
 		float best = 0.05f * 0.05f;
 		foreach (Glass glass in live)
 		{
+			if (glass.broken) continue;   // two panes at one spot: the second report finds the unbroken one
 			float distance = (glass.transform.position - position).sqrMagnitude;
 			if (distance <= best)
 			{

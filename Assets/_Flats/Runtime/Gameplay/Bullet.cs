@@ -47,6 +47,7 @@ public class Bullet : MonoBehaviour
 	[System.NonSerialized] public int rogueKind;
 	[System.NonSerialized] public int rogueDepth;
 	[System.NonSerialized] public string rogueRootShot;
+	[System.NonSerialized] public string rogueTrigger;   // Roguelike: the trigger pull this round belongs to (suppression stacks once per pull)
 	[System.NonSerialized] public int rogueWeaponModel = -1;       // meta: armory weapon model that fired this round
 	[System.NonSerialized] public bool rogueForceHeadshot;         // meta: Fresh Magazine
 	private float radius;

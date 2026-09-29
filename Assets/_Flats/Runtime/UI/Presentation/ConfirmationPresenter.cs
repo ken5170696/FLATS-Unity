@@ -33,12 +33,12 @@ namespace Flats.UI
         }
         public void OnClickedConfirm(){confirm.SetActive(false);}
         // Screens opened later under the same Menu (the Roguelike run screen and overview) are later siblings and would
-        // cover the dialog and take its clicks; a nested canvas sorts the dialog above them without touching sibling order.
+        // cover the dialog and take its clicks; the dialog's authored nested canvas (GameInterface.prefab) sorts it above them.
+        // A nested canvas only applies its sorting once active, so it is re-asserted each time the dialog opens.
         void KeepOnTop()
         {
             var canvas=confirm.GetComponent<Canvas>();
-            if(canvas==null){canvas=confirm.AddComponent<Canvas>();if(confirm.GetComponent<GraphicRaycaster>()==null)confirm.AddComponent<GraphicRaycaster>();}
-            canvas.overrideSorting=true;canvas.sortingOrder=500;
+            if(canvas!=null)canvas.overrideSorting=true;
         }
     }
 }

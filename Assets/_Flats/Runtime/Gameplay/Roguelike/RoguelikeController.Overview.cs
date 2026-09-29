@@ -201,7 +201,7 @@ public partial class RoguelikeController
 
     // ---------------------------------------------------------------- helpers
     RoguePlayer LocalRoguePlayer() { var go = FindLocalPlayer(); return go != null ? go.GetComponent<RoguePlayer>() : null; }
-    string ObjectivePart(int i) { var parts = objectiveText.Split('|'); return i < parts.Length ? parts[i] : ""; }
+    string ObjectivePart(int i) { var parts = objectiveText.Split('|'); return i < parts.Length ? Localize(parts[i]) : ""; }
     string PhaseText()
     {
         switch (state.phase)

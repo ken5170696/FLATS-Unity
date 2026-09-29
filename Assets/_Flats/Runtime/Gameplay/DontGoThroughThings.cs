@@ -33,12 +33,32 @@ public class DontGoThroughThings : MonoBehaviour
 		{
 			float num = Mathf.Sqrt(sqrMagnitude);
 			RaycastHit hitInfo;
-			if (Physics.Raycast(previousPosition, vector, out hitInfo, num, layerMask.value))
+			if (Physics.Raycast(previousPosition, vector, out hitInfo, num, layerMask.value) && (!Excludes(hitInfo) || NearestContact(vector, num, out hitInfo)))
 			{
 				myRigidbody.position = hitInfo.point - vector / num * partialExtent;
 			}
 		}
 		previousPosition = myRigidbody.position;
+	}
+
+	// A collider that excludes this projectile's layer (Roguelike corpses exclude bullets) would never be touched, so it must not
+	// stop the projectile here either; the nearest collider that can be touched is used instead.
+	private bool Excludes(RaycastHit hit)
+	{
+		int bit = 1 << base.gameObject.layer;
+		return (hit.collider.excludeLayers & bit) != 0 || (hit.rigidbody != null && (hit.rigidbody.excludeLayers & bit) != 0);
+	}
+
+	private bool NearestContact(Vector3 vector, float distance, out RaycastHit nearest)
+	{
+		nearest = default(RaycastHit);
+		bool found = false;
+		foreach (var hit in Physics.RaycastAll(previousPosition, vector, distance, layerMask.value))
+		{
+			if (Excludes(hit) || (found && hit.distance >= nearest.distance)) continue;
+			nearest = hit; found = true;
+		}
+		return found;
 	}
 
 	public DontGoThroughThings()

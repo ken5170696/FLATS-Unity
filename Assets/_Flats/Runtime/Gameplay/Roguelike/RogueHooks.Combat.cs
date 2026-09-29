@@ -18,7 +18,7 @@ public static partial class RogueHooks
         if (rp == null) return;
         var role = target.GetComponent<RogueEnemyRole>();
         if (role != null) role.lastHitDamage = damage;
-        rp.OnHit(bullet.rogueRootShot);   // pellets, ricochets and penetrations of one trigger pull share one suppression stack
+        rp.OnHit(string.IsNullOrEmpty(bullet.rogueTrigger) ? bullet.rogueRootShot : bullet.rogueTrigger);   // pellets, ricochets and penetrations of one trigger pull share one suppression stack
         // direct hits mark only with the Marker core; ricochets mark only with Angle Finder (which alone must not turn every
         // direct hit into a team-wide mark)
         bool ricochet = bullet.rogueKind == (int)DamageKind.Ricochet;
@@ -91,7 +91,7 @@ public static partial class RogueHooks
         var b = rb.GetComponent<Bullet>();
         b.shooter = source.shooter;
         b.damage = source.damage * fraction;
-        b.rogueKind = (int)kind; b.rogueDepth = depth; b.rogueRootShot = source.rogueRootShot;
+        b.rogueKind = (int)kind; b.rogueDepth = depth; b.rogueRootShot = source.rogueRootShot; b.rogueTrigger = source.rogueTrigger;
         rb.gameObject.layer = source.gameObject.layer;
         rb.linearVelocity = dir * 1500f;
         if (ignore != null) foreach (var c in ignore.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(rb.GetComponent<Collider>(), c);

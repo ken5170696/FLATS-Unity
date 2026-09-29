@@ -58,8 +58,12 @@ public sealed class RogueMeleeAuthority : MonoBehaviour
         var receiver = GetComponent<DamageReceiver>(); if (receiver != null) receiver.hitPoints = health;
         var shooterView = PhotonView.Find(sourceId);
         if (shooterView != null && shooterView.isMine) RogueKillPrediction.OnHitResolved(receiver, damage);
-        // every client sees the hit land (F31): the shooter already played it when its bullet struck, everyone else plays it now
-        else if (receiver != null && damage > 0f && health > 0f) receiver.RogueReactToHit(shooterView != null ? shooterView.transform : null, headshot);
+        else
+        {
+            RogueKillPrediction.OnHealthKnown(receiver);
+            // every client sees the hit land (F31): the shooter already played it when its bullet struck, everyone else plays it now
+            if (receiver != null && damage > 0f && health > 0f) receiver.RogueReactToHit(shooterView != null ? shooterView.transform : null, headshot);
+        }
         RogueCombatNumber.Show(receiver, damage, headshot, Flats.Core.Roguelike.DamageKind.Direct, shooterView != null ? shooterView.transform : null);
         var role = GetComponent<RogueEnemyRole>(); if (role != null) role.lastHitDamage = damage;
         if (meleeKill) { var source = PhotonView.Find(sourceId); if (source != null) RogueMeleeStats.ConfirmKill(source.transform); }

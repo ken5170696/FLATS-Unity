@@ -82,6 +82,7 @@ namespace Flats.Core.Roguelike
         {
             Stacks(now);
             if (string.IsNullOrEmpty(shotId)) throw new ArgumentException("shotId");
+            if (shots.Count > 512) shots.Clear();   // ids are unique per trigger pull; a long fight must not grow the set forever
             if (!shots.Add(shotId) || MaxStacks == 0) return false;
             stacks = Math.Min(MaxStacks, stacks + 1);
             nextDecay = now + WindowSeconds + DecayIntervalSeconds;

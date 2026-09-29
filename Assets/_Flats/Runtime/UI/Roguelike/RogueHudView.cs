@@ -452,6 +452,9 @@ public class RogueHudView : MonoBehaviour
             // an enemy's marker stands entirely above its anchor (bottom-aligned) so it never covers the enemy; kept inside the top edge
             if (onScreen && enemy) pos.y = Mathf.Min(pos.y - markerBottom + enemyMarkerGap, half.y - markerTop - 2f);
             // keep markers out of the objective panel band at the top centre (the panel is authored 320 wide under the top edge)
+            // and out of the top-left chips and squad list: an edge-clamped marker there covered the money chip (playtest 2026-09-30)
+            if (chipsRect != null && pos.y > half.y - 130f && pos.x < -half.x + chipsRect.anchoredPosition.x + chipsRect.rect.width + 60f)
+                pos.y = half.y - 130f;
             if (Mathf.Abs(pos.x) < 200f && pos.y > half.y - 112f) pos.y = half.y - 112f;
             if (m.rect != null) m.rect.anchoredPosition = pos;
             if (m.arrow != null) { m.arrow.gameObject.SetActive(!onScreen); if (m.arrowRect != null) m.arrowRect.localRotation = Quaternion.Euler(0, 0, angle); }

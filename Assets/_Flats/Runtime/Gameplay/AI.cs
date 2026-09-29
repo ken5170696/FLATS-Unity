@@ -882,8 +882,9 @@ public class AI : MonoBehaviour
 						// Roguelike co-op: every client simulates this burst against its own copy of the players; each copy aims at the
 						// target the master chose, where that player really is on that client (F26: the victim's copy used to aim with the
 						// lagged replicated rotation, so the host was hit accurately while other players were missed)
+						// with the master's current aim error relative to that target, so every client misses and hits alike
 						var aimView = RoguelikeMode.Coop ? targets[0].GetComponent<PhotonView>() : null;
-						if (aimView != null) base.gameObject.GetPhotonView().RPC("RogueShoot", PhotonTargets.All, aimView.viewID);
+						if (aimView != null) base.gameObject.GetPhotonView().RPC("RogueShoot", PhotonTargets.All, aimView.viewID, (Quaternion.Inverse(RogueExactAim(targets[0].position)) * ct.rotation).eulerAngles);
 						else base.gameObject.GetPhotonView().RPC("Shoot", PhotonTargets.All);
 					}
 				}
@@ -981,12 +982,24 @@ public class AI : MonoBehaviour
 	}
 
 	[System.NonSerialized] int rogueAimViewId = -1;
+	[System.NonSerialized] Quaternion rogueAimError = Quaternion.identity;
 
 	[PunRPC]
-	private void RogueShoot(int targetViewId)
+	private void RogueShoot(int targetViewId, Vector3 aimError)
 	{
 		rogueAimViewId = targetViewId;
+		rogueAimError = Quaternion.Euler(aimError);
 		StartCoroutine("Shoot");
+	}
+
+	/// <summary>Where this enemy would point its muzzle camera at a target with no error (the master adds its own offset on top).</summary>
+	private Quaternion RogueExactAim(Vector3 target)
+	{
+		Vector3 forward = target - mt.position;
+		if (forward.sqrMagnitude < 0.01f) return ct.rotation;
+		Quaternion aim = Quaternion.LookRotation(forward);
+		aim.eulerAngles = new Vector3(aim.eulerAngles.x + 1f, aim.eulerAngles.y, aim.eulerAngles.z);
+		return aim;
 	}
 
 	/// <summary>Roguelike co-op, clients other than the master: point the muzzle camera at the master's chosen target as it stands here.</summary>
@@ -995,11 +1008,7 @@ public class AI : MonoBehaviour
 		if (!RoguelikeMode.Coop || rogueAimViewId < 0 || PhotonNetwork.isMasterClient) return;
 		var view = PhotonView.Find(rogueAimViewId);
 		if (view == null || !view.gameObject.activeInHierarchy) return;
-		Vector3 forward = view.transform.position - mt.position;
-		if (forward.sqrMagnitude < 0.01f) return;
-		Quaternion aim = Quaternion.LookRotation(forward);
-		aim.eulerAngles = new Vector3(aim.eulerAngles.x + 1f, aim.eulerAngles.y, aim.eulerAngles.z);   // the master's own aim offset
-		ct.rotation = aim;
+		ct.rotation = RogueExactAim(view.transform.position) * rogueAimError;   // the master's aim error, applied to where the target is here
 	}
 
 	[PunRPC]

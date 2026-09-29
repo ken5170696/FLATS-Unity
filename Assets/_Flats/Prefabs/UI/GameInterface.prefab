@@ -55282,7 +55282,15 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 1851567344758219005, guid: 78a5732f260465b47a99169019f17a76,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1616717751603513416}
+    - targetCorrespondingSourceObject: {fileID: 1851567344758219005, guid: 78a5732f260465b47a99169019f17a76,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 7688766327582282403}
   m_SourcePrefab: {fileID: 100100000, guid: 78a5732f260465b47a99169019f17a76, type: 3}
 --- !u!1 &3584691113622327349 stripped
 GameObject:
@@ -55290,6 +55298,46 @@ GameObject:
     type: 3}
   m_PrefabInstance: {fileID: 2886093932430864584}
   m_PrefabAsset: {fileID: 0}
+--- !u!223 &1616717751603513416
+Canvas:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3584691113622327349}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_RenderMode: 2
+  m_Camera: {fileID: 0}
+  m_PlaneDistance: 100
+  m_PixelPerfect: 0
+  m_ReceivesEvents: 1
+  m_OverrideSorting: 0
+  m_OverridePixelPerfect: 0
+  m_SortingBucketNormalizedSize: 0
+  m_VertexColorAlwaysGammaSpace: 0
+  m_AdditionalShaderChannelsFlag: 0
+  m_UpdateRectTransformForStandalone: 0
+  m_SortingLayerID: 0
+  m_SortingOrder: 500
+  m_TargetDisplay: 0
+--- !u!114 &7688766327582282403
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3584691113622327349}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.GraphicRaycaster
+  m_IgnoreReversedGraphics: 1
+  m_BlockingObjects: 0
+  m_BlockingMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!224 &6636649813466781468 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 8365272429750790100, guid: 78a5732f260465b47a99169019f17a76,

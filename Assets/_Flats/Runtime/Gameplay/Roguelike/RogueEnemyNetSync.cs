@@ -57,6 +57,8 @@ public class RogueEnemyNetSync : MonoBehaviour, IPunObservable
             var position = (Vector3)stream.ReceiveNext();
             var velocity = (Vector3)stream.ReceiveNext();
             var s = new Sample { time = info.timestamp, position = position, velocity = velocity };
+            // the network clock jumped back (reconnect, clock resync): old samples would pin the enemy in place forever
+            if (samples.Count > 0 && s.time < samples[samples.Count - 1].time - 1.0) samples.Clear();
             int i = samples.Count;
             while (i > 0 && samples[i - 1].time > s.time) i--;   // unreliable packets can arrive out of order
             samples.Insert(i, s);

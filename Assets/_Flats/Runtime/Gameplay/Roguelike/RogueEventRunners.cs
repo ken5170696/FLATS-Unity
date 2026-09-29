@@ -42,7 +42,8 @@ public abstract class RogueEventRunner
 
     protected bool Authority { get { return Controller.IsAuthority; } }
     protected Vector3 Point(int i) { return Controller.PlanPoint(PointBase + i); }
-    protected string N(string key, params object[] args) { return RoguelikeController.T(key, args); }
+    // status lines travel to every client in English; each client translates them for its own language (ObjectivePart)
+    protected string N(string key, params object[] args) { return RoguelikeController.F(key, args); }
     protected void Banner(string packed, float seconds) { Controller.Notify(new RogueEventMessage { kind = "banner", text = packed, value = seconds }); }
     protected static GameObject NearestPlayerObject(Vector3 p) { GameObject best = null; float d = float.MaxValue; foreach (var go in RogueWorld.AlivePlayers()) { float x = Vector3.Distance(go.transform.position, p); if (x < d) { d = x; best = go; } } return best; }
 

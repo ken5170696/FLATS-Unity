@@ -183,11 +183,15 @@ public partial class FPSController
 		}
 	}
 
+	private int rogueTriggerSerial;
+
 	[PunRPC]
 	private IEnumerator Shoot()
 	{
         if (RoguelikeMode.Active && RogueMelee.BlocksFire(this)) yield break;
 		if (RogueEntryRefused(RogueAction.Fire)) yield break;   // carrying, downed, menu open (F39)
+		// one id for every pellet and burst round of this trigger pull: suppression adds one stack per pull (F43)
+		string rogueTrigger = RoguelikeMode.Active ? GetInstanceID() + ":" + (++rogueTriggerSerial) : null;
 		if (zombie)
 		{
 			anim.SetBool("ZombieAttack", true);
@@ -245,6 +249,7 @@ public partial class FPSController
 					Rigidbody rigidbody = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 					Bullet component = rigidbody.GetComponent<Bullet>();
 					component.shooter = mt;
+					if (rogueTrigger != null) component.rogueTrigger = rogueTrigger;
                     if (RoguelikeMode.Active) RogueRangedStatus.Capture(component);
 					component.grenade = currentGun.grenade;
 					if (Multiplayer.rule == 6)
@@ -303,6 +308,7 @@ public partial class FPSController
 				Rigidbody b = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 				Bullet bb = b.GetComponent<Bullet>();
 				bb.shooter = mt;
+				if (rogueTrigger != null) bb.rogueTrigger = rogueTrigger;
                 if (RoguelikeMode.Active) RogueRangedStatus.Capture(bb);
 				bb.grenade = currentGun.grenade;
 				if (Multiplayer.rule == 6)

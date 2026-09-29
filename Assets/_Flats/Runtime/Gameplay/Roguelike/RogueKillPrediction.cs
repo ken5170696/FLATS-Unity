@@ -13,6 +13,8 @@ public sealed class RogueKillPrediction : MonoBehaviour
 {
     public const float ConfirmTimeout = 1.5f;
     float pending, predictedAt = -1f;
+    bool authoritativeHealth;          // a resolved hit has told this copy the master's health at least once
+    CharacterController rootBody; bool bodyWasEnabled;
     GameObject corpse;
     readonly List<GameObject> hiddenChildren = new List<GameObject>();
     DamageReceiver receiver;
@@ -34,16 +36,31 @@ public sealed class RogueKillPrediction : MonoBehaviour
         if (p == null) { p = target.gameObject.AddComponent<RogueKillPrediction>(); p.receiver = target; }
         float estimate = role.ModifyIncomingDamage(damage, shooter);
         var rp = shooter != null ? shooter.GetComponent<RoguePlayer>() : null;
-        if (rp != null && rp.LethalShot) estimate = Mathf.Max(estimate, target.hitPoints + 1f);
+        // until the master has reported this enemy's health, assume the most it can have: a copy that initialised before its
+        // role arrived may hold a lower, pre-role value and would predict a kill that is not one
+        float health = target.hitPoints;
+        if (!p.authoritativeHealth) { var ai = target.GetComponent<AI>(); if (ai != null) health = Mathf.Max(health, RogueHooks.EnemyMaxHealth(target, 1000f * (1f + ai.stats_Defense * 0.1f) * Flats.Core.EnemyTuning.Health)); }
+        if (rp != null && rp.LethalShot) estimate = Mathf.Max(estimate, health + 1f);
         p.pending += estimate;
-        if (p.predictedAt < 0f && target.hitPoints - p.pending <= 0f) p.Predict();
+        if (p.predictedAt < 0f && health - p.pending <= 0f) p.Predict();
     }
 
     /// <summary>The master reported a resolved hit (health after it): that much of our pending damage is now settled.</summary>
     public static void OnHitResolved(DamageReceiver target, float damage)
     {
         var p = target != null ? target.GetComponent<RogueKillPrediction>() : null;
-        if (p != null) p.pending = Mathf.Max(0f, p.pending - damage);
+        if (p == null) return;
+        p.pending = Mathf.Max(0f, p.pending - damage);
+        p.authoritativeHealth = true;
+        // every hit we sent is settled and the master still has it alive: the prediction was wrong, undo it now
+        if (p.predictedAt >= 0f && p.pending <= 0f && target.hitPoints > 0f && !target.Dead) p.Rollback();
+    }
+
+    /// <summary>The master reported a hit this copy did not send: its health is now known.</summary>
+    public static void OnHealthKnown(DamageReceiver target)
+    {
+        var p = target != null ? target.GetComponent<RogueKillPrediction>() : null;
+        if (p != null) p.authoritativeHealth = true;
     }
 
     /// <summary>Die on this copy: hand over the predicted ragdoll (null when there is none).</summary>
@@ -64,20 +81,30 @@ public sealed class RogueKillPrediction : MonoBehaviour
         var body = transform.childCount > 0 ? transform.GetChild(0).GetComponent<Renderer>() : null;
         if (body != null) foreach (var smr in corpse.GetComponentsInChildren<SkinnedMeshRenderer>()) smr.sharedMaterial = body.sharedMaterial;
         for (int i = 0; i < transform.childCount; i++) { var c = transform.GetChild(i).gameObject; if (c.activeSelf) { c.SetActive(false); hiddenChildren.Add(c); } }
-        RogueWaypoint.Detach(gameObject);
+        RogueWaypoint.Hide(gameObject, true);   // hidden, not removed: a rollback shows it again
         var sync = GetComponent<RogueEnemyNetSync>(); if (sync != null) sync.enabled = false;
+        // the invisible body must not soak up this player's next shots or block movement while the master confirms
+        rootBody = GetComponent<CharacterController>(); if (rootBody != null) { bodyWasEnabled = rootBody.enabled; rootBody.enabled = false; }
     }
+
 
     void Update()
     {
         if (predictedAt < 0f || receiver == null || receiver.Dead) return;
         if (Time.time - predictedAt < ConfirmTimeout) return;
         // the master did not confirm (another rule saved it, or the hit was lost): the enemy comes back as the master sees it
+        Rollback();
+    }
+
+    void Rollback()
+    {
         predictedAt = -1f; pending = 0f;
         if (corpse != null) Destroy(corpse);
         foreach (var c in hiddenChildren) if (c != null) c.SetActive(true);
         hiddenChildren.Clear();
         var sync = GetComponent<RogueEnemyNetSync>(); if (sync != null) sync.enabled = true;
+        if (rootBody != null) rootBody.enabled = bodyWasEnabled;
+        RogueWaypoint.Hide(gameObject, false);
         Debug.Log("FLATS_ROGUE_PREDICT rollback " + name);
     }
 
