@@ -21,13 +21,15 @@ public class RogueOfferRowView : MonoBehaviour
         if (row.effect != null) row.effect.text = effect ?? "";
         if (row.price != null) row.price.text = price ?? "";
         if (row.priceIcon != null) { RogueIcons.Apply(row.priceIcon, "Coin"); row.priceIcon.gameObject.SetActive(row.priceIcon.sprite != null && !string.IsNullOrEmpty(price) && price.StartsWith("$")); }
-        if (row.rarity != null) row.rarity.text = rarity ?? "";
-        if (row.rarityBack != null) row.rarityBack.gameObject.SetActive(!string.IsNullOrEmpty(rarity));
+        Color kindTint; string tagLabel;
+        bool kind = RogueItemKinds.Parse(rarity, out kindTint, out tagLabel);
+        if (row.rarity != null) { row.rarity.text = tagLabel; if (kind) row.rarity.color = RogueItemKinds.TextTint(kindTint); }
+        if (row.rarityBack != null) { row.rarityBack.gameObject.SetActive(!string.IsNullOrEmpty(tagLabel)); if (kind) row.rarityBack.color = new Color(kindTint.r, kindTint.g, kindTint.b, 0.16f); }
         if (row.status != null) row.status.text = status ?? "";
         if (row.actionLabel != null) row.actionLabel.text = actionText ?? "";
         RogueIcons.Apply(row.icon, iconName);
         if (row.icon != null && row.icon.sprite == null) RogueIcons.Apply(row.icon, "Square");
-        if (row.iconBack != null) row.iconBack.color = RarityTint(rarity);
+        if (row.iconBack != null) row.iconBack.color = kind ? kindTint : RarityTint(rarity);   // category colour when known
         if (row.action != null)
         {
             row.action.gameObject.SetActive(!string.IsNullOrEmpty(actionText));

@@ -22,6 +22,15 @@ public class RogueHudView : MonoBehaviour
     [Header("Hint")] public GameObject hintLine; public Text hintText; public Image hintIcon;
     [Header("Revive")] public GameObject reviveRoot; public Image reviveFill; public Text reviveText;
     [Header("Touch")] public GameObject touchRoot, touchInteract, touchOverview;   // phones: no TAB, no Interact key
+    [Header("Vitals (bottom left)")] public GameObject vitalsPanel; public Image vitalsIconBack, hpFill, hpLag, shieldFill; public Text hpText, hpMaxText, vitalsStatus;
+    [Header("Weapon (bottom right)")] public GameObject weaponPanel; public Text magazineText, reserveText, weaponName;
+    [Header("Objective progress")] public GameObject objectiveBar; public Image objectiveBarFill;
+    [Header("Bounty popup")] public CanvasGroup bountyGroup; public Text bountyText;
+    [Header("Layout")] public RectTransform objectiveRect, squadRect;
+    [Tooltip("Pause button face drawn in the HUD style; the shared HUD's OpenMenu button underneath keeps receiving the clicks.")] public GameObject menuButton;
+    [Tooltip("Canvas width (units) below which the objective drops under the chips and the squad list moves down.")] public float narrowWidth = 640f;
+    public Vector2 objectiveWide = new Vector2(0f, -12f), objectiveNarrow = new Vector2(0f, -46f), squadWide = new Vector2(12f, -46f), squadNarrow = new Vector2(12f, -112f);
+    [Header("Colours")] public Color hpColor = new Color(0.3f, 0.85f, 0.45f), hpLowColor = new Color(1f, 0.32f, 0.36f), hpDownedColor = new Color(1f, 0.7f, 0.1f), ammoLowColor = new Color(1f, 0.36f, 0.4f);
     float reviveShownAt = -10f;
 
     readonly List<RogueHudSquadRow> squadRows = new List<RogueHudSquadRow>();
@@ -48,6 +57,149 @@ public class RogueHudView : MonoBehaviour
         if (waypointTemplate != null) waypointTemplate.gameObject.SetActive(false);
         SetEvent("", "", false); SetEvent("", "", true); HideBoss(); SetHint("", "");
         if (reviveRoot != null) reviveRoot.SetActive(false);
+        if (bountyGroup != null) bountyGroup.alpha = 0f;
+        SetObjectiveProgress(-1f);
+        HideLegacyVitals(true);
+        FlatsLocalization.Changed += OnLanguageChanged;
+    }
+
+    void OnDestroy() { HideLegacyVitals(false); FlatsLocalization.Changed -= OnLanguageChanged; if (legacyLogs != null) legacyLogs.anchoredPosition = legacyLogsHome; }
+
+    // cached texts are rewritten only when their value changes; a language switch must invalidate them
+    void OnLanguageChanged() { shownGunId = -1; shownBleed = -2; for (int i = 0; i < markerLabelKey.Count; i++) markerLabelKey[i] = null; }
+
+    // The shared HUD's health slider and "30/500" ammo label sit left of the crosshair; with the vitals and weapon panels up they
+    // would say the same thing twice. They stay active (their scripts keep writing) and are only faded out while this HUD exists.
+    // The pause button's three dots are drawn squeezed (a square icon in an 80x50 rect, half off the left edge); the HUD draws its
+    // own face over the button's hit area instead, and the shared button keeps handling the click.
+    readonly List<CanvasGroup> legacyGroups = new List<CanvasGroup>();
+    GameObject legacyMenuButton;
+    void HideLegacyVitals(bool hide)
+    {
+        if (hide && (vitalsPanel == null || weaponPanel == null || canvas == null)) return;
+        if (hide)
+        {
+            foreach (var name in new[] { "Healthbar", "AmmoCount", "OpenMenu" })
+            {
+                var t = canvas.transform.Find(name);
+                if (t == null) continue;
+                var group = t.GetComponent<CanvasGroup>();
+                if (group == null) group = t.gameObject.AddComponent<CanvasGroup>();
+                group.alpha = 0f; group.blocksRaycasts = name == "OpenMenu";   // the pause button stays clickable under the HUD face
+                legacyGroups.Add(group);
+                if (name == "OpenMenu") legacyMenuButton = t.gameObject;
+            }
+        }
+        else { foreach (var g in legacyGroups) if (g != null) { g.alpha = 1f; g.blocksRaycasts = true; } legacyGroups.Clear(); }
+    }
+
+    /// <summary>Objective progress bar under the title: 0..1, or below 0 to hide it (objectives without a measurable progress).</summary>
+    public void SetObjectiveProgress(float fraction)
+    {
+        if (objectiveBar == null) return;
+        bool show = fraction >= 0f;
+        if (objectiveBar.activeSelf != show) objectiveBar.SetActive(show);
+        if (show && objectiveBarFill != null) objectiveBarFill.fillAmount = Mathf.Clamp01(fraction);
+    }
+
+    /// <summary>Money for a kill, under the crosshair: rises and fades in under a second (the log line keeps the record).</summary>
+    public void ShowBounty(string text)
+    {
+        if (bountyGroup == null || bountyText == null) return;
+        bountyText.text = text ?? "";
+        bountyShownAt = Time.unscaledTime;
+        bountyGroup.alpha = 1f;
+    }
+    float bountyShownAt = -10f; Vector2 bountyHome; bool bountyHomeSet;
+
+    void TickBounty()
+    {
+        if (bountyGroup == null) return;
+        float t = Time.unscaledTime - bountyShownAt;
+        var rt = (RectTransform)bountyGroup.transform;
+        if (!bountyHomeSet) { bountyHome = rt.anchoredPosition; bountyHomeSet = true; }
+        if (t > 0.9f) { if (bountyGroup.alpha != 0f) bountyGroup.alpha = 0f; return; }
+        bountyGroup.alpha = t < 0.5f ? 1f : 1f - (t - 0.5f) / 0.4f;
+        rt.anchoredPosition = bountyHome + new Vector2(0f, 18f * Mathf.Min(1f, t / 0.5f));
+    }
+
+    // ---------------------------------------------------------------- vitals and weapon (polled every frame from the local player)
+    RoguePlayer vitalsPlayer; DamageReceiver vitalsReceiver; FPSController vitalsFps;
+    int shownHp = -1, shownMax = -1, shownMag = -1, shownReserve = -1, shownGunId = -1, shownBleed = -1;
+    Transform shownWeapon; Gun shownGun; float lagFill = 1f, lagHoldUntil;
+    void TickVitals()
+    {
+        if (vitalsPanel == null && weaponPanel == null) return;
+        var go = localPlayer;
+        if (go == null || !go.activeInHierarchy)
+        {
+            if (vitalsPanel != null && vitalsPanel.activeSelf) vitalsPanel.SetActive(false);
+            if (weaponPanel != null && weaponPanel.activeSelf) weaponPanel.SetActive(false);
+            return;
+        }
+        if (vitalsPlayer == null || vitalsPlayer.gameObject != go) { vitalsPlayer = go.GetComponent<RoguePlayer>(); vitalsReceiver = go.GetComponent<DamageReceiver>(); vitalsFps = go.GetComponent<FPSController>(); lagFill = 1f; }
+        if (vitalsPanel != null && vitalsPlayer != null && vitalsReceiver != null)
+        {
+            if (!vitalsPanel.activeSelf) vitalsPanel.SetActive(true);
+            float max = Mathf.Max(1f, vitalsPlayer.MaxHealth());
+            float hp = Mathf.Clamp(vitalsReceiver.hitPoints, 0f, max);
+            float fill = hp / max;
+            bool downed = vitalsPlayer.Downed;
+            if (hpFill != null)
+            {
+                hpFill.fillAmount = downed ? Mathf.Clamp01(vitalsPlayer.BleedOutRemaining / RoguePlayer.BleedOutSeconds) : fill;
+                hpFill.color = downed ? hpDownedColor : fill <= 0.35f ? Color.Lerp(hpLowColor, Color.white, 0.25f * (1f + Mathf.Sin(Time.unscaledTime * 8f))) : hpColor;
+            }
+            // damage "chip": a pale bar that holds the old value briefly, then drains, so a hit reads as a loss
+            if (fill < lagFill - 0.001f) { if (Time.unscaledTime >= lagHoldUntil) lagFill = Mathf.MoveTowards(lagFill, fill, Time.unscaledDeltaTime * 0.8f); }
+            else lagFill = fill;
+            if (hpLag != null) hpLag.fillAmount = downed ? 0f : lagFill;
+            if (shieldFill != null) { float s = vitalsPlayer.ShieldFraction; shieldFill.fillAmount = s; if (shieldFill.enabled != s > 0f) shieldFill.enabled = s > 0f; }
+            int hpInt = downed ? 0 : Mathf.CeilToInt(hp), maxInt = Mathf.RoundToInt(max);   // a downed player's hit points are a placeholder until the revive sets them
+            if (hpText != null && hpInt != shownHp) { if (hpInt < shownHp) lagHoldUntil = Time.unscaledTime + 0.35f; shownHp = hpInt; hpText.text = hpInt.ToString(); }
+            if (hpMaxText != null && maxInt != shownMax) { shownMax = maxInt; hpMaxText.text = "/ " + maxInt; }
+            int bleed = downed ? Mathf.CeilToInt(vitalsPlayer.BleedOutRemaining) : -1;
+            if (vitalsStatus != null && bleed != shownBleed) { shownBleed = bleed; vitalsStatus.text = bleed >= 0 ? RoguelikeController.T("Down {0}s", bleed) : ""; }
+        }
+        if (weaponPanel != null && vitalsFps != null && vitalsFps.primaryWeapon != null)
+        {
+            if (shownWeapon != vitalsFps.primaryWeapon) { shownWeapon = vitalsFps.primaryWeapon; shownGun = shownWeapon.GetComponent<Gun>(); shownMag = shownReserve = shownGunId = -1; }
+            bool show = shownGun != null;
+            if (weaponPanel.activeSelf != show) weaponPanel.SetActive(show);
+            if (!show) return;
+            if (shownGun.id != shownGunId && weaponName != null)
+            {
+                shownGunId = shownGun.id;
+                weaponName.text = shownGunId >= 0 && shownGunId < Flats.Core.WeaponCatalog.Count ? RogueItemKinds.WeaponDisplayName(Flats.Core.WeaponCatalog.GetDefault(shownGunId).gunName) : "";
+            }
+            if (magazineText != null && shownGun.currentAmmo != shownMag)
+            {
+                shownMag = shownGun.currentAmmo; magazineText.text = shownMag.ToString();
+                magazineText.color = shownGun.limitAmmo > 0 && shownMag <= Mathf.Max(1, shownGun.limitAmmo / 4) ? ammoLowColor : Color.white;
+            }
+            if (reserveText != null && shownGun.maxAmmo != shownReserve) { shownReserve = shownGun.maxAmmo; reserveText.text = "/ " + shownReserve; }
+        }
+    }
+
+    // ---------------------------------------------------------------- narrow canvases (a phone held upright): the objective moves under the chips
+    int layoutNarrow = -1;
+    RectTransform chipsRect, legacyLogs; Vector2 legacyLogsHome; bool legacyLogsFound;
+    [Tooltip("Where the shared log feed (top right) moves in the narrow layout so it stays clear of the objective card.")] public Vector2 logsNarrow = new Vector2(-200f, -330f);
+    void TickLayout()
+    {
+        if (canvasRect == null) return;
+        if (chipsRect == null) chipsRect = transform.Find("Chips") as RectTransform;
+        if (!legacyLogsFound && canvas != null) { legacyLogsFound = true; legacyLogs = canvas.transform.Find("Logs") as RectTransform; if (legacyLogs != null) legacyLogsHome = legacyLogs.anchoredPosition; }
+        // narrow when the chip row would run into the centred objective card (4:3 with every chip up, phones held upright)
+        float width = canvasRect.rect.width;
+        float chipsRight = chipsRect != null && chipsRect.gameObject.activeInHierarchy ? chipsRect.anchoredPosition.x + chipsRect.rect.width : 0f;
+        float objectiveLeft = width * 0.5f - (objectiveRect != null ? objectiveRect.rect.width * 0.5f : 160f);
+        int narrow = width < narrowWidth || chipsRight + 8f > objectiveLeft ? 1 : 0;
+        if (narrow == layoutNarrow) return;
+        layoutNarrow = narrow;
+        if (objectiveRect != null) objectiveRect.anchoredPosition = narrow == 1 ? objectiveNarrow : objectiveWide;
+        if (squadRect != null) squadRect.anchoredPosition = narrow == 1 ? squadNarrow : squadWide;
+        if (legacyLogs != null) legacyLogs.anchoredPosition = narrow == 1 && width < narrowWidth ? logsNarrow : legacyLogsHome;
     }
 
     // ---------------------------------------------------------------- binding
@@ -99,6 +251,7 @@ public class RogueHudView : MonoBehaviour
 
     void Update()
     {
+        if (menuButton != null) { bool show = legacyMenuButton != null && legacyMenuButton.activeInHierarchy; if (menuButton.activeSelf != show) menuButton.SetActive(show); }
         if (reviveRoot != null && reviveRoot.activeSelf && Time.unscaledTime - reviveShownAt > 0.5f) reviveRoot.SetActive(false);
     }
     public void HideBoss() { if (bossBar != null) bossBar.SetActive(false); }
@@ -111,13 +264,36 @@ public class RogueHudView : MonoBehaviour
         if (!equipped) return;
         var iconImage = ultimate ? ultimateIcon : tacticalIcon;
         RogueIcons.Apply(iconImage, iconName);
-        var keyText = ultimate ? ultimateKey : tacticalKey; if (keyText != null) keyText.text = key ?? "";
+        var keyText = ultimate ? ultimateKey : tacticalKey;
+        if (keyText != null)
+        {
+            if (keyText.text != (key ?? "")) { keyText.text = key ?? ""; FitKeyCap(keyText); }
+            var cap = keyText.transform.parent;   // the white key cap behind the letter
+            if (cap != null && cap.gameObject.activeSelf == string.IsNullOrEmpty(key)) cap.gameObject.SetActive(!string.IsNullOrEmpty(key));
+        }
         var valueText = ultimate ? ultimateValue : tacticalValue; if (valueText != null) valueText.text = value ?? "";
         var fillImage = ultimate ? ultimateFill : tacticalFill;
         if (fillImage != null) fillImage.fillAmount = Mathf.Clamp01(fill);
         var back = ultimate ? ultimateBack : tacticalBack;
         if (back != null) back.color = active ? new Color(1f, 0.85f, 0.2f, 0.95f) : fill >= 1f ? new Color(1f, 0.12f, 0.5f, 0.95f) : new Color(0.2f, 0.2f, 0.2f, 0.75f);
         if (iconImage != null) iconImage.color = fill >= 1f || active ? ReadyTint : ChargingTint;
+    }
+
+    [Header("Key caps")]
+    [Tooltip("Key cap width range: one letter keeps the authored square; long names (Shift, M4, Space) widen it toward the slot's left edge.")]
+    public float keyCapMinWidth = 26f, keyCapMaxWidth = 52f, keyCapPadding = 8f;
+
+    /// <summary>Sizes the cap behind a key name to the name; beyond the widest cap the name shrinks instead of spilling out.</summary>
+    void FitKeyCap(Text keyText)
+    {
+        var cap = keyText.transform.parent as RectTransform;
+        if (cap == null) return;
+        keyText.resizeTextForBestFit = false;
+        float width = keyText.preferredWidth + keyCapPadding;
+        bool tooWide = width > keyCapMaxWidth;
+        keyText.resizeTextForBestFit = tooWide;
+        if (tooWide) { keyText.resizeTextMinSize = 7; keyText.resizeTextMaxSize = keyText.fontSize; }
+        cap.sizeDelta = new Vector2(Mathf.Clamp(width, keyCapMinWidth, keyCapMaxWidth), cap.sizeDelta.y);
     }
 
     public struct SquadEntry { public string name, icon, state; public float hp; public Color tint; }
@@ -166,6 +342,10 @@ public class RogueHudView : MonoBehaviour
     void LateUpdate()
     {
         TickTouch();
+        TickLayout();
+        TickBounty();
+        if (localPlayer == null || Time.unscaledTime >= localPlayerCheck) { localPlayer = RoguelikeController.FindLocalPlayer(); localPlayerCheck = Time.unscaledTime + 0.5f; }
+        TickVitals();
         if (waypointRoot == null || waypointTemplate == null) return;
         if (canvas != null && !canvas.enabled) { HideMarkers(0); return; }   // hidden HUD (run screen, pause): no projection work
         var cam = Camera.main;
@@ -219,14 +399,35 @@ public class RogueHudView : MonoBehaviour
             float dist = Vector3.Distance(eye, wp.transform.position);
             int metres = Mathf.RoundToInt(dist);
             if (m.distance != null && markerDistance[i] != metres) { markerDistance[i] = metres; m.distance.text = metres + " m"; }   // text only when the integer changes
-            if (m.label != null && markerLabelKey[i] != wp.Label) { markerLabelKey[i] = wp.Label; m.label.text = RoguelikeController.Decode(wp.Label); }   // translate once per label
             if (m.back != null && m.back.color != wp.Tint) m.back.color = wp.Tint;
             if (m.group != null) m.group.alpha = wp.Pulse ? 0.7f + 0.3f * Mathf.Abs(Mathf.Sin(Time.unscaledTime * 4f)) : onScreen ? 0.95f : 0.8f;
             float s = onScreen ? Mathf.Lerp(1.15f, 0.8f, Mathf.InverseLerp(6f, 60f, dist)) : 0.85f;
             if (m.rect != null) m.rect.localScale = new Vector3(s, s, 1);
         }
+        // markers of the same kind drawn on top of each other (stragglers in one direction all clamp to the same screen-edge spot):
+        // markers are sorted by priority then distance, so the first one of a pile stays and shows how many it stands for
+        // ("Last enemies x3"); the others are hidden instead of stacking icons over its label
+        if (markerPile.Length < shown) markerPile = new int[shown];
+        for (int i = 0; i < shown; i++) markerPile[i] = 1;
+        for (int i = 0; i < shown; i++)
+        {
+            var m = markers[i]; if (m.rect == null || !m.gameObject.activeSelf) continue;
+            for (int j = 0; j < i; j++)
+            {
+                var o = markers[j];
+                if (o.rect != null && o.gameObject.activeSelf && scratch[j].Label == scratch[i].Label && (o.rect.anchoredPosition - m.rect.anchoredPosition).sqrMagnitude < 44f * 44f) { markerPile[j]++; m.gameObject.SetActive(false); break; }
+            }
+        }
+        for (int i = 0; i < shown; i++)
+        {
+            var m = markers[i]; if (m.label == null || !m.gameObject.activeSelf) continue;
+            string key = scratch[i].Label + (markerPile[i] > 1 ? "#" + markerPile[i] : "");
+            if (markerLabelKey[i] != key) { markerLabelKey[i] = key; m.label.text = RoguelikeController.Decode(scratch[i].Label) + (markerPile[i] > 1 ? " x" + markerPile[i] : ""); }   // translate once per label
+        }
         HideMarkers(shown);
     }
+
+    int[] markerPile = new int[8];
 
     void HideMarkers(int from) { for (int i = from; i < markers.Count; i++) markers[i].gameObject.SetActive(false); }
 }

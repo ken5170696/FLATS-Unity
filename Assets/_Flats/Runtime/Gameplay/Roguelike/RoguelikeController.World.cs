@@ -25,11 +25,15 @@ public partial class RoguelikeController
     }
 
     /// <summary>Authority, before the plan is broadcast: choose enough reachable, well-spread anchors for the objective, the event and the emergency.</summary>
+    /// <summary>Objective anchors (metres from the squad; FLATS characters are about 6 m tall): far enough that the start is not the
+    /// objective, near enough to reach in roughly ten seconds of running. Maps without such a point fall back to any reachable one.</summary>
+    public const float ObjectiveMinDistance = 30f, ObjectivePreferredMaxDistance = 200f;
+
     void ChoosePlanPoints()
     {
         int needed = 8;   // objective (up to 3) + event (up to 3) + emergency (up to 3), padded
         var rng = new RogueRng(unchecked((ulong)state.seed)).Derive("points:" + state.runId, state.depth);
-        state.encounter.points = RogueWorld.PickPoints(rng, needed, 14f, 20f);
+        state.encounter.points = RogueWorld.PickPoints(rng, needed, 14f, ObjectiveMinDistance, ObjectivePreferredMaxDistance);
         if (state.encounter.points.Length < needed)
         {
             // few candidates on this map: fill with the closest spread we can get, reachability already checked where possible

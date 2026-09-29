@@ -63,7 +63,11 @@ public static class RogueWorld
     /// Authority: picks `count` candidate indices, reachable from the players, pairwise at least `minApart` apart,
     /// preferring points between `minFromPlayers` and far. Deterministic given the rng.
     /// </summary>
-    public static int[] PickPoints(Flats.Core.Roguelike.RogueRng rng, int count, float minApart, float minFromPlayers)
+    public static int[] PickPoints(Flats.Core.Roguelike.RogueRng rng, int count, float minApart, float minFromPlayers) { return PickPoints(rng, count, minApart, minFromPlayers, float.MaxValue); }
+
+    /// <summary>First pass keeps anchors between minFromPlayers and preferredMax from the squad (the objective is the first pick, so a
+    /// stage starts within a short run instead of across the map); the second pass fills from everything reachable.</summary>
+    public static int[] PickPoints(Flats.Core.Roguelike.RogueRng rng, int count, float minApart, float minFromPlayers, float preferredMax)
     {
         var candidates = Candidates();
         var players = GameObject.FindGameObjectsWithTag("Player");
@@ -79,7 +83,7 @@ public static class RogueWorld
                 Vector3 p; if (!Ground(candidates[i].position, out p)) continue;
                 float fromPlayers = float.MaxValue;
                 foreach (var pl in players) fromPlayers = Mathf.Min(fromPlayers, Vector3.Distance(pl.transform.position, p));
-                if (pass == 0 && fromPlayers < minFromPlayers) continue;
+                if (pass == 0 && (fromPlayers < minFromPlayers || fromPlayers > preferredMax)) continue;
                 bool apart = true;
                 foreach (int c in chosen) if (Vector3.Distance(candidates[c].position, p) < minApart) apart = false;
                 if (!apart) continue;
@@ -174,7 +178,7 @@ public static class RogueWorld
         if (Menu.network == 0) return RoguelikeMode.LocalPlayerKey;
         var view = player.GetComponent<PhotonView>();
         if (view == null || view.owner == null) return "";
-        return !string.IsNullOrEmpty(view.owner.UserId) ? view.owner.UserId : view.owner.NickName + "#" + view.owner.ID;
+        return RoguelikeMode.KeyOf(view.owner);
     }
 
     public static GameObject PlayerByKey(string key)

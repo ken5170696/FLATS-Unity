@@ -64,6 +64,7 @@ public partial class RoguelikeController : MonoBehaviour
         if (!RoguelikeMode.Active) { Destroy(this); yield break; }
         Instance = this;
         RoguelikeMode.RunInProgress = true;
+        RoguePlayer.ResetLastHit();
         localKey = RoguelikeMode.LocalPlayerKey;
         transport = Menu.network == 0 ? (IRogueTransport)new OfflineRogueTransport(this) : new PhotonRogueTransport(GetComponent<PhotonView>());
 
@@ -104,6 +105,12 @@ public partial class RoguelikeController : MonoBehaviour
             while (state == null) yield return null;
         }
         runStarted = true;
+        if (Menu.network != 0)
+        {
+            // one line per client: a local key missing from the run's roster means this client would read someone else's shop and wallet
+            var roster = new List<string>(); foreach (var p in state.players) roster.Add(p.key);
+            Debug.Log("FLATS_ROGUE_ROSTER local=" + localKey + " found=" + (state.Player(localKey) != null) + " roster=" + string.Join(",", roster.ToArray()));
+        }
         StartCoroutine(RunLoop());
     }
 
@@ -130,19 +137,23 @@ public partial class RoguelikeController : MonoBehaviour
         if (resume == null && Menu.network != 0) resume = CoopResumeCandidate(keys);
         if (resume != null && resume.run != null)
         {
+            bool fromEarlierVersion = RogueSave.ContentChanged(resume);
             state = resume.run;
             state.authorityEpoch++;
+            state.contentHash = RogueCatalog.ContentHash();   // an update that kept every id resumes; later checkpoints carry this build's hash
             if (Menu.network == 0 && !string.IsNullOrEmpty(resume.localPlayerKey) && resume.localPlayerKey != localKey)
             {
                 // a co-op checkpoint continued alone: the saved local player becomes "local", everyone else is offline
                 var mine = state.Player(resume.localPlayerKey) ?? (state.players.Length > 0 ? state.players[0] : null);
                 if (mine != null) mine.key = localKey;
             }
+            if (Menu.network != 0) AdoptKeys(MatchSavedPlayers(state, keys, false));   // a co-op run continued in a new room: actor numbers changed
             foreach (var p in state.players) { p.connected = keys.Contains(p.key); p.ready = false; if (p.life != PlayerLife.Alive) p.life = PlayerLife.Alive; }
             machine = new RunMachine(state);
             for (int i = 0; i < keys.Count; i++) if (state.Player(keys[i]) == null) machine.AddPlayer(keys[i], names[i], primaries[i], secondaries[i]);
             if (state.phase != RunPhase.Prep && state.phase != RunPhase.ChapterEnd) state.phase = RunPhase.Prep;
             Log(T("Run resumed at chapter {0} stage {1}", state.Chapter, RogueDepth.StageInChapter(state.depth)));
+            if (fromEarlierVersion) Log(T("Saved by an earlier version: prices and descriptions follow this version."));
         }
         else
         {
@@ -152,7 +163,9 @@ public partial class RoguelikeController : MonoBehaviour
             state = RunMachine.Create(runId, seed, RoguelikeMode.Difficulty, mapDef != null ? mapDef.Id : "map.flatcity", keys, names, primaries, secondaries);
             machine = new RunMachine(state);
             var meta = RogueSaveStore.ReadMeta(); meta.runsStarted++; RogueSaveStore.WriteMeta(meta);
-            Log("Run " + runId + " started: " + RoguelikeMode.DifficultyNames[state.difficulty]);
+            // a new run replaces the saved one; an unreadable file is set aside first so this run can checkpoint (co-op hosts start here too)
+            if (RogueSaveStore.HasCheckpoint() && RogueSaveStore.ReadCheckpoint() == null) RogueSaveStore.RetireCheckpoint();
+            Log(T("Run started: {0}", T(RoguelikeMode.DifficultyNames[state.difficulty])));
         }
         state.mapId = RogueCatalog.MapByScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name) != null
             ? RogueCatalog.MapByScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name).Id : state.mapId;
@@ -161,8 +174,7 @@ public partial class RoguelikeController : MonoBehaviour
 
     static string KeyOf(PhotonPlayer p)
     {
-        if (p == null) return "local";
-        return !string.IsNullOrEmpty(p.UserId) ? p.UserId : p.NickName + "#" + p.ID;
+        return RoguelikeMode.KeyOf(p);
     }
 
     // ---------------------------------------------------------------- replication
@@ -318,6 +330,7 @@ public partial class RoguelikeController : MonoBehaviour
         {
             case "bounty":
                 if (e.minor > 0) Log(T(e.flag ? "Headshot bounty +{0}" : "Bounty +{0}", RogueMoney.Format(e.minor)) + (string.IsNullOrEmpty(e.text) ? "" : " (" + e.text + ")"));
+                if (e.minor > 0 && hudView != null) hudView.ShowBounty("+$" + RogueMoney.Format(e.minor) + (e.flag && e.playerKey == localKey ? "  " + T("Headshot") : ""));   // every member is paid the same bounty
                 break;
             case "banner": Banner(Decode(e.text), (float)(e.value > 0 ? e.value : 3)); break;
             case "log": Log(Decode(e.text)); break;
@@ -363,7 +376,14 @@ public partial class RoguelikeController : MonoBehaviour
     public static string ItemName(string id)
     {
         var def = RogueCatalog.Item(id);
-        return def != null ? T(def.Name) : id;
+        return def != null ? DisplayName(def) : id;
+    }
+
+    /// <summary>Player-facing item name: guns use the names the rest of FLATS shows, everything else its translated catalog name.</summary>
+    public static string DisplayName(ItemDef def)
+    {
+        if (def == null) return "";
+        return def.Kind == ItemKind.Weapon ? RogueItemKinds.WeaponDisplayName(def.Name) : T(def.Name);
     }
 
     /// <summary>Event text travels as "English template|arg|arg"; an arg starting with @ is itself a translatable key. Each client renders its own language.</summary>

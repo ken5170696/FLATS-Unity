@@ -870,6 +870,7 @@ GameObject:
   - component: {fileID: 237001058502648886}
   - component: {fileID: 4998688861761322410}
   - component: {fileID: 6269241295829868540}
+  - component: {fileID: 4293279923213637246}
   m_Layer: 0
   m_Name: Paper
   m_TagString: Untagged
@@ -944,6 +945,20 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &4293279923213637246
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5885491224784761016}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1215b6d63932ff345bb11c5d49924c6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RogueFitToWidth
+  sideMargin: 12
+  minScale: 0.5
 --- !u!1 &6143320478890529270
 GameObject:
   m_ObjectHideFlags: 0

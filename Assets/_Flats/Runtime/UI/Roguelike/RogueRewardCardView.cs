@@ -14,12 +14,14 @@ public class RogueRewardCardView : MonoBehaviour
     {
         if (title != null) title.text = name ?? "";
         if (effect != null) effect.text = effectText ?? "";
-        if (rarity != null) rarity.text = string.IsNullOrEmpty(rarityText) ? RoguelikeController.T("Common") : rarityText;
+        Color kindTint; string tagLabel;
+        bool kind = RogueItemKinds.Parse(rarityText, out kindTint, out tagLabel);
+        if (rarity != null) { rarity.text = kind ? tagLabel : string.IsNullOrEmpty(rarityText) ? RoguelikeController.T("Common") : rarityText; if (kind) rarity.color = RogueItemKinds.TextTint(kindTint); }
         if (status != null) status.text = statusText ?? "";
         if (actionLabel != null) actionLabel.text = actionText ?? "";
         RogueIcons.Apply(icon, iconName);
         if (icon != null && icon.sprite == null) RogueIcons.Apply(icon, "Square");
-        var tint = RogueOfferRowView.RarityTint(rarityText);
+        var tint = kind ? kindTint : RogueOfferRowView.RarityTint(rarityText);   // the band and tile show the category
         if (iconBack != null) iconBack.color = tint;
         if (rarityBand != null) rarityBand.color = tint;
         if (action != null)

@@ -390,7 +390,8 @@ public partial class Menu
 				{
 					SaveDataController.Save();
 				}
-				singleplayerResult.GetChild(1).GetComponent<Text>().text = highscored + "Your level is...\n" + comment;
+				// Roguelike runs have no score rank: the large line carries the outcome and how far the run got
+				singleplayerResult.GetChild(1).GetComponent<Text>().text = RoguelikeMode.Active ? RogueHooks.ResultHeadline() : highscored + "Your level is...\n" + comment;
 				yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
 				StartCoroutine("BackgroundColor", "OpenMenu");
 				if (!Application.isMobilePlatform && Input.mousePresent)

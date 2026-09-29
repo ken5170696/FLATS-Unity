@@ -159,12 +159,12 @@ namespace Flats.Core.Roguelike
         public static readonly EnemyRoleDef[] EnemyRoles =
         {
             // id, name, icon, weight, hp, speed, dmg, frontReduction, range, minDepth, brief, near/mid/far spread, weapons
-            new EnemyRoleDef("role.rifleman", "Rifleman", "Fire", 100, 1.0, 1.0, 1.0, 0.0, 40, 1, "步槍持續壓制；利用掩體換位，避免近距離對射。", 0.06, 0.35, 0.8, 4, 5, 6, 7),
-            new EnemyRoleDef("role.rusher", "Rusher", "Jump", 120, 0.7, 1.6, 1.0, 0.0, 8, 1, "快速貼身以霰彈或手槍攻擊；拉開距離優先擊倒。", 0.1, 0.6, 1.0, 8, 9, 12, 13),
-            new EnemyRoleDef("role.marksman", "Marksman", "Sight", 130, 0.8, 0.9, 1.4, 0.0, 90, 2, "遠距離精準高傷射擊；切斷視線後繞側突進。", 0.03, 0.15, 0.4, 10, 11),
-            new EnemyRoleDef("role.shieldbearer", "Shield Bearer", "Shield", 160, 1.6, 0.75, 0.8, 0.6, 20, 3, "正面護盾減傷；繞到側後方集中火力。", 0.06, 0.4, 0.85, 0, 1, 2, 3),
-            new EnemyRoleDef("role.flanker", "Flanker", "Dash", 120, 0.9, 1.25, 1.0, 0.0, 25, 2, "高速繞側分散火力；留意側翼並與隊友互相掩護。", 0.06, 0.4, 0.85, 0, 1, 2, 3),
-            new EnemyRoleDef("role.jammer", "Jammer", "Settings5", 150, 1.1, 0.9, 0.7, 0.0, 30, 4, "周圍三十公尺阻止大招充能；優先擊倒或離開干擾範圍。", 0.08, 0.45, 0.9, 12, 13),
+            new EnemyRoleDef("role.rifleman", "Rifleman", "Fire", 100, 1.0, 1.0, 1.0, 0.0, 40, 1, "Keeps up steady fire. Move between cover and do not trade shots at close range.", 0.06, 0.35, 0.8, 4, 5, 6, 7),
+            new EnemyRoleDef("role.rusher", "Rusher", "Jump", 120, 0.7, 1.6, 1.0, 0.0, 8, 1, "Closes in fast with a shotgun or pistol. Keep your distance and drop it first.", 0.1, 0.6, 1.0, 8, 9, 12, 13),
+            new EnemyRoleDef("role.marksman", "Marksman", "Sight", 130, 0.8, 0.9, 1.4, 0.0, 90, 2, "Hits hard and accurately from far away. Break line of sight, then flank it.", 0.03, 0.15, 0.4, 10, 11),
+            new EnemyRoleDef("role.shieldbearer", "Shield Bearer", "Shield", 160, 1.6, 0.75, 0.8, 0.6, 20, 3, "Its shield blocks most damage from the front. Get to its side or back.", 0.06, 0.4, 0.85, 0, 1, 2, 3),
+            new EnemyRoleDef("role.flanker", "Flanker", "Dash", 120, 0.9, 1.25, 1.0, 0.0, 25, 2, "Runs around your flank. Watch your sides and cover each other.", 0.06, 0.4, 0.85, 0, 1, 2, 3),
+            new EnemyRoleDef("role.jammer", "Jammer", "Settings5", 150, 1.1, 0.9, 0.7, 0.0, 30, 4, "Stops ultimate charge within 30 m. Take it out first or leave its range.", 0.08, 0.45, 0.9, 12, 13),
         };
         public const int EliteWeightMultiplier = 2, FinaleWeightMultiplier = 6;
 

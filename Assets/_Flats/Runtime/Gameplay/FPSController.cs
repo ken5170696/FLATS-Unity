@@ -684,7 +684,7 @@ public partial class FPSController : MonoBehaviour
 				{
 					if (jumpPressTime <= holdTime && !jumping)
 					{
-						if (isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
+						if (isGrounded() && !RogueJumpBlocked && !Physics.Raycast(mct.position, Vector2.up, 2f))
 						{
 							Y = mt.position.y;
 							jumping = true;
@@ -829,7 +829,7 @@ public partial class FPSController : MonoBehaviour
 					{
 						// Controller jump fires on press. Sprint toggles with a click (holding also
 						// works) and ends when forward input stops or the player aims.
-						if (FlatsControls.PadState("Jump", 1) && !jumping && isGrounded() && !Physics.Raycast(mct.position, Vector2.up, 2f))
+						if (FlatsControls.PadState("Jump", 1) && !jumping && isGrounded() && !RogueJumpBlocked && !Physics.Raycast(mct.position, Vector2.up, 2f))
 						{
 							Y = mt.position.y;
 							jumping = true;
@@ -1067,7 +1067,7 @@ public partial class FPSController : MonoBehaviour
 					{
 						actions.Dispatch(Flats.Core.PlayerAction.ThrowGrenade);
 					}
-					if (input.Jump && !jumping && (isGrounded() || (RoguelikeMode.Active && RogueHooks.AllowAirJump(this))) && !Physics.Raycast(mct.position, Vector2.up, 2f))
+					if (input.Jump && !jumping && !RogueJumpBlocked && (isGrounded() || (RoguelikeMode.Active && RogueHooks.AllowAirJump(this))) && !Physics.Raycast(mct.position, Vector2.up, 2f))
 					{
 						Y = mt.position.y;
 						jumping = true;
@@ -1248,6 +1248,9 @@ public partial class FPSController : MonoBehaviour
 		// Sampling the sight before IK moves it breaks ADS when looking up/down.
 		UpdateAimPresentation();
 	}
+
+	// Roguelike: a downed player stays on the ground until revived.
+	private bool RogueJumpBlocked => RoguelikeMode.Active && RogueHooks.JumpBlocked(this);
 
 	private bool isGrounded()
 	{

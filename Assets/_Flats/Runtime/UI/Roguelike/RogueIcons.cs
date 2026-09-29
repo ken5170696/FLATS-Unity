@@ -42,8 +42,7 @@ public class RogueIcons : MonoBehaviour
     /// <summary>Key hint for an action as the current input method would show it (keyboard letter or pad glyph text).</summary>
     public static string KeyHint(string action)
     {
-        var label = FlatsControls.Label(action, FlatsControls.UsingGamepad);
-        return string.IsNullOrEmpty(label) ? "" : label.ToUpperInvariant();
+        return RogueInput.KeyCap(action);   // empty on phones: they tap the slot itself, a keyboard key cap would mislead
     }
 
     public static void Apply(Image image, string name)

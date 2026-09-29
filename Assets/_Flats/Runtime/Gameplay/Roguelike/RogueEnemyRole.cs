@@ -120,7 +120,8 @@ public class RogueEnemyRole : MonoBehaviour
     public float MaxHealth(float baseHitPoints)
     {
         float mul = Def != null ? (float)Def.HealthMul : (RoleId == "role.finale" ? 8f : 1f);
-        if (Elite) mul *= 2f;
+        // the finale target carries the elite flag for its marker and bounty weight; its x8 already is the boss scale (x16 was a sponge)
+        if (Elite && RoleId != "role.finale") mul *= 2f;
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null && ctrl.State != null) mul *= (float)ctrl.State.encounter.enemyHealthMul;
         return baseHitPoints * mul;

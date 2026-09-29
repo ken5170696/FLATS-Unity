@@ -95,7 +95,7 @@ namespace Flats.Core.Roguelike
             return offers.ToArray();
         }
 
-        /// <summary>Three free choices after a stage clear: one stat, one mod and one core/tactical/ultimate style pick.</summary>
+        /// <summary>Three free choices after a stage clear: one stat, one mod and one core/tactical pick; a saturated build gets sideways swaps.</summary>
         public static ShopOffer[] SampleReward(RogueRng root, string runSalt, int depth, string playerKey, PlayerBuild build, string routeTag)
         {
             var rng = root.Derive("reward:" + runSalt + ":" + playerKey + ":" + depth);
@@ -111,7 +111,48 @@ namespace Flats.Core.Roguelike
             if (third == null) third = PickByTag(rng, RogueCatalog.Mods, build, new[] { RogueCatalog.TagGeneric }, 0.5, taken);
             add(third);
             while (offers.Count < RewardChoices) { var extra = PickByTag(rng, RogueCatalog.Mods, build, null, 0, taken); if (extra == null) break; add(extra); }
+            // a full build still gets three real choices: sideways swaps (tactical, ultimate, weapon) instead of an empty or shrinking pick
+            if (offers.Count < RewardChoices) add(PickByTag(rng, RogueCatalog.Tacticals, build, AffinityTags(build), 0.5, taken));
+            if (offers.Count < RewardChoices) add(PickByTag(rng, RogueCatalog.Ultimates, build, AffinityTags(build), 0.5, taken));
+            while (offers.Count < RewardChoices) { var weapon = PickWeapon(rng, build, taken); if (weapon == null) break; add(weapon); }
             return offers.ToArray();
+        }
+
+        /// <summary>
+        /// An item whose effect needs something the build does not have yet (a core, a tactical, a weapon family) and would do nothing
+        /// on its own. Such items are not sampled, so a paid slot is never spent on a dead effect; owning the prerequisite brings them back.
+        /// Only sampling uses this: RejectReason and old checkpoints are unchanged.
+        /// </summary>
+        public static bool MissingPrerequisite(ItemDef def, PlayerBuild build)
+        {
+            if (def == null || build == null) return false;
+            bool ricochet = build.HasCore("core.ricochet") || build.HasMod("mod.double_bounce");
+            bool marks = build.HasCore("core.marker") || (build.HasMod("mod.angle_finder") && ricochet);
+            switch (def.Id)
+            {
+                case "mod.sustained_fire": return !build.HasCore("core.suppression");
+                case "mod.burst_extender": return !build.HasCore("core.reloadburst");
+                case "mod.double_dash": return build.tactical != "tactical.dash";
+                case "mod.rubber_rounds": return !ricochet;
+                case "mod.angle_finder": return !ricochet;
+                case "mod.spotter":
+                case "mod.bounty_hunter": return !marks;
+                // marks are simulated on the shooter's client and not replicated, so "a teammate hits your mark" cannot be observed yet;
+                // the mod is kept for old checkpoints but no longer offered
+                case "mod.team_radio": return true;
+                case "mod.bigger_boom":
+                case "mod.shockwave": return !build.HasCore("core.demolition");
+                case "mod.choke": return !CarriesWeapon(build, 8, 9);
+            }
+            return false;
+        }
+
+        /// <summary>An unknown primary (-1: a co-op joiner's character default) counts as possibly matching, so nobody is starved; an unknown
+        /// secondary is the character's sidearm, never a shotgun.</summary>
+        static bool CarriesWeapon(PlayerBuild build, int first, int last)
+        {
+            if (build.primaryWeapon < 0) return true;
+            return (build.primaryWeapon >= first && build.primaryWeapon <= last) || (build.secondaryWeapon >= first && build.secondaryWeapon <= last);
         }
 
         public static string[] AffinityTags(PlayerBuild build)
@@ -155,7 +196,7 @@ namespace Flats.Core.Roguelike
             var weights = new List<double>();
             foreach (var def in pool)
             {
-                if (taken.Contains(def.Id) || build.RejectReason(def) != null) continue;
+                if (taken.Contains(def.Id) || build.RejectReason(def) != null || MissingPrerequisite(def, build)) continue;
                 double w = def.Rarity == 2 ? 0.5 : def.Rarity == 1 ? 0.8 : 1.0;
                 if (preferredTags != null) foreach (var t in preferredTags) if (def.HasTag(t)) { w += affinity; break; }
                 candidates.Add(def); weights.Add(w);

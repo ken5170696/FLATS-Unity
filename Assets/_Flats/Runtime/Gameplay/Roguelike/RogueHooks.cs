@@ -15,6 +15,7 @@ public static partial class RogueHooks
     {
         if (!RoguelikeMode.Active || player == null) return;
         if (player.GetComponent<RoguePlayer>() == null) player.gameObject.AddComponent<RoguePlayer>();
+        if (player.GetComponent<RogueDownedPresentation>() == null) player.gameObject.AddComponent<RogueDownedPresentation>();
     }
 
     public static RoguePlayer Local
@@ -42,7 +43,10 @@ public static partial class RogueHooks
         if (receiver.userIsPlayer)
         {
             var rp = Of(receiver);
-            return rp == null ? damage : rp.ModifyIncomingDamage(damage);
+            if (rp == null) return damage;
+            var role = shooter != null ? shooter.GetComponent<RogueEnemyRole>() : null;
+            if (role != null && damage > 0f) rp.NoteHitBy(role.RoleId, Vector3.Distance(shooter.position, receiver.transform.position));
+            return rp.ModifyIncomingDamage(damage);
         }
         return ModifyIncomingEnemyDamage(receiver, damage, shooter);
     }
@@ -79,6 +83,50 @@ public static partial class RogueHooks
     {
         var rp = Of(player);
         return rp == null ? 1f : rp.OutgoingDamageMul();
+    }
+
+    /// <summary>Hit-time factor for a player bullet (headshot/body, range from the shot's start). 1 for enemies and outside a run.</summary>
+    public static float HitDamageMul(Bullet bullet, bool headshot, Vector3 hitPoint)
+    {
+        // derived hits (ricochet, pierce, chain) already carry the scaled damage of the shot that spawned them
+        if (!RoguelikeMode.Active || bullet == null || bullet.shooter == null || bullet.grenade || bullet.rogueKind != 0) return 1f;
+        var rp = bullet.shooter.GetComponent<RoguePlayer>();
+        return rp == null ? 1f : rp.HitDamageMul(headshot, Vector3.Distance(bullet.StartPosition, hitPoint));
+    }
+
+    /// <summary>Calm Hands: spread scale while aiming down sights.</summary>
+    public static float AimSpreadMul(FPSController player)
+    {
+        var rp = Of(player);
+        return rp == null ? 1f : Mathf.Clamp((float)rp.Stats.SpreadMul, 0.25f, 1f);
+    }
+
+    /// <summary>Choke: extra pellets for the two shotguns (catalog 8 and 9). Extra pellets never cost ammunition.</summary>
+    public static int ExtraPellets(FPSController player, int weaponId)
+    {
+        var rp = Of(player);
+        return rp == null || (weaponId != 8 && weaponId != 9) ? 0 : Mathf.Clamp(rp.Stats.ExtraPellets, 0, 2);
+    }
+
+    /// <summary>Fast Hands / Suppression: reload wait multiplier (already clamped 0.4..2 by the rules).</summary>
+    public static float ReloadTimeMul(FPSController player)
+    {
+        var rp = Of(player);
+        return rp == null ? 1f : (float)rp.Stats.ReloadTimeMul;
+    }
+
+    /// <summary>Tactical Reload: rounds returned to the reserve by every completed reload.</summary>
+    public static int ReserveReturnOnReload(FPSController player)
+    {
+        var rp = Of(player);
+        return rp == null ? 0 : Mathf.Clamp(rp.Stats.ReserveReturnOnReload, 0, 10);
+    }
+
+    /// <summary>Frag Grenades: thrown grenades and grenade-launcher rounds.</summary>
+    public static float GrenadeDamageMul(FPSController player)
+    {
+        var rp = Of(player);
+        return rp == null ? 1f : (float)rp.Stats.GrenadeDamageMul;
     }
 
     public static bool InfiniteAmmo(FPSController player)
@@ -164,5 +212,11 @@ public static partial class RogueHooks
     public static string ResultText()
     {
         return Controller != null ? Controller.ResultText() : "";
+    }
+
+    /// <summary>Large result line for the shared result screen (outcome, reach, record).</summary>
+    public static string ResultHeadline()
+    {
+        return Controller != null ? Controller.ResultHeadline() : "";
     }
 }

@@ -252,6 +252,20 @@ namespace Flats.Core.Roguelike
 
         public bool EnemyCancelled(int instanceId) { return RogueEconomy.Cancel(State.ledger, instanceId); }
 
+        /// <summary>Bounty Hunter: a marked enemy killed during combat pays the squad an extra 10% of that kill's bounty, drawn from the
+        /// stage's bounded bonus budget. markerKey is the player whose mark was on the target; nothing is paid unless that player owns the mod.</summary>
+        public Payout MarkedKillBonus(string markerKey, Payout killPayout)
+        {
+            var marker = State.Player(markerKey);
+            if (State.phase != RunPhase.Combat || marker == null || killPayout == null || killPayout.Total <= 0) return new Payout();
+            var stats = BuildStats.Compute(marker.build);
+            if (stats.MarkedKillBountyBonus <= 0) return new Payout();
+            long each = 0; foreach (var v in killPayout.Minor.Values) { each = v; break; }
+            var bonus = RogueEconomy.PayBonus(State.ledger, State.ValidMembers(), RogueMoney.MulFraction(each, stats.MarkedKillBountyBonus), "marked");
+            Credit(bonus);
+            return bonus;
+        }
+
         private void ChargeUltimates(int weight, string killerKey, IList<string> jammedKeys)
         {
             // kills charge the killer most and the squad a little; safe rooms never charge (no kills there)

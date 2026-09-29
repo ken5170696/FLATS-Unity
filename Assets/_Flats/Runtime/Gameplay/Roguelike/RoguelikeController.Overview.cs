@@ -113,30 +113,30 @@ public partial class RoguelikeController
         stat("Ammo", T("Magazine"), Pct(stats.MagazineMul), T("Tier {0}/{1}   Reserve {2}   Reload time x{3}", me.build.magazineTier, RogueCatalog.StatTiers, Pct(stats.ReserveMul), Round(stats.ReloadTimeMul)), (float)((stats.MagazineMul - 1) / BuildStats.MaxMagazineBonus), TintBlue);
         stat("Jump", T("Speed"), Pct(stats.SpeedMul), T("Tier {0}/{1}   Jump height x{2}", me.build.speedTier, RogueCatalog.StatTiers, Round(stats.JumpHeightMul)), (float)((stats.SpeedMul - 1) / BuildStats.MaxSpeedBonus), TintGreen);
         if (!two) stat("Shield", T("Damage taken"), Pct(stats.DamageTakenMul), stats.DamageTakenMul < 1 ? T("Reduced by mods and cores") : "", -1, TintInk);
-        stat("Ultimate", T("Ultimate"), string.IsNullOrEmpty(me.build.ultimate) ? T("None") : ItemName(me.build.ultimate), string.IsNullOrEmpty(me.build.ultimate) ? T("Buy one in the shop; it charges from kills.") : T("Charge {0}%   Press {1}", me.ultimateCharge, RogueIcons.KeyHint("Ultimate")), string.IsNullOrEmpty(me.build.ultimate) ? -1 : me.ultimateCharge / 100f, TintGold);
-        stat(string.IsNullOrEmpty(me.build.tactical) ? "Dash" : RogueIcons.ForItem(RogueCatalog.Item(me.build.tactical)), T("Tactical"), string.IsNullOrEmpty(me.build.tactical) ? T("None") : ItemName(me.build.tactical), string.IsNullOrEmpty(me.build.tactical) ? "" : T("Press {0}", RogueIcons.KeyHint("Tactical")), -1, TintBlue);
+        stat("Ultimate", T("Ultimate"), string.IsNullOrEmpty(me.build.ultimate) ? T("None") : ItemName(me.build.ultimate), string.IsNullOrEmpty(me.build.ultimate) ? T("Buy one in the shop; it charges from kills.") : (RogueInput.IsTouch ? T("Charge {0}%", me.ultimateCharge) : T("Charge {0}%   Press {1}", me.ultimateCharge, RogueInput.KeyText("Ultimate"))), string.IsNullOrEmpty(me.build.ultimate) ? -1 : me.ultimateCharge / 100f, RogueItemKinds.UltimateTint);
+        stat(string.IsNullOrEmpty(me.build.tactical) ? "Dash" : RogueIcons.ForItem(RogueCatalog.Item(me.build.tactical)), T("Tactical"), string.IsNullOrEmpty(me.build.tactical) ? T("None") : ItemName(me.build.tactical), string.IsNullOrEmpty(me.build.tactical) || RogueInput.IsTouch ? "" : T("Press {0}", RogueInput.KeyText("Tactical")), -1, RogueItemKinds.TacticalTint);
         if (two)
         {
             overview.SetGridHeadings(T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods));
             for (int i = 0; i < RogueCatalog.MaxCores; i++)
             {
                 var def = i < me.build.cores.Length ? RogueCatalog.Item(me.build.cores[i]) : null;
-                if (def != null) overview.AddCard(true, RogueIcons.ForItem(def), T(def.Name), T(def.Effect), RogueOfferRowView.RarityTint(RarityText(def)), false);
+                if (def != null) overview.AddCard(true, RogueIcons.ForItem(def), T(def.Name), T(def.Effect), RogueItemKinds.CoreTint, false);
                 else overview.AddCard(true, "Core", T("Empty core slot"), "", TintInk, true);
             }
             for (int i = 0; i < RogueCatalog.MaxMods; i++)
             {
                 var def = i < me.build.mods.Length ? RogueCatalog.Item(me.build.mods[i]) : null;
-                if (def != null) overview.AddCard(false, RogueIcons.ForItem(def), T(def.Name), "", RogueOfferRowView.RarityTint(RarityText(def)), false);
+                if (def != null) overview.AddCard(false, RogueIcons.ForItem(def), T(def.Name), T(def.Effect), RogueItemKinds.ModTint, false);   // the effect, so owned mods are not just names
                 else overview.AddCard(false, "Mod", T("Empty"), "", TintInk, true);
             }
         }
         else
         {
             overview.AddStat("Core", T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), "", "", -1, TintInk);
-            foreach (var id in me.build.cores) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueOfferRowView.RarityTint(RarityText(def))); }
+            foreach (var id in me.build.cores) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueItemKinds.CoreTint); }
             overview.AddStat("Mod", T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods), "", "", -1, TintInk);
-            foreach (var id in me.build.mods) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueOfferRowView.RarityTint(RarityText(def))); }
+            foreach (var id in me.build.mods) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueItemKinds.ModTint); }
         }
     }
 
@@ -176,7 +176,7 @@ public partial class RoguelikeController
         var gun = weapon != null ? weapon.GetComponent<Gun>() : null;
         string ammo = gun != null ? gun.currentAmmo + " / " + gun.maxAmmo : "";
         int magazine = gun != null ? Mathf.Max(1, Mathf.RoundToInt((float)(def.limitAmmo * stats.MagazineMul))) : def.limitAmmo;
-        overview.AddStat("Fire", slot + ": " + def.gunName, ammo,
+        overview.AddStat("Fire", slot + ": " + RogueItemKinds.WeaponDisplayName(def.gunName), ammo,
             T("Damage {0}   Magazine {1}   RPM {2}   Reload {3}s   Headshot x{4}", Mathf.RoundToInt((float)(def.damage * stats.DamageMul)), magazine, Mathf.RoundToInt(def.rpm), Math.Round(def.reloadTime * stats.ReloadTimeMul, 1), Round(def.headshotBonus * stats.HeadshotDamageMul)),
             gun != null && gun.currentAmmo + gun.maxAmmo > 0 ? Mathf.Clamp01((float)gun.currentAmmo / Mathf.Max(1, magazine)) : -1, TintPink);
     }

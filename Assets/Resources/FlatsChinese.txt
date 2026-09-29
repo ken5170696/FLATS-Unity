@@ -1382,7 +1382,6 @@ The carrier reached the exit. Clear the area for half the reward.	載具抵達�
 The device was destroyed. Clear the area instead.	裝置被摧毀。改為清剿區域。
 The commander is exposed!	指揮官暴露了！
 Hold {0}: {1}	按住 {0}：{1}
-{0}: {1}	{0}：{1}
 Pick up the crate	撿起補給箱
 Repair	修復
 Charge cell {0}	充能電池 {0}
@@ -1413,7 +1412,7 @@ Elite Hunt: a marked elite is on the map.	精英獵殺：地圖上有一名被�
 Hunt the marked elite	獵殺被標記的精英
 Elite down!	精英已擊倒！
 Lure planted {0} s	誘敵箱已放置 {0} 秒
-Lure carried: press Interact to plant	搬運誘敵箱中：按互動鍵放置
+Lure carried: press {0} to plant	搬運誘敵箱中：按 {0} 放置
 Lure crate: optional	誘敵箱：可選
 Lure planted: enemies are drawn to it.	誘敵箱已放置：敵人被吸引過去。
 Gas leak in {0} s! Activate 2 of 3 vent switches.	{0} 秒後毒霧外洩！啟動 3 個排風開關中的 2 個。
@@ -1549,3 +1548,54 @@ Back or B closes   LB or RB switches tabs   Wallet ${0}	Back 或 B 關閉   LB �
 Tap a tab to switch   Close with the button   Wallet ${0}	點頁籤切換   按關閉鈕離開   錢包 ${0}
 Interact	互動
 Back: overview	Back：總覽
+Marked kill bonus +{0}	標記擊殺加成 +{0}
+Last enemies	最後的敵人
+Solo: a lethal hit ends the run, unless a charged Emergency Revive saves you.	單人：受到致命傷就結束本局，除非已充滿的「緊急復活」救了你。
+Ultimate {0}   Tactical {1}   Overview {2}	絕招 {0}　戰術 {1}　總覽 {2}
+This run was saved by a different version of the game and cannot be continued.	這局存檔來自不同版本的遊戲，無法繼續。
+The saved run is damaged and cannot be continued.	存檔已損壞，無法繼續。
+Start Run sets it aside (the file is kept) and begins a new run.	按「開始新局」會把它移到一旁（檔案保留）並開始新的一局。
+Run started: {0}	本局開始：{0}
+Health +{0}  Damage +{1}  Magazine +{2}  Speed +{3}	生命 +{0}　傷害 +{1}　彈匣 +{2}　速度 +{3}
+You fell	你倒下了
+the chapter target	章節目標
+an enemy	敵人
+Last hit: {0}, {1} m away	最後擊中你的是：{0}（{1} 公尺外）
+New personal best!	刷新個人最佳紀錄！
+Best: chapter {0} stage {1}	個人最佳：第 {0} 章第 {1} 關
+Keeps up steady fire. Move between cover and do not trade shots at close range.	步槍持續壓制；利用掩體換位，避免近距離對射。
+Closes in fast with a shotgun or pistol. Keep your distance and drop it first.	快速貼身以霰彈或手槍攻擊；拉開距離優先擊倒。
+Hits hard and accurately from far away. Break line of sight, then flank it.	遠距離精準高傷射擊；切斷視線後繞側突進。
+Its shield blocks most damage from the front. Get to its side or back.	正面護盾減傷；繞到側後方集中火力。
+Runs around your flank. Watch your sides and cover each other.	高速繞側分散火力；留意側翼並與隊友互相掩護。
+Stops ultimate charge within 30 m. Take it out first or leave its range.	周圍三十公尺阻止絕招充能；優先擊倒或離開干擾範圍。
+Item kind Stat	屬性
+Item kind Core	核心
+Item kind Mod	改件
+Item kind Tactical	戰術
+Item kind Ultimate	絕招
+Item kind Weapon	武器
+Item kind Supply	補給
+Core slot {0}/{1}	核心槽 {0}/{1}
+Mod slot {0}/{1}	改件槽 {0}/{1}
+Works with your {0}	搭配你的「{0}」
+Pairs with {0}	適合搭配：{0}
+Down {0}s	倒地 {0} 秒
+Follow the objective at the top of the screen and its marker.	跟著畫面上方的目標與它的標記前進。
+Kills pay bounty (headshots x1.5). Shop before a stage; take one free reward after it.	擊殺得賞金（爆頭 1.5 倍）。開戰前購物，過關後免費選一項獎勵。
+Co-op: a teammate holds Interact to revive you. If everyone falls, the run ends.	多人：隊友按住「互動」可救起你；全員倒下即結束。
+Every fifth stage ends the chapter: continue (checkpoint saved) or evacuate to bank your record.	每 5 關一章：可繼續（自動存檔）或撤離保存紀錄。
+No money yet: kills pay bounty. Ready up to start.	還沒有錢：擊殺可賺賞金，先按就緒開打。
+Enemies are coming: deal with them, then head for the objective.	敵人正在接近：先解決他們，再前往目標。
+Ultimate and tactical: tap their slots at the bottom right.	絕招與戰術：點右下角的能力格。
+the Overview button	「總覽」按鈕
+Left Click	滑鼠左鍵
+Right Click	滑鼠右鍵
+Middle Click	滑鼠中鍵
+Mouse button {0}	滑鼠按鍵 {0}
+Space	空白鍵
+the Ultimate slot	絕招欄
+the Tactical slot	戰術欄
+Charge {0}%	充能 {0}%
+Saved by an earlier version: prices and descriptions follow this version.	此存檔來自較早的版本：價格與說明依目前版本為準。
+{0}: {1}	{0}：{1}

@@ -176,17 +176,9 @@ public class DamageReceiver : MonoBehaviour
 
 	// Destroy(myAI) completes at the end of the frame; adding the sink before then
 	// would give Photon two methods with the same RPC name.
-	private IEnumerator AddDeadAIRpcSink()
+	private void AddDeadAIRpcSink()
 	{
-		yield return null;
-		if (this != null && GetComponent<AI>() == null && GetComponent<DeadAIRpcSink>() == null)
-		{
-			base.gameObject.AddComponent<DeadAIRpcSink>();
-			// PUN caches a view's RPC receivers on first use; without a refresh the sink is invisible and a late
-			// "Patrol"/"Attack" still logs "has no method" (seen in co-op round 6).
-			var view = GetComponent<PhotonView>();
-			if (view != null) view.RefreshRpcMonoBehaviourCache();
-		}
+		if (GetComponent<DeadAIRpcSinkInstaller>() == null) base.gameObject.AddComponent<DeadAIRpcSinkInstaller>();
 	}
 
 	[PunRPC]
@@ -507,7 +499,7 @@ public class DamageReceiver : MonoBehaviour
 		else
 		{
 			UnityEngine.Object.Destroy(myAI);
-			if (Menu.network != 0) StartCoroutine(AddDeadAIRpcSink());
+			if (Menu.network != 0) AddDeadAIRpcSink();
 		}
 		UnityEngine.Object.Destroy(GetComponent<CharacterController>());
 		for (int j = 0; j < mt.childCount; j++)

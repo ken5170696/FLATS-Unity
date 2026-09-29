@@ -68,6 +68,10 @@ public partial class FPSController
 	[PunRPC]
 	private IEnumerator Smash()
 	{
+		if (RoguelikeMode.Active && RogueHooks.MeleeBlocked(this))
+		{
+			yield break;
+		}
 		if (zombie)
 		{
 			Transform closest = null;
@@ -215,10 +219,12 @@ public partial class FPSController
 				GameObject mf = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 				base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
-				for (int i = 0; i < currentGun.burstCount; i++)
+				int pellets = currentGun.burstCount + (RoguelikeMode.Active ? RogueHooks.ExtraPellets(this, currentGun.id) : 0);
+				float spreadScale = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
+				for (int i = 0; i < pellets; i++)
 				{
-					float x = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
-					float y = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
+					float x = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * spreadScale;
+					float y = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * spreadScale;
 					Vector3 velocity = ((currentGun.id != 15) ? ct.TransformDirection(x, y, 1500f) : ct.TransformDirection(x, y, 800f));
 					Rigidbody rigidbody = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 					Bullet component = rigidbody.GetComponent<Bullet>();
@@ -230,10 +236,11 @@ public partial class FPSController
 					}
 					else
 					{
-						component.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) : 1f);
+						component.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) * (currentGun.grenade ? RogueHooks.GrenadeDamageMul(this) : 1f) : 1f);
 					}
 					rigidbody.gameObject.layer = base.gameObject.layer + 2;
 					rigidbody.linearVelocity = velocity;
+					if (i >= currentGun.burstCount) continue;   // Choke's extra pellet rides on the same shell
 					if (!(RoguelikeMode.Active && RogueHooks.InfiniteAmmo(this))) currentGun.currentAmmo--;
 					if (currentGun.currentAmmo == 0)
 					{
@@ -267,8 +274,9 @@ public partial class FPSController
 				GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 				base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
-				float ram1 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
-				float ram2 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
+				float aimSpread = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
+				float ram1 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * aimSpread;
+				float ram2 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * aimSpread;
 				Vector3 dir = ct.TransformDirection(ram1, ram2, 1500f);
 				Rigidbody b = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 				Bullet bb = b.GetComponent<Bullet>();
@@ -343,7 +351,7 @@ public partial class FPSController
         var ammunition = Flats.Core.WeaponAmmoPolicy.Reload(current, max, limit);
         current = ammunition.Magazine;
         max = ammunition.Reserve;
-		yield return new WaitForSeconds(0.5f + currentGun.reloadTime);
+		yield return new WaitForSeconds((0.5f + currentGun.reloadTime) * (RoguelikeMode.Active ? RogueHooks.ReloadTimeMul(this) : 1f));
 		if (primarySightIndex != 0)
 		{
 			yield return new WaitForSeconds(0.1f);
@@ -357,6 +365,7 @@ public partial class FPSController
 			yield return new WaitForSeconds(0.05f);
 		}
 		ikc.leftIK = true;
+		if (RoguelikeMode.Active) max = Mathf.Min(currentGun.limitMaxAmmo, max + RogueHooks.ReserveReturnOnReload(this));
 		currentGun.currentAmmo = current;
 		currentGun.maxAmmo = max;
 		enableFire = true; firing = false;
@@ -490,6 +499,7 @@ public partial class FPSController
 		Vector3 dir = ct.TransformDirection(0f, 0f, Z + 30f);
 		Rigidbody b = UnityEngine.Object.Instantiate(grenade, ct.position + ct.forward + ct.right * -0.5f + ct.up, Quaternion.identity) as Rigidbody;
 		b.GetComponent<Bullet>().shooter = mt;
+		if (RoguelikeMode.Active) b.GetComponent<Bullet>().damage *= RogueHooks.GrenadeDamageMul(this);
 		b.gameObject.layer = base.gameObject.layer + 2;
 		b.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 		b.linearVelocity = dir;

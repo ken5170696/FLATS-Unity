@@ -74,7 +74,12 @@ public static class RogueSaveStore
     public static bool HasCheckpoint()
     {
         if (File.Exists(RunPath) || File.Exists(RunPath + ".bak")) return true;
-        try { return Directory.Exists(Path.GetDirectoryName(RunPath)) && Directory.GetFiles(Path.GetDirectoryName(RunPath), Path.GetFileName(RunPath) + ".generation-*").Length > 0; }
+        try
+        {
+            if (!Directory.Exists(Path.GetDirectoryName(RunPath))) return false;
+            foreach (var g in Directory.GetFiles(Path.GetDirectoryName(RunPath), Path.GetFileName(RunPath) + ".generation-*")) if (!g.Contains(".retired-")) return true;
+            return false;
+        }
         catch (System.Exception) { return false; }
     }
 
@@ -86,9 +91,27 @@ public static class RogueSaveStore
             if (File.Exists(RunPath)) File.Delete(RunPath);
             if (File.Exists(RunPath + ".bak")) File.Delete(RunPath + ".bak");
             foreach (var g in Directory.GetFiles(Path.GetDirectoryName(RunPath), Path.GetFileName(RunPath) + ".generation-*"))
-                try { File.Delete(g); } catch (IOException) { }
+                if (!g.Contains(".retired-")) try { File.Delete(g); } catch (IOException) { }
         }
         catch (Exception e) { Debug.LogWarning("FLATS_ROGUE_CLEAR_FAILED " + e.Message); }
+    }
+
+    /// <summary>Moves an unreadable checkpoint (main, backup, generations) aside under a ".retired-UTC" suffix. Nothing is deleted: the
+    /// record layer refuses to overwrite an unreadable file, so without this a new run could never write its own checkpoint.</summary>
+    public static bool RetireCheckpoint()
+    {
+        string stamp = ".retired-" + DateTime.UtcNow.ToString("yyyyMMddTHHmmss");
+        bool moved = false;
+        try
+        {
+            foreach (var source in new[] { RunPath, RunPath + ".bak" })
+                if (File.Exists(source)) { File.Move(source, source + stamp); moved = true; }
+            foreach (var g in Directory.GetFiles(Path.GetDirectoryName(RunPath), Path.GetFileName(RunPath) + ".generation-*"))
+                if (!g.Contains(".retired-")) { File.Move(g, g + stamp); moved = true; }
+            if (moved) Debug.Log("FLATS_ROGUE_CHECKPOINT_RETIRED " + stamp);
+            return moved;
+        }
+        catch (Exception e) { LastError = e.Message; Debug.LogWarning("FLATS_ROGUE_RETIRE_FAILED " + e.Message); return false; }
     }
 
     public static RogueMetaDocument ReadMeta()

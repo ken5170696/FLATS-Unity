@@ -471,7 +471,9 @@ public partial class Menu
 			int num;
 			if (vote[0].mapValue == 0)
 			{
-				num = vote[UnityEngine.Random.Range(0, LastAvailableStage + 1)].mapKey + 2;
+				// nobody voted: any map this build can load (the list is unordered when every count is zero)
+				var available = vote.FindAll(v => v.mapKey <= LastAvailableStage);
+				num = available.Count > 0 ? available[UnityEngine.Random.Range(0, available.Count)].mapKey + 2 : 2;
 			}
 			else
 			{

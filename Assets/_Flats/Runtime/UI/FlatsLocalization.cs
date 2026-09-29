@@ -12,6 +12,8 @@ public static class FlatsLocalization
     {
         public Regex Pattern;
         public string Value;
+        public int Literal;   // characters outside the placeholders: more literal text = more specific
+        public int Order;     // file order, the tie-breaker
     }
     static readonly List<Template> templates = new List<Template>();
     static readonly Regex placeholder = new Regex(@"\{([0-9]+)\}");
@@ -88,11 +90,13 @@ public static class FlatsLocalization
                             string pattern = Regex.Escape(key);
                             foreach (Match token in placeholder.Matches(key))
                                 pattern = pattern.Replace(Regex.Escape(token.Value), "(?<p" + token.Groups[1].Value + ">.*?)");
-                            templates.Add(new Template { Pattern = new Regex("\\A" + pattern + "\\z", RegexOptions.CultureInvariant), Value = value });
+                            templates.Add(new Template { Pattern = new Regex("\\A" + pattern + "\\z", RegexOptions.CultureInvariant), Value = value, Literal = placeholder.Replace(key, "").Length, Order = templates.Count });
                         }
                         else chinese[key] = value;
                     }
                 }
+            // the most specific template wins: a generic "{0}: {1}" must not shadow "Carrying: press {0} to put it down..."
+            templates.Sort((a, b) => a.Literal != b.Literal ? b.Literal.CompareTo(a.Literal) : a.Order.CompareTo(b.Order));
         }
         if (chinese.TryGetValue(source, out string translated)) return translated;
         foreach (var entries in extra)
@@ -103,6 +107,11 @@ public static class FlatsLocalization
             for (int i=0; i<lines.Length; i++) lines[i]=Translate(lines[i]);
             return string.Join("\n", lines);
         }
+        // Labelled lines translate their label and their text; checked before the templates, whose generic "{0}: {1}" would
+        // otherwise keep the text after the label in English.
+        if (source.StartsWith("Objective: ", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(11));
+        if (source.StartsWith("Objective:", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(10));
+        if (source.StartsWith("Rule:", StringComparison.Ordinal)) return "規則：" + Translate(source.Substring(5));
         // Parameters are kept verbatim: names, paths, scores and server messages are data.
         foreach (var pair in templates)
         {
@@ -114,9 +123,6 @@ public static class FlatsLocalization
         int lead = 0;
         while (lead < source.Length && (source[lead] == ' ' || source[lead] == '√')) lead++;
         if (lead > 0 && lead < source.Length) return source.Substring(0, lead) + Translate(source.Substring(lead));
-        if (source.StartsWith("Objective: ", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(11));
-        if (source.StartsWith("Objective:", StringComparison.Ordinal)) return "目標：" + Translate(source.Substring(10));
-        if (source.StartsWith("Rule:", StringComparison.Ordinal)) return "規則：" + Translate(source.Substring(5));
         return source;
     }
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]

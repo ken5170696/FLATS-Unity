@@ -18,7 +18,10 @@ public static partial class RogueHooks
         var role = target.GetComponent<RogueEnemyRole>();
         if (role != null) role.lastHitDamage = damage;
         rp.OnHit();
-        if (rp.Stats.MarkDuration > 0 && role != null && (bullet.rogueKind != (int)DamageKind.Ricochet || rp.Build.HasMod("mod.angle_finder")))
+        // direct hits mark only with the Marker core; ricochets mark only with Angle Finder (which alone must not turn every
+        // direct hit into a team-wide mark)
+        bool ricochet = bullet.rogueKind == (int)DamageKind.Ricochet;
+        if (rp.Stats.MarkDuration > 0 && role != null && (ricochet ? rp.Build.HasMod("mod.angle_finder") : rp.Build.HasCore("core.marker")))
             role.Mark(Time.time + (float)rp.Stats.MarkDuration, rp);
         if (bullet.rogueKind != (int)DamageKind.Direct) return;   // derived hits never trigger more effects of the same family beyond the rules below
 
@@ -154,6 +157,15 @@ public static partial class RogueHooks
     {
         return RoguelikeMode.Active && RoguelikeController.Instance != null && RoguelikeController.Instance.PowerRerouted ? 0.5f : 1f;
     }
+
+    public static bool JumpBlocked(FPSController player)
+    {
+        var rp = Of(player);
+        return rp != null && rp.Downed;
+    }
+
+    /// <summary>A downed player cannot melee either (the smash paths do not look at enableFire). Checked on every copy.</summary>
+    public static bool MeleeBlocked(FPSController player) { return JumpBlocked(player); }
 
     public static bool CarryingBlocksFire(FPSController player)
     {

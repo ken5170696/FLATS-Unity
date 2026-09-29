@@ -1536,6 +1536,7 @@ public partial class Menu : MonoBehaviour
 
     private void RefreshOfflineMatch()
     {
+        offlineMap = Mathf.Clamp(offlineMap, 0, Mathf.Min(OfflineMaps.Length - 1, LastAvailableStage));
         bt[0].text = ruleTitleText[rule];
         bt[1].text = "Objective: " + objectiveText[rule + "-" + objective];
         bt[2].text = "Bots: " + botCount;
@@ -1557,7 +1558,7 @@ public partial class Menu : MonoBehaviour
         if (button == 0) rule = rule % 9 + 1;
         if (button == 1) objective = objective % 3 + 1;
         if (button == 2) botCount = botCount >= 9 ? 1 : botCount + 2;
-        if (button == 3) offlineMap = (offlineMap + 1) % OfflineMaps.Length;
+        if (button == 3) offlineMap = (offlineMap + 1) % (Mathf.Min(OfflineMaps.Length - 1, LastAvailableStage) + 1);
         RefreshOfflineMatch();
         if (button != 4) yield break;
         fliping = true;
@@ -1585,6 +1586,7 @@ public partial class Menu : MonoBehaviour
         network = 2; waitBackground = false; gameState = "Multiplayer";
         current = "Playing"; Time.timeScale = 1f;
         backButton.SetActive(false);
+        offlineMap = Mathf.Clamp(offlineMap, 0, Mathf.Min(OfflineMaps.Length - 1, LastAvailableStage));   // never a scene this build lacks
         Debug.Log("FLATS_LOCAL_MATCH rule=" + rule + " bots=" + botCount + " map=" + OfflineMaps[offlineMap]);
         LoadOfflineScene(OfflineMaps[offlineMap]);
     }

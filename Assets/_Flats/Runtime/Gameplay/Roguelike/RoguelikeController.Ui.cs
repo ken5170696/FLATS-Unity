@@ -43,14 +43,26 @@ public partial class RoguelikeController
         hudView.SetTop(stage, "$" + money, state.phase == RunPhase.Combat ? AliveEnemies.ToString() : "");
         switch (state.phase)
         {
-            case RunPhase.Prep: hudView.SetObjective("Coin", T("Prep"), screenDismissed ? T("Press {0} to reopen the shop", FlatsControls.Label("Interact", FlatsControls.UsingGamepad)) : T("Shop is open. Ready up when done.")); break;
+            case RunPhase.Prep: hudView.SetObjective("Coin", T("Prep"), screenDismissed ? T("Press {0} to reopen the shop", RogueInput.KeyText("Interact")) : T("Shop is open. Ready up when done.")); break;
             case RunPhase.Combat:
                 {
                     string id = enc.IsFinale ? enc.finaleId : enc.objectiveId;
                     var def = RogueCatalog.Encounter(id);
                     string progress = ObjectivePart(0);
-                    if (progress == "" && objectiveRunner == null) progress = objectiveDone ? T("Cleared") : objectiveKills + " / " + objectiveKillsNeeded;
+                    if (progress == "" && id == "obj.clear")
+                    {
+                        // Clear Out: the authority counts kills itself; other clients read the replicated plan and ledger (paid or
+                        // voided slots). Reinforcements count toward the goal on both sides, as the authority's clear condition does.
+                        int done = objectiveKills, needed = objectiveKillsNeeded;
+                        if (!IsAuthority && state.ledger != null)
+                        {
+                            needed = RogueDirector.CountEnemies(enc); done = 0;
+                            foreach (var slot in state.ledger.slots) { if (slot.isExtra) needed++; if (slot.paid || slot.cancelled) done++; }
+                        }
+                        progress = objectiveDone ? T("Cleared") : Mathf.Min(done, needed) + " / " + needed;
+                    }
                     hudView.SetObjective(RogueIcons.ForEncounter(id), def != null ? T(def.Name) : T("Objective"), progress);
+                    hudView.SetObjectiveProgress(ProgressFraction(progress));
                     break;
                 }
             case RunPhase.Cleared: hudView.SetObjective("Check", T("Cleared"), ""); break;
@@ -60,15 +72,56 @@ public partial class RoguelikeController
             default: hudView.SetObjective("", "", ""); break;
         }
         bool combat = state.phase == RunPhase.Combat;
+        if (!combat) hudView.SetObjectiveProgress(-1f);
         var ev = combat ? RogueCatalog.Encounter(enc.eventId) : null; var em = combat ? RogueCatalog.Encounter(enc.emergencyId) : null;
         hudView.SetEvent("Settings5", ev != null ? T(ev.Name) + (ObjectivePart(1) != "" ? "  " + ObjectivePart(1) : "") : "", false);
         hudView.SetEvent("Warning", em != null ? T(em.Name) + (ObjectivePart(2) != "" ? "  " + ObjectivePart(2) : "") : "", true);
         RefreshBoss(combat);
+        RefreshStragglers(combat);
         RefreshAbilities(me);
         RefreshSquad(me);
         var rpLocal = LocalRoguePlayer();
-        if (rpLocal != null && rpLocal.Carrying) hudView.SetHint("Crate", T("Carrying: press {0} to put it down. You cannot fire.", FlatsControls.Label("Interact", FlatsControls.UsingGamepad)));
+        if (rpLocal != null && rpLocal.Carrying) hudView.SetHint("Crate", T("Carrying: press {0} to put it down. You cannot fire.", RogueInput.KeyText("Interact")));
+        // the first stages open with enemies already on the way: say so, or a new player sprints for the marker through them
+        else if (combat && state.depth <= 2 && combatSince >= 0 && Time.time - combatSince < 12f) hudView.SetHint("Enemy", T("Enemies are coming: deal with them, then head for the objective."));
         else hudView.SetHint("", "");
+    }
+
+    // Clear Out has no prop to walk to: once the waves are thin, the last few enemies get markers so nobody hunts a hidden straggler.
+    const string StragglerLabel = "Last enemies";
+    const int StragglerCount = 3;
+    const float StragglerDelay = 20f;
+    readonly List<RogueEnemyRole> stragglers = new List<RogueEnemyRole>();
+    float combatSince = -1;
+
+    void RefreshStragglers(bool combat)
+    {
+        if (!combat) combatSince = -1; else if (combatSince < 0) combatSince = Time.time;
+        int alive = AliveEnemies;
+        // every objective ends only when the field is clear, so stragglers are marked for all of them (not the finale guard)
+        bool show = combat && state.encounter != null && !state.encounter.IsFinale
+            && Time.time - combatSince >= StragglerDelay && alive > 0 && alive <= StragglerCount;
+        if (show)
+        {
+            foreach (var e in liveEnemies.Values)
+                if (e != null && e.GetComponent<RogueWaypoint>() == null) { RogueWaypoint.Attach(e.gameObject, "Enemy", StragglerLabel, new Color(0.95f, 0.3f, 0.35f), 2.6f, 1); stragglers.Add(e); }
+            return;
+        }
+        foreach (var e in stragglers) { var wp = e != null ? e.GetComponent<RogueWaypoint>() : null; if (wp != null && wp.Label == StragglerLabel) RogueWaypoint.Detach(e.gameObject); }
+        stragglers.Clear();
+    }
+
+    static readonly System.Text.RegularExpressions.Regex PercentPattern = new System.Text.RegularExpressions.Regex(@"(\d+)\s*%"), CountPattern = new System.Text.RegularExpressions.Regex(@"(\d+)\s*/\s*(\d+)");
+
+    /// <summary>Objective progress for the bar, read from the replicated progress text ("Captured 40%", "3 / 8"); -1 when it has no number.</summary>
+    static float ProgressFraction(string progress)
+    {
+        if (string.IsNullOrEmpty(progress)) return -1f;
+        var m = PercentPattern.Match(progress);
+        if (m.Success) return Mathf.Clamp01(int.Parse(m.Groups[1].Value) / 100f);
+        m = CountPattern.Match(progress);
+        if (m.Success) { int a = int.Parse(m.Groups[1].Value), b = int.Parse(m.Groups[2].Value); return b > 0 ? Mathf.Clamp01((float)a / b) : -1f; }
+        return -1f;
     }
 
     void RefreshBoss(bool combat)
@@ -85,10 +138,14 @@ public partial class RoguelikeController
     {
         var rp = LocalRoguePlayer();
         if (me == null || rp == null) { hudView.SetAbility(true, "", "", 0, "", false, false); hudView.SetAbility(false, "", "", 0, "", false, false); return; }
+        // a downed player can use nothing but a charged Emergency Revive: every other slot reads as not ready (just under full)
+        bool downed = rp.Downed;
         bool hasUlt = !string.IsNullOrEmpty(me.build.ultimate);
-        hudView.SetAbility(true, "Ultimate", RogueIcons.KeyHint("Ultimate"), rp.UltimateActive ? rp.UltimateRemaining : me.ultimateCharge / 100f, rp.UltimateActive ? "" : me.ultimateCharge + "%", rp.UltimateActive, hasUlt);
+        float ultFill = rp.UltimateActive ? rp.UltimateRemaining : me.ultimateCharge / 100f;
+        if (downed && me.build.ultimate != "ult.emergency_revive") ultFill = Mathf.Min(ultFill, 0.99f);
+        hudView.SetAbility(true, "Ultimate", RogueIcons.KeyHint("Ultimate"), ultFill, rp.UltimateActive ? "" : me.ultimateCharge + "%", rp.UltimateActive, hasUlt);
         bool hasTac = !string.IsNullOrEmpty(me.build.tactical);
-        hudView.SetAbility(false, hasTac ? RogueIcons.ForItem(RogueCatalog.Item(me.build.tactical)) : "", RogueIcons.KeyHint("Tactical"), rp.TacticalReadiness, rp.TacticalValue, rp.TacticalActive, hasTac);
+        hudView.SetAbility(false, hasTac ? RogueIcons.ForItem(RogueCatalog.Item(me.build.tactical)) : "", RogueIcons.KeyHint("Tactical"), downed ? Mathf.Min(rp.TacticalReadiness, 0.99f) : rp.TacticalReadiness, rp.TacticalValue, rp.TacticalActive, hasTac);
     }
 
     void RefreshSquad(RunPlayer me)
@@ -153,7 +210,7 @@ public partial class RoguelikeController
             int index = i;
             string status = offer.sold ? T("Bought") : me.build.RejectReason(def) != null ? T(me.build.RejectReason(def)) : me.walletMinor < offer.priceMinor ? T("Not enough money") : "";
             bool pending = pendingTx.ContainsValue(offer.itemId);
-            add(RogueIcons.ForItem(def), T(def.Name), EffectLine(def, me.build), "$" + RogueMoney.Format(offer.priceMinor), RarityText(def), offer.sold ? "" : T("Buy"),
+            add(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build), "$" + RogueMoney.Format(offer.priceMinor), RogueItemKinds.Tag(def, RarityText(def)), offer.sold ? "" : T("Buy"),
                 !offer.sold && status == "" && !pending, pending ? T("Buying...") : status,
                 () => Buy(me, index, offer));
         }
@@ -167,7 +224,7 @@ public partial class RoguelikeController
     {
         screen.UseCards(false);
         screen.SetTitle("Coin", chapterEnd ? T("Chapter {0} Shop", state.Chapter) : T("Shop  Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)),
-            T("Rerolls {0}   {1}", me.rerollsLeft, BuildSummary(me.build)), "$" + RogueMoney.Format(me.walletMinor));
+            T("Rerolls {0}   {1}", me.rerollsLeft, SlotSummary(me.build)), "$" + RogueMoney.Format(me.walletMinor));
         screen.ClearRows();
         AddShopRows(me, (icon, name, effect, price, rarity, action, interactable, status, onAction) => screen.AddRow(icon, name, effect, price, rarity, action, interactable, status, onAction));
         if (chapterEnd)
@@ -179,8 +236,11 @@ public partial class RoguelikeController
         else
         {
             bool ready = me.ready;
+            // an empty wallet in front of a full shop reads as "the shop is broken": say where money comes from instead
+            bool affordable = false; foreach (var o in me.offers) if (!o.sold && o.priceMinor <= me.walletMinor) affordable = true;
+            string hint = !affordable && me.walletMinor < RogueMoney.Coins(10) ? T("No money yet: kills pay bounty. Ready up to start.") : ReadyText();
             screen.SetFooter(T(ready ? "Not ready" : "Ready"), ready ? "Reset" : "Check", () => Command(new RogueCommandMessage { kind = "ready", flag = !ready }), null, null, null,
-                (ReadyText() + "  " + RogueInput.OverviewHint).TrimEnd());
+                hint);   // the Overview button beside it already names its key
             screen.SetOverview(RogueInput.OverviewLabel, () => OpenOverview());
         }
     }
@@ -197,8 +257,9 @@ public partial class RoguelikeController
             int index = i;
             string status = me.build.RejectReason(def) != null ? T(me.build.RejectReason(def)) : "";
             Action take = () => Command(new RogueCommandMessage { kind = "buy", tx = new ShopTransaction { txId = NextTx(), runId = state.runId, shopVersion = me.shopVersion, offerIndex = index, expectedPriceMinor = 0, rewardPick = true } });
-            if (screen.AddCard(RogueIcons.ForItem(def), T(def.Name), RarityText(def), EffectLine(def, me.build), T("Take"), status == "" && pendingTx.Count == 0, status, take) == null)
-                screen.AddRow(RogueIcons.ForItem(def), T(def.Name), EffectLine(def, me.build), T("Free"), RarityText(def), T("Take"), status == "" && pendingTx.Count == 0, status, take);
+            string tag = RogueItemKinds.Tag(def, RarityText(def));
+            if (screen.AddCard(RogueIcons.ForItem(def), DisplayName(def), tag, EffectLine(def, me.build), T("Take"), status == "" && pendingTx.Count == 0, status, take) == null)
+                screen.AddRow(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build), T("Free"), tag, T("Take"), status == "" && pendingTx.Count == 0, status, take);
         }
         screen.SetFooter(null, null, null, null, "");
         screen.SetOverview(RogueInput.OverviewLabel, () => OpenOverview());
@@ -265,8 +326,39 @@ public partial class RoguelikeController
         if (!string.IsNullOrEmpty(b.tactical)) parts.Add(ItemName(b.tactical));
         if (!string.IsNullOrEmpty(b.ultimate)) parts.Add(ItemName(b.ultimate));
         parts.Add(T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods));
-        parts.Add("HP+" + b.healthTier + " DMG+" + b.damageTier + " MAG+" + b.magazineTier + " SPD+" + b.speedTier);
+        if (b.healthTier + b.damageTier + b.magazineTier + b.speedTier > 0)
+            parts.Add(T("Health +{0}  Damage +{1}  Magazine +{2}  Speed +{3}", b.healthTier, b.damageTier, b.magazineTier, b.speedTier));
         return string.Join("  ", parts.ToArray());
+    }
+
+    /// <summary>One short line of what the build holds, by category: the shop header uses it so a purchase can be judged against it.</summary>
+    static string SlotSummary(PlayerBuild b)
+    {
+        return T("Cores {0}/{1}", b.cores.Length, RogueCatalog.MaxCores) + "   " + T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods) + "   " +
+               T("Tactical") + " " + (string.IsNullOrEmpty(b.tactical) ? "-" : ItemName(b.tactical)) + "   " + T("Ultimate") + " " + (string.IsNullOrEmpty(b.ultimate) ? "-" : ItemName(b.ultimate));
+    }
+
+    /// <summary>Cores a mod is built for (shared tags), for the "works with" hint; generic mods pair with nothing in particular.</summary>
+    static List<ItemDef> PairedCores(ItemDef mod)
+    {
+        var list = new List<ItemDef>();
+        foreach (var core in RogueCatalog.Cores)
+            foreach (var t in mod.Tags)
+                if (t != RogueCatalog.TagGeneric && core.HasTag(t)) { list.Add(core); break; }
+        return list;
+    }
+
+    /// <summary>Slot and pairing context appended to a core or mod's effect: where it goes and what it works with.</summary>
+    static string SlotLine(ItemDef def, PlayerBuild b)
+    {
+        if (def.Kind == ItemKind.Core) return T("Core slot {0}/{1}", Math.Min(RogueCatalog.MaxCores, b.cores.Length + (b.HasCore(def.Id) ? 0 : 1)), RogueCatalog.MaxCores);
+        if (def.Kind != ItemKind.Mod) return "";
+        string slot = T("Mod slot {0}/{1}", Math.Min(RogueCatalog.MaxMods, b.mods.Length + (b.HasMod(def.Id) ? 0 : 1)), RogueCatalog.MaxMods);
+        var paired = PairedCores(def);
+        foreach (var core in paired) if (b.HasCore(core.Id)) return T("Works with your {0}", ItemName(core.Id)) + "   " + slot;
+        if (paired.Count == 0) return slot;
+        var names = new List<string>(); foreach (var core in paired) names.Add(ItemName(core.Id));
+        return T("Pairs with {0}", string.Join("/", names.ToArray())) + "   " + slot;
     }
 
     static string EffectLine(ItemDef def, PlayerBuild b)
@@ -287,10 +379,11 @@ public partial class RoguelikeController
         if (def.Kind == ItemKind.Tactical && !string.IsNullOrEmpty(b.tactical) && b.tactical != def.Id) return T(def.Effect) + "  " + T("Replaces {0}.", ItemName(b.tactical));
         if (def.Kind == ItemKind.Ultimate && !string.IsNullOrEmpty(b.ultimate) && b.ultimate != def.Id) return T(def.Effect) + "  " + T("Replaces {0} (charge is kept).", ItemName(b.ultimate));
         if (def.Kind == ItemKind.Weapon && b.primaryWeapon >= 0) return T(def.Effect) + "  " + T("Replaces {0}.", WeaponCatalogName(b.primaryWeapon));
-        return T(def.Effect);
+        string slotLine = SlotLine(def, b);
+        return slotLine == "" ? T(def.Effect) : T(def.Effect) + "\n" + slotLine;
     }
 
-    static string WeaponCatalogName(int index) { return index >= 0 && index < Flats.Core.WeaponCatalog.Count ? Flats.Core.WeaponCatalog.GetDefault(index).gunName : "?"; }
+    static string WeaponCatalogName(int index) { return index >= 0 && index < Flats.Core.WeaponCatalog.Count ? RogueItemKinds.WeaponDisplayName(Flats.Core.WeaponCatalog.GetDefault(index).gunName) : "?"; }
     static string Pct(double mul) { return (mul >= 1 ? "+" : "") + Math.Round((mul - 1) * 100) + "%"; }
     static string RarityText(ItemDef def) { return def.Rarity == 2 ? T("Rare") : def.Rarity == 1 ? T("Uncommon") : ""; }
     static string RouteText(string mapId, string routeTag) { var m = RogueCatalog.Map(mapId); var r = RogueCatalog.Route(routeTag); return (m != null ? T(m.SceneName) : mapId) + " (" + T(r.Name) + ")"; }

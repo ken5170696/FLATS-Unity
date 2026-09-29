@@ -46,12 +46,21 @@ namespace Flats.Core.Roguelike
             if (run == null) { errors.Add("missing run"); return errors; }
             if (string.IsNullOrEmpty(run.runId)) errors.Add("missing run id");
             if (run.rulesVersion != RogueCatalog.RulesVersion) errors.Add("rules version " + run.rulesVersion + " differs from " + RogueCatalog.RulesVersion);
-            if (run.contentHash != RogueCatalog.ContentHash()) errors.Add("content differs from this build");
+            // A different content hash (reworded text, tuned prices) is not a reason to lose a run: every id the checkpoint
+            // references is checked below, so an update that keeps those ids resumes. See ContentChanged.
             if (run.depth < 1 || run.depth > RogueDepth.MaxDepth) errors.Add("depth out of range");
             if (run.difficulty < 1 || run.difficulty > RogueDepth.MaxDifficulty) errors.Add("difficulty out of range");
             if (run.phase != RunPhase.Prep && run.phase != RunPhase.ChapterEnd) errors.Add("checkpoint is not at a safe boundary");
             if (run.players == null || run.players.Length == 0 || run.players.Length > 4) errors.Add("player count out of range");
             if (RogueCatalog.Map(run.mapId) == null) errors.Add("unknown map " + run.mapId);
+            // collections the run machine dereferences without null checks: a checksum-valid but truncated file must be refused here,
+            // not crash on the first purchase
+            if (run.encounter == null) errors.Add("missing encounter");
+            if (run.ledger == null) errors.Add("missing ledger");
+            if (run.history == null) errors.Add("missing history");
+            if (run.routeOptions == null) errors.Add("missing route options");
+            if (run.rescuesPaid == null) errors.Add("missing rescue record");
+            if (run.phase == RunPhase.ChapterEnd && !string.IsNullOrEmpty(run.routeTag) && RogueCatalog.Route(run.routeTag).Tag != run.routeTag) errors.Add("unknown route " + run.routeTag);
             var keys = new HashSet<string>();
             if (run.players != null)
                 foreach (var p in run.players)
@@ -60,11 +69,21 @@ namespace Flats.Core.Roguelike
                     if (!keys.Add(p.key)) errors.Add("duplicate player " + p.key);
                     if (p.walletMinor < 0 || p.walletMinor > RogueMoney.MaxWallet) errors.Add("wallet out of range for " + p.key);
                     if (p.ultimateCharge < 0 || p.ultimateCharge > 100) errors.Add("ultimate charge out of range for " + p.key);
+                    if (p.rerollsLeft < 0 || p.rerollsLeft > RogueShop.MaxRerollsChapterEnd) errors.Add("rerolls out of range for " + p.key);
+                    if (p.processedTx == null || p.offers == null || p.rewardOffers == null) errors.Add("missing shop record for " + p.key);
                     if (p.build == null) { errors.Add("missing build for " + p.key); continue; }
                     foreach (var e in p.build.Validate()) errors.Add(p.key + ": " + e);
                     if (p.offers != null) foreach (var o in p.offers) if (o == null || RogueCatalog.Item(o.itemId) == null || o.priceMinor < 0) errors.Add("bad offer for " + p.key);
+                    if (p.rewardOffers != null) foreach (var o in p.rewardOffers) if (o == null || RogueCatalog.Item(o.itemId) == null) errors.Add("bad reward for " + p.key);
                 }
             return errors;
+        }
+
+        /// <summary>The checkpoint was written by a build with different content (text, prices, tuning). It still resumes when Validate passes;
+        /// the caller refreshes run.contentHash and tells the player that prices and descriptions follow the new build.</summary>
+        public static bool ContentChanged(RunSaveDocument doc)
+        {
+            return doc != null && doc.run != null && doc.run.contentHash != RogueCatalog.ContentHash();
         }
 
         /// <summary>Applies a run's end to the meta record; idempotent per run id.</summary>

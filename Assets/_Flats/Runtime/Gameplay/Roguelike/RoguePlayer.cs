@@ -42,6 +42,7 @@ public class RoguePlayer : MonoBehaviour
 
     static bool localCancelled;
     public static void ResetLocalStatics() { localCancelled = true; }
+    public static void ResetLastHit() { LastHitRole = ""; LastHitDistance = 0; LastHitTime = -100f; }
 
     void Awake()
     {
@@ -72,7 +73,7 @@ public class RoguePlayer : MonoBehaviour
         if (Menu.network == 0) return RoguelikeMode.LocalPlayerKey;
         var view = GetComponent<PhotonView>();
         if (view == null || view.owner == null) return "";
-        return !string.IsNullOrEmpty(view.owner.UserId) ? view.owner.UserId : view.owner.NickName + "#" + view.owner.ID;
+        return RoguelikeMode.KeyOf(view.owner);
     }
 
     /// <summary>Called whenever the authoritative build changes. Applies magazine/reserve to the weapon components.</summary>
@@ -106,6 +107,14 @@ public class RoguePlayer : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- damage in
+    /// <summary>Who hit this player last (enemy role id and distance), for the result screen's "what got you" line. Local only.</summary>
+    public static string LastHitRole = ""; public static float LastHitDistance; public static float LastHitTime = -100f;
+    public void NoteHitBy(string roleId, float distance)
+    {
+        if (!isMine) return;
+        LastHitRole = roleId ?? ""; LastHitDistance = distance; LastHitTime = Time.time;
+    }
+
     public float ModifyIncomingDamage(float damage)
     {
         if (Downed) return 0f;
@@ -216,12 +225,36 @@ public class RoguePlayer : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- damage out and movement
+    /// <summary>Fire-time multiplier: everything known when the shot leaves the barrel (damage tiers, suppression stacks, reload burst,
+    /// the Mobility momentum shot). Headshot/body and range are hit-time factors (HitDamageMul) so a head hit is not scaled as a body hit.</summary>
     public float OutgoingDamageMul()
     {
         bool burst = Time.time < reloadBurstUntil;
         int stacks = Time.time < suppressionUntil ? suppressionStacks : 0;
-        return (float)Stats.DirectDamage(false, 20, stacks, burst, false, false, false);
+        bool momentum = ConsumeMomentum();
+        return (float)(Stats.DirectDamage(false, 20, stacks, burst, momentum, false, false) / Stats.BodyDamageMul);
     }
+
+    /// <summary>Hit-time multiplier for a bullet this player fired: Precision/Long Barrel on the head, Precision's body penalty, and the
+    /// Assault/Close Quarters range bands measured from where the shot started.</summary>
+    public float HitDamageMul(bool headshot, float distance)
+    {
+        double m = headshot ? Stats.HeadshotDamageMul : Stats.BodyDamageMul;
+        if (distance <= 12f) m *= Stats.CloseRangeDamageMul; else if (distance >= 30f) m *= Stats.FarRangeDamageMul;
+        return (float)m;
+    }
+
+    // Mobility: the first shot within 1.5 s of a dash or a landing deals +20%; every pellet of that one trigger pull shares it
+    float momentumUntil, airborneSince; int momentumFrame = -1; bool wasAirborne;
+    bool ConsumeMomentum()
+    {
+        if (Stats.MomentumShotBonus <= 0) return false;
+        if (momentumFrame == Time.frameCount) return true;
+        if (Time.time >= momentumUntil) return false;
+        momentumUntil = 0; momentumFrame = Time.frameCount;
+        return true;
+    }
+    void ArmMomentum() { if (Stats.MomentumShotBonus > 0) momentumUntil = Time.time + 1.5f; }
 
     public float MoveSpeedScale()
     {
@@ -273,9 +306,14 @@ public class RoguePlayer : MonoBehaviour
     {
         if (!isMine) { SyncWaypoint(); if (receiver != null && receiver.hitPoints > observedMaxHealth) observedMaxHealth = receiver.hitPoints; }   // teammates' copies carry the revive marker; my own is never shown
         if (!isMine || controller == null) return;
+        // a shot, reload or weapon change already under way when the player went down re-enables fire when it ends;
+        // this runs before FPSController (order 50) every frame, so a downed player never fires, reloads or switches
+        if (Downed && controller.enableFire) controller.enableFire = false;
         if (ultimateActive != "" && Time.time >= ultimateUntil) EndUltimate();
         var cc = GetComponent<CharacterController>();
-        if (cc != null && cc.isGrounded) OnLanded();
+        // CharacterController.isGrounded flickers on stairs and slopes: only a real jump or fall (airborne 0.25 s) arms momentum
+        if (cc != null && cc.isGrounded) { if (wasAirborne && Time.time - airborneSince >= 0.25f) ArmMomentum(); wasAirborne = false; OnLanded(); }
+        else if (cc != null) { if (!wasAirborne) airborneSince = Time.time; wasAirborne = true; }
         var ctrlPrep = RoguelikeController.Instance;
         if (ctrlPrep != null && ctrlPrep.ScreenDismissed && Menu.current == "Playing")
         {
@@ -284,9 +322,9 @@ public class RoguePlayer : MonoBehaviour
         }
         if (Menu.current != "Playing") return;
         // a downed player may still trigger Emergency Revive (F11); everything else waits for a rescue
-        if (Downed) { if (FlatsControls.Down("Ultimate") || FlatsControls.PadState("Ultimate", 1)) TryUltimate(); return; }
-        if (FlatsControls.Down("Ultimate") || FlatsControls.PadState("Ultimate", 1)) TryUltimate();
-        if (FlatsControls.Down("Tactical") || FlatsControls.PadState("Tactical", 1)) TryTactical();
+        if (Downed) { if (RogueInput.UltimateDown) TryUltimate(); return; }
+        if (RogueInput.UltimateDown) TryUltimate();
+        if (RogueInput.TacticalDown) TryTactical();
         TickReviveInteraction();
     }
 
@@ -345,6 +383,9 @@ public class RoguePlayer : MonoBehaviour
             return "";
         }
     }
+    /// <summary>Shield left as 0..1 of a fresh shield (0 when none is up), and seconds before a downed player bleeds out; HUD readouts.</summary>
+    public float ShieldFraction { get { return shieldHp > 0 && Time.time < shieldUntil ? Mathf.Clamp01(shieldHp / 400f) : 0f; } }
+    public float BleedOutRemaining { get { return Downed ? Mathf.Max(0f, bleedOut) : 0f; } }
     public bool TacticalActive { get { return (Stats.Shield && Time.time < shieldUntil) || (Stats.Dash && Time.time < dashCooldownUntil - 5.5f * (float)Stats.DashCooldownMul); } }
     public bool UltimateActive { get { return ultimateActive != ""; } }
     public float UltimateRemaining { get { return ultimateActive == "" ? 0f : Mathf.Clamp01((ultimateUntil - Time.time) / ultimateDuration); } }
@@ -399,6 +440,7 @@ public class RoguePlayer : MonoBehaviour
             travelled += step;
             yield return null;
         }
+        ArmMomentum();
     }
 
     // ---------------------------------------------------------------- reviving a downed teammate

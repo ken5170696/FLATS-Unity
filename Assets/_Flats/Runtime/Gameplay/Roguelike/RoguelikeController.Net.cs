@@ -32,6 +32,8 @@ public partial class RoguelikeController
         if (!RoguelikeMode.Coop || state == null || !IsAuthority || machine == null) return;
         // a returning or new player joins at the next safe node; the run adds them only in Prep (RunMachine.AddPlayer rule)
         string key = KeyOf(other);
+        // a player back after a disconnect has a new actor number: they take back their own entry, build and wallet
+        AdoptKeys(MatchSavedPlayers(state, new List<string> { key }, true));
         var existing = state.Player(key);
         if (existing != null) { machine.SetConnected(key, true); Notify(new RogueEventMessage { kind = "log", text = "{0} rejoined.|" + existing.name }); }
         else if (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) { var p = machine.AddPlayer(key, other.NickName, -1, -1); if (p != null) Notify(new RogueEventMessage { kind = "log", text = "{0} joined the squad.|" + p.name }); }
@@ -82,9 +84,38 @@ public partial class RoguelikeController
         if (!RogueSaveStore.HasCheckpoint()) return null;
         var doc = RogueSaveStore.ReadCheckpoint();
         if (doc == null || doc.run == null) return null;
-        foreach (var k in roomKeys) if (doc.run.Player(k) == null) return null;
-        return doc;
+        return MatchSavedPlayers(doc.run, roomKeys, false).Count == roomKeys.Count ? doc : null;
     }
+
+    /// <summary>
+    /// Pairs room keys with saved roster entries. Keys are nickname#actor number, and the actor number changes when a player
+    /// joins a new room or rejoins after a disconnect, so a key that is not in the roster takes an unclaimed entry with the same
+    /// nickname; players sharing a nickname are paired in actor-number order. onlyDisconnected limits candidates to entries
+    /// whose player is away (a rejoin during a run).
+    /// </summary>
+    static Dictionary<string, RunPlayer> MatchSavedPlayers(RunState run, List<string> roomKeys, bool onlyDisconnected)
+    {
+        var map = new Dictionary<string, RunPlayer>();
+        var taken = new HashSet<RunPlayer>();
+        foreach (var k in roomKeys) { var p = run.Player(k); if (p != null) { map[k] = p; taken.Add(p); } }
+        var byNick = new Dictionary<string, List<string>>();
+        foreach (var k in roomKeys) if (!map.ContainsKey(k)) { var n = NickOf(k); if (!byNick.ContainsKey(n)) byNick[n] = new List<string>(); byNick[n].Add(k); }
+        foreach (var pair in byNick)
+        {
+            var saved = new List<RunPlayer>();
+            foreach (var p in run.players) if (!taken.Contains(p) && NickOf(p.key) == pair.Key && (!onlyDisconnected || !p.connected)) saved.Add(p);
+            pair.Value.Sort((a, b) => ActorOf(a).CompareTo(ActorOf(b)));
+            saved.Sort((a, b) => ActorOf(a.key).CompareTo(ActorOf(b.key)));
+            for (int i = 0; i < pair.Value.Count && i < saved.Count; i++) { map[pair.Value[i]] = saved[i]; taken.Add(saved[i]); }
+        }
+        return map;
+    }
+
+    /// <summary>Moves matched roster entries onto the players' current keys.</summary>
+    static void AdoptKeys(Dictionary<string, RunPlayer> map) { foreach (var pair in map) pair.Value.key = pair.Key; }
+
+    static string NickOf(string key) { int i = key.LastIndexOf('#'); return i < 0 ? key : key.Substring(0, i); }
+    static int ActorOf(string key) { int i = key.LastIndexOf('#'); int n; return i >= 0 && int.TryParse(key.Substring(i + 1), out n) ? n : int.MaxValue; }
 
     // ---------------------------------------------------------------- life replication (every client)
     void ApplyLives()
@@ -184,7 +215,7 @@ public partial class RoguelikeController
         if (state == null || state.phase != RunPhase.Prep) return;
         screenDismissed = true;
         CloseScreens();
-        Banner(T("Press {0} to reopen the shop", FlatsControls.Label("Interact", FlatsControls.UsingGamepad)), 2.5f);
+        Banner(T("Press {0} to reopen the shop", RogueInput.KeyText("Interact")), 2.5f);
     }
 
     public void ReopenScreen()

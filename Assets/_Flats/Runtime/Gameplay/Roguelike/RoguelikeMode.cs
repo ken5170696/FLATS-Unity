@@ -42,9 +42,17 @@ public static class RoguelikeMode
         get
         {
             if (Menu.network != 2 || PhotonNetwork.player == null) return "local";
-            if (!string.IsNullOrEmpty(PhotonNetwork.player.UserId)) return PhotonNetwork.player.UserId;
-            return PhotonNetwork.player.NickName + "#" + PhotonNetwork.player.ID;
+            return KeyOf(PhotonNetwork.player);
         }
+    }
+
+    /// <summary>The run's identity for a Photon player; every client must compute the same value for the same player.
+    /// UserId is not usable: FLATS rooms do not publish it, so a client sees its own UserId (the nickname by default) while
+    /// everyone else sees an empty one. Nickname plus actor number is known identically on every client.</summary>
+    public static string KeyOf(PhotonPlayer player)
+    {
+        if (player == null) return "local";
+        return player.NickName + "#" + player.ID;
     }
 
     /// <summary>Called with Singleplayer.ResetSharedMatchState and on every exit path: nothing of the mode survives a scene change by accident.</summary>

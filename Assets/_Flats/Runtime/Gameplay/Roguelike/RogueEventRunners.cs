@@ -245,7 +245,7 @@ public sealed class LureCrateRunner : RogueEventRunner
         if (holder != null) { var rp = holder.GetComponent<RoguePlayer>(); if (rp != null && rp.Downed) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); } }
         Controller.LureTarget = (machine.Carried || machine.Planted) && crate != null ? crate.transform : null;
         machine.Tick(dt);
-        StatusText = machine.Planted ? N("Lure planted {0} s", Mathf.CeilToInt((float)machine.Countdown)) : machine.Carried ? N("Lure carried: press Interact to plant") : N("Lure crate: optional");
+        StatusText = machine.Planted ? N("Lure planted {0} s", Mathf.CeilToInt((float)machine.Countdown)) : machine.Carried ? N("Lure carried: press {0} to plant", RogueInput.KeyText("Interact")) : N("Lure crate: optional");
         Settle(machine.Status);
     }
     void SetHolder(string key) { string previous = carry.HolderKey; carry.HolderKey = key; Controller.Notify(new RogueEventMessage { kind = "carry", text = "LureCrate|" + key }); RogueCarryable.AnnounceHolder(Controller, "Lure crate", previous, key); ApplyLureCarrying(key); }

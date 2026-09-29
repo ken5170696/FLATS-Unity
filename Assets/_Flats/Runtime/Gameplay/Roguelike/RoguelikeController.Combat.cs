@@ -120,17 +120,17 @@ public partial class RoguelikeController
             while (AliveEnemies >= state.encounter.concurrentCap && state.phase == RunPhase.Combat) yield return new WaitForSeconds(0.5f);
             if (state.phase != RunPhase.Combat) break;
             int instanceId = machine.InstanceIdFor(waveIndex, i);
-            try { SpawnEnemy(instanceId, wave.roles[i], wave.elite[i], ref lastPoint); }
+            try { SpawnEnemy(instanceId, wave.roles[i], wave.elite[i], waveIndex == 0, ref lastPoint); }
             catch (Exception ex) { Debug.LogException(ex); }
             yield return new WaitForSeconds(waveIndex == 0 ? 0.25f : 0.45f);   // the opening wave arrives quickly
         }
         spawning = false;
     }
 
-    void SpawnEnemy(int instanceId, string roleId, bool elite, ref int lastPoint)
+    void SpawnEnemy(int instanceId, string roleId, bool elite, bool openingWave, ref int lastPoint)
     {
         if (spawnPoints == null || spawnPoints.childCount == 0) return;
-        int point = PickSpawnPoint(lastPoint);
+        int point = PickSpawnPoint(lastPoint, openingWave);
         lastPoint = point;
         Vector3 pos = spawnPoints.GetChild(point).position;
         GameObject go;
@@ -146,27 +146,53 @@ public partial class RoguelikeController
         liveEnemies[instanceId] = role;
         Singleplayer.enemy++;
         BindEnemyMarkers(role);
-        BindEnemyMarkers(role);
-        BindEnemyMarkers(role);
-        BindEnemyMarkers(role);
     }
 
-    int PickSpawnPoint(int lastPoint)
+    /// <summary>Engagement band for enemy arrivals (metres to the nearest player). The old farthest-point rule put the opening wave
+    /// 300-400 m away on most maps, so a stage opened with a minute of nothing and then everyone arrived at once.</summary>
+    public const float SpawnMinDistance = 40f, SpawnBandDistance = 120f, OpeningMinDistance = 60f;
+
+    int PickSpawnPoint(int lastPoint, bool openingWave)
     {
-        // farthest-from-players bias with a random tie-break; never the same point twice in a row
+        // every point at least SpawnMinDistance from all players is a candidate; points inside the band weigh 1, farther ones fade
+        // (180 m = 0.5, 300 m = 0.25). The opening wave has its own rule below.
         var players = GameObject.FindGameObjectsWithTag("Player");
-        int best = -1; float bestScore = -1;
-        int tries = Mathf.Min(6, spawnPoints.childCount);
-        for (int t = 0; t < tries; t++)
+        var candidates = new List<int>(); var distances = new List<float>();
+        for (int idx = 0; idx < spawnPoints.childCount; idx++)
         {
-            int idx = UnityEngine.Random.Range(0, spawnPoints.childCount);
-            if (idx == lastPoint && spawnPoints.childCount > 1) continue;
             float nearest = float.MaxValue;
             foreach (var p in players) nearest = Mathf.Min(nearest, Vector3.Distance(p.transform.position, spawnPoints.GetChild(idx).position));
-            if (nearest < 12f) nearest *= 0.1f;     // no face spawns
-            if (nearest > bestScore) { bestScore = nearest; best = idx; }
+            if (nearest < SpawnMinDistance) continue;          // no face spawns
+            if (idx == lastPoint && spawnPoints.childCount > 2) continue;
+            candidates.Add(idx); distances.Add(nearest);
         }
-        return best < 0 ? UnityEngine.Random.Range(0, spawnPoints.childCount) : best;
+        if (candidates.Count == 0)
+        {
+            // everything is close (tiny map or a squad spread over it): the farthest point is the least bad
+            int far = 0; float farD = -1;
+            for (int idx = 0; idx < spawnPoints.childCount; idx++)
+            {
+                float nearest = float.MaxValue;
+                foreach (var p in players) nearest = Mathf.Min(nearest, Vector3.Distance(p.transform.position, spawnPoints.GetChild(idx).position));
+                if (nearest > farD) { farD = nearest; far = idx; }
+            }
+            return far;
+        }
+        if (openingWave)
+        {
+            // the three nearest points at least OpeningMinDistance away (any distance if none): contact within seconds, but spread over
+            // several lanes and far enough that the squad can see them coming instead of taking focused fire from one spot
+            var order = new List<int>(); for (int k = 0; k < candidates.Count; k++) order.Add(k);
+            order.Sort((a, b) => distances[a].CompareTo(distances[b]));
+            var near = order.FindAll(k => distances[k] >= OpeningMinDistance);
+            if (near.Count == 0) near = order;
+            return candidates[near[UnityEngine.Random.Range(0, Mathf.Min(3, near.Count))]];
+        }
+        float total = 0; var weights = new float[candidates.Count];
+        for (int k = 0; k < candidates.Count; k++) { weights[k] = 1f / (1f + Mathf.Max(0f, distances[k] - SpawnBandDistance) / 60f); total += weights[k]; }
+        float roll = UnityEngine.Random.value * total;
+        for (int k = 0; k < candidates.Count; k++) { roll -= weights[k]; if (roll <= 0) return candidates[k]; }
+        return candidates[candidates.Count - 1];
     }
 
     public static int RoleIndex(string roleId)
@@ -190,6 +216,9 @@ public partial class RoguelikeController
             string who = Menu.network == 0 ? "" : (state.Player(killerKey) != null ? state.Player(killerKey).name : "");
             long each = 0; foreach (var v in payout.Minor.Values) { each = v; break; }
             Notify(new RogueEventMessage { kind = "bounty", playerKey = killerKey, minor = each, flag = headshot, text = who });
+            var marker = role.MarkedBy;
+            var bonus = marker != null ? machine.MarkedKillBonus(marker.Key, payout) : null;
+            if (bonus != null && bonus.Total > 0) Notify(new RogueEventMessage { kind = "log", text = "Marked kill bonus +{0}|" + RogueMoney.Format(FirstValue(bonus)) });
             Broadcast();
         }
         OnObjectiveEnemyKilled(role);
@@ -352,6 +381,7 @@ public partial class RoguelikeController
         if (IsAuthority)
         {
             var meta = RogueSaveStore.ReadMeta();
+            previousBestDepth = meta.deepestDepth;
             if (RogueSave.RecordRunEnd(meta, state, localKey)) RogueSaveStore.WriteMeta(meta);
             RogueSaveStore.ClearCheckpoint();
         }
@@ -371,14 +401,36 @@ public partial class RoguelikeController
         if (canvas != null && FindLocalPlayer() != null) canvas.enabled = true;
     }
 
-    /// <summary>Summary shown on the result screen (Menu.Results asks for it when the mode is active).</summary>
+    int previousBestDepth = -1;
+
+    /// <summary>Summary shown on the result screen (Menu.Results asks for it when the mode is active): outcome, how far, what got you
+    /// and how to counter it, and whether this was a personal best.</summary>
+    /// <summary>Large result line (replaces the Classic score rank, which means nothing here): outcome, how far, and a new record.</summary>
+    public string ResultHeadline()
+    {
+        if (state == null) return "";
+        bool solo = state.players.Length <= 1;
+        string outcome = T(state.end == RunEnd.Evacuated ? "Evacuated" : state.end == RunEnd.Wiped ? (solo ? "You fell" : "Squad wiped") : "Run ended");
+        string reached = T("Chapter {0}  Stage {1}  Depth {2}", state.Chapter, RogueDepth.StageInChapter(state.depth), state.deepestDepth);
+        bool record = previousBestDepth > 0 && state.deepestDepth > previousBestDepth;
+        return (record ? T("New personal best!") + "\n" : "") + outcome + "\n" + reached;
+    }
+
     public string ResultText()
     {
         if (state == null) return "";
         var me = LocalPlayer;
-        string outcome = T(state.end == RunEnd.Evacuated ? "Evacuated" : state.end == RunEnd.Wiped ? "Squad wiped" : "Run ended");
-        string mine = me != null ? "\n" + T("Earned {0}  Kills {1}  Headshots {2}", "$" + RogueMoney.Format(me.earnedMinor), me.kills, me.headshots) : "";
-        return outcome + "\n" + T("Chapter {0}  Stage {1}  Depth {2}", state.Chapter, RogueDepth.StageInChapter(state.depth), state.deepestDepth) + mine;
+        string text = me != null ? T("Earned {0}  Kills {1}  Headshots {2}", "$" + RogueMoney.Format(me.earnedMinor), me.kills, me.headshots) : "";
+        if (state.end == RunEnd.Wiped && RoguePlayer.LastHitRole != "" && Time.time - RoguePlayer.LastHitTime < 20f)
+        {
+            EnemyRoleDef role = null; foreach (var r in RogueCatalog.EnemyRoles) if (r.Id == RoguePlayer.LastHitRole) role = r;
+            string who = role != null ? T(role.Name) : RoguePlayer.LastHitRole == "role.finale" ? T("the chapter target") : T("an enemy");
+            text += "\n" + T("Last hit: {0}, {1} m away", who, Mathf.RoundToInt(RoguePlayer.LastHitDistance));
+            if (role != null) text += "\n" + T(role.Brief);
+        }
+        if (previousBestDepth > 0 && state.deepestDepth <= previousBestDepth)
+            text += "\n" + T("Best: chapter {0} stage {1}", RogueDepth.ChapterOf(previousBestDepth), RogueDepth.StageInChapter(previousBestDepth));
+        return text;
     }
 
     void RespawnDeadPlayers()

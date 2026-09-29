@@ -29,6 +29,7 @@ public class Bullet : MonoBehaviour
 	private Transform mt;
 
 	private Vector3 startPosition;
+	public Vector3 StartPosition { get { return startPosition; } }
 
 	private Color shooterColor;
 
@@ -213,6 +214,7 @@ public class Bullet : MonoBehaviour
 				DamageReceiver component = col.gameObject.GetComponent<DamageReceiver>();
 				if ((bool)component)
 				{
+					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) damage *= RogueHooks.HitDamageMul(this, false, contactPoint.point);
 					if (RoguelikeMode.Active && damage > 0f && (Menu.network == 0 || (shooter != null && shooter.GetComponent<PhotonView>() != null && shooter.GetComponent<PhotonView>().isMine)))
 						component.RogueReactToHit(shooter, false);
 					component.ApplyBulletDamage(damage, rogueKind != 0 ? -1 : 0, shooter);
@@ -242,6 +244,7 @@ public class Bullet : MonoBehaviour
 				if (playerShooter.primaryWeapon != null)
                     damage *= playerShooter.primaryWeapon.GetComponent<Gun>().headshotBonus;
 				DamageReceiver component2 = col.collider.GetComponentInParent<DamageReceiver>();
+				if (RoguelikeMode.Active && component2 != null && !component2.userIsPlayer) damage *= RogueHooks.HitDamageMul(this, true, contactPoint.point);
 				if ((bool)component2)
 				{
 					GameObject gameObject2 = component2.gameObject;
