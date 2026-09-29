@@ -154,6 +154,7 @@ public partial class RoguelikeController
             overview.AddStat(RogueIcons.ForLife(p.life), p.name + (p.key == me.key ? "  (" + T("You") + ")" : ""), LifeText(p.life) + (p.ready && (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) ? "  " + T("Ready") : ""),
                 T("Wallet ${0}   Kills {1}   HS {2}   Deaths {3}   Rescues {4}", RogueMoney.Format(p.walletMinor), p.kills, p.headshots, p.deaths, p.rescues), fraction, tint);
             overview.AddStat("Core", T("Build"), BuildShort(p.build), BuildSummary(p.build), -1, TintInk);
+            MetaSquadRow(p);   // meta level, loadout and the fairness note
         }
     }
 

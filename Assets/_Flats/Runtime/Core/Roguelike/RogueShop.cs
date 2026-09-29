@@ -184,6 +184,7 @@ namespace Flats.Core.Roguelike
             {
                 var def = RogueCatalog.Weapon(w);
                 if (w == build.primaryWeapon || w == build.secondaryWeapon || taken.Contains(def.Id)) continue;
+                if (!MetaRun.ShopOffers(build, w)) continue;   // only models the player owns an armory variant of
                 candidates.Add(def);
             }
             return candidates.Count == 0 ? null : rng.Pick(candidates);

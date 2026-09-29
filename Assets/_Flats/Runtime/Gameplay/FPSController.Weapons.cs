@@ -14,6 +14,7 @@ public partial class FPSController
 		{
 			return;
 		}
+		if (zoom && RoguelikeMode.Active && !RogueHooks.MetaCanAim(this)) return;   // armory weapons that cannot aim
 		if (!Aiming && zoom)
 		{
 			if (primarySightIndex == 0)
@@ -72,6 +73,7 @@ public partial class FPSController
 		{
 			yield break;
 		}
+        if (RoguelikeMode.Active && RogueMelee.Handles(this)) { yield return RogueMelee.Swing(this); yield break; }
 		if (zombie)
 		{
 			Transform closest = null;
@@ -176,6 +178,7 @@ public partial class FPSController
 	[PunRPC]
 	private IEnumerator Shoot()
 	{
+        if (RoguelikeMode.Active && RogueMelee.BlocksFire(this)) yield break;
 		if (zombie)
 		{
 			anim.SetBool("ZombieAttack", true);
@@ -214,6 +217,8 @@ public partial class FPSController
 				}
 				yield break;
 			}
+			float rogueInterval = 1f;
+			if (RoguelikeMode.Active) { float rogueWarm = RogueHooks.MetaPreFireDelay(this); if (rogueWarm > 0f) yield return new WaitForSeconds(rogueWarm); }
 			if (currentGun.oneShot)
 			{
 				GameObject mf = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
@@ -223,12 +228,15 @@ public partial class FPSController
 				float spreadScale = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
 				for (int i = 0; i < pellets; i++)
 				{
-					float x = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * spreadScale;
-					float y = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * spreadScale;
+					var rogueShot = RoguelikeMode.Active ? RogueHooks.MetaShot(this, Aiming, i == 0) : Flats.Core.Roguelike.ShotModifiers.Neutral;
+					if (i == 0) rogueInterval = (float)rogueShot.IntervalMul;
+					float x = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * spreadScale * (float)rogueShot.SpreadMul;
+					float y = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * spreadScale * (float)rogueShot.SpreadMul;
 					Vector3 velocity = ((currentGun.id != 15) ? ct.TransformDirection(x, y, 1500f) : ct.TransformDirection(x, y, 800f));
 					Rigidbody rigidbody = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 					Bullet component = rigidbody.GetComponent<Bullet>();
 					component.shooter = mt;
+                    if (RoguelikeMode.Active) RogueRangedStatus.Capture(component);
 					component.grenade = currentGun.grenade;
 					if (Multiplayer.rule == 6)
 					{
@@ -236,12 +244,13 @@ public partial class FPSController
 					}
 					else
 					{
-						component.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) * (currentGun.grenade ? RogueHooks.GrenadeDamageMul(this) : 1f) : 1f);
+						component.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) * (currentGun.grenade ? RogueHooks.GrenadeDamageMul(this) : 1f) : 1f) * (float)rogueShot.DamageMul;
 					}
 					rigidbody.gameObject.layer = base.gameObject.layer + 2;
 					rigidbody.linearVelocity = velocity;
+					if (RoguelikeMode.Active) RogueHooks.MetaStampBullet(this, component);
 					if (i >= currentGun.burstCount) continue;   // Choke's extra pellet rides on the same shell
-					if (!(RoguelikeMode.Active && RogueHooks.InfiniteAmmo(this))) currentGun.currentAmmo--;
+					if (!(RoguelikeMode.Active && (RogueHooks.InfiniteAmmo(this) || rogueShot.FreeRound))) currentGun.currentAmmo--;
 					if (currentGun.currentAmmo == 0)
 					{
 						break;
@@ -251,10 +260,11 @@ public partial class FPSController
 				{
 					FlatsGamepad.Vibrate(inputDevice, 0.1f);
 				}
+				if (RoguelikeMode.Active) { RogueHooks.MetaNoteInterval(this, 60f / currentGun.rpm * rogueInterval); }
 				anim.SetInteger("Burst", 1);
-				yield return new WaitForSeconds(0.1f);
+				yield return new WaitForSeconds(0.1f * Mathf.Min(1f, rogueInterval));
 				anim.SetInteger("Burst", 0);
-				yield return new WaitForSeconds(60f / currentGun.rpm - 0.1f);
+				yield return new WaitForSeconds(Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)));
 				enableFire = true; firing = false;
 				if (currentGun.currentAmmo <= 0)
 				{
@@ -271,16 +281,20 @@ public partial class FPSController
 			}
 			while (true)
 			{
+				var rogueShot = RoguelikeMode.Active ? RogueHooks.MetaShot(this, Aiming, currentBurstCount == currentGun.burstCount) : Flats.Core.Roguelike.ShotModifiers.Neutral;
+				rogueInterval = (float)rogueShot.IntervalMul;
+				if (RoguelikeMode.Active) RogueHooks.MetaNoteInterval(this, 60f / currentGun.rpm * rogueInterval);
 				GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 				base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
 				float aimSpread = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
-				float ram1 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * aimSpread;
-				float ram2 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * aimSpread;
+				float ram1 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * aimSpread * (float)rogueShot.SpreadMul;
+				float ram2 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * aimSpread * (float)rogueShot.SpreadMul;
 				Vector3 dir = ct.TransformDirection(ram1, ram2, 1500f);
 				Rigidbody b = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 				Bullet bb = b.GetComponent<Bullet>();
 				bb.shooter = mt;
+                if (RoguelikeMode.Active) RogueRangedStatus.Capture(bb);
 				bb.grenade = currentGun.grenade;
 				if (Multiplayer.rule == 6)
 				{
@@ -288,27 +302,28 @@ public partial class FPSController
 				}
 				else
 				{
-					bb.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) : 1f);
+					bb.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) : 1f) * (float)rogueShot.DamageMul;
 				}
 				b.gameObject.layer = base.gameObject.layer + 2;
 				b.linearVelocity = dir;
+				if (RoguelikeMode.Active) RogueHooks.MetaStampBullet(this, bb);
 				if (MyView(base.gameObject))
 				{
 					FlatsGamepad.Vibrate(inputDevice, 0.1f);
 				}
 				anim.SetInteger("Burst", currentBurstCount);
 				currentBurstCount--;
-				if (!(RoguelikeMode.Active && RogueHooks.InfiniteAmmo(this))) currentGun.currentAmmo--;
-				yield return new WaitForSeconds(0.1f);
+				if (!(RoguelikeMode.Active && (RogueHooks.InfiniteAmmo(this) || rogueShot.FreeRound))) currentGun.currentAmmo--;
+				yield return new WaitForSeconds(0.1f * Mathf.Min(1f, rogueInterval));
 				if (currentBurstCount == 0 || currentGun.currentAmmo == 0)
 				{
 					break;
 				}
-				yield return new WaitForSeconds(60f / currentGun.rpm - 0.1f);
-				yield return new WaitForSeconds(0f);
+				{ float rogueGap = Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)); if (rogueGap > 0f || !RoguelikeMode.Active) yield return new WaitForSeconds(rogueGap); }
+				if (!RoguelikeMode.Active) yield return new WaitForSeconds(0f);
 			}
 			anim.SetInteger("Burst", 0);
-			yield return new WaitForSeconds(60f / currentGun.rpm - 0.1f);
+			yield return new WaitForSeconds(Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)));
 			enableFire = true; firing = false;
 			if (currentGun.currentAmmo <= 0)
 			{
@@ -368,6 +383,7 @@ public partial class FPSController
 		if (RoguelikeMode.Active) max = Mathf.Min(currentGun.limitMaxAmmo, max + RogueHooks.ReserveReturnOnReload(this));
 		currentGun.currentAmmo = current;
 		currentGun.maxAmmo = max;
+		if (RoguelikeMode.Active) RogueHooks.MetaReloadCompleted(this, current, currentGun.limitAmmo);
 		enableFire = true; firing = false;
 		yield return new WaitForSeconds(0.1f);
 	}
@@ -405,10 +421,11 @@ public partial class FPSController
 			reticle.SetVisible(false);
 		}
 		enableFire = false; firing = false;
+		float rogueSwap = RoguelikeMode.Active ? RogueHooks.MetaSwapTimeMul(this) : 1f;   // Quick Draw, Quick Hands, heavy weapons
 		anim.SetBool("Change", true);
 		yield return new WaitForSeconds(0.1f);
 		ikc.leftIK = false;
-		yield return new WaitForSeconds(0.4f);
+		yield return new WaitForSeconds(0.4f * rogueSwap);
 		primaryWeapon.gameObject.SetActive(false);
 		secondaryWeapon.gameObject.SetActive(false);
 		if (primaryWeapon.GetChild(2).childCount > 0)
@@ -449,7 +466,7 @@ public partial class FPSController
 		secondaryWeapon.gameObject.SetActive(true);
 		yield return new WaitForSeconds(0.05f);
 		anim.SetBool("Change", false);
-		yield return new WaitForSeconds(0.35f);
+		yield return new WaitForSeconds(0.35f * rogueSwap);
 		ikc.leftIK = true;
 		currentGun = primaryWeapon.GetComponent<Gun>();
 		yield return new WaitForSeconds(0.1f);
@@ -546,8 +563,9 @@ public partial class FPSController
 		{
 			enableCamRotate = false;
 			Transform anchor = primaryWeapon.GetChild(2);
-			view.position = Vector3.MoveTowards(view.position, anchor.position, Time.deltaTime * 20f);
-			view.rotation = Quaternion.RotateTowards(view.rotation, anchor.rotation, Time.deltaTime * 20f);
+			float rogueAds = RoguelikeMode.Active ? RogueHooks.MetaAdsSpeed(this) : 1f;   // aim-in time of skills, weapon and sight
+			view.position = Vector3.MoveTowards(view.position, anchor.position, Time.deltaTime * rogueAds * 20f);
+			view.rotation = Quaternion.RotateTowards(view.rotation, anchor.rotation, Time.deltaTime * rogueAds * 20f);
 			if (Vector3.Distance(view.position, anchor.position) < 0.05f)
 			{
 				isZoom = true;

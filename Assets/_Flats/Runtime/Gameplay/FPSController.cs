@@ -312,6 +312,7 @@ public partial class FPSController : MonoBehaviour
 				secondaryWeapon = secondaryWeapons.GetChild(secondaryWeaponIndex);
 				primarySightIndex = tutorialCourse ? 0 : Menu.myCharacter.sightList[primaryWeaponIndex];
 				secondarySightIndex = tutorialCourse ? 0 : Menu.myCharacter.sightList[secondaryWeaponIndex];
+				if (RoguelikeMode.Active) { RogueHooks.MetaStartLoadout(ref primaryWeaponIndex, ref secondaryWeaponIndex, ref primarySightIndex, ref secondarySightIndex); primaryWeapon = primaryWeapons.GetChild(primaryWeaponIndex); secondaryWeapon = secondaryWeapons.GetChild(secondaryWeaponIndex); }
 				if (primarySightIndex != 0)
 				{
 					GameObject gameObject = FlatsSightTarget.Create("Sights/" + Menu.sightDictionary[primarySightIndex]);
@@ -351,14 +352,16 @@ public partial class FPSController : MonoBehaviour
 			else if (Menu.network != 1)
 			{
 				num = ((PhotonNetwork.player.GetTeam() != PunTeams.Team.red) ? ((PhotonNetwork.player.GetTeam() == PunTeams.Team.blue) ? 1 : 2) : 0);
+				int rogueP = Menu.myCharacter.primaryWeapon, rogueS = Menu.myCharacter.secondaryWeapon, roguePs = Menu.myCharacter.sightList[rogueP], rogueSs = Menu.myCharacter.sightList[rogueS];
+				if (RoguelikeMode.Active) RogueHooks.MetaStartLoadout(ref rogueP, ref rogueS, ref roguePs, ref rogueSs);
 				int[] array2 = new int[6]
 				{
 					num,
 					Menu.myCharacter.color,
-					Menu.myCharacter.primaryWeapon,
-					Menu.myCharacter.secondaryWeapon,
-					Menu.myCharacter.sightList[Menu.myCharacter.primaryWeapon],
-					Menu.myCharacter.sightList[Menu.myCharacter.secondaryWeapon]
+					rogueP,
+					rogueS,
+					roguePs,
+					rogueSs
 				};
 				base.gameObject.GetPhotonView().RPC("SyncTeam", PhotonTargets.AllBuffered, array2);
 			}

@@ -84,6 +84,7 @@ public class RoguePlayer : MonoBehaviour
         Stats = BuildStats.Compute(Build);
         Chain = new Flats.Core.Roguelike.EffectChainRules(Stats);
         if (controller == null) return;
+        RogueMetaRuntime.Ensure(gameObject).Bind(Stats);   // armory numbers first; the build multipliers below scale them
         ApplyToGuns();
         dashCharges = Stats.DashCharges;
     }
@@ -95,7 +96,8 @@ public class RoguePlayer : MonoBehaviour
         {
             var gun = controller.primaryWeapons.GetChild(i).GetComponent<Gun>();
             if (gun == null) continue;
-            int baseMag = GunInfo.limitAmmo[i], baseReserve = GunInfo.limitMaxAmmo[i];
+            var meta = RogueMetaRuntime.Of(this);
+            int baseMag = meta != null ? meta.BaseMagazine(i) : GunInfo.limitAmmo[i], baseReserve = meta != null ? meta.BaseReserve(i) : GunInfo.limitMaxAmmo[i];
             int newMag = Stats.Magazine(baseMag, Build.magazineTier);
             int newReserve = Stats.Reserve(baseReserve);
             // capacity changes never create ammunition: the loaded magazine is clamped, never topped up
@@ -121,6 +123,7 @@ public class RoguePlayer : MonoBehaviour
         if (Invincible) return 0f;
         if (Time.time < assaultBuffUntil) damage *= 1f - (float)Stats.AssaultKillReduction;
         damage *= (float)Stats.DamageTakenMul;
+        { var meta = RogueMetaRuntime.Of(this); if (meta != null) damage = meta.IncomingDamage(damage); }
         if (shieldHp > 0 && Time.time < shieldUntil)
         {
             float absorbed = Mathf.Min(shieldHp, damage);
@@ -134,6 +137,7 @@ public class RoguePlayer : MonoBehaviour
     public bool TryDown()
     {
         if (!isMine || Downed) return false;
+        { var meta = RogueMetaRuntime.Of(this); if (meta != null && meta.TryGuardian()) return true; }   // Guardian Angel
         var ctrl = RoguelikeController.Instance;
         if (ctrl == null || ctrl.State == null) return false;
         var me = ctrl.LocalPlayer;
@@ -148,7 +152,7 @@ public class RoguePlayer : MonoBehaviour
             return true;
         }
         Downed = true;
-        bleedOut = BleedOutSeconds;
+        bleedOut = BleedOutSeconds * (float)MetaRun.BleedOutMul(RogueHooks.Heat());
         receiver.hitPoints = 1f;
         if (controller != null) controller.enableFire = false;
         downRequest++;
@@ -181,7 +185,7 @@ public class RoguePlayer : MonoBehaviour
     void Revive()
     {
         Downed = false;
-        if (receiver != null) receiver.hitPoints = MaxHealth() * 0.3f;
+        { var meta = RogueMetaRuntime.Of(this); if (receiver != null) receiver.hitPoints = MaxHealth() * (meta != null ? meta.ReviveHealthFraction() : 0.3f); }
         if (controller != null) controller.enableFire = true;
         DamageReceiver.invincibility = true;
         StartCoroutine(SpawnProtection(2f));
@@ -212,6 +216,7 @@ public class RoguePlayer : MonoBehaviour
         EndUltimate();
         shieldHp = 0; shieldUntil = 0; assaultBuffUntil = 0; reloadBurstUntil = 0; suppressionStacks = 0;
         Downed = false; Carrying = false;
+        { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.CancelAll(); }
         if (controller != null && isMine) controller.enableFire = true;
     }
 
@@ -260,8 +265,10 @@ public class RoguePlayer : MonoBehaviour
     {
         if (Downed) return 0f;
         float s = (float)Stats.SpeedMul;
+        if (RoguelikeMode.Active) s *= RogueMelee.GuardMoveScale(controller);
         if (Carrying) s *= (float)Stats.CarrySpeedMul;
         if (Time.time < assaultBuffUntil) s *= 1f + (float)Stats.AssaultKillSpeed;
+        { var meta = RogueMetaRuntime.Of(this); if (meta != null) s *= meta.MoveSpeedMul(); }
         return s;
     }
 
@@ -278,6 +285,7 @@ public class RoguePlayer : MonoBehaviour
 
     public void OnKill(Transform victim, bool headshot)
     {
+        { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.OnKill(victim, headshot, meta.RecentMeleeHit); }
         if (Stats.AssaultKillSeconds > 0 && victim != null && Vector3.Distance(transform.position, victim.position) <= 12f) assaultBuffUntil = Time.time + (float)Stats.AssaultKillSeconds;
         if (Stats.KillHealFraction > 0 && receiver != null && Time.time - lastHealTime > 0.34f)
         {
@@ -296,6 +304,7 @@ public class RoguePlayer : MonoBehaviour
 
     public void OnReloadStarted(int magazineBefore, int capacity)
     {
+        { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.PrepareReload(magazineBefore, capacity); }
         suppressionStacks = 0;
         if (Stats.ReloadBurstSeconds > 0 && capacity > 0 && (capacity - magazineBefore) >= capacity * Stats.ReloadBurstMinFraction)
             reloadBurstUntil = Time.time + (float)Stats.ReloadBurstSeconds + 1.2f;   // burst window starts after the reload animation
@@ -368,7 +377,7 @@ public class RoguePlayer : MonoBehaviour
         get
         {
             if (Stats.Dash) return dashCharges > 0 ? 1f : Mathf.Clamp01(1f - (dashCooldownUntil - Time.time) / Mathf.Max(0.1f, 6f * (float)Stats.DashCooldownMul));
-            if (Stats.Shield) return Time.time >= shieldCooldownUntil ? 1f : Mathf.Clamp01(1f - (shieldCooldownUntil - Time.time) / 12f);
+            if (Stats.Shield) return Time.time >= shieldCooldownUntil ? 1f : Mathf.Clamp01(1f - (shieldCooldownUntil - Time.time) / (12f * (float)Stats.ShieldCooldownMul));
             if (Stats.DoubleJump) return airJumpsLeft > 0 ? 1f : 0.35f;
             return 0f;
         }
@@ -419,7 +428,7 @@ public class RoguePlayer : MonoBehaviour
     void TryTactical()
     {
         if (Stats.Dash && dashCharges > 0 && Time.time >= dashCooldownUntil) { dashCharges--; dashCooldownUntil = Time.time + 6f * (float)Stats.DashCooldownMul; StartCoroutine(DashRoutine()); StartCoroutine(RechargeDash()); }
-        else if (Stats.Shield && Time.time >= shieldCooldownUntil) { shieldHp = 400f; shieldUntil = Time.time + 4f; shieldCooldownUntil = Time.time + 12f; RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f); }
+        else if (Stats.Shield && Time.time >= shieldCooldownUntil) { shieldHp = 400f; shieldUntil = Time.time + 4f; shieldCooldownUntil = Time.time + 12f * (float)Stats.ShieldCooldownMul; RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f); }
     }
 
     IEnumerator RechargeDash() { yield return new WaitForSeconds(6f * (float)Stats.DashCooldownMul); dashCharges = Mathf.Min(Stats.DashCharges, dashCharges + 1); }

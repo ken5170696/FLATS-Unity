@@ -15,6 +15,7 @@ public static partial class RogueHooks
     {
         if (!RoguelikeMode.Active || player == null) return;
         if (player.GetComponent<RoguePlayer>() == null) player.gameObject.AddComponent<RoguePlayer>();
+        if (RoguelikeMode.Active) RogueMelee.Attach(player);
         if (player.GetComponent<RogueDownedPresentation>() == null) player.gameObject.AddComponent<RogueDownedPresentation>();
     }
 
@@ -46,6 +47,7 @@ public static partial class RogueHooks
             if (rp == null) return damage;
             var role = shooter != null ? shooter.GetComponent<RogueEnemyRole>() : null;
             if (role != null && damage > 0f) rp.NoteHitBy(role.RoleId, Vector3.Distance(shooter.position, receiver.transform.position));
+            if (role != null) damage = RogueEliteAffixes.OnHitPlayer(shooter, receiver, damage);
             return rp.ModifyIncomingDamage(damage);
         }
         return ModifyIncomingEnemyDamage(receiver, damage, shooter);
@@ -112,7 +114,9 @@ public static partial class RogueHooks
     public static float ReloadTimeMul(FPSController player)
     {
         var rp = Of(player);
-        return rp == null ? 1f : (float)rp.Stats.ReloadTimeMul;
+        if (rp == null) return 1f;
+        var meta = RogueMetaRuntime.Of(player);
+        return (float)rp.Stats.ReloadTimeMul * (meta != null ? meta.PendingReloadMul : 1f);
     }
 
     /// <summary>Tactical Reload: rounds returned to the reserve by every completed reload.</summary>
@@ -175,6 +179,7 @@ public static partial class RogueHooks
         var role = receiver != null ? receiver.GetComponent<RogueEnemyRole>() : null;
         if (role == null) return damage;
         damage = role.ModifyIncomingDamage(damage, shooter);
+        damage = RogueEliteAffixes.OnEnemyHit(receiver, damage);
         var rp = shooter != null ? shooter.GetComponent<RoguePlayer>() : null;
         if (rp != null && rp.LethalShot) damage = role.RoleId == "role.finale" ? damage * 3f : Mathf.Max(damage, receiver.hitPoints + 1f);
         return damage;
@@ -193,6 +198,7 @@ public static partial class RogueHooks
         var role = receiver.GetComponent<RogueEnemyRole>();
         if (role == null || Controller == null) return;
         Controller.OnEnemyDied(role, killer, headshot);
+        RogueEliteAffixes.OnEnemyDied(receiver.transform.position);
         if (killer != null && killer.tag == "Player")
         {
             OnPlayerKilledEnemy(killer, receiver.transform, headshot);

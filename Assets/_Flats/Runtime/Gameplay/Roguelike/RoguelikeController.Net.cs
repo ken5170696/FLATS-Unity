@@ -151,6 +151,7 @@ public partial class RoguelikeController
         reviveHold.Remove(key);
         var pay = machine.Rescued(rescuer, victim);
         Notify(new RogueEventMessage { kind = "revived", playerKey = victim, text = r.name, minor = pay.Total });
+        MetaRevived(rescuer, victim);
         Broadcast();
     }
 
@@ -190,6 +191,7 @@ public partial class RoguelikeController
         leaving = true;
         var meta = RogueSaveStore.ReadMeta();
         if (RogueSave.RecordRunEnd(meta, state, localKey)) RogueSaveStore.WriteMeta(meta);
+        MetaRunEnded();
         CleanupSession();
         yield return new WaitForSeconds(1f);
         Multiplayer.end = Menu.network != 0;

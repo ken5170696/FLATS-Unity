@@ -72,6 +72,7 @@ public class RogueEnemyRole : MonoBehaviour
 
     public void Slow(float until, float scale)
     {
+        if (RoguelikeMode.Active && RogueEnemyStatus.MergeSlow(this, until, scale)) return;
         slowUntil = until; slowScale = Mathf.Clamp(scale, 0.2f, 1f);
     }
 
@@ -92,6 +93,7 @@ public class RogueEnemyRole : MonoBehaviour
         if (role == null) role = go.AddComponent<RogueEnemyRole>();
         if (go.GetComponent<RogueHitReaction>() == null) go.AddComponent<RogueHitReaction>();
         role.Configure(roleId, instanceId, elite);
+        RogueEliteAffixes.Attach(go, role);   // heat: borrowed player skills on elites
         return role;
     }
 

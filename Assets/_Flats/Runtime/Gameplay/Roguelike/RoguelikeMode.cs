@@ -19,6 +19,9 @@ public static class RoguelikeMode
     /// <summary>Difficulty chosen in the menu (solo) or carried by the room objective (co-op). 1 Normal, 2 Hard, 3 Chaos.</summary>
     public static int Difficulty = 1;
 
+    /// <summary>Heat chosen in the meta hub (solo) or carried by the room (co-op); 0..RogueHeat.MaxHeat.</summary>
+    public static int Heat;
+
     /// <summary>Map chosen in the solo menu; -1 = random.</summary>
     public static int SoloMap = -1;
 

@@ -52,6 +52,7 @@ public partial class RoguelikeController : MonoBehaviour
 
     void OnDestroy()
     {
+        MetaLeftEarly();
         if (Instance == this) Instance = null;
         CleanupWorld();
         RoguelikeMode.RunInProgress = false;
@@ -103,6 +104,7 @@ public partial class RoguelikeController : MonoBehaviour
         {
             phaseText.enabled = true; phaseText.text = T("Waiting for the host...");
             while (state == null) yield return null;
+            metaRunStartedAt = Time.time; MetaSendLocalLoadout(); // client
         }
         runStarted = true;
         if (Menu.network != 0)
@@ -169,6 +171,7 @@ public partial class RoguelikeController : MonoBehaviour
         }
         state.mapId = RogueCatalog.MapByScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name) != null
             ? RogueCatalog.MapByScene(UnityEngine.SceneManagement.SceneManager.GetActiveScene().name).Id : state.mapId;
+        MetaOnRunCreated(resume != null && resume.run != null);
         WriteCheckpoint();
     }
 
@@ -302,6 +305,7 @@ public partial class RoguelikeController : MonoBehaviour
             case "objective":
                 OnObjectiveInput(cmd);
                 break;
+            case "meta": MetaLoadoutCommand(cmd); break;
         }
     }
 
@@ -334,11 +338,12 @@ public partial class RoguelikeController : MonoBehaviour
                 break;
             case "banner": Banner(Decode(e.text), (float)(e.value > 0 ? e.value : 3)); break;
             case "log": Log(Decode(e.text)); break;
-            case "downed": Log(T("{0} is down!", e.text)); { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.AcknowledgeDown(e.index); } break;
+            case "downed": MetaTeammateDowned(e.playerKey); Log(T("{0} is down!", e.text)); { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.AcknowledgeDown(e.index); } break;
             case "downrefused": { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.RefuseDown(e.index); } break;
             case "died": Log(T("{0} died.", e.text)); break;
             case "revived": Log(T(e.flag ? "Emergency revive: {0}" : "Revived: {0}", e.text)); break;
             case "tx": OnTransactionResult(e); break;
+            case "rescueshield": MetaRescueShieldEvent(e); break;
             case "ult": Log(e.text == "" ? T("Ultimate used") : T("Ultimate: {0}", ItemName(e.text))); OnUltimateConfirmed(e); break;
             case "objective": Log(e.text); break;
             case "objtext": ApplyObjectiveText(e.text); break;

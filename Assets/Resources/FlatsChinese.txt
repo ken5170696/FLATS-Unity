@@ -1,3 +1,526 @@
+# meta-begin
+Elites appear more often (+{0}% of enemies on average).	菁英出現比例提高（平均增加 {0}% 的敵人）。
+Elites carry {0} affixes; bosses {1}.	菁英帶 {0} 個詞綴；首領 {1} 個。
+When an ally dies within {2} m: +{0}% speed and +{1}% damage for {3} s.	{2} 公尺內有同伴陣亡時：移速 +{0}%、傷害 +{1}%，持續 {3} 秒。
+Its hits slow you by {0}% for {1} s.	命中你時使你減速 {0}%，持續 {1} 秒。
++{0}% damage against a player at full health.	對滿血玩家傷害 +{0}%。
+Other enemies within {1} m take -{0}% damage.	{1} 公尺內的其他敵人受到傷害 -{0}%。
+Survives its first lethal hit, invulnerable for {0} s.	第一次致命傷存活，並無敵 {0} 秒。
+Berserker	狂戰士
+Suppressor	壓制者
+Ambusher	伏擊者
+Shield Bearer Aura	護盾光環
+Deadeye	神射手
+Last Stand	最後防線
+Run pace limit ({0} min)	本局節奏上限（{0} 分鐘）
+Full run minimum	完整局保底
+Run merit limit	本局功勳上限
+Leaving before stage {0} earns nothing	未達第 {0} 關就離開不給獎勵
+No kills or revives this run	本局沒有擊殺或救援
+Inactive for the whole run	整局未活動
+Clear at least one stage to earn experience	至少通過一關才能獲得經驗
+Loadout & Armory	局外總部
+Difficulty: {0}  Heat {1}	難度：{0}  Heat {1}
+Heat {0} +{1}%	Heat {0}：+{1}%
+HUD effect row	HUD 生效列
+HUD effect row opacity	HUD 生效列透明度
+Mode: {0}. Opacity {1}%.	模式：{0}。不透明度 {1}%。
+Opacity {0}%. More than {1} effects show icons only.	不透明度 {0}%。同時超過 {1} 個效果時只顯示圖示。
+Change mode	切換模式
+Change opacity	切換透明度
+IconsOnly	僅圖示
+Starter Kit: {0}	起始套件：{0}
+The first round after a full reload always counts as a headshot (at most x{0} its body damage).	完整換彈後的第一發必定視為爆頭（最多為身體傷害的 {0} 倍）。
+Once per stage a lethal hit leaves you standing, invulnerable for {0} s.	每關一次，致命傷害後保留一口氣並無敵 {0} 秒。
+Every {0} trigger pulls: one extra round for free.	每扣 {0} 次扳機：免費多射一發。
+Every {1} s aimed without firing: next shot +{0}% damage, up to {2} steps.	每瞄準不開火 {1} 秒：下一發傷害 +{0}%，最多 {2} 段。
+Each headshot within {1} s of the last: +{0}% damage, up to {2} stacks.	{1} 秒內連續爆頭：每次傷害 +{0}%，最多 {2} 層。
+Dropping below {2}% health: +{0}% speed for {1} s ({3} s cooldown).	生命低於 {2}% 時：移速 +{0}%，持續 {1} 秒（冷卻 {3} 秒）。
+Each kill within {1} s: +{0}% damage, up to {2} stacks. Reloading clears the stacks.	{1} 秒內每次擊殺：傷害 +{0}%，最多 {2} 層；換彈時清除。
+A teammate going down (solo: you below {2}% health) gives +{0}% damage and speed for {1} s.	隊友倒地時（單人：你的生命低於 {2}%）傷害與移速 +{0}%，持續 {1} 秒。
+{0}: ready to unlock in the Armory ({1} Merits)	{0}：已可在軍械庫解鎖（{1} 功勳）
+Skill effects	技能效果
+No conditional skill triggered this run; passive bonuses applied all run	本局沒有觸發條件型技能；被動加成全程生效
+Every time you aim: your aim settles faster.	每次開鏡後：準星更快收束至穩定。
+{0}-hit combo; the finisher deals x{1}. Deflects bullets for the first {2} s of a swing.	{0} 段連擊，終結技傷害 ×{1}。揮擊前 {2} 秒可彈開子彈。
+Hold melee to guard: frontal damage -{0}%, but you cannot shoot. Bash pushes {1} m.	按住近戰格擋：正面傷害 -{0}%，但無法開槍。盾擊擊退 {1} 公尺。
+Squad catch-up: +{0}% experience. Enemies scale with average squad power.	小隊追趕：經驗 +{0}%。敵人依隊伍平均強度調整。
+{0}x magnification. Aim settle time x{1}. Spread while moving and aiming x{2}.	{0} 倍放大。開鏡後準星穩定時間 ×{1}。移動瞄準散布 ×{2}。
+Reloading with at least half the magazine left takes {0}% of the time.	彈匣剩餘至少一半時，換彈只需原時間的 {0}%。
+{0}x magnification. Aim-in time x{1}. Spread while moving and aiming x{2}.	倍率 {0} 倍。開鏡時間 ×{1}。移動瞄準散布 ×{2}。
+Every round of sustained fire tightens spread by {0}%, up to {1}%.	連續射擊每發縮小 {0}% 散布，最多 {1}%。
+Hold melee to throw it up to {0} m. Walk over it to pick it up.	按住近戰可投擲至 {0} 公尺；走過武器即可撿回。
+Reviving gives you and the teammate a {0}-point shield for {1} s.	救援後，你與隊友獲得 {0} 點護盾，持續 {1} 秒。
+Every round of sustained fire widens spread by {0}%, up to {1}%.	連續射擊每發擴大 {0}% 散布，最多 {1}%。
+After a kill: fire rate +{0}% for the rest of the magazine.	擊殺後，本彈匣剩餘子彈的射速 +{0}%。
+Every round of sustained fire adds +{0}% damage, up to +{1}%.	連續射擊每發增加 {0}% 傷害，最多 +{1}%。
+After {1} s of continuous fire: +{0}% damage until you stop.	持續開火 {1} 秒後，傷害 +{0}%，直到停止射擊。
+Below half health: damage taken -{0}%. Movement speed -{1}%.	生命低於一半時，受到的傷害 -{0}%。移速 -{1}%。
+Aim takes {0}% longer to steady after raising the sight.	開鏡後準星穩定所需時間增加 {0}%。
+Refund {0} skill points. These effects will be removed:	退回 {0} 技能點。以下效果將移除：
+A kill refills {0}% of the magazine from your reserve.	擊殺會從備彈補充彈匣容量的 {0}%。
+Your aim steadies {0}% faster after raising the sight.	開鏡後準星穩定速度提高 {0}%。
+Each hit in a row swings {0}% faster, up to {1} stacks.	連續命中時，揮擊速度每次提升 {0}%，最多 {1} 層。
+A headshot kills a regular enemy below {0}% health.	爆頭會處決生命低於 {0}% 的一般敵人。
+A headshot kill marks enemies within {0} m for {1} s.	爆頭擊殺會標記 {0} 公尺內的敵人，持續 {1} 秒。
+After a headshot the next shot cycles {0}% faster.	爆頭後，下次射擊的循環速度提升 {0}%。
+A headshot puts {0} round back into the magazine.	爆頭會補回 {0} 發子彈至彈匣。
+Aim steadies {0}% faster after raising the sight.	開鏡後準星穩定速度提高 {0}%。
+The last round in the magazine deals x{0} damage.	彈匣末發子彈造成 ×{0} 傷害。
+Slams the ground: hits every enemy within {0} m.	震擊地面，命中 {0} 公尺內所有敵人。
+Triggered {0} times · extra damage {1} · absorbed {2}	觸發 {0} 次・額外傷害 {1}・吸收傷害 {2}
+A kill puts {0} rounds back into the magazine.	擊殺會補回 {0} 發子彈至彈匣。
+Stuns for {0} s (elites and bosses {1}% of that).	癱瘓 {0} 秒（菁英與首領僅持續該時間的 {1}%）。
+{0} s delay before the first round of a burst.	連發首發前延遲 {0} 秒。
+Elites appear more often (+{0}% of the wave).	菁英出現比例增加波次的 {0}%。
+After {1} s without moving: damage taken -{0}%.	站定 {1} 秒後，受到的傷害 -{0}%。
+Aiming without moving for {1} s: spread -{0}%.	站定瞄準 {1} 秒後，散布 -{0}%。
+Hits within {1} m stagger the enemy for {0} s.	在 {1} 公尺內命中，使敵人踉蹌 {0} 秒。
+Reloading an empty magazine is {0}% faster.	空彈匣換彈加快 {0}%。
+Start every run with {0} random common mod.	每局開場自帶 {0} 個隨機普通改件。
+Hip-fire spread x{0}: aim to hit anything.	腰射散布 ×{0}；請開鏡確保命中。
+You get up from a revive with {0}% health.	被救起時恢復 {0}% 生命。
+Every {0} kills refill {1}% of your reserve.	每 {0} 次擊殺補充 {1}% 備彈。
+Hits within {1} m knock enemies back {0} m.	在 {1} 公尺內命中，將敵人擊退 {0} 公尺。
+Ignores shields. +{0}% damage to elites.	無視護盾。對菁英傷害 +{0}%。
++{0}% damage to enemies at full health.	對滿血敵人的傷害 +{0}%。
+Headshots stagger the enemy for {0} s.	爆頭使敵人踉蹌 {0} 秒。
+Swapping to or from it is {0}% faster.	切換至此槍或切離此槍時加快 {0}%。
+Your hits slow enemies by {0}% for {1} s.	命中使敵人減速 {0}%，持續 {1} 秒。
+Cost: {0} Merits. Remaining: {1} Merits.	花費 {0} 功勳。購買後剩餘 {1} 功勳。
+Downed players bleed out {0}% faster.	倒地玩家的失血速度加快 {0}%。
+Explosions stagger enemies for {0} s.	爆炸使敵人踉蹌 {0} 秒。
+Strikes from behind deal x{0} damage.	背後攻擊造成 ×{0} 傷害。
+Kill {0} enemies with assault rifles	以突擊步槍擊殺 {0} 名敵人
+Spend {0} more points in this branch	此分支還需投入 {0} 點
+Kill {0} enemies with heavy weapons	以重武器擊殺 {0} 名敵人
+Kill {0} enemies with sniper rifles	以狙擊槍擊殺 {0} 名敵人
+Movement speed +{0}% while in hand.	手持時移速 +{0}%。
+Movement speed -{0}% while carried.	攜帶時移速 -{0}%。
+{0} XP to the next overlevel reward	距離下次超越獎勵還需 {0} 經驗
+Hits slow enemies by {0}% for {1} s.	命中使敵人減速 {0}%，持續 {1} 秒。
+Rounds pass through {0} enemies.	子彈穿透 {0} 名敵人。
+{0}: {1} kills to the next mastery	{0}：距離下次熟練度還需 {1} 次擊殺
+Kill {0} enemies with handguns	以手槍擊殺 {0} 名敵人
+Kill {0} enemies with shotguns	以霰彈槍擊殺 {0} 名敵人
+{0} spent / next row needs {1}	已投入 {0} 點／下一列需 {1} 點
+{0}: {1} more Merits to unlock	{0}：還需 {1} 功勳即可解鎖
+Enemies deal +{0}% damage.	敵人傷害 +{0}%。
+Enemies have +{0}% health.	敵人生命 +{0}%。
+Kill {0} enemies with SMGs	以衝鋒槍擊殺 {0} 名敵人
+Knocks enemies back {0} m.	將敵人擊退 {0} 公尺。
+Level {0} · +{1} skill points	等級 {0}・獲得 {1} 技能點
+Revive teammates {0} times	救起隊友 {0} 次
+Clear {0} chapter finales	完成 {0} 場章節終戰
+Reserve ammunition +{0}%.	備彈 +{0}%。
+Reserve ammunition -{0}%.	備彈 -{0}%。
+Swing {0} s, recovery {1} s.	揮擊 {0} 秒，恢復 {1} 秒。
+{0} spent / all rows open	已投入 {0} 點／所有列已開放
+Magazine capacity +{0}%.	彈匣容量 +{0}%。
+Tactical cooldown -{0}%.	戰術技能冷卻 -{0}%。
+{0} XP to the next level	距離下一級還需 {0} 經驗
++{0}% damage beyond {1} m.	超過 {1} 公尺時，傷害 +{0}%。
++{0}% damage within {1} m.	{1} 公尺內的傷害 +{0}%。
+-{0}% damage beyond {1} m.	超過 {1} 公尺時，傷害 -{0}%。
+Complete {0} objectives	完成 {0} 個目標
+Land {0} headshot kills	完成 {0} 次爆頭擊殺
+Weapon swap time +{0}%.	切槍時間 +{0}%。
+Weapon swap time -{0}%.	切槍時間 -{0}%。
+Headshot damage +{0}%.	爆頭傷害 +{0}%。
+Hip-fire spread -{0}%.	腰射散布 -{0}%。
+Resets in {0}h {1}m (UTC)	{0} 小時 {1} 分鐘後更新（UTC）
+Ultimate charge +{0}%.	絕招充能 +{0}%。
+Headshot bonus -{0}%.	爆頭加成 -{0}%。
+Maximum health +{0}%.	最大生命 +{0}%。
+Movement speed +{0}%.	移動速度 +{0}%。
+Equip to loadout {0}	裝備至配置 {0}
+Magazine {0} rounds.	彈匣容量 {0} 發。
+Squad catch-up +{0}%	小隊追趕加成 +{0}%
+Damage taken -{0}%.	受到的傷害 -{0}%。
+Get {0} melee kills	以近戰擊殺 {0} 名敵人
+Melee damage +{0}%.	近戰傷害 +{0}%。
+Revive speed +{0}%.	救援速度 +{0}%。
+Stages cleared x{0}	通過關卡 ×{0}
+Aim-in time +{0}%.	開鏡時間 +{0}%。
+Aim-in time -{0}%.	開鏡時間 -{0}%。
+Beyond level {0} x{1}	超越等級 {0} ×{1}
+Evacuate {0} times	成功撤離 {0} 次
+Reload time +{0}%.	換彈時間 +{0}%。
+Reload time -{0}%.	換彈時間 -{0}%。
+Heat {0} unlocked	已解鎖 Heat {0}
+Squad wiped -{0}%	小隊全滅 -{0}%
+Clear {0} stages	通過 {0} 個關卡
+Difficulty +{0}%	難度加成 +{0}%
+Kill {0} enemies	擊殺 {0} 名敵人
+Left early -{0}%	提前離開 -{0}%
+{0} XP · {1} Merits	{0} 經驗・{1} 功勳
+{0} skill points	{0} 技能點
+First time: {0}	首次達成：{0}
+Level up to {0}	升至等級 {0}
+Objectives x{0}	目標 ×{0}
+Challenge: {0}	挑戰：{0}
+Headshots x{0}	爆頭 ×{0}
+Mastery {0}: {1}	熟練度 {0}：{1}
+Rewards +{0}%	獎勵 +{0}%
+{0}h {1}m played	遊玩時間 {0} 小時 {1} 分鐘
+Finales x{0}	終戰 ×{0}
+Rescues x{0}	救援 ×{0}
+Events x{0}	事件 ×{0}
+Loadout {0}	配置 {0}
+Kills x{0}	擊殺 ×{0}
+{0} Merits	{0} 功勳
+Level {0}	等級 {0}
+{0} / {1} XP	{0} / {1} 經驗
+Heat {0}	Heat {0}
+{0}: {1} → {2}	{0}：{1} → {2}
+{0} / {1}	{0} / {1}
+Aim settling is the time for the reticle to become stable after aiming. Skills and sights change this settling phase; raising the sight itself is almost instant.	準星穩定時間是開鏡後，準星由散布收束至穩定所需的時間。技能與瞄具影響這段過程；舉起瞄具本身幾乎是瞬間完成。
+Choose a skill to see its effects, trigger and current-to-learned comparison. Resetting is always free, so experiment with different branches.	選取技能即可查看效果、觸發條件與學習前後差異。重置永遠免費，歡迎嘗試不同分支。
+Skill points come from levels and cannot be bought. Free resets do not create currency; they let you try different ways to play.	技能點來自等級，無法購買。免費重置不會產生貨幣，只讓你自由嘗試不同玩法。
+Buying unlocks an item permanently. Equip it to a loadout before starting a run. Its green trait comes with a red drawback.	購買後永久解鎖裝備。開局前請裝備至配置，綠色特性會伴隨紅色代價。
+Merits unlock equipment between runs. Gold coins are spent during a run. Each loadout keeps its own weapons and skills.	功勳用於局外解鎖裝備，金幣則在局內消費。每組配置各自保存武器與技能。
+Multipliers are relative to the base value. Conditional parameters apply only when their trigger is met.	倍率以基礎數值為準。條件參數僅在符合觸發條件時生效。
+Enemies scale with average squad power, so friends at different levels can play together.	敵人依隊伍平均局外強度調整，不同等級的朋友也能一起遊玩。
+Three-strike combo with a finishing cut. The first moment of each swing deflects bullets.	三段連擊含終結斬，每次揮擊起始可彈開子彈。
+When a teammate goes down (solo: when you are nearly dead): a surge of damage and speed.	隊友倒地時（單人：自身瀕死）：傷害與移速激增。
+A melee kill refills the magazine of the weapon in your hands from your reserve.	近戰擊殺會從備彈補滿手持武器的彈匣。
+Hold melee to raise it: most frontal damage is blocked, but you cannot shoot.	按住近戰舉盾：阻擋大部分正面傷害，但無法開槍。
+Slams the ground and hits everything around. Heavy to carry, slow to swing.	震擊地面波及周圍敵人。攜帶沉重，揮擊緩慢。
+Once per stage a killing blow leaves you standing, briefly invulnerable.	每關一次：承受致命傷仍能站立，並短暫無敵。
+Right after a full reload: the first round always counts as a headshot.	完成換彈後：首發子彈必定視為爆頭。
+A headshot kill in a group: the enemies around it light up as marked.	在人群中爆頭擊殺：附近敵人會亮起標記。
+A fast belt that slows whatever it hits. Needs a moment to spin up.	快速射擊的彈鏈，命中使敵人減速。開火需要預熱。
+Every hit drags the target down. Carries little spare ammunition.	命中就使目標減速，但備彈較少。
+Keep the trigger down: after two seconds every round hits harder.	持續扣住扳機：兩秒後每發威力提升。
+Six heavy rounds; the last one hits twice as hard. Brutal recoil.	六發重彈，末發威力加倍，但後座力強烈。
+The first round after a full reload always counts as a headshot.	完成換彈後，首發子彈必定視為爆頭。
+A steady all-rounder that snowballs once the first enemy drops.	穩定的全能武器，首次擊殺後火力逐步提升。
+Could not save. Your previous loadout and wallet are unchanged.	無法儲存。已保留原本的配置與功勳。
+Reloads from empty in a flash. Carries little spare ammunition.	空彈匣換彈極快，但備彈較少。
+Plant your feet: hits hurt less after a second standing still.	站穩腳步：站定一秒後，受到的傷害降低。
+Snaps to the sight almost instantly. Weak beyond medium range.	開鏡後準星迅速穩定，中距離以外威力較弱。
+Every run: you start with a random common mod already fitted.	每局開場：自帶隨機普通改件。
+First hit on a fresh enemy: a visibly larger chunk of health.	對滿血敵人的首擊：明顯削去更多生命。
+Hold still while aiming: the spread collapses after a moment.	站定瞄準：片刻後散布大幅縮小。
+A light rifle that aims in a blink. Headshots hit less hard.	迅速開鏡的輕型步槍，但爆頭威力較弱。
+Accurate and punishing at long range; takes a moment to aim.	遠距離精準且致命，但開鏡需要時間。
+Below half health: hits hurt much less, but you move slower.	生命低於一半時：承受傷害明顯降低，但移動較慢。
+Hold your aim to charge the next shot. Useless from the hip.	持續瞄準為下一發蓄力，腰射則難以命中。
+Kill streaks: each kill stacks more damage until you reload.	連續擊殺：每次疊加傷害，換彈後清除。
+One heavy slug that passes through two enemies. Slow to aim.	重型獨頭彈可穿透兩名敵人，但開鏡緩慢。
+A drum magazine that feeds itself on kills. Slow to reload.	擊殺會補充彈鼓，但換彈緩慢。
+After raising the sight, the reticle becomes stable sooner.	舉起瞄具後：準星更快收束至穩定。
+Every sixth kill: a chunk of reserve ammunition comes back.	每累積六次擊殺：補充一部分備彈。
+Fast pellets that refund a shell on every kill. Kicks hard.	快速連發，每次擊殺補回霰彈，但後座力強烈。
+Every third trigger pull throws in a free round. It kicks.	每第三次扣下扳機附贈子彈，但後座力較大。
+Point blank hits knock enemies back. Falls apart at range.	貼身命中能擊退敵人，遠距離威力大幅下降。
+When you are revived: you get up with most of your health.	被救起時：恢復大部分生命。
+Hold melee to throw it; walk over it to pick it up again.	按住近戰投擲，走過武器即可撿回。
+Every revive: you and your teammate get a shield bubble.	每次救援：你與獲救隊友都得到護盾。
+Three-round bursts while you keep moving. Weak at range.	移動中三連發，遠距離威力較低。
+Wild at first, laser-straight once you hold the trigger.	起初散亂，持續扣住扳機後彈道筆直。
+Ignores shields and hits elites harder. Slows you down.	無視護盾且對菁英傷害更高，但會減慢移速。
+Select a node to inspect its effects and prerequisites.	選取節點查看效果與前置條件。
+Single heavy rounds; headshots stagger. Small magazine.	重型單發，爆頭使敵人踉蹌，但彈匣較小。
+When your health drops low: a burst of speed to escape.	生命降至低點時：突然加速，方便脫離危險。
+Every weapon swap: the other gun is ready much sooner.	每次切槍：另一把槍更快準備好。
+Source                         Experience       Merits	獎勵來源                         經驗值             功勳
+A headshot chambers the next round fast. No hip fire.	爆頭後快速上膛。不適合腰射。
+A melee kill: your gun is fully reloaded on the spot.	近戰擊殺：手持槍械當場補滿彈匣。
+Every kill: a quarter of the magazine slides back in.	每次擊殺：補回四分之一彈匣。
+Chain headshots: each one hits harder than the last.	連續爆頭：每一擊的威力都會提升。
+Explosions stun everything they catch. Slow to swap.	爆炸會震暈範圍內敵人，但切換緩慢。
+Rounds punch through the first enemy. Heavy to swap.	子彈穿透首名敵人，但切槍緩慢。
+Topping up a half-full magazine takes half the time.	彈匣尚有一半時，補彈只需一半時間。
+A headshot on a wounded enemy drops it instantly.	對重傷敵人爆頭：立即將其擊倒。
+Grows deadlier the longer it fires. Slow to aim.	連射越久威力越強，但開鏡較慢。
+Quick and quiet. Strikes from behind are lethal.	迅速而安靜，背後攻擊十分致命。
+Reviving a teammate: the ring fills much faster.	救起隊友時：進度環明顯更快完成。
+Firing without aiming: shots land much tighter.	不開鏡射擊：落點明顯更集中。
+Every magazine: more rounds before you reload.	每個彈匣：換彈前能多射幾發。
+Every time you aim: the sight comes up faster.	每次開鏡後：準星更快收束至穩定。
+Every hit: the enemy slows down for a moment.	每次命中：敵人會短暫減速。
+Always: you cross the map noticeably faster.	持續生效：移動穿越地圖的速度明顯更快。
+Light enough to sprint through a firefight.	輕巧靈活，能在交火中迅速移動。
+The ultimate meter fills noticeably faster.	絕招量表明顯更快充滿。
+Each loadout keeps its own skill choices.	每組配置各自保存技能選擇。
+Stuns on hit. Elites shake it off faster.	命中使敵人癱瘓，菁英恢復較快。
+Both slots would use the same gun model	兩個欄位不能使用同款槍身
+Q / E: tabs   Enter: select   Esc: back	Q／E 切頁・Enter 確認・Esc 返回
+Rounds pass through two enemies. Heavy.	子彈穿透兩名敵人，但武器沉重。
+Tap a card to inspect · swipe to scroll	點選卡片檢視・滑動捲動
+Breaks shields and elites. Very heavy.	專門對付護盾與菁英，但十分沉重。
+Devastating inside a room. Cannot aim.	室內近戰威力驚人，但無法開鏡。
+Every headshot: bigger damage numbers.	每次爆頭：傷害數字更大。
+Longer fights: you run dry much later.	持久交戰：更晚才會耗盡彈藥。
+Spend more points in this branch first	請先在此分支投入更多技能點
+Two more enemies on the field at once.	場上同時多出兩名敵人。
+Clear two chapter finales in one run	單局完成兩場章節終戰
+LB / RB: tabs   A: select   B: back	LB／RB 切頁・A 確認・B 返回
+Revive teammates 5 times in one run	單局救起隊友 5 次
+Rewards clean aim with free rounds.	精準瞄準可獲得免費子彈。
+Out in a heartbeat. Weak at range.	迅速拔槍，但遠距離威力較低。
+Dash and shield come back sooner.	衝刺與護盾的冷卻更快結束。
+Every hit in a row swings faster.	連續命中時，出手越來越快。
+Headshots stagger. Recoil climbs.	爆頭使敵人踉蹌，連射時後座力上升。
+One fewer shop reroll per visit.	每次商店造訪減少一次重抽。
+Evacuate with a squad of four	四人小隊一起撤離
+Aim settling time multiplier	開鏡後準星穩定時間倍率
+Another skill depends on it	其他技能仍需要此節點
+Excludes the other capstone	與另一個頂點技能互斥
+Current → after forgetting	目前 → 遺忘後
+Headshot Kill Mark Seconds	爆頭擊殺標記時間（秒）
+Too strong for this weapon	此瞄具倍率超出武器支援範圍
+25 melee kills in one run	單局近戰擊殺 25 名敵人
+Clear a finale at Heat 10	在 Heat 10 完成終戰
+Headshot Kill Mark Radius	爆頭擊殺標記範圍（公尺）
+Clear a finale at Heat 3	在 Heat 3 完成終戰
+Clear a finale at Heat 6	在 Heat 6 完成終戰
+Current → after learning	目前 → 學習後
+Cannot aim down sights.	無法開鏡瞄準。
+Clear a finale on Chaos	在混沌難度完成終戰
+Close hits stun. Heavy.	近距離命中會震暈敵人，但槍身沉重。
+Fresh Magazine Headshot	換彈首發爆頭
+Not enough skill points	技能點不足
+Spend your skill points	分配技能點
+Welcome to headquarters	歡迎來到局外總部
+All equipment unlocked	所有裝備皆已解鎖
+Clear a chapter finale	完成章節終戰
+Clear a finale on Hard	在困難難度完成終戰
+Every reload: shorter.	每次換彈：所需時間更短。
+Revive Health Fraction	獲救生命比例
+This weapon cannot aim	此武器無法開鏡
+Available to purchase	可購買
+No skills learned yet	尚未學習技能
+Rescue Shield Seconds	救援護盾持續（秒）
+Reset skills for free	免費重置技能
+Sends enemies flying.	將敵人擊飛。
+Steady Breath Seconds	穩定呼吸等待（秒）
+When you will feel it	什麼時候會感覺到
+Challenges & mastery	挑戰與熟練度
+Invalid loadout name	配置名稱無效
+Juggernaut Reduction	重裝先鋒減傷比例
+Kill Reload Fraction	擊殺補彈比例
+Playing with friends	與朋友合作
+Rescue Shield Points	救援護盾值
+Steady Breath Spread	穩定呼吸散布減幅
+Aim Settle Time Mul	準星穩定時間倍率
+Anti-Materiel Rifle	反器材步槍
+Headshot Damage Mul	爆頭傷害倍率
+Hold Line Reduction	堅守陣線減傷比例
+Shield Cooldown Mul	護盾冷卻倍率
+Ultimate Charge Mul	絕招充能倍率
+Why resets are free	為什麼重置免費
+Opening Shot Bonus	開場重擊加成
+Scavenger Fraction	拾荒補彈比例
+Squad Link Seconds	小隊連結持續（秒）
+Your new equipment	你的新裝備
+Dash Cooldown Mul	衝刺冷卻倍率
+First achievement	首次達成
+Heat not unlocked	尚未解鎖此 Heat
+Hit Slow Fraction	命中減速比例
+Hold Line Seconds	堅守陣線等待（秒）
+Light Machine Gun	輕機槍
+Marksman's Rhythm	射手節奏
+Melee Kill Refill	近戰擊殺補滿彈匣
+Not enough merits	功勳不足
+Your contribution	本局技能貢獻
+Confirm purchase	確認購買
+Damage Taken Mul	受傷倍率
+Endless Belt Mul	無盡彈鏈換彈倍率
+Evacuate a squad	帶領小隊撤離
+Guardian Seconds	守護天使無敵（秒）
+Hit Slow Seconds	命中減速持續（秒）
+Melee Damage Mul	近戰傷害倍率
+Nothing to reset	沒有可重置的技能
+Revive Speed Mul	救援速度倍率
+Reward breakdown	獎勵明細
+Secondary weapon	副武器
+Shredder Seconds	撕裂者等待（秒）
+Squad Link Bonus	小隊連結加成
+Suppressive Fire	壓制射擊
+Adrenal Seconds	腎上腺素持續（秒）
+Already learned	已學會
+Armory complete	軍械庫已集滿
+Assault Rifle 1	突擊步槍 1
+Assault Rifle 2	突擊步槍 2
+Assault Rifle 3	突擊步槍 3
+Assault Rifle 4	突擊步槍 4
+Base difficulty	基礎難度
+Lifetime record	累積紀錄
+Records & codex	統計／圖鑑
+Reload Time Mul	換彈時間倍率
+Replay tutorial	重看提示
+Scavenger Every	拾荒觸發所需擊殺
+Secondary sight	副武器瞄具
+Small magazine.	彈匣容量較小。
+Unknown loadout	無法辨識的配置
+Berserker Step	狂戰士每層加成
+Brass Knuckles	指虎
+Cleared finale	已完成終戰
+Fresh Magazine	首發爆頭
+Guardian Angel	守護天使
+Hip Spread Mul	腰射散布倍率
+Learned skills	已學技能
+Machine Pistol	自動手槍
+Marksman Rifle	精準射手步槍
+Next milestone	下一個里程碑
+Primary weapon	主武器
+Reach stage 10	抵達第 10 關
+Reach stage 20	抵達第 20 關
+SecondarySight	副武器瞄具
+Shredder Bonus	撕裂者傷害加成
+Skip animation	略過動畫
+Sniper Rifle 1	狙擊步槍 1
+Sniper Rifle 2	狙擊步槍 2
+Weapon mastery	武器熟練度
+Your next goal	下一個目標
+Adrenal Speed	腎上腺素速度加成
+Already owned	已擁有
+Assault rifle	突擊步槍
+Confirm reset	確認重置
+Deepest stage	最深關卡
+Execute Below	處決生命門檻
+Heavy weapons	重武器
+Hold the Line	堅守陣線
+Not completed	尚未完成
+Primary sight	主武器瞄具
+Rescue Shield	救援護盾
+Rhythm Window	射手節奏時間窗（秒）
+Spotter's Eye	觀測之眼
+Steady Breath	穩定呼吸
+Swap Time Mul	切槍時間倍率
+Unknown skill	無法辨識的技能
+Unlock weapon	解鎖裝備
+Adrenal Rush	腎上腺素
+Ads Time Mul	開鏡後準星穩定時間倍率
+Aim settling	開鏡後準星穩定
+Auto Shotgun	自動霰彈槍
+Battle Rifle	戰鬥步槍
+Deep Pockets	充裕備彈
+Endless Belt	無盡彈鏈
+Headquarters	局外總部
+Headshot Mul	爆頭倍率
+Magazine Mul	彈匣倍率
+Melee weapon	近戰武器
+Not seen yet	尚未見過
+Not unlocked	尚未解鎖
+Opening Shot	開場重擊
+PrimarySight	主武器瞄具
+Reflex Sight	反射式瞄具
+Reset skills	重置技能
+Run complete	本局結算
+Sledgehammer	大錘
+Starter Mods	起始改件數
+Undiscovered	尚未發現
+Unknown item	無法辨識的裝備
+Unknown slot	無法辨識的欄位
+Evacuations	撤離次數
+Executioner	處決者
+Fast Reload	快速換彈
+Field Medic	戰地醫護
+Iron Sights	機械瞄具
+Kill Reload	擊殺補彈
+Melee kills	近戰擊殺
+Not learned	尚未學會
+Quick Hands	快手
+Reserve Mul	備彈倍率
+Rhythm Step	射手節奏每層加成
+Riot Shield	防暴盾
+Scout Rifle	斥候步槍
+Second Wind	重振旗鼓
+Select Heat	選擇 Heat
+Squad wipes	全滅次數
+Starter Kit	起始套件
+Total kills	總擊殺
+Discovered	已見過
+Experience	經驗值
+Headhunter	獵頭者
+Health Mul	生命倍率
+Juggernaut	重裝先鋒
+Next level	下一個等級
+Overcharge	超量充能
+Reload Mul	換彈時間倍率
+Run reward	本局獎勵
+Skill tree	技能樹
+Squad Link	小隊連結
+Steady Aim	穩定瞄準
+Stun Baton	電擊棍
+Total runs	總局數
+Belt Feed	彈鏈供彈
+Completed	已完成
+Equipment	裝備
+Fire rate	射速
+Handgun 1	手槍 1
+Handgun 2	手槍 2
+Headshots	爆頭
+No points	點數不足
+Play time	遊玩時間
+Scavenger	拾荒者
+Shotgun 1	霰彈槍 1
+Shotgun 2	霰彈槍 2
+Speed Mul	移速倍率
+Tactician	戰術專家
+Unlocked!	解鎖成功！
+2x Scope	2 倍瞄準鏡
+4x Scope	4 倍瞄準鏡
+6x Scope	6 倍瞄準鏡
+8x Scope	8 倍瞄準鏡
+Breacher	破門者
+Drum SMG	彈鼓衝鋒槍
+Equipped	已裝備
+Handling	操控
+Hip Fire	腰射專精
+Mastered	大師熟練度
+Shredder	撕裂者
+Slug Gun	獨頭彈霰彈槍
+Sprinter	疾行者
+Unlocked	已解鎖
+Unranked	尚無徽章
+Brawler	格鬥專家
+Bullpup	犢牛式步槍
+Carbine	卡賓槍
+Handgun	手槍
+Inspect	檢視
+Learned	已學會
+Loadout	配置
+Rescues	救援次數
+Shotgun	霰彈槍
+Support	支援
+Armory	軍械庫
+Bronze	銅
+Change	更換
+Forget	遺忘
+Got it	知道了
+Katana	武士刀
+Locked	尚未解鎖
+Magnum	麥格農
+Master	大師
+Merits	功勳
+Sights	瞄具
+Silver	銀
+Sniper	狙擊槍
+Source	來源
+Weekly	每週挑戰
+Daily	每日挑戰
+Knife	戰鬥刀
+Learn	學習
+Melee	近戰
+Owned	已擁有
+SMG 1	衝鋒槍 1
+SMG 2	衝鋒槍 2
+SMG 3	衝鋒槍 3
+SMG 4	衝鋒槍 4
+Viper	毒蛇
+Gold	金
+Heat	Heat
+Help	說明
+Axe	手斧
+Bat	球棒
+SMG	衝鋒槍
+Saw	鋸齒
+or	或
+# meta-end
 Play	開始遊戲
 Play / Matchmaking	開始 / 配對中
 Mod	模組

@@ -16,7 +16,7 @@ namespace Flats.Core.Roguelike
     /// Every number a player reads about skills, weapons, sights and heat is produced here from the
     /// same fields the rules read. Localization tables hold templates only ("{0}%"), never numbers.
     /// </summary>
-    public static class MetaText
+    public static partial class MetaText
     {
         static string P(double f) { return RogueArmory.Pct(Math.Abs(f)); }
         static string N(double v) { return RogueArmory.Num(v); }

@@ -47,6 +47,8 @@ public class Bullet : MonoBehaviour
 	[System.NonSerialized] public int rogueKind;
 	[System.NonSerialized] public int rogueDepth;
 	[System.NonSerialized] public string rogueRootShot;
+	[System.NonSerialized] public int rogueWeaponModel = -1;       // meta: armory weapon model that fired this round
+	[System.NonSerialized] public bool rogueForceHeadshot;         // meta: Fresh Magazine
 	private float radius;
 
 	private float dist;
@@ -62,6 +64,7 @@ public class Bullet : MonoBehaviour
 
 	private IEnumerator Start()
 	{
+        if (RoguelikeMode.Active) RogueRangedStatus.Capture(this);
 		if (shooter == null)
 		{
 			UnityEngine.Object.Destroy(base.gameObject);
@@ -118,6 +121,7 @@ public class Bullet : MonoBehaviour
 							if (collider.gameObject.layer != shooter.gameObject.layer || (FlatsOfflineScores.FreeForAll && collider.transform.root != shooter.root))
 							{
 								damageReceiver.ApplyDamage(num, 0, shooter);
+                                if (RoguelikeMode.Active && num > 0 && !damageReceiver.userIsPlayer) RogueRangedStatus.OnHit(this, damageReceiver, false);
 							}
 						}
 					}
@@ -158,6 +162,7 @@ public class Bullet : MonoBehaviour
 				if (collider2.gameObject.layer != shooter.gameObject.layer || (FlatsOfflineScores.FreeForAll && collider2.transform.root != shooter.root))
 				{
 					damageReceiver2.ApplyDamage(num2, 0, shooter);
+                    if (RoguelikeMode.Active && num2 > 0 && !damageReceiver2.userIsPlayer) RogueRangedStatus.OnHit(this, damageReceiver2, false);
 				}
 			}
 		}
@@ -214,11 +219,13 @@ public class Bullet : MonoBehaviour
 				DamageReceiver component = col.gameObject.GetComponent<DamageReceiver>();
 				if ((bool)component)
 				{
-					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) damage *= RogueHooks.HitDamageMul(this, false, contactPoint.point);
+					bool rogueHead = RoguelikeMode.Active && rogueForceHeadshot && rogueKind == 0 && playerShooter != null && !component.userIsPlayer;   // Fresh Magazine: counts as a headshot
+					if (rogueHead && playerShooter.primaryWeapon != null) damage *= Mathf.Min(playerShooter.primaryWeapon.GetComponent<Gun>().headshotBonus, (float)Flats.Core.Roguelike.BuildStats.FreshMagazineMaxMul);   // capped forced headshot
+					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) { damage *= RogueHooks.HitDamageMul(this, rogueHead, contactPoint.point); damage *= RogueHooks.MetaHitMul(this, component, rogueHead, contactPoint.point, damage); damage = RogueHooks.MetaExecute(this, component, damage, rogueHead); }
 					if (RoguelikeMode.Active && damage > 0f && (Menu.network == 0 || (shooter != null && shooter.GetComponent<PhotonView>() != null && shooter.GetComponent<PhotonView>().isMine)))
-						component.RogueReactToHit(shooter, false);
-					component.ApplyBulletDamage(damage, rogueKind != 0 ? -1 : 0, shooter);
-					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) { RogueHooks.OnBulletHitEnemy(this, component, damage, false); RogueHooks.TryPenetrate(this, col); }
+						component.RogueReactToHit(shooter, rogueHead);
+					component.ApplyBulletDamage(damage, rogueKind != 0 ? -1 : (rogueHead && (component.hitPoints - damage <= 0f || RoguelikeMode.Coop) && component.gameObject.tag == "Enemy" ? 1 : 0), shooter);
+					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) { RogueHooks.OnBulletHitEnemy(this, component, damage, rogueHead); RogueHooks.TryPenetrate(this, col); }
 				}
 				else if (col.gameObject.name == "PhaseSkipper")
 				{
@@ -244,7 +251,7 @@ public class Bullet : MonoBehaviour
 				if (playerShooter.primaryWeapon != null)
                     damage *= playerShooter.primaryWeapon.GetComponent<Gun>().headshotBonus;
 				DamageReceiver component2 = col.collider.GetComponentInParent<DamageReceiver>();
-				if (RoguelikeMode.Active && component2 != null && !component2.userIsPlayer) damage *= RogueHooks.HitDamageMul(this, true, contactPoint.point);
+				if (RoguelikeMode.Active && component2 != null && !component2.userIsPlayer) { damage *= RogueHooks.HitDamageMul(this, true, contactPoint.point); damage *= RogueHooks.MetaHitMul(this, component2, true, contactPoint.point, damage); damage = RogueHooks.MetaExecute(this, component2, damage, true); }
 				if ((bool)component2)
 				{
 					GameObject gameObject2 = component2.gameObject;
@@ -296,6 +303,7 @@ public class Bullet : MonoBehaviour
 					if (collider.gameObject.layer != shooter.gameObject.layer)
 					{
 						damageReceiver.ApplyDamage(num, 0, shooter);
+                        if (RoguelikeMode.Active && num > 0 && !damageReceiver.userIsPlayer) RogueRangedStatus.OnHit(this, damageReceiver, false);
 					}
 				}
 			}

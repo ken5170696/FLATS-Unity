@@ -294,6 +294,8 @@ public class DamageReceiver : MonoBehaviour
 
 	private void ApplyDamageInternal(float damage, int headshot, Transform shooter, bool reactionPlayed)
 	{
+        if (RoguelikeMode.Active) damage = RogueMelee.Incoming(this, damage, shooter, reactionPlayed);
+        if (RoguelikeMode.Active && RogueMeleeAuthority.Route(this, damage, headshot, shooter)) return;
 		if (Menu.gameState == "Multiplayer" && Multiplayer.end) return;
 		if ((invincibility && userIsPlayer) || damage == 0f || died)
 		{
@@ -313,6 +315,7 @@ public class DamageReceiver : MonoBehaviour
 			if (hitPoints <= 0f) return;
 			float rogueDamage = RogueHooks.ModifyIncomingDamage(this, damage, shooter);
 			hitPoints -= rogueDamage;
+            if (RoguelikeMode.Active) RogueMeleeAuthority.PublishHit(this, rogueDamage, shooter);
 			killer = shooter;
 			if (hitPoints > 0f) return;
 			command = headshot == 1 ? "head" : "normal";
@@ -331,7 +334,7 @@ public class DamageReceiver : MonoBehaviour
 			{
 				command = "head";
 				killer = shooter;
-				if (killer.tag == "Enemy")
+				if (killer != null && killer.tag == "Enemy")
 				{
 					if (base.gameObject.layer == LayerMask.NameToLayer("BlueTeam"))
 					{
@@ -354,7 +357,8 @@ public class DamageReceiver : MonoBehaviour
 			}
 			if (RoguelikeMode.Active) damage = RogueHooks.ModifyIncomingDamage(this, damage, shooter);
 			hitPoints -= damage;
-			if (!userIsPlayer && myAI.isPatrol && myAI.targets[0] != null)
+            if (RoguelikeMode.Active && Menu.network == 0 && !userIsPlayer) RogueCombatNumber.Show(this, damage);
+			if (!userIsPlayer && myAI != null && myAI.isPatrol && myAI.targets[0] != null && !(RoguelikeMode.Active && RogueEnemyStatus.Stunned(myAI)))
 			{
 				Vector3 normalized = (myAI.targets[0].position - mt.position).normalized;
 				Quaternion rotation = Quaternion.LookRotation(normalized);
@@ -367,7 +371,7 @@ public class DamageReceiver : MonoBehaviour
 				if (userIsPlayer && RoguelikeMode.Active && RogueHooks.TryDown(this)) return;
 				command = "normal";
 				killer = shooter;
-				if (killer.tag == "Enemy")
+				if (killer != null && killer.tag == "Enemy")
 				{
 					if (base.gameObject.layer == LayerMask.NameToLayer("BlueTeam"))
 					{
@@ -380,7 +384,7 @@ public class DamageReceiver : MonoBehaviour
 				}
 				if (Menu.network == 0)
 				{
-					if (!userIsPlayer && myAI.vip)
+					if (!userIsPlayer && myAI != null && myAI.vip)
 					{
 						command = "vip";
 					}
@@ -405,7 +409,7 @@ public class DamageReceiver : MonoBehaviour
 				}
 				command = "mortal";
 				killer = shooter;
-				if (killer.tag == "Enemy")
+				if (killer != null && killer.tag == "Enemy")
 				{
 					if (base.gameObject.layer == LayerMask.NameToLayer("BlueTeam"))
 					{

@@ -61,7 +61,8 @@ namespace Flats.Core.Roguelike
         public long teamEarnedMinor;
         public double stageSeconds;                     // authority clock within the stage
         public int riskContract;                        // 0 none, 1 accepted this stage
-        public double stageBountyMul = 1;               // locked by the authority before kills are paid (risk contract, outage penalty)
+        public double stageBountyMul = 1;
+        public int heat;                                // meta Heat level of the run (0..RogueHeat.MaxHeat), chosen at creation               // locked by the authority before kills are paid (risk contract, outage penalty)
 
         public RunPlayer Player(string key) { foreach (var p in players) if (p.key == key) return p; return null; }
         public int Chapter { get { return RogueDepth.ChapterOf(depth); } }
@@ -174,7 +175,7 @@ namespace Flats.Core.Roguelike
         private void SampleShop(RunPlayer p, bool chapterEnd)
         {
             p.offers = RogueShop.Sample(rng, runSalt, State.depth, p.key, p.shopVersion, p.build, State.routeTag, chapterEnd);
-            p.rerollsLeft = chapterEnd ? RogueShop.MaxRerollsChapterEnd : RogueShop.MaxRerollsPerVisit;
+            p.rerollsLeft = MetaRun.Rerolls(chapterEnd ? RogueShop.MaxRerollsChapterEnd : RogueShop.MaxRerollsPerVisit, State.heat);
             p.ready = false;
         }
 
@@ -207,6 +208,7 @@ namespace Flats.Core.Roguelike
             State.encounterCounter++;
             State.ledger = RogueEconomy.Open(State.encounterCounter, State.depth, State.difficulty, State.ConnectedPlayers, State.routeTag);
             State.encounter = RogueDirector.Plan(rng, runSalt, State.encounterCounter, State.depth, State.difficulty, State.ConnectedPlayers, map, State.routeTag, State.history);
+            MetaRun.ApplyToPlan(State.encounter, State.heat, MetaRun.SquadPower(State));
             foreach (var w in State.encounter.waves) RogueEconomy.Reserve(State.ledger, w.roles, w.weights);
             // the wave slots were split per wave; re-split so the whole stage sums to G exactly
             var allRoles = new List<string>(); var allWeights = new List<int>();
@@ -274,6 +276,7 @@ namespace Flats.Core.Roguelike
                 if (!p.connected || string.IsNullOrEmpty(p.build.ultimate)) continue;
                 if (jammedKeys != null && jammedKeys.IndexOf(p.key) >= 0) continue;
                 int gain = p.key == killerKey ? Math.Max(2, weight / 20) : Math.Max(1, weight / 60);
+                gain = Math.Max(1, (int)Math.Round(gain * BuildStats.Compute(p.build).UltimateChargeMul));   // Overcharge skill
                 p.ultimateCharge = Math.Min(100, p.ultimateCharge + gain);
             }
         }

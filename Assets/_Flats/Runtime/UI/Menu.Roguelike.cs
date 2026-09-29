@@ -50,8 +50,9 @@ public partial class Menu
 
     void RefreshRoguelikeTiles()
     {
-        bt[0].text = "How to Play";
-        bt[1].text = "Difficulty: " + FlatsLocalization.Translate(RoguelikeMode.DifficultyNames[roguelikeDifficulty]);
+        bt[0].text = "Loadout & Armory";   // the meta hub; How to Play lives on its Help page
+        int rogueHeat = RogueMetaStore.Current.lastHeat;
+        bt[1].text = rogueHeat > 0 ? string.Format("Difficulty: {0}  Heat {1}", FlatsLocalization.Translate(RoguelikeMode.DifficultyNames[roguelikeDifficulty]), rogueHeat) : "Difficulty: " + FlatsLocalization.Translate(RoguelikeMode.DifficultyNames[roguelikeDifficulty]);
         bt[2].text = roguelikeMap < 0 ? "Map: Random" : "Map: " + stageName[roguelikeMap];
         if (roguelikeCheckpoint != null)
             bt[3].text = "Continue: Chapter " + RogueDepth.ChapterOf(roguelikeCheckpoint.run.depth) + " Stage " + RogueDepth.StageInChapter(roguelikeCheckpoint.run.depth);
@@ -76,7 +77,11 @@ public partial class Menu
         PlayMenuSound(pressSE);
         if (button == 0)
         {
-            ShowConfirm("Roguelike Survival", RoguelikeHowToPlay(), null, "OK", null);
+            RogueMetaHub.RunHowToPlay = RoguelikeHowToPlay;
+            var canvas = buttons[0].GetComponentInParent<Canvas>();
+            fliping = true;
+            RogueMetaHub.Open(canvas != null ? canvas.rootCanvas.transform : transform, RogueMetaStore.Copy(RogueMetaStore.Current), p => RogueMetaStore.Commit(RogueMetaStore.Copy(p)),
+                () => { fliping = false; RefreshRoguelikeTiles(); EventSystem.current.SetSelectedGameObject(buttons[0].transform.parent.gameObject); });
             yield break;
         }
         if (button == 1) { roguelikeDifficulty = roguelikeDifficulty % 3 + 1; RefreshRoguelikeTiles(); yield break; }
@@ -99,6 +104,7 @@ public partial class Menu
                 ShowConfirm("Start Run", "Starting a new run discards the saved checkpoint. Continue?", ok => { decided = true; proceed = ok; }, "Start", "Cancel");
                 while (!decided) yield return null;
                 if (!proceed) yield break;
+                RoguelikeController.RewardDiscardedCheckpoint(roguelikeCheckpoint);   // the abandoned run pays its "left early" share once
                 RogueSaveStore.ClearCheckpoint();
             }
             else if (RogueSaveStore.HasCheckpoint())
@@ -166,6 +172,7 @@ public partial class Menu
             if (!RoguelikeMode.SceneAvailable(buildIndex)) buildIndex = RandomAvailableStageIndex();
             RoguelikeMode.Difficulty = roguelikeDifficulty;
         }
+        RoguelikeMode.Heat = resume != null && resume.run != null ? resume.run.heat : Mathf.Min(RogueMetaStore.Current.lastHeat, RogueMetaStore.Current.heatUnlocked);
         Singleplayer.rule = RoguelikeMode.SoloRule;
         network = 0;
         Singleplayer.ResetSharedMatchState();

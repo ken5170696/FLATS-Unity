@@ -385,6 +385,7 @@ public partial class RoguelikeController
             if (RogueSave.RecordRunEnd(meta, state, localKey)) RogueSaveStore.WriteMeta(meta);
             RogueSaveStore.ClearCheckpoint();
         }
+        MetaRunEnded();
         CloseScreens();
         yield return new WaitForSeconds(1f);
         // the shared Game Over flow shows the singleplayer result screen; Menu.Results reads our summary text

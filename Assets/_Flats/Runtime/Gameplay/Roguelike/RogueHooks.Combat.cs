@@ -13,6 +13,7 @@ public static partial class RogueHooks
     public static void OnBulletHitEnemy(Bullet bullet, DamageReceiver target, float damage, bool headshot)
     {
         if (!RoguelikeMode.Active || bullet == null || bullet.shooter == null || target == null) return;
+        if (RoguelikeMode.Active) RogueRangedStatus.OnHit(bullet, target, headshot);
         var rp = bullet.shooter.GetComponent<RoguePlayer>();
         if (rp == null) return;
         var role = target.GetComponent<RogueEnemyRole>();

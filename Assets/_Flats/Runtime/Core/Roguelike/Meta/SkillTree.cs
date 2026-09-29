@@ -80,8 +80,8 @@ namespace Flats.Core.Roguelike
         {
             // ---------------- Precision
             S("sk.fresh_mag", SkillBranch.Precision, 0, "Fresh Magazine", "Reload", "Right after a full reload: the first round always counts as a headshot.", E(SkillEffectKind.FreshMagazineHeadshot, 1)),
-            S("sk.steady_aim", SkillBranch.Precision, 0, "Steady Aim", "Sight", "Every time you aim: the sight comes up faster.", E(SkillEffectKind.AdsTime, -0.25)),
-            S("sk.headhunter", SkillBranch.Precision, 1, "Headhunter", "Target", "Every headshot: bigger damage numbers.", E(SkillEffectKind.HeadshotDamage, 0.10)),
+            S("sk.steady_aim", SkillBranch.Precision, 0, "Steady Aim", "Sight", "Every time you aim: your aim settles faster.", E(SkillEffectKind.AdsTime, -0.25)),
+            S("sk.headhunter", SkillBranch.Precision, 1, "Headhunter", "Target", "Every headshot: bigger damage numbers.", E(SkillEffectKind.HeadshotDamage, 0.07)),
             S("sk.spotter_eye", SkillBranch.Precision, 1, "Spotter's Eye", "Eye", "A headshot kill in a group: the enemies around it light up as marked.", E(SkillEffectKind.HeadshotKillMark, 8, 4)),
             S("sk.steady_breath", SkillBranch.Precision, 2, "Steady Breath", "Wind", "Hold still while aiming: the spread collapses after a moment.", E(SkillEffectKind.SteadyBreath, 0.45, 0.8)),
             S("sk.opening_shot", SkillBranch.Precision, 2, "Opening Shot", "Flag", "First hit on a fresh enemy: a visibly larger chunk of health.", E(SkillEffectKind.OpeningShot, 0.15)),

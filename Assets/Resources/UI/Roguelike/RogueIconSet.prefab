@@ -42,7 +42,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cf22146558754a4f90e8e622e755b641, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Assembly-CSharp::RogueIcons
   names:
   - AttackedBack
@@ -141,6 +141,37 @@ MonoBehaviour:
   - Timer
   - Ultimate
   - Warning
+  - Bolt
+  - Clock
+  - Crosshair
+  - Eye
+  - Fist
+  - Flag
+  - Gift
+  - Infinity
+  - Link
+  - Music
+  - Run
+  - Saw
+  - Skull
+  - Snow
+  - Star
+  - Swap
+  - Target
+  - Wind
+  - Wings
+  - Lock
+  - Plus
+  - PointEmpty
+  - Experience
+  - Exit
+  - Flame
+  - sight.iron
+  - sight.reflex
+  - sight.2x
+  - sight.4x
+  - sight.6x
+  - sight.8x
   sprites:
   - {fileID: 21300000, guid: 886e5f9d822ea7440a252f82dbb098de, type: 3}
   - {fileID: 21300000, guid: ff4716ddb95c50943af3d189c2a8aa5f, type: 3}
@@ -238,3 +269,34 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 4faf7ec4e5f246e7b9bb79adf7144a41, type: 3}
   - {fileID: 21300000, guid: 09d74ca9bb674b89ad5e659ffa0b07a2, type: 3}
   - {fileID: 21300000, guid: eedb58c5bd1541db90b53c3007e9b2c3, type: 3}
+  - {fileID: 21300000, guid: dc20d41fde02dfe4b8f933b5253c2c76, type: 3}
+  - {fileID: 21300000, guid: 4f5103f379574ca4c9069863b9a87657, type: 3}
+  - {fileID: 21300000, guid: ce5ab94b62fbf0441beab64a59bdafd9, type: 3}
+  - {fileID: 21300000, guid: 061eed5ac5810bb4791d5d73f7619205, type: 3}
+  - {fileID: 21300000, guid: b784b7fd75f9fad4383fc46c3dde0890, type: 3}
+  - {fileID: 21300000, guid: 4d1b2b79046183d459a639b7ef34ce46, type: 3}
+  - {fileID: 21300000, guid: 01dcfc1e402c7844f8c9806ce8dda43c, type: 3}
+  - {fileID: 21300000, guid: 4022120ff63397343b3b57c20d479ccb, type: 3}
+  - {fileID: 21300000, guid: f55d945bca392c848ba93b1a198895bb, type: 3}
+  - {fileID: 21300000, guid: b56ba35330b05f74fb54c12a4911ad44, type: 3}
+  - {fileID: 21300000, guid: 7ead17245ca06db489bbaff774204f70, type: 3}
+  - {fileID: 21300000, guid: 8665ffdad7fbc224ab9a0e67ec0bf1c8, type: 3}
+  - {fileID: 21300000, guid: 90069ef540174bc43bd66ac5a1f55c76, type: 3}
+  - {fileID: 21300000, guid: 39fbcb0d66c30aa4ba78e1e49ee583b7, type: 3}
+  - {fileID: 21300000, guid: 5595854aeebc1d04897a65658b981ba5, type: 3}
+  - {fileID: 21300000, guid: 1cd6e89088fd94c42b319f200dd51900, type: 3}
+  - {fileID: 21300000, guid: 0def3bec70734b74b98bde7b48eba68d, type: 3}
+  - {fileID: 21300000, guid: 8cd0fe76fe3cb474da5463b6b315a51c, type: 3}
+  - {fileID: 21300000, guid: 50ecdbfec81d4ab4e85b6358c473fcf0, type: 3}
+  - {fileID: 21300000, guid: 5cc721551311e7344947ba9fc61357a3, type: 3}
+  - {fileID: 21300000, guid: 2dd5a07cd58de034e876cb7d21bd2822, type: 3}
+  - {fileID: 21300000, guid: 2443fe012ee5d1f4ab70acb5f91b307f, type: 3}
+  - {fileID: 21300000, guid: 7cdd9dae22e5e6a4cac33584e7bcc136, type: 3}
+  - {fileID: 21300000, guid: fb372be1e896e9e4a8921349ac279a26, type: 3}
+  - {fileID: 21300000, guid: 6dd9c9849f3a2b1488479b326ab0eee3, type: 3}
+  - {fileID: 21300000, guid: 09b671cf91b9e04498bf5064e7840764, type: 3}
+  - {fileID: 21300000, guid: 139acd13d103eef4b8a474dbd9a0cb83, type: 3}
+  - {fileID: 21300000, guid: 93b928d101d15b64c94e99ad3ba714c1, type: 3}
+  - {fileID: 21300000, guid: 3d8ef482d272f604cbf6d6e0f106fa3e, type: 3}
+  - {fileID: 21300000, guid: aa41a6ff089cdc24f8491ef76efec0b2, type: 3}
+  - {fileID: 21300000, guid: f605391cea3c62b49961ea7212f61c41, type: 3}

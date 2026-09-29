@@ -126,6 +126,7 @@ public class AI : MonoBehaviour
 
 	private void Awake()
 	{
+        if (RoguelikeMode.Active) RogueEnemyStatus.Attach(gameObject);
 		mt = base.transform;
 		ct = mt.Find("Camera");
 		anim = GetComponent<Animator>();
@@ -547,6 +548,7 @@ public class AI : MonoBehaviour
 	{
 		while (true)
 		{
+            if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) { yield return null; continue; }
 			targets.RemoveAll(target => target == null || !target.gameObject.activeInHierarchy);
 			if (Menu.isMaster())
 			{
@@ -865,6 +867,7 @@ public class AI : MonoBehaviour
 		isPatrol = false;
 		while (true)
 		{
+            if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) { yield return null; continue; }
 			if (Menu.isMaster())
 			{
 				if (canShoot && enableFire && targets.Count > 0 && targets[0] != null && targets[0].gameObject.activeSelf)
@@ -897,6 +900,7 @@ public class AI : MonoBehaviour
 		}
 		while (true)
 		{
+            if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) { yield return null; continue; }
 			if (Menu.isMaster())
 			{
 				if (targets.Count <= 0 || targets[0] == null || (CanSeeTarget(targets[0]) && IsInRangeOf(targets[0])))
@@ -985,6 +989,7 @@ public class AI : MonoBehaviour
 	[PunRPC]
 	private IEnumerator Shoot()
 	{
+        if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) yield break;
 		agent.speed = defaultSpeed;
 		if (currentGun.maxAmmo <= 0 && currentGun.currentAmmo <= 0)
 		{
@@ -1017,6 +1022,7 @@ public class AI : MonoBehaviour
 			}
 			yield break;
 		}
+        if (RoguelikeMode.Active) while (RogueEnemyStatus.Stunned(this)) yield return null;
 		if (currentGun.oneShot)
 		{
 			GameObject mf = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, firePosition.position, mt.rotation) as GameObject;
@@ -1079,6 +1085,7 @@ public class AI : MonoBehaviour
 		}
 		while (true)
 		{
+            if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) { yield return null; continue; }
 			GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, firePosition.position, mt.rotation) as GameObject;
 			mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 			base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
@@ -1136,6 +1143,7 @@ public class AI : MonoBehaviour
 
 	public void EnemyDirection(Vector3 dir)
 	{
+        if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) return;
 		if (!attacked && Menu.isMaster())
 		{
 			Vector3 forward = dir - mt.position;
