@@ -277,7 +277,11 @@ public class RoguePlayer : MonoBehaviour
         var cc = GetComponent<CharacterController>();
         if (cc != null && cc.isGrounded) OnLanded();
         var ctrlPrep = RoguelikeController.Instance;
-        if (ctrlPrep != null && ctrlPrep.ScreenDismissed && Menu.current == "Playing" && (FlatsControls.Down("Interact") || FlatsControls.PadState("Change", 1))) { ctrlPrep.ReopenScreen(); return; }
+        if (ctrlPrep != null && ctrlPrep.ScreenDismissed && Menu.current == "Playing")
+        {
+            ctrlPrep.NoteInteractPrompt();   // the touch Interact button reopens the dismissed shop
+            if (RogueInput.InteractDown) { ctrlPrep.ReopenScreen(); return; }
+        }
         if (Menu.current != "Playing") return;
         // a downed player may still trigger Emergency Revive (F11); everything else waits for a rescue
         if (Downed) { if (FlatsControls.Down("Ultimate") || FlatsControls.PadState("Ultimate", 1)) TryUltimate(); return; }
@@ -410,10 +414,12 @@ public class RoguePlayer : MonoBehaviour
             if (Vector3.Distance(go.transform.position, transform.position) <= ReviveRange) { target = rp; break; }
         }
         if (target == null) { reviveHeld = 0; reviveTarget = null; return; }
-        if (FlatsControls.Held("Interact")) reviveLastHold = Time.time;
+        bool holding = RogueInput.InteractHeld;   // keyboard Interact, pad Change or the touch button
+        if (holding) reviveLastHold = Time.time;
         else if (Time.time - reviveLastHold > 1f) reviveHeld = 0;   // the authority forgets an interrupted hold after one second; mirror it
         var ctrl = RoguelikeController.Instance;
-        if (FlatsControls.Held("Interact"))
+        if (ctrl != null) ctrl.NoteInteractPrompt();
+        if (holding)
         {
             if (reviveTarget != target) { reviveTarget = target; reviveHeld = 0; reviveSlice = 0; }
             reviveHeld += Time.deltaTime * (float)Stats.ReviveSpeedMul; reviveSlice += Time.deltaTime;
@@ -426,7 +432,7 @@ public class RoguePlayer : MonoBehaviour
                 reviveSlice = 0;
             }
         }
-        else { if (ctrl != null) ctrl.ShowReviveRing(reviveHeld / ReviveHoldSeconds, RoguelikeController.T("Hold {0} to revive", FlatsControls.Label("Interact", FlatsControls.UsingGamepad))); }
+        else { if (ctrl != null) ctrl.ShowReviveRing(reviveHeld / ReviveHoldSeconds, RoguelikeController.T("Hold {0} to revive", RogueInput.InteractLabel)); }
     }
 
     void OnDestroy()

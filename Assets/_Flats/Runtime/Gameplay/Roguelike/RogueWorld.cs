@@ -263,7 +263,8 @@ public class RogueInteractable : MonoBehaviour
         if (Vector3.Distance(local.transform.position, transform.position) > Radius) return;
         var ctrl = RoguelikeController.Instance;
         if (ctrl == null) return;
-        bool held = FlatsControls.Held("Interact") || FlatsControls.PadState("Change", 0);
+        bool held = RogueInput.InteractHeld;
+        ctrl.NoteInteractPrompt();
         if (held)
         {
             sendAccumulator += Time.deltaTime;
@@ -272,7 +273,7 @@ public class RogueInteractable : MonoBehaviour
         else
         {
             if (sendAccumulator > 0) { ctrl.Command(new RogueCommandMessage { kind = "objective", text = Action, value = sendAccumulator }); sendAccumulator = 0; }
-            if (!string.IsNullOrEmpty(Prompt)) ctrl.Banner(RoguelikeController.T("Hold {0}: {1}", FlatsControls.Label("Interact", FlatsControls.UsingGamepad), RoguelikeController.T(Prompt)), 0.3f);
+            if (!string.IsNullOrEmpty(Prompt)) ctrl.Banner(RoguelikeController.T("Hold {0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)), 0.3f);
         }
     }
 }
@@ -326,12 +327,14 @@ public class RogueCarryable : MonoBehaviour
         bool near = Vector3.Distance(local.transform.position, transform.position) <= 3.5f;
         if (HolderKey == myKey)
         {
-            if (FlatsControls.Down("Interact") || FlatsControls.PadState("Change", 1)) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":drop" }); pressCooldown = 0.5f; }
+            ctrl2.NoteInteractPrompt();
+            if (RogueInput.InteractDown) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":drop" }); pressCooldown = 0.5f; }
         }
         else if (string.IsNullOrEmpty(HolderKey) && near)
         {
-            if (FlatsControls.Down("Interact") || FlatsControls.PadState("Change", 1)) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":pickup" }); pressCooldown = 0.5f; }
-            else ctrl2.Banner(RoguelikeController.T("{0}: {1}", FlatsControls.Label("Interact", FlatsControls.UsingGamepad), RoguelikeController.T(Prompt)), 0.3f);
+            ctrl2.NoteInteractPrompt();
+            if (RogueInput.InteractDown) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":pickup" }); pressCooldown = 0.5f; }
+            else ctrl2.Banner(RoguelikeController.T("{0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)), 0.3f);
         }
     }
 

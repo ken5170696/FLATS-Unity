@@ -220,8 +220,10 @@ public class AI : MonoBehaviour
 			else if (Menu.network != 1 && PhotonNetwork.isMasterClient)
 			{
 				StartCoroutine("SetDestination", points[destPoint].position);
-				if (base.gameObject.activeSelf)
+				var receiver = GetComponent<DamageReceiver>();
+				if (base.gameObject.activeSelf && (receiver == null || !receiver.Dead))
 				{
+					// A dead enemy never announces a patrol; late RPCs for it land on DeadAIRpcSink.
 					base.gameObject.GetPhotonView().RPC("Patrol", PhotonTargets.AllBuffered);
 				}
 			}

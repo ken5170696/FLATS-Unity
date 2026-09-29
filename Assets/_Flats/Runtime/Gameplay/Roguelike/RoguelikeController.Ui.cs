@@ -10,6 +10,11 @@ using UnityEngine.UI;
 // to the authority.
 public partial class RoguelikeController
 {
+    int interactPromptFrame = -1;
+    /// <summary>Called every frame an interaction is possible; the touch Interact button shows while this is fresh.</summary>
+    public void NoteInteractPrompt() { interactPromptFrame = Time.frameCount; }
+    public bool InteractPromptActive { get { return Time.frameCount - interactPromptFrame <= 2; } }
+
     RogueScreenView screen;
     RogueHudView hudView;
     string screenMode = "";              // "", shop, reward, route, chapterend
@@ -169,12 +174,14 @@ public partial class RoguelikeController
         {
             screen.SetFooter(T("Continue"), "Arrow", () => Command(new RogueCommandMessage { kind = "continue" }), T("Evacuate"), "Quit", () => ConfirmEvacuate(),
                 T("Continue travels to {0}. Evacuate banks this run's record and ends it.", RouteText(state.mapId, state.routeTag)));
+            screen.SetOverview(RogueInput.OverviewLabel, () => OpenOverview());
         }
         else
         {
             bool ready = me.ready;
             screen.SetFooter(T(ready ? "Not ready" : "Ready"), ready ? "Reset" : "Check", () => Command(new RogueCommandMessage { kind = "ready", flag = !ready }), null, null, null,
-                ReadyText() + "  " + T("TAB: overview"));
+                (ReadyText() + "  " + RogueInput.OverviewHint).TrimEnd());
+            screen.SetOverview(RogueInput.OverviewLabel, () => OpenOverview());
         }
     }
 
@@ -194,6 +201,7 @@ public partial class RoguelikeController
                 screen.AddRow(RogueIcons.ForItem(def), T(def.Name), EffectLine(def, me.build), T("Free"), RarityText(def), T("Take"), status == "" && pendingTx.Count == 0, status, take);
         }
         screen.SetFooter(null, null, null, null, "");
+        screen.SetOverview(RogueInput.OverviewLabel, () => OpenOverview());
     }
 
     void ShowRoute(RunPlayer me)
@@ -210,6 +218,7 @@ public partial class RoguelikeController
                 IsAuthority, IsAuthority ? "" : T("Host decides"), () => Command(new RogueCommandMessage { kind = "route", index = index }));
         }
         screen.SetFooter(null, null, null, null, "");
+        screen.SetOverview(RogueInput.OverviewLabel, () => OpenOverview());
     }
 
     void Buy(RunPlayer me, int index, ShopOffer offer)

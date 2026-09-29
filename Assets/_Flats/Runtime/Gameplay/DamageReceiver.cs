@@ -36,6 +36,7 @@ public class DamageReceiver : MonoBehaviour
 	private Scrollbar healthbar;
 
 	private bool died;
+	public bool Dead { get { return died; } }
 
 	// Bullet calls this before reporting damage, so local feedback never waits for the master.
 	public void RogueReactToHit(Transform source, bool headshot)
@@ -181,6 +182,10 @@ public class DamageReceiver : MonoBehaviour
 		if (this != null && GetComponent<AI>() == null && GetComponent<DeadAIRpcSink>() == null)
 		{
 			base.gameObject.AddComponent<DeadAIRpcSink>();
+			// PUN caches a view's RPC receivers on first use; without a refresh the sink is invisible and a late
+			// "Patrol"/"Attack" still logs "has no method" (seen in co-op round 6).
+			var view = GetComponent<PhotonView>();
+			if (view != null) view.RefreshRpcMonoBehaviourCache();
 		}
 	}
 
@@ -865,6 +870,12 @@ public class DamageReceiver : MonoBehaviour
 
 	private void Stop()
 	{
+		// Roguelike co-op: the authority drops the dead enemy's buffered RPCs so a reused view id never receives them.
+		if (RoguelikeMode.Coop && !userIsPlayer && PhotonNetwork.isMasterClient && PhotonNetwork.inRoom)
+		{
+			var view = GetComponent<PhotonView>();
+			if (view != null) PhotonNetwork.RemoveRPCs(view);
+		}
 		UnityEngine.Object.Destroy(base.gameObject);
 	}
 

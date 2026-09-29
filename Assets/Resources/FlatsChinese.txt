@@ -1545,3 +1545,7 @@ Empty core slot	空核心槽
 Empty	空
 Tier {0}/{1}   Head x{2}   Taken {3}	階級 {0}/{1}　頭部 x{2}　承受 {3}
 Troy	特洛伊城
+Back or B closes   LB or RB switches tabs   Wallet ${0}	Back 或 B 關閉   LB 或 RB 切換頁籤   錢包 ${0}
+Tap a tab to switch   Close with the button   Wallet ${0}	點頁籤切換   按關閉鈕離開   錢包 ${0}
+Interact	互動
+Back: overview	Back：總覽

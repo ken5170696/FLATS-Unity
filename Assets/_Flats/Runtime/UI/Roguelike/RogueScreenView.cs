@@ -14,6 +14,7 @@ public class RogueScreenView : MonoBehaviour
     public RectTransform rowsContent;
     public ScrollRect scroll;
     public Button primary, secondary;
+    [Header("Overview")] public Button overview; public Text overviewLabel;   // opens the TAB panel from any run screen (touch has no TAB)
     public RogueOfferRowView rowTemplate;
     public Image paper, titleIcon, walletIcon, primaryIcon, secondaryIcon;
     public Text walletText;
@@ -168,6 +169,18 @@ public class RogueScreenView : MonoBehaviour
     {
         var menu = Menu.Current;
         if (menu != null && menu.pressSE != null) { var src = menu.GetComponent<AudioSource>(); if (src != null) src.PlayOneShot(menu.pressSE); }
+    }
+
+    /// <summary>Binds the Overview button; an empty label hides it.</summary>
+    public void SetOverview(string label, Action onClick)
+    {
+        if (overview == null) return;
+        bool show = !string.IsNullOrEmpty(label);
+        if (overview.gameObject.activeSelf != show) overview.gameObject.SetActive(show);
+        if (!show) return;
+        if (overviewLabel != null) overviewLabel.text = label;
+        overview.onClick.RemoveAllListeners();
+        overview.onClick.AddListener(() => { PlayPress(); if (onClick != null) onClick(); });
     }
 
     void Update()

@@ -75,6 +75,7 @@ MonoBehaviour:
   - Main3
   - Main4
   - Main5
+  - MainRoguelike
   - Map0
   - Map1
   - Map2
@@ -129,12 +130,14 @@ MonoBehaviour:
   - Dash
   - Enemy
   - Heart
+  - List
   - Medkit
   - Mod
   - Objective
   - Shield
   - Squad
   - Stage
+  - Tap
   - Timer
   - Ultimate
   - Warning
@@ -169,6 +172,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 89720fa6aa60d094c9f8dd14852d376d, type: 3}
   - {fileID: 21300000, guid: 81c8cf48f5f49f14cb1f436f27afba5c, type: 3}
   - {fileID: 21300000, guid: 9036c6d04c72e72468d57bbdfaf079a4, type: 3}
+  - {fileID: 21300000, guid: 269ab3eff7cc45d6a2fa6132c2b93402, type: 3}
   - {fileID: 21300000, guid: 867207b8bf5702c4daeddc8d66871fc5, type: 3}
   - {fileID: 21300000, guid: fa15c04368fdb4b479b1b6dba079f0c1, type: 3}
   - {fileID: 21300000, guid: 29ddc0d8768d25243afe7cb034d9c922, type: 3}
@@ -223,12 +227,14 @@ MonoBehaviour:
   - {fileID: 21300000, guid: 9ccb90ffea35425cbd55b376f4683877, type: 3}
   - {fileID: 21300000, guid: 2aa2f1a4f11f4fd58b35983e1c437c11, type: 3}
   - {fileID: 21300000, guid: a024feda31564456a60762aaa66f5783, type: 3}
+  - {fileID: 21300000, guid: 040544317757407cabd69a0ba8b15462, type: 3}
   - {fileID: 21300000, guid: d359dc90d20c4875a138b7b95c2a5707, type: 3}
   - {fileID: 21300000, guid: 5a24ebc815ef4523b623b1a290272d09, type: 3}
   - {fileID: 21300000, guid: 02b869508b394d478511a3ab7c0a82e7, type: 3}
   - {fileID: 21300000, guid: d861b93e68bd4282ba0d0b5466a9fba1, type: 3}
   - {fileID: 21300000, guid: 0c89042a832e42e983be57d8ce6dc180, type: 3}
   - {fileID: 21300000, guid: 8757460f21c648aba0c0bbfb9e7c5128, type: 3}
+  - {fileID: 21300000, guid: 1f5abb9fce6d410496e4bd16ffc32d2c, type: 3}
   - {fileID: 21300000, guid: 4faf7ec4e5f246e7b9bb79adf7144a41, type: 3}
   - {fileID: 21300000, guid: 09d74ca9bb674b89ad5e659ffa0b07a2, type: 3}
   - {fileID: 21300000, guid: eedb58c5bd1541db90b53c3007e9b2c3, type: 3}

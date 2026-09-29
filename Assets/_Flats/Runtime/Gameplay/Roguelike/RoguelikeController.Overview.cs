@@ -17,8 +17,7 @@ public partial class RoguelikeController
     {
         if (leaving) { if (overview != null) CloseOverview(); return; }
         if (!runStarted || state == null) return;
-        var pad = InControl.InputManager.ActiveDevice;
-        bool toggle = Input.GetKeyDown(KeyCode.Tab) || (pad != null && pad.GetControl(InControl.InputControlType.Back).WasPressed);
+        bool toggle = RogueInput.OverviewToggle;   // TAB, pad Back or the HUD touch button
         bool allowed = Menu.current == "Playing" || Menu.current == "RogueScreen";
         if (toggle && allowed && !ConfirmDialogOpen()) { if (overview != null) CloseOverview(); else OpenOverview(); }
         if (overview == null) return;
@@ -83,7 +82,7 @@ public partial class RoguelikeController
             case 3: FillWeaponsTab(me); break;
             default: FillRunTab(me); break;
         }
-        overview.SetFooter(T("TAB or Esc closes   Q or E switches tabs   Wallet ${0}", RogueMoney.Format(me.walletMinor)));
+        overview.SetFooter(RogueInput.OverviewFooter(RogueMoney.Format(me.walletMinor)));
     }
 
     // ---------------------------------------------------------------- tabs

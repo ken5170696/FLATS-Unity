@@ -6,7 +6,8 @@ a personal shop, builds, events and chapter routes.
 
 ## Playing
 
-- **Entry**: `Play › Roguelike` (solo: difficulty, map, continue/start) or a multiplayer room
+- **Entry**: `Play › Singleplayer › Roguelike Survival` tile (the singleplayer page is a horizontal row of
+  the mode tiles with the map tile under it; solo: difficulty, map, continue/start) or a multiplayer room
   with rule **Roguelike Survival** (the room objective is the difficulty: Normal / Hard / Chaos;
   the squad is 1–4 players).
 - **Stage loop**: Prep (shop, ready up) → Combat (one main objective plus director waves)
@@ -16,6 +17,10 @@ a personal shop, builds, events and chapter routes.
 - **Money**: every kill pays a bounty to *every* connected squad member (headshot kills pay
   ×1.5). The stage budget is normalised so more enemies never mean more money per player.
   Objective completion, event success and rescues pay bounded extras.
+- **Controls**: keyboard uses the FLATS bindings (Interact holds/picks up/revives, TAB opens the overview,
+  Q/E switch its tabs); a gamepad uses the pad bindings (Change = interact, Back = overview, LB/RB = tabs);
+  phones get two HUD touch buttons (Interact while a prompt is up, Overview) plus an Overview button on every
+  run screen. `RogueInput` is the single place these are read; prompts and footers name the active scheme's control.
 - **Down / death**: a lethal hit downs you for 30 s; a teammate holds *Interact* for 3 s to
   revive. Bleeding out is a full death: you return at the next safe stage with your build
   and a 20% wallet tax. If nobody is alive (and no Emergency Revive is armed) the run ends.
@@ -61,7 +66,7 @@ the per-player budget at about 7× the chapter-1 value.
 | Pure rules (no engine) | `Assets/_Flats/Runtime/Core/Roguelike/` (`Flats.Core.Roguelike`) | economy, shop transactions, builds, director, run state machine, save DTOs |
 | Content data | `RogueCatalog.cs` | items, roles, objectives, events, emergencies, finales, maps, routes |
 | Unity adapters | `Assets/_Flats/Runtime/Gameplay/Roguelike/` | `RoguelikeController` (on the SingleplayerController prefab), `RoguePlayer`, `RogueEnemyRole`, hooks, transport, save store |
-| Menu entry | `Assets/_Flats/Runtime/UI/Menu.Roguelike.cs` | Play page tile and the mode page |
+| Menu entry | `Assets/_Flats/Runtime/UI/Menu.Roguelike.cs`, `Menu.ModeTiles.cs` | the Roguelike page; the singleplayer mode row (`Resources/UI/ModeTiles.prefab`) and the seven-map vote grid (`Resources/UI/ModeGrid.prefab`), both filled with copies of the authored MainButtons tile by `FlatsModeTilesView` |
 | Screens | `Assets/Resources/UI/Roguelike/RogueScreen.prefab`, `RogueOfferRow.prefab` | authored uGUI; `RogueScreenView` binds them |
 | HUD | `Assets/Resources/UI/Roguelike/RogueHud.prefab` (`RogueHudView`, squad row and waypoint templates inside) | instantiated under the gameplay `UI` canvas when a run starts; `RogueWaypoint` components on world objects feed the markers |
 | TAB overview | `Assets/Resources/UI/Roguelike/RogueOverview.prefab`, `RogueStatRow.prefab` | `RogueOverviewView` (tabs, rows); `RoguelikeController.Overview.cs` fills the tabs |

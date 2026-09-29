@@ -21,6 +21,7 @@ public class RogueHudView : MonoBehaviour
     [Header("Waypoints")] public RectTransform waypointRoot; public RogueHudWaypoint waypointTemplate; public int maxWaypoints = 6; public float edgeInset = 36f;
     [Header("Hint")] public GameObject hintLine; public Text hintText; public Image hintIcon;
     [Header("Revive")] public GameObject reviveRoot; public Image reviveFill; public Text reviveText;
+    [Header("Touch")] public GameObject touchRoot, touchInteract, touchOverview;   // phones: no TAB, no Interact key
     float reviveShownAt = -10f;
 
     readonly List<RogueHudSquadRow> squadRows = new List<RogueHudSquadRow>();
@@ -149,8 +150,22 @@ public class RogueHudView : MonoBehaviour
     static readonly System.Comparison<RogueWaypoint> byPriorityThenDistance = (a, b) => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : (a.Position - sortEye).sqrMagnitude.CompareTo((b.Position - sortEye).sqrMagnitude);
     GameObject localPlayer; float localPlayerCheck;
     readonly List<string> markerLabelKey = new List<string>(); readonly List<int> markerDistance = new List<int>();
+    void TickTouch()
+    {
+        if (touchRoot == null) return;
+        bool touch = RogueInput.IsTouch && (canvas == null || canvas.enabled);
+        if (touchRoot.activeSelf != touch) { touchRoot.SetActive(touch); if (!touch) RogueInput.ResetTouch(); }
+        if (!touch || touchInteract == null) return;
+        var ctrl = RoguelikeController.Instance;
+        bool prompt = ctrl != null && ctrl.InteractPromptActive;
+        if (touchInteract.activeSelf != prompt) touchInteract.SetActive(prompt);
+    }
+
+    void OnDisable() { RogueInput.ResetTouch(); }
+
     void LateUpdate()
     {
+        TickTouch();
         if (waypointRoot == null || waypointTemplate == null) return;
         if (canvas != null && !canvas.enabled) { HideMarkers(0); return; }   // hidden HUD (run screen, pause): no projection work
         var cam = Camera.main;
