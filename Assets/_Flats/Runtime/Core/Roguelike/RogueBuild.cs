@@ -92,7 +92,14 @@ namespace Flats.Core.Roguelike
                 case ItemKind.Mod: mods = Append(mods, def.Id); return null;
                 case ItemKind.Tactical: { var old = tactical; tactical = def.Id; return string.IsNullOrEmpty(old) ? null : old; }
                 case ItemKind.Ultimate: { var old = ultimate; ultimate = def.Id; return string.IsNullOrEmpty(old) ? null : old; }
-                case ItemKind.Weapon: { int old = primaryWeapon; primaryWeapon = RogueCatalog.WeaponIndexOf(def.Id); return old < 0 ? null : "weapon." + old; }
+                case ItemKind.Weapon:
+                {
+                    int old = primaryWeapon; primaryWeapon = RogueCatalog.WeaponIndexOf(def.Id);
+                    // with a meta loadout the bought model arrives as the player's owned armory variant of it
+                    var variant = meta != null && !meta.Empty ? MetaRun.ShopVariant(this, primaryWeapon) : null;
+                    if (variant != null) meta.primary = variant.Id;
+                    return old < 0 ? null : "weapon." + old;
+                }
             }
             return null;
         }
