@@ -161,7 +161,7 @@ public partial class RoguelikeController
     {
         if (spawnPoints == null || spawnPoints.childCount == 0) return Vector3.zero;
         lastSpawnPoint = PickSpawnPoint(lastSpawnPoint, false);
-        return spawnPoints.GetChild(lastSpawnPoint).position;
+        return NearerArrival(spawnPoints.GetChild(lastSpawnPoint).position);
     }
 
     void SpawnEnemy(int instanceId, string roleId, bool elite, bool openingWave, ref int lastPoint)
@@ -169,7 +169,7 @@ public partial class RoguelikeController
         if (spawnPoints == null || spawnPoints.childCount == 0) return;
         int point = PickSpawnPoint(lastPoint, openingWave);
         lastPoint = point;
-        Vector3 pos = spawnPoints.GetChild(point).position;
+        Vector3 pos = NearerArrival(spawnPoints.GetChild(point).position);
         GameObject go;
         if (Menu.network == 0) go = Instantiate(Resources.Load("Flatman_Enemy"), pos, Quaternion.identity) as GameObject;
         else go = PhotonNetwork.InstantiateSceneObject("Flatman_Enemy", pos, Quaternion.identity, 0, null);
@@ -191,6 +191,37 @@ public partial class RoguelikeController
     public const float SpawnMinDistance = 40f, SpawnBandDistance = 120f, OpeningMinDistance = 60f;
     /// <summary>Ring around SpawnAnchor (metres): near enough to reach the zone during a hold, never inside it.</summary>
     public const float AnchorMinDistance = 25f, AnchorMaxDistance = 70f;
+
+    /// <summary>Maps whose authored spawn points all sit far from the squad (FlatCity: 200-360 m from the start) left a stage with
+    /// nobody to fight for the first 40 s. An arrival farther than the band from every player is moved to a reachable NavMesh point
+    /// NearArrivalMin-NearArrivalMax metres from a random player, out of that player's sight, on the side the enemy came from.</summary>
+    public const float NearArrivalMin = 60f, NearArrivalMax = 110f;
+
+    Vector3 NearerArrival(Vector3 authored)
+    {
+        var players = GameObject.FindGameObjectsWithTag("Player");
+        if (players.Length == 0) return authored;
+        float nearest = float.MaxValue; foreach (var p in players) nearest = Mathf.Min(nearest, Vector3.Distance(p.transform.position, authored));
+        if (nearest <= SpawnBandDistance) return authored;
+        var anchor = players[UnityEngine.Random.Range(0, players.Length)].transform;
+        Vector3 toward = authored - anchor.position; toward.y = 0; if (toward.sqrMagnitude < 1f) toward = anchor.forward; toward.Normalize();
+        for (int attempt = 0; attempt < 16; attempt++)
+        {
+            // fan out around the direction of the authored point so arrivals keep their lanes
+            float angle = UnityEngine.Random.Range(-70f, 70f), distance = UnityEngine.Random.Range(NearArrivalMin, NearArrivalMax);
+            Vector3 guess = anchor.position + Quaternion.Euler(0, angle, 0) * toward * distance;
+            UnityEngine.AI.NavMeshHit hit;
+            if (!UnityEngine.AI.NavMesh.SamplePosition(guess + Vector3.up * 4f, out hit, 10f, UnityEngine.AI.NavMesh.AllAreas)) continue;
+            bool clear = true;
+            foreach (var p in players) if (Vector3.Distance(p.transform.position, hit.position) < SpawnMinDistance) clear = false;
+            if (!clear || !RogueWorld.Reachable(hit.position, anchor.position)) continue;
+            // never materialise in plain view: the player's eye must not see the arrival's chest
+            Vector3 eye = anchor.position + Vector3.up * 5f, chest = hit.position + Vector3.up * 3f;
+            if (!Physics.Linecast(eye, chest, LayerMask.GetMask("Default"), QueryTriggerInteraction.Ignore)) continue;
+            return hit.position;
+        }
+        return authored;
+    }
 
     int PickSpawnPoint(int lastPoint, bool openingWave)
     {

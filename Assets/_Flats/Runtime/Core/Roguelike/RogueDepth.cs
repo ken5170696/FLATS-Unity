@@ -43,11 +43,16 @@ namespace Flats.Core.Roguelike
             return 1.0 + 0.08 * (p - 1);
         }
 
+        /// <summary>Per-enemy damage share after the round-2 density increase: stages hold about 1.7x the enemies and enemy head
+        /// hits now land, which more than doubled the fire a standing player takes (45 s exposure: 11.5k -> 25.9k). Each enemy
+        /// hits a little softer so the pressure rises by about 1.6x instead.</summary>
+        public const double DensityDamageShare = 0.7;
+
         /// <summary>Enemy outgoing damage multiplier; hard-capped at +120% so late enemies never one-shot a full-health player.</summary>
         public static double EnemyDamage(int depth, int difficulty)
         {
             double d = ClampDifficulty(difficulty);
-            return Math.Min(2.2, Saturate(depth, 1.2, 60.0) * (0.9 + 0.1 * d));
+            return Math.Min(2.2, Saturate(depth, 1.2, 60.0) * (0.9 + 0.1 * d)) * DensityDamageShare;
         }
 
         /// <summary>Enemy stat tier 0..5 used by the legacy AI colour/score table (attack == defense).</summary>
