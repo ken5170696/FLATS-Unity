@@ -2200,7 +2200,7 @@ Back: return the squad to the room, or leave.	返回：帶小隊回到房間，�
 Waiting for the host · Back: leave the room.	等待主機 · 返回：離開房間。
 {0}: {1}	{0}：{1}
 Reach the extraction point {0}/{1}	抵達撤離點 {0}/{1}
-Hold the extraction {0}s	守住撤離點 {0} 秒
-Paused: teammate down	暫停：隊友倒地
-Paused: everyone must be inside	暫停：全員需在區域內
+Hold the extraction {0}s ({1}%)	守住撤離點 {0} 秒（{1}%）
+Paused, teammate down: {0}s left ({1}%)	暫停：隊友倒地，剩 {0} 秒（{1}%）
+Paused, all into the zone: {0}s left ({1}%)	暫停：全員進入撤離區，剩 {0} 秒（{1}%）
 Extraction called! Hold the zone for {0} s	已呼叫撤離！守住區域 {0} 秒

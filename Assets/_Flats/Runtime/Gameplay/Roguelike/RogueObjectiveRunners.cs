@@ -185,10 +185,11 @@ public sealed class BreakoutRunner : RogueObjectiveRunner
         if (!machine.ExtractionCalled) ProgressText = RoguelikeController.F("Reach the extraction point {0}/{1}", inside.Count, Mathf.Max(inside.Count, Needed()));
         else
         {
-            // segments: countdown, the pause reason, then the percent the HUD bar reads (the countdown pauses, it never resets)
-            string text = RoguelikeController.F("Hold the extraction {0}s", Mathf.CeilToInt((float)machine.RemainingSeconds));
-            if (machine.Paused) text += "  " + RoguelikeController.F(machine.PauseReason == "downed" ? "Paused: teammate down" : "Paused: everyone must be inside");
-            ProgressText = text + "  " + Mathf.RoundToInt((float)machine.Progress * 100) + "%";
+            // one whole sentence per state, so each translates as one template (a joined "Hold ...  Paused: ...  N%" was caught by the
+            // generic "Hold {0}: {1}"); the percent inside feeds the HUD bar, and the countdown pauses, it never resets
+            int left = Mathf.CeilToInt((float)machine.RemainingSeconds), percent = Mathf.RoundToInt((float)machine.Progress * 100);
+            ProgressText = !machine.Paused ? RoguelikeController.F("Hold the extraction {0}s ({1}%)", left, percent)
+                : RoguelikeController.F(machine.PauseReason == "downed" ? "Paused, teammate down: {0}s left ({1}%)" : "Paused, all into the zone: {0}s left ({1}%)", left, percent);
         }
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
     }
