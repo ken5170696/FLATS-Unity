@@ -1742,7 +1742,7 @@ Kills explode: 40% of the killing damage in a 6 m radius and a short knockback. 
 Marker	標記
 Your hits mark enemies for 4 s. Marked enemies take +12% damage from everyone. Marked kills by anyone charge your ultimate.	你的命中標記敵人 4 秒。被標記的敵人受到所有人 +12% 傷害。任何人擊殺被標記者都為你的大招充能。
 Mobility	機動
-+12% speed, revive 40% faster, carry objects at full speed. The first shot after a dash or a jump landing deals +20%.	速度 +12%，救援快 40%，搬運物件不減速。衝刺或落地後的第一發 +20%。
++12% speed, revive 40% faster, carry objects at full speed. Dash cooldown x0.7/0.6/0.5 by tier. The first shot after a dash or a jump landing deals +20%.	速度 +12%，救援快 40%，搬運物件不減速，衝刺冷卻依階級 ×0.7/0.6/0.5。衝刺或落地後的第一發 +20%。
 Long Barrel	長槍管
 Headshots deal +10% damage.	爆頭傷害 +10%。
 Piercing Rounds	穿甲彈
@@ -1831,7 +1831,7 @@ Carry the supply crate to the drop point. The carrier cannot shoot.	把補給箱
 Protect the Repair	保護修復
 Keep the repair device alive until it reaches 100%.	保護修復裝置直到進度 100%。
 Break Out	突圍
-Fight through to the extraction marker. Everyone must arrive.	殺到撤離標記。全員都必須抵達。
+Fight to the extraction point. When everyone is inside, extraction is called: hold the zone against reinforcements until the countdown ends.	殺到撤離點。全員進入後呼叫撤離：守住撤離區抵擋增援，直到倒數結束。
 Moving Supply	移動補給
 A supply drone crosses the map. Shoot it down before it leaves to claim the crate.	補給無人機橫越地圖。在它離開前擊落以取得補給箱。
 Alarm Cache	警報寶箱
@@ -2199,3 +2199,8 @@ Health {0}/{1} · Shield {2}%	生命 {0}/{1} · 護盾 {2}%
 Back: return the squad to the room, or leave.	返回：帶小隊回到房間，或離開。
 Waiting for the host · Back: leave the room.	等待主機 · 返回：離開房間。
 {0}: {1}	{0}：{1}
+Reach the extraction point {0}/{1}	抵達撤離點 {0}/{1}
+Hold the extraction {0}s	守住撤離點 {0} 秒
+Paused: teammate down	暫停：隊友倒地
+Paused: everyone must be inside	暫停：全員需在區域內
+Extraction called! Hold the zone for {0} s	已呼叫撤離！守住區域 {0} 秒

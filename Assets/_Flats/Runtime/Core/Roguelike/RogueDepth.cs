@@ -28,19 +28,19 @@ namespace Flats.Core.Roguelike
             return 1.0 + max * (1.0 - Math.Exp(-(depth - 1) / scale));
         }
 
-        /// <summary>Enemy hit-point multiplier: reaches ~+150% around chapter 8 and caps at +300%.</summary>
+        /// <summary>Enemy hit-point multiplier: reaches ~+150% around chapter 8 and uses a 0.9 density discount; bounded.</summary>
         public static double EnemyHealth(int depth, int difficulty)
         {
             double d = ClampDifficulty(difficulty);
-            return Math.Min(4.5, Saturate(depth, 3.0, 40.0) * (0.85 + 0.15 * d));
+            return Math.Min(4.5, 0.9 * Saturate(depth, 3.0, 40.0) * (0.85 + 0.15 * d));
         }
 
-        /// <summary>Enemy health scale for the squad size: +12% per extra player on top of the larger wave counts, so four
+        /// <summary>Enemy health scale for the squad size: +8% per extra player on top of the larger wave counts, so four
         /// players face both more and sturdier enemies without turning every rifleman into a bullet sponge.</summary>
         public static double SquadHealthScale(int players)
         {
             int p = players < 1 ? 1 : (players > 4 ? 4 : players);
-            return 1.0 + 0.12 * (p - 1);
+            return 1.0 + 0.08 * (p - 1);
         }
 
         /// <summary>Enemy outgoing damage multiplier; hard-capped at +120% so late enemies never one-shot a full-health player.</summary>
@@ -61,19 +61,19 @@ namespace Flats.Core.Roguelike
         public static int ConcurrentEnemyCap(int depth, int difficulty, int players)
         {
             int p = players < 1 ? 1 : (players > 4 ? 4 : players);
-            int cap = 6 + (int)Math.Round(Saturate(depth, 1.0, 30.0) * 4) + p * 2 + (ClampDifficulty(difficulty) - 1) * 2;
-            return cap > 24 ? 24 : cap;
+            int cap = 10 + (int)Math.Round(Saturate(depth, 1.0, 30.0) * 4) + p * 2 + (ClampDifficulty(difficulty) - 1) * 2;
+            return cap > 28 ? 28 : cap;
         }
 
         /// <summary>Total enemy weight of a stage's regular waves (before elites/finale). Bounded.</summary>
         public static int StageEnemyBudget(int depth, int difficulty, int players)
         {
             int p = players < 1 ? 1 : (players > 4 ? 4 : players);
-            double baseCount = 8 + 6 * (Saturate(depth, 2.0, 25.0) - 1.0);
-            double perPlayer = 1.0 + 0.55 * (p - 1);
+            double baseCount = 14 + 10.5 * (Saturate(depth, 2.0, 25.0) - 1.0);
+            double perPlayer = 1.0 + 0.45 * (p - 1);
             double diff = 0.9 + 0.15 * ClampDifficulty(difficulty);
             int count = (int)Math.Round(baseCount * perPlayer * diff);
-            return count < 6 ? 6 : (count > 90 ? 90 : count);
+            return count < 6 ? 6 : (count > 158 ? 158 : count);
         }
 
         /// <summary>Per-player combat income budget in coins (G). Grows with depth but saturates, matching the price table.</summary>

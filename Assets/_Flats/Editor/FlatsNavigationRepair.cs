@@ -10,6 +10,8 @@ public static class FlatsNavigationRepair {
  public static void Run(){Bake(new[]{"FlatCity","UrbanPark","BeachsideTown","DepartmentStore","Warehouse","NightLand","Troy","Tutorial"});}
  [MenuItem("FLATS/Navigation/Rebuild Troy")]
  public static void Troy(){Bake(new[]{"Troy"});}
+ [MenuItem("FLATS/Navigation/Rebuild NightLand")]
+ public static void NightLand(){Bake(new[]{"NightLand"});}
  [MenuItem("FLATS/Navigation/Rebuild Tutorial")]
  public static void Tutorial(){Bake(new[]{"Tutorial"});}
  static void Bake(string[] maps){
@@ -40,10 +42,10 @@ public static class FlatsNavigationRepair {
    // Troy is built at the character's real size (controller 6.4 m tall, 4 m wide, ~0.3 m step): bake for that
    // capsule so bots never plan through gaps or over ledges the controller cannot use.
    if(name=="Troy"){settings.agentRadius=2f;settings.agentHeight=6.4f;settings.agentClimb=0.45f;settings.voxelSize=0.4f;settings.minRegionArea=20f;settings.buildHeightMesh=true;}
-   // These maps include roof/raised-platform spawns. Preserve those locations;
-   // generate one-way drops over the real collision geometry so bots can leave.
+   // Warehouse has raised platforms: one-way drops over the real collision geometry let bots leave them.
+   // Night Land keeps its rooftop enemies on the roofs as in the original game (no drop links).
    // No jump-across or upward links are introduced.
-   settings.ledgeDropHeight=name=="NightLand"?60f:name=="Warehouse"?5f:0f;
+   settings.ledgeDropHeight=name=="Warehouse"?5f:0f;
    if(settings.ledgeDropHeight>0)
     for(int i=0;i<sources.Count;i++){var source=sources[i];source.generateLinks=true;sources[i]=source;}
    var data=UnityEngine.AI.NavMeshBuilder.BuildNavMeshData(settings,sources,new Bounds(Vector3.zero,new Vector3(4000,1000,4000)),Vector3.zero,Quaternion.identity);

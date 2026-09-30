@@ -301,7 +301,7 @@ public class GrabbedObject : MonoBehaviour
 			{
 				if ((bool)gameObject.GetComponent<AI>())
 				{
-					gameObject.GetComponent<AI>().EnemyDirection(mt.position);
+					gameObject.GetComponent<AI>().FacePosition(mt.position);
 				}
 			}
 		}

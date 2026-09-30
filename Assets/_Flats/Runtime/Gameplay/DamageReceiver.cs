@@ -248,7 +248,8 @@ public class DamageReceiver : MonoBehaviour
 				base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, receivedData[2]);
 			}
 		}
-		else if (!userIsPlayer && (myAI == null || !myAI.vip) && (Menu.network == 0 || Multiplayer.rule == 8 || RoguelikeMode.Coop))
+		// the legacy 1-in-60 "mortal" instant kill is a Classic rule; in the roguelike it killed invulnerable cores and Guardian elites
+		else if (!userIsPlayer && (myAI == null || !myAI.vip) && !RoguelikeMode.Active && (Menu.network == 0 || Multiplayer.rule == 8))
 		{
 			int num = 0;
 			num = ((!Singleplayer.chance) ? UnityEngine.Random.Range(0, 60) : UnityEngine.Random.Range(0, 12));
@@ -297,7 +298,8 @@ public class DamageReceiver : MonoBehaviour
         if (RoguelikeMode.Active) damage = RogueMelee.Incoming(this, damage, shooter, reactionPlayed);
         if (RoguelikeMode.Active && RogueMeleeAuthority.Route(this, damage, headshot, shooter)) return;
 		if (Menu.gameState == "Multiplayer" && Multiplayer.end) return;
-		if ((invincibility && userIsPlayer) || damage == 0f || died)
+		// zero, negative (a blast's far edge) or NaN damage is no hit: it must never heal
+		if ((invincibility && userIsPlayer) || !(damage > 0f) || died)
 		{
 			return;
 		}
@@ -331,7 +333,10 @@ public class DamageReceiver : MonoBehaviour
 			{
 				return;
 			}
-			if (headshot == 1 && !userIsPlayer && !myAI.vip)
+			// Classic: a headshot flag means a lethal head hit, so the enemy dies at once. The roguelike reports every head hit with the
+			// flag and decides lethality below from the damage after mitigation (shield front, Guardian last stand, invulnerable cores),
+			// as the co-op path above does; the raw-damage check in Bullet killed through all of them in solo.
+			if (headshot == 1 && !userIsPlayer && !RoguelikeMode.Active && !myAI.vip)
 			{
 				command = "head";
 				killer = shooter;
@@ -359,7 +364,7 @@ public class DamageReceiver : MonoBehaviour
 			if (RoguelikeMode.Active) damage = RogueHooks.ModifyIncomingDamage(this, damage, shooter);
 			hitPoints -= damage;
             if (RoguelikeMode.Active && Menu.network == 0 && !userIsPlayer) RogueCombatNumber.Show(this, damage, headshot == 1, Flats.Core.Roguelike.DamageKind.Direct, shooter);
-			if (!userIsPlayer && myAI != null && myAI.isPatrol && myAI.targets[0] != null && !(RoguelikeMode.Active && RogueEnemyStatus.Stunned(myAI)))
+			if (!userIsPlayer && myAI != null && myAI.isPatrol && myAI.targets.Count > 0 && myAI.targets[0] != null && !(RoguelikeMode.Active && RogueEnemyStatus.Stunned(myAI)))
 			{
 				Vector3 normalized = (myAI.targets[0].position - mt.position).normalized;
 				Quaternion rotation = Quaternion.LookRotation(normalized);
@@ -370,7 +375,7 @@ public class DamageReceiver : MonoBehaviour
 			if (hitPoints <= 0f && (Menu.gameState == "Singleplayer" || !userIsPlayer || ((Multiplayer.rule == 8 || RoguelikeMode.Coop) && MyView(base.gameObject))))
 			{
 				if (userIsPlayer && RoguelikeMode.Active && RogueHooks.TryDown(this)) return;
-				command = "normal";
+				command = RoguelikeMode.Active && headshot == 1 && !userIsPlayer ? "head" : "normal";
 				killer = shooter;
 				if (killer != null && killer.tag == "Enemy")
 				{
@@ -398,7 +403,9 @@ public class DamageReceiver : MonoBehaviour
 			}
 			else
 			{
-				if (userIsPlayer || myAI.vip || Singleplayer.rule == 2)
+				// the legacy 1-in-60 "mortal" instant kill is a Classic rule. Solo roguelike runs as Singleplayer.rule 5, so the old
+				// rule-2 exemption missed it and the roll killed invulnerable finale cores and Guardian elites.
+				if (userIsPlayer || RoguelikeMode.Active || myAI.vip || Singleplayer.rule == 2)
 				{
 					return;
 				}
@@ -471,11 +478,17 @@ public class DamageReceiver : MonoBehaviour
 		died = true;
 		// removal is scheduled first: an exception in any later mode hook must not leave the body (and its markers) behind forever
 		Invoke("Stop", 5f);
+		// every roguelike hook below is guarded: an exception in one must not skip the rest of Die (ragdoll, weapon drop, the
+		// enemy counters), which left bodies and markers behind forever
 		if (RoguelikeMode.Active)
 		{
-			var reaction = GetComponent<RogueHitReaction>();
-			if (reaction != null) reaction.StopReaction();
-			if (!userIsPlayer) RogueHooks.OnEnemyDeathStarted(this);
+			try
+			{
+				var reaction = GetComponent<RogueHitReaction>();
+				if (reaction != null) reaction.StopReaction();
+				if (!userIsPlayer) RogueHooks.OnEnemyDeathStarted(this);
+			}
+			catch (Exception e) { Debug.LogException(e, this); }
 		}
 		if (mt == null) mt = base.transform;   // the Die RPC can reach a network copy before Start ran
 		if (RoguelikeMode.Coop && !userIsPlayer && receivedData != 0)
@@ -485,16 +498,29 @@ public class DamageReceiver : MonoBehaviour
 			var shooterView = PhotonView.Find(receivedData / 2);
 			if (shooterView != null) killer = shooterView.transform;
 		}
-		if (userIsPlayer && RoguelikeMode.Active) RogueHooks.OnPlayerDied(this);
+		if (userIsPlayer && RoguelikeMode.Active)
+		{
+			try { RogueHooks.OnPlayerDied(this); }
+			catch (Exception e) { Debug.LogException(e, this); }
+		}
 		if (RoguelikeMode.Active && !userIsPlayer) { var cc = GetComponent<CharacterController>(); if (cc != null) cc.enabled = false; }   // the body must not push the ragdoll it is replaced by
 		// a shooter that predicted this kill already dropped the ragdoll (RogueKillPrediction); the confirmed death keeps it
-		GameObject predictedCorpse = RoguelikeMode.Active && !userIsPlayer ? RogueKillPrediction.TakeCorpse(this) : null;
+		GameObject predictedCorpse = null;
+		if (RoguelikeMode.Active && !userIsPlayer)
+		{
+			try { predictedCorpse = RogueKillPrediction.TakeCorpse(this); }
+			catch (Exception e) { Debug.LogException(e, this); predictedCorpse = null; }
+		}
 		GameObject gameObject = predictedCorpse != null ? predictedCorpse : UnityEngine.Object.Instantiate(deadReplacement, mt.position, mt.rotation) as GameObject;
 		if (gameObject == null)
 		{
 			return;
 		}
-		if (RoguelikeMode.Active && !userIsPlayer && predictedCorpse == null) RogueHooks.PoseCorpse(this, gameObject);
+		if (RoguelikeMode.Active && !userIsPlayer && predictedCorpse == null)
+		{
+			try { RogueHooks.PoseCorpse(this, gameObject); }
+			catch (Exception e) { Debug.LogException(e, this); }
+		}
 		gameObject.GetComponent<AudioSource>().volume = 0.5f;
 		gameObject.GetComponent<AudioSource>().pitch = 0.75f;
 		gameObject.GetComponent<AudioSource>().PlayOneShot(damageSE);
@@ -826,7 +852,11 @@ public class DamageReceiver : MonoBehaviour
 		}
 		if (!userIsPlayer)
 		{
-			if (RoguelikeMode.Active) RogueHooks.OnEnemyDied(this, killer, command == "head");
+			if (RoguelikeMode.Active)
+			{
+				try { RogueHooks.OnEnemyDied(this, killer, command == "head"); }
+				catch (Exception e) { Debug.LogException(e, this); }
+			}
 			if (Menu.gameState == "Singleplayer" || Multiplayer.rule == 8 || RoguelikeMode.Coop)
 			{
 				if (base.gameObject.layer == LayerMask.NameToLayer("BlueTeam"))
@@ -878,6 +908,13 @@ public class DamageReceiver : MonoBehaviour
 		{
 			var view = GetComponent<PhotonView>();
 			if (view != null) PhotonNetwork.RemoveRPCs(view);
+		}
+		// Networked bots spawned as scene objects (Classic multiplayer): only a network destroy removes the cached instantiation, so a
+		// late joiner does not get a ghost. The roguelike clears that cache at death (RoguelikeController.ForgetCachedInstantiate).
+		if (!userIsPlayer && !RoguelikeMode.Active && Menu.network == 2 && PhotonNetwork.inRoom && !PhotonNetwork.offlineMode && PhotonNetwork.isMasterClient)
+		{
+			var sceneView = GetComponent<PhotonView>();
+			if (sceneView != null && sceneView.isSceneView && sceneView.instantiationId > 0) { PhotonNetwork.Destroy(base.gameObject); return; }
 		}
 		UnityEngine.Object.Destroy(base.gameObject);
 	}

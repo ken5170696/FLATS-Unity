@@ -59,35 +59,69 @@ public static class RogueWorld
         return NavMesh.CalculatePath(a, b, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
     }
 
+    /// <summary>Walking distance along the NavMesh between two grounded points, or -1 when there is no complete path.</summary>
+    public static float PathLength(Vector3 groundedFrom, Vector3 groundedTo, NavMeshPath path)
+    {
+        if (!NavMesh.CalculatePath(groundedFrom, groundedTo, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete) return -1f;
+        var corners = path.corners;
+        float length = 0f;
+        for (int i = 1; i < corners.Length; i++) length += Vector3.Distance(corners[i - 1], corners[i]);
+        return length;
+    }
+
+    /// <summary>A walk longer than this multiple of the straight distance is a detour (X019: a Troy tower top was 282 m on foot for 150 m straight).</summary>
+    public const float MaxDetourRatio = 1.8f;
+
     /// <summary>
     /// Authority: picks `count` candidate indices, reachable from the players, pairwise at least `minApart` apart,
     /// preferring points between `minFromPlayers` and far. Deterministic given the rng.
     /// </summary>
     public static int[] PickPoints(Flats.Core.Roguelike.RogueRng rng, int count, float minApart, float minFromPlayers) { return PickPoints(rng, count, minApart, minFromPlayers, float.MaxValue); }
 
-    /// <summary>First pass keeps anchors between minFromPlayers and preferredMax from the squad (the objective is the first pick, so a
-    /// stage starts within a short run instead of across the map); the second pass fills from everything reachable.</summary>
+    /// <summary>Three passes over one rng-shuffled order. Pass 0 keeps anchors at least minFromPlayers from the squad whose NavMesh walk
+    /// is within preferredMax and at most MaxDetourRatio times the straight distance (the objective is the first pick, so a stage starts
+    /// within a short, direct run instead of up a tower or across the map). Pass 1 is the old straight-line band, pass 2 fills from
+    /// everything reachable. Each candidate's path is computed at most once (about a hundred per stage, once per stage).</summary>
     public static int[] PickPoints(Flats.Core.Roguelike.RogueRng rng, int count, float minApart, float minFromPlayers, float preferredMax)
     {
         var candidates = Candidates();
         var players = GameObject.FindGameObjectsWithTag("Player");
         Vector3 origin = players.Length > 0 ? players[0].transform.position : Vector3.zero;
+        Vector3 groundedOrigin = origin;
+        bool originOnMesh = players.Length > 0 && Ground(origin, out groundedOrigin);
         var order = new List<int>();
         for (int i = 0; i < candidates.Count; i++) order.Add(i);
         rng.Shuffle(order);
+        // per-candidate cache: grounded point, walking distance from the squad (-1 unreachable, NaN not computed yet)
+        var grounded = new Vector3[candidates.Count]; var onMesh = new bool[candidates.Count]; var walk = new float[candidates.Count];
+        for (int i = 0; i < candidates.Count; i++) { onMesh[i] = Ground(candidates[i].position, out grounded[i]); walk[i] = float.NaN; }
+        var path = new NavMeshPath();
         var chosen = new List<int>();
-        for (int pass = 0; pass < 2 && chosen.Count < count; pass++)
+        for (int pass = 0; pass < 3 && chosen.Count < count; pass++)
             foreach (int i in order)
             {
                 if (chosen.Count >= count || chosen.Contains(i)) continue;
-                Vector3 p; if (!Ground(candidates[i].position, out p)) continue;
+                if (!onMesh[i]) continue;
+                Vector3 p = grounded[i];
                 float fromPlayers = float.MaxValue;
                 foreach (var pl in players) fromPlayers = Mathf.Min(fromPlayers, Vector3.Distance(pl.transform.position, p));
-                if (pass == 0 && (fromPlayers < minFromPlayers || fromPlayers > preferredMax)) continue;
+                if (pass < 2 && fromPlayers < minFromPlayers) continue;
+                if (pass == 1 && fromPlayers > preferredMax) continue;
                 bool apart = true;
                 foreach (int c in chosen) if (Vector3.Distance(candidates[c].position, p) < minApart) apart = false;
                 if (!apart) continue;
-                if (players.Length > 0 && !Reachable(origin, p)) continue;
+                if (players.Length > 0)
+                {
+                    if (!originOnMesh) continue;   // same outcome as Reachable: an off-mesh squad reaches nothing
+                    if (float.IsNaN(walk[i])) walk[i] = PathLength(groundedOrigin, p, path);
+                    if (walk[i] < 0f) continue;
+                    if (pass == 0)
+                    {
+                        float straight = Vector3.Distance(groundedOrigin, p);
+                        if (walk[i] > preferredMax || walk[i] > straight * MaxDetourRatio) continue;
+                    }
+                }
+                else if (pass == 0 && fromPlayers > preferredMax) continue;
                 chosen.Add(i);
             }
         return chosen.ToArray();

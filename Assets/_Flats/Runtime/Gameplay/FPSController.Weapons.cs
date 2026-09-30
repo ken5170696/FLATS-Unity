@@ -552,6 +552,8 @@ public partial class FPSController
 		Vector3 dir = ct.TransformDirection(0f, 0f, Z + 30f);
 		Rigidbody b = UnityEngine.Object.Instantiate(grenade, ct.position + ct.forward + ct.right * -0.5f + ct.up, Quaternion.identity) as Rigidbody;
 		b.GetComponent<Bullet>().shooter = mt;
+		// the thrower's attack is applied once, here, as for every fired round; the blast (Bullet.Explode) no longer adds the local attack
+		b.GetComponent<Bullet>().damage *= 1f + (float)Menu.myCharacter.attack * 0.1f;
 		if (RoguelikeMode.Active) b.GetComponent<Bullet>().damage *= RogueHooks.GrenadeDamageMul(this);
 		b.gameObject.layer = base.gameObject.layer + 2;
 		b.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;

@@ -145,6 +145,15 @@ namespace Flats.Core.Roguelike
             return true;
         }
 
+        // Only cancelled regular slots qualify. Compensation never exceeds actual regular kills,
+        // pays no headshot/contract multiplier, and therefore cannot replace fighting.
+        public static long MissionCancellationCompensation(EncounterLedger ledger)
+        {
+            long killed = 0, cancelled = 0;
+            foreach (var slot in ledger.slots)
+                if (!slot.isExtra) { if (slot.paid) killed += slot.minor; else if (slot.cancelled) cancelled += slot.minor; }
+            return Math.Min(killed, RogueMoney.MulFraction(cancelled, .8));
+        }
         public static Payout PayObjective(EncounterLedger ledger, IList<string> validMembers, double fractionOverride)
         {
             var payout = new Payout { Reason = "objective" };

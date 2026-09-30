@@ -216,7 +216,7 @@ public class WatchCamera : MonoBehaviour
 				{
 					GameObject watched = camNumber < otherPlayers.Count ? otherPlayers[camNumber] : null;
 					if (RoguelikeMode.Coop) ShowSpectated(watched);
-					else if (watched != null) currentPlayerName.text = "Camera: " + watched.GetPhotonView().owner.NickName;
+					else if (watched != null) currentPlayerName.text = string.Format(Label("Camera: {0}"), watched.GetPhotonView().owner.NickName);
 				}
 				if (ht != null)
 				{
@@ -274,6 +274,18 @@ public class WatchCamera : MonoBehaviour
 		}
 	}
 
+	// Spectator labels, translated here (X014): a plain Text label showed them in English. Formats are translated once per language,
+	// not every frame (template lookups are regex matches); a FlatsLocalizedText leaves the translated text unchanged.
+	static readonly Dictionary<string, string> labels = new Dictionary<string, string>();
+	static string labelsLanguage;
+	static string Label(string key)
+	{
+		if (labelsLanguage != FlatsLocalization.Language) { labels.Clear(); labelsLanguage = FlatsLocalization.Language; }
+		string value;
+		if (!labels.TryGetValue(key, out value)) labels[key] = value = FlatsLocalization.Translate(key);
+		return value;
+	}
+
 	/// <summary>Roguelike co-op: who is watched and their replicated state (health, shield, downed). Weapon and ammo of
 	/// remote players are not replicated, so they are not shown.</summary>
 	private void ShowSpectated(GameObject watched)
@@ -287,12 +299,12 @@ public class WatchCamera : MonoBehaviour
 		if (spectated != null)
 		{
 			health = Mathf.Clamp01(spectated.HealthFraction());
-			if (spectated.Downed) state = "Downed · needs a revive";
+			if (spectated.Downed) state = Label("Downed · needs a revive");
 			else if (spectated.ShieldFraction > 0.01f)
-				state = string.Format("Health {0}/{1} · Shield {2}%", Mathf.CeilToInt(spectated.DisplayHealth), Mathf.CeilToInt(spectated.DisplayMaxHealth), Mathf.RoundToInt(spectated.ShieldFraction * 100f));
-			else state = string.Format("Health {0}/{1}", Mathf.CeilToInt(spectated.DisplayHealth), Mathf.CeilToInt(spectated.DisplayMaxHealth));
+				state = string.Format(Label("Health {0}/{1} · Shield {2}%"), Mathf.CeilToInt(spectated.DisplayHealth), Mathf.CeilToInt(spectated.DisplayMaxHealth), Mathf.RoundToInt(spectated.ShieldFraction * 100f));
+			else state = string.Format(Label("Health {0}/{1}"), Mathf.CeilToInt(spectated.DisplayHealth), Mathf.CeilToInt(spectated.DisplayMaxHealth));
 		}
-		string title = name != "" ? string.Format("Spectating: {0}", name) : "Spectating";
+		string title = name != "" ? string.Format(Label("Spectating: {0}"), name) : Label("Spectating");
 		if (spectateStatus != null)
 		{
 			currentPlayerName.text = title;

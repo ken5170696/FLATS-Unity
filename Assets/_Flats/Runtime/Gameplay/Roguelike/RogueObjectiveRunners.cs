@@ -147,7 +147,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
 
 public sealed class BreakoutRunner : RogueObjectiveRunner
 {
-    BreakoutObjective machine; GameObject ring, beacon; Vector3 exit; const float Radius = 6f; readonly HashSet<string> inside = new HashSet<string>();
+    BreakoutObjective machine; GameObject ring, beacon; Vector3 exit; const float Radius = 6f; bool called; readonly HashSet<string> inside = new HashSet<string>();
     readonly Dictionary<string, PlayerLife> lastLife = new Dictionary<string, PlayerLife>(); readonly Dictionary<string, bool> lastConnected = new Dictionary<string, bool>();
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
@@ -155,7 +155,8 @@ public sealed class BreakoutRunner : RogueObjectiveRunner
         ring = RogueWorld.Ring("ExtractionZone", exit, Radius, RogueWorld.Green);
         beacon = RogueWorld.Beacon("ExtractionBeacon", exit, RogueWorld.Green);
         RogueWaypoint.Attach(beacon, "Arrow", "Exit", RogueWorld.Green, 2.5f, 3);
-        if (c.IsAuthority) machine = new BreakoutObjective(c.State.ValidMembers());
+        // reaching the exit calls the extraction; the squad then holds the zone for a countdown (longer each chapter) under attack
+        if (c.IsAuthority) { machine = new BreakoutObjective(c.State.ValidMembers(), c.State.depth); c.SpawnRouteTarget = exit; }
     }
     public override void Tick(float dt)
     {
@@ -180,10 +181,36 @@ public sealed class BreakoutRunner : RogueObjectiveRunner
             if (at) { machine.OnPlayerReachedExit(p.key); inside.Add(p.key); } else if (inside.Remove(p.key)) machine.OnPlayerLeftExit(p.key);
         }
         machine.Tick(dt);
-        ProgressText = RoguelikeController.F("At the exit {0}/{1}", inside.Count, Controller.State.ConnectedPlayers) + (machine.Progress > 0 ? " " + Mathf.RoundToInt((float)machine.Progress * 100) + "%" : "");
+        if (machine.ExtractionCalled && !called) OnExtractionCalled();
+        if (!machine.ExtractionCalled) ProgressText = RoguelikeController.F("Reach the extraction point {0}/{1}", inside.Count, Mathf.Max(inside.Count, Needed()));
+        else
+        {
+            // segments: countdown, the pause reason, then the percent the HUD bar reads (the countdown pauses, it never resets)
+            string text = RoguelikeController.F("Hold the extraction {0}s", Mathf.CeilToInt((float)machine.RemainingSeconds));
+            if (machine.Paused) text += "  " + RoguelikeController.F(machine.PauseReason == "downed" ? "Paused: teammate down" : "Paused: everyone must be inside");
+            ProgressText = text + "  " + Mathf.RoundToInt((float)machine.Progress * 100) + "%";
+        }
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
     }
-    public override void Dispose() { RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon); }
+    // everyone still in the fight must stand in the zone (a downed teammate blocks the call until revived)
+    int Needed() { int n = 0; foreach (var p in Controller.State.players) if (p.connected && (p.life == PlayerLife.Alive || p.life == PlayerLife.Downed)) n++; return n; }
+    void OnExtractionCalled()
+    {
+        called = true;
+        Controller.Notify(new RogueEventMessage { kind = "banner", text = "Extraction called! Hold the zone for {0} s|" + Mathf.CeilToInt((float)machine.HoldSeconds), value = 3 });
+        // the hold is a fight: every later arrival comes from a ring around the exit; when the plan is nearly spent, a small bounded
+        // squad paid from the bonus pool (never the stage budget) tops the pressure up, within the concurrent cap
+        Controller.SpawnRouteTarget = null; Controller.SpawnAnchor = exit;
+        int alive = Controller.AliveEnemies;
+        int wanted = Mathf.Clamp(2 + Controller.State.ConnectedPlayers, 3, 6) - alive - Controller.UnreleasedEnemies;
+        wanted = Mathf.Min(wanted, Controller.State.encounter.concurrentCap - alive);
+        for (int i = 0; i < wanted; i++) Controller.SpawnExtraEnemy(i % 2 == 0 ? "role.rifleman" : "role.rusher", false, Controller.PickSpawnPosition());
+    }
+    public override void Dispose()
+    {
+        if (Controller != null) { Controller.SpawnAnchor = null; Controller.SpawnRouteTarget = null; }
+        RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon);
+    }
 }
 
 /// <summary>Finale: the commander (finale enemy) is invulnerable until its guard wave dies; then a 20 s window, up to three rounds.</summary>
@@ -206,7 +233,8 @@ public sealed class CommanderRunner : RogueObjectiveRunner
             if (machine.SpawnGuardWave) { machine.AcknowledgeGuardWave(); Vector3 near = commander != null ? commander.transform.position : Controller.PlanPoint(0); for (int i = 0; i < 4; i++) Controller.SpawnExtraEnemy(i % 2 == 0 ? "role.rifleman" : "role.rusher", false, near); }
         }
         if (commander != null && commander.gameObject == null) { machine.OnDamaged(99999); }
-        ProgressText = machine.Exposed ? RoguelikeController.F("Commander exposed! {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.F("Kill the guard ({0})", Mathf.Max(0, Controller.AliveEnemies - 1));
+        // the machine hears only of the kill, so the exposed line reads the commander's real damage (A12)
+        ProgressText = machine.Exposed ? RoguelikeController.F("Commander exposed! {0}%", RogueHooks.EnemyDamagePercent(commander)) : RoguelikeController.F("Kill the guard ({0})", Mathf.Max(0, Controller.AliveEnemies - 1));
         Succeeded = machine.Status == ObjectiveStatus.Succeeded || (commander == null && spawnedGuard && Controller.CommanderDead);
     }
     public override void OnEnemyKilled(RogueEnemyRole role) { if (role != null && role.RoleId == "role.finale") { spawnedGuard = true; if (machine != null) { machine.OnDamaged(99999); } } }
@@ -215,7 +243,7 @@ public sealed class CommanderRunner : RogueObjectiveRunner
 /// <summary>Finale: three power cells charged in order (hold Interact 4 s each) open 15 s windows on the vault core (finale enemy).</summary>
 public sealed class VaultRunner : RogueObjectiveRunner
 {
-    VaultObjective machine; RogueEnemyRole core; readonly GameObject[] cells = new GameObject[3]; readonly float[] charge = new float[3];
+    VaultObjective machine; RogueEnemyRole core; bool coreKilled; readonly GameObject[] cells = new GameObject[3]; readonly float[] charge = new float[3];
     readonly RogueHoldLedger ledger = new RogueHoldLedger(); const float CellRadius = 3.5f;
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
@@ -234,9 +262,10 @@ public sealed class VaultRunner : RogueObjectiveRunner
         if (core == null) core = Controller.FindFinaleEnemy();
         if (core != null) core.Invulnerable = !machine.Exposed;
         if (core != null || !machine.Exposed) machine.Tick(dt);   // a charged cell keeps the core exposed until it actually arrives with the last wave
-        else ProgressText = RoguelikeController.F("Vault core exposed! {0}%", 0);
-        ProgressText = machine.Exposed ? RoguelikeController.F("Vault core exposed! {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.F("Charge cell {0}/3", Mathf.Min(3, machine.CellsCharged + 1));
-        Succeeded = machine.Status == ObjectiveStatus.Succeeded;
+        ProgressText = machine.Exposed ? RoguelikeController.F("Vault core exposed! {0}%", RogueHooks.EnemyDamagePercent(core)) : RoguelikeController.F("Charge cell {0}/3", Mathf.Min(3, machine.CellsCharged + 1));
+        // the core can die outside a window (a shot racing the shield, a kill volume): the target is dead, so the finale is won (A2),
+        // as CommanderRunner does; the machine alone ignored that kill and the stage never ended
+        Succeeded = machine.Status == ObjectiveStatus.Succeeded || coreKilled;
     }
     public int CellsCharged { get { return machine != null ? machine.CellsCharged : -1; } }
     public override void OnCommand(RogueCommandMessage cmd)
@@ -265,7 +294,7 @@ public sealed class VaultRunner : RogueObjectiveRunner
         { var it = cells[e.index].GetComponent<RogueInteractable>(); if (it != null) it.Enabled = false; }   // a charged cell no longer offers a prompt
         if (e.index + 1 < 3 && cells[e.index + 1] != null) { var wp = cells[e.index + 1].GetComponent<RogueWaypoint>(); if (wp != null) wp.Priority = 3; }
     }
-    public override void OnEnemyKilled(RogueEnemyRole role) { if (role != null && role.RoleId == "role.finale" && machine != null) machine.OnDamaged(99999); }
+    public override void OnEnemyKilled(RogueEnemyRole role) { if (role != null && role.RoleId == "role.finale") { coreKilled = true; if (machine != null) machine.OnDamaged(99999); } }
     public override void Dispose() { foreach (var c in cells) RogueWorld.Destroy(c); }
 }
 
@@ -278,7 +307,9 @@ public sealed class ConvoyRunner : RogueObjectiveRunner
         start = c.PlanPoint(0); end = c.PlanPoint(1);
         carrier = RogueWorld.Cube("ConvoyCarrier", start, new Vector3(2.4f, 2f, 3.6f), RogueWorld.Pink2, true);
         RogueWaypoint.Attach(carrier, "Enemy", "Carrier", RogueWorld.Pink2, 2.4f, 3);
-        damageable = carrier.AddComponent<RogueDamageable>(); damageable.Invulnerable = true;
+        // only the authority gates hits on the flag (it re-checks forwarded hits in OnWorldHit); a guest copy that stayed shielded
+        // dropped every guest shot before it was forwarded, because nothing clears the flag on guests (A3)
+        damageable = carrier.AddComponent<RogueDamageable>(); damageable.Invulnerable = c.IsAuthority;
         damageable.OnHit = (dmg, shooter) => { if (machine != null && machine.OnDamaged(dmg)) { } };
         beacon = RogueWorld.Beacon("ConvoyExit", end, RogueWorld.Pink2);
         RogueWaypoint.Attach(beacon, "Warning", "Carrier exit", RogueWorld.Pink2, 2.5f, 1);

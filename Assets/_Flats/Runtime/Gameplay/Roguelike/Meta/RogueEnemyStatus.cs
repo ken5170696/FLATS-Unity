@@ -152,6 +152,9 @@ public sealed class RogueEnemyStatus : MonoBehaviour
     void LateUpdate()
     {
         if (!RoguelikeMode.Active) { ClearEffects(); return; }
+        // Die deactivates the body's children; the stun/slow icons are children too and UpdateIcon would switch them back on
+        var receiver = GetComponent<DamageReceiver>();
+        if (receiver != null && receiver.Dead) { ClearEffects(); return; }
         Freeze();
         if (Authority && agent != null && agent.enabled && agent.isOnNavMesh)
         {

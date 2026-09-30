@@ -50,7 +50,7 @@ namespace Flats.Core.Roguelike
                 default: required = id.StartsWith("ev.", StringComparison.Ordinal) || id.StartsWith("em.", StringComparison.Ordinal) ? new[] { "countdown" } : new string[0]; break;
             }
             foreach (var key in required) if (!next.ContainsKey(key)) throw new FormatException("快照缺少 " + key);
-            foreach (var key in new[] { "required", "initial", "maxhp", "rate", "threshold", "radius" }) if (next.ContainsKey(key) && double.Parse(next[key], CultureInfo.InvariantCulture) <= 0) throw new FormatException("快照參數必須大於零");
+            foreach (var key in new[] { "required", "initial", "maxhp", "rate", "threshold", "radius", "hold" }) if (next.ContainsKey(key) && double.Parse(next[key], CultureInfo.InvariantCulture) <= 0) throw new FormatException("快照參數必須大於零");
             Values = next;
         }
         internal static double NonNegative(double v) { if (double.IsNaN(v) || double.IsInfinity(v) || v < 0) throw new ArgumentOutOfRangeException("value"); return v; }
@@ -154,10 +154,33 @@ namespace Flats.Core.Roguelike
 
     public sealed class BreakoutObjective : ObjectiveMachine
     {
-        public BreakoutObjective(IEnumerable<string> players) : base("obj.breakout") { if (players == null) throw new ArgumentNullException("players"); foreach (string p in players) { if (string.IsNullOrEmpty(p)) throw new ArgumentException("playerKey"); Data.Put("player." + p, "alive"); } }
-        public void OnPlayerReachedExit(string key) { if (Status == ObjectiveStatus.Active && Data.Text("player." + key) == "alive") Data.Put("exit." + key, 1); }
-        public void OnPlayerLeftExit(string key) { if (Status != ObjectiveStatus.Active) return; Data.Put("exit." + key, 0); Progress = 0; }
-        private void SetPlayer(string key, string value) { if (Status != ObjectiveStatus.Active || !Data.Values.ContainsKey("player." + key)) return; Data.Put("player." + key, value); Data.Put("exit." + key, 0); Progress = 0; }
+        public static double HoldSecondsForDepth(int depth) { return Math.Min(45, 25 + 5 * (RogueDepth.ChapterOf(depth) - 1)); }
+        public double HoldSeconds { get { return Data.Number("hold", 25); } }
+        public bool ExtractionCalled { get { return Data.Number("called") == 1; } }
+        public double RemainingSeconds { get { return HoldSeconds * (1 - Progress); } }
+        public string PauseReason
+        {
+            get
+            {
+                if (Status != ObjectiveStatus.Active) return "";
+                var members = Data.Values.Where(p => p.Key.StartsWith("player.", StringComparison.Ordinal)).ToArray();
+                if (members.Any(p => p.Value == "downed")) return "downed";
+                var alive = members.Where(p => p.Value == "alive").ToArray();
+                return alive.Length == 0 || alive.Any(p => Data.Number("exit." + p.Key.Substring(7)) != 1) ? "outside" : "";
+            }
+        }
+        public bool Paused { get { return ExtractionCalled && PauseReason.Length > 0; } }
+        public BreakoutObjective(IEnumerable<string> players, int depth = 1) : base("obj.breakout")
+        {
+            if (players == null) throw new ArgumentNullException("players");
+            Data.Put("hold", HoldSecondsForDepth(depth));
+            foreach (string p in players) { if (string.IsNullOrEmpty(p)) throw new ArgumentException("playerKey"); Data.Put("player." + p, "alive"); }
+
+        }
+        private void TryCall() { if (Status == ObjectiveStatus.Active && PauseReason.Length == 0) Data.Put("called", 1); }
+        public void OnPlayerReachedExit(string key) { if (Status == ObjectiveStatus.Active && Data.Text("player." + key) == "alive") { Data.Put("exit." + key, 1); TryCall(); } }
+        public void OnPlayerLeftExit(string key) { if (Status == ObjectiveStatus.Active && Data.Values.ContainsKey("player." + key)) Data.Put("exit." + key, 0); }
+        private void SetPlayer(string key, string value) { if (Status != ObjectiveStatus.Active || !Data.Values.ContainsKey("player." + key)) return; Data.Put("player." + key, value); Data.Put("exit." + key, 0); TryCall(); }
         public void OnPlayerDowned(string key) { SetPlayer(key, "downed"); }
         public void OnPlayerRescued(string key) { SetPlayer(key, "alive"); }
         public void OnPlayerDied(string key) { SetPlayer(key, "dead"); }
@@ -165,14 +188,11 @@ namespace Flats.Core.Roguelike
         public override void Tick(double dt)
         {
             base.Tick(dt); if (Status != ObjectiveStatus.Active) return;
-            var members = Data.Values.Where(p => p.Key.StartsWith("player.", StringComparison.Ordinal)).ToArray();
-            var alive = members.Where(p => p.Value == "alive").ToArray();
-            // 倒地者不需要到撤離點，但必須先被救起或死亡，避免把仍待救援者直接遺棄。
-            if (alive.Length == 0 || members.Any(p => p.Value == "downed") || alive.Any(p => Data.Number("exit." + p.Key.Substring(7)) != 1)) { Progress = 0; return; }
-            Progress += dt / 3; if (Progress >= 1) Status = ObjectiveStatus.Succeeded;
+            TryCall();
+            if (!ExtractionCalled || Paused) return;
+            Progress += dt / HoldSeconds; if (Progress >= 1) Status = ObjectiveStatus.Succeeded;
         }
     }
-
     public sealed class CommanderObjective : ObjectiveMachine
     {
         public CommanderObjective(double hp = 1000) : base("fin.commander") { Data.Put("hp", RogueStateBag.Positive(hp)); Data.Put("maxhp", hp); }

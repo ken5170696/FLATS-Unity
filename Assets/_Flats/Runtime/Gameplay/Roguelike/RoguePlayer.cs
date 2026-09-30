@@ -132,6 +132,7 @@ public class RoguePlayer : MonoBehaviour
     {
         if (Downed) return 0f;
         if (Invincible) return 0f;
+        if (!(damage > 0f)) return 0f;   // a blast's far edge (or NaN) is no hit: it must never heal nor recharge the tactical shield
         if (Time.time < assaultBuffUntil) damage *= 1f - (float)Stats.AssaultKillReduction;
         damage *= (float)Stats.DamageTakenMul;
         { var meta = RogueMetaRuntime.Of(this); if (meta != null) damage = meta.IncomingDamage(damage); }
@@ -367,13 +368,15 @@ public class RoguePlayer : MonoBehaviour
 
     void Update()
     {
+        // every copy of this player runs the ultimate (RoguelikeController.OnUltimateConfirmed), so every copy must end it: a guest's
+        // Lethal Shot and enemy outlines used to stay on forever on the host because the expiry sat behind the owner-only return
+        if (ultimateActive != "" && Time.time >= ultimateUntil) EndUltimate();
         if (isMine) { SendVitals(); ReportOvershield(); }
         if (!isMine) { SyncWaypoint(); if (receiver != null && receiver.hitPoints > observedMaxHealth) observedMaxHealth = receiver.hitPoints; }   // teammates' copies carry the revive marker; my own is never shown
         if (!isMine || controller == null) return;
         // a shot, reload or weapon change already under way when the player went down re-enables fire when it ends;
         // this runs before FPSController (order 50) every frame, so a downed player never fires, reloads or switches
         if (Downed && controller.enableFire) controller.enableFire = false;
-        if (ultimateActive != "" && Time.time >= ultimateUntil) EndUltimate();
         var cc = GetComponent<CharacterController>();
         // CharacterController.isGrounded flickers on stairs and slopes: only a real jump or fall (airborne 0.25 s) arms momentum
         if (cc != null && cc.isGrounded) { if (wasAirborne && Time.time - airborneSince >= 0.25f) ArmMomentum(); wasAirborne = false; OnLanded(); }
@@ -415,13 +418,14 @@ public class RoguePlayer : MonoBehaviour
         ultimateActive = id;
         ultimateUntil = Time.time + duration; ultimateDuration = duration;
         var ctrl = RoguelikeController.Instance;
-        if (ctrl != null) ctrl.Banner(RoguelikeController.ItemName(id) + "!", 2f);
-        if (id == "ult.enemy_sight") RogueEnemyRole.SetOutlines(true, transform.position, 80f);
+        if (ctrl != null && isMine) ctrl.Banner(RoguelikeController.ItemName(id) + "!", 2f);   // every copy runs the effect; only its owner gets the banner
+        // outlines are keyed by this player, so one player's Enemy Sight ending never clears another's
+        if (id == "ult.enemy_sight") RogueEnemyRole.SetOutlines(this, true, transform.position, 80f);
     }
 
     void EndUltimate()
     {
-        if (ultimateActive == "ult.enemy_sight") RogueEnemyRole.SetOutlines(false, Vector3.zero, 0);
+        if (ultimateActive == "ult.enemy_sight") RogueEnemyRole.SetOutlines(this, false, Vector3.zero, 0);
         ultimateActive = "";
     }
 
@@ -620,6 +624,6 @@ public class RoguePlayer : MonoBehaviour
 
     void OnDestroy()
     {
-        if (ultimateActive == "ult.enemy_sight") RogueEnemyRole.SetOutlines(false, Vector3.zero, 0);
+        if (ultimateActive == "ult.enemy_sight") RogueEnemyRole.SetOutlines(this, false, Vector3.zero, 0);
     }
 }

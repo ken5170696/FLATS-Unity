@@ -15,11 +15,19 @@ public class RogueEnemyRole : MonoBehaviour
     public EnemyRoleDef Def { get; private set; }
 
     static readonly List<RogueEnemyRole> all = new List<RogueEnemyRole>();
-    static bool outlinesOn; static Vector3 outlineOrigin; static float outlineRange;
+    // Enemy Sight sources by owner (the RoguePlayer copy running the ultimate): overlapping ultimates each keep their own area, and one
+    // ending never switches off another that is still running
+    struct OutlineSource { public Vector3 origin; public float range; }
+    static readonly Dictionary<object, OutlineSource> outlineSources = new Dictionary<object, OutlineSource>();
+    static readonly object legacyOutlineOwner = new object();
+    static bool outlinesOn { get { return outlineSources.Count > 0; } }
 
     GameObject marker, outline, markVisual;
     AI ai;
+    DamageReceiver receiver;
     bool applied;
+    /// <summary>True from the first frame of DamageReceiver.Die on this copy: a dying enemy keeps no aura, jammer field or outline.</summary>
+    public bool Dead { get { if (receiver == null) receiver = GetComponent<DamageReceiver>(); return receiver != null && receiver.Dead; } }
     [System.NonSerialized] public float lastHitDamage;
     bool invulnerable;
     /// <summary>Set by objective runners on the authority; replicated to every client so local hit resolution agrees.</summary>
@@ -78,6 +86,14 @@ public class RogueEnemyRole : MonoBehaviour
 
     void Update()
     {
+        if (Dead)
+        {
+            // death started: leave the live list (jammer fields, outlines) at once instead of when the body is removed 5 s later
+            all.Remove(this);
+            if (markVisual != null) markVisual.SetActive(false);
+            if (outline != null) { Destroy(outline); outline = null; }
+            return;
+        }
         if (markVisual != null && markVisual.activeSelf && !Marked) markVisual.SetActive(false);
         if (ai != null)
         {
@@ -133,17 +149,27 @@ public class RogueEnemyRole : MonoBehaviour
     public float ModifyIncomingDamage(float damage, Transform shooter)
     {
         if (Invulnerable) return 0f;
-        if (Marked) damage *= 1.12f;
+        if (Marked) damage *= MarkDamageMul();
         if (Def == null || Def.FrontReduction <= 0 || shooter == null) return damage;
         Vector3 toShooter = shooter.position - transform.position; toShooter.y = 0;
         if (Vector3.Angle(transform.forward, toShooter) <= 60f) return damage * (1f - (float)Def.FrontReduction);
         return damage;
     }
 
-    /// <summary>Jammers stop ultimate charge for players within range while alive.</summary>
+    /// <summary>The marking player's Marker tier (1.12 / 1.16 / 1.2, RogueTiers core.marker); Angle Finder marks use tier 1.
+    /// A copy whose marker stats are not known yet uses tier 1 rather than none.</summary>
+    float MarkDamageMul()
+    {
+        var by = MarkedBy;
+        var stats = by != null ? by.Stats : null;
+        return stats != null && stats.MarkDamageMul > 1 ? (float)stats.MarkDamageMul : MarkerTier1DamageMul;
+    }
+    static readonly float MarkerTier1DamageMul = (float)RogueTiers.Value("core.marker", 1, 0);
+
+    /// <summary>Jammers stop ultimate charge for players within range while alive (a dying jammer stops jamming at once).</summary>
     public static bool JammedAt(Vector3 position)
     {
-        foreach (var r in all) if (r != null && r.RoleId == "role.jammer" && Vector3.Distance(r.transform.position, position) < 30f) return true;
+        foreach (var r in all) if (r != null && r.RoleId == "role.jammer" && !r.Dead && Vector3.Distance(r.transform.position, position) < 30f) return true;
         return false;
     }
 
@@ -176,11 +202,19 @@ public class RogueEnemyRole : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- enemy sight outlines (real spawned enemies only)
-    public static void SetOutlines(bool on, Vector3 origin, float range)
+    public static void SetOutlines(bool on, Vector3 origin, float range) { SetOutlines(legacyOutlineOwner, on, origin, range); }
+
+    /// <summary>Starts (on) or ends (off) the Enemy Sight area owned by <paramref name="owner"/>; outlines stay while any owner's area covers an enemy.</summary>
+    public static void SetOutlines(object owner, bool on, Vector3 origin, float range)
     {
-        outlinesOn = on; outlineOrigin = origin; outlineRange = range;
+        if (owner == null) owner = legacyOutlineOwner;
+        if (on) outlineSources[owner] = new OutlineSource { origin = origin, range = range };
+        else outlineSources.Remove(owner);
         foreach (var r in all) if (r != null) r.RefreshOutline();
     }
+
+    /// <summary>Session reset: no Enemy Sight area survives a run.</summary>
+    public static void ClearOutlines() { outlineSources.Clear(); foreach (var r in all) if (r != null) r.RefreshOutline(); }
 
     void LateUpdate()
     {
@@ -189,7 +223,9 @@ public class RogueEnemyRole : MonoBehaviour
 
     void RefreshOutline()
     {
-        bool show = outlinesOn && Vector3.Distance(transform.position, outlineOrigin) <= outlineRange;
+        bool show = false;
+        if (outlinesOn && !Dead)
+            foreach (var source in outlineSources.Values) if (Vector3.Distance(transform.position, source.origin) <= source.range) { show = true; break; }
         if (show && outline == null)
         {
             outline = new GameObject("SightOutline");

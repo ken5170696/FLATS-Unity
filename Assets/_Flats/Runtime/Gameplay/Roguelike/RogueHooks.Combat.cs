@@ -22,6 +22,7 @@ public static partial class RogueHooks
         // direct hits mark only with the Marker core; ricochets mark only with Angle Finder (which alone must not turn every
         // direct hit into a team-wide mark)
         bool ricochet = bullet.rogueKind == (int)DamageKind.Ricochet;
+        if (role != null && Controller != null) Controller.OnMarkedEnemyHit(role, rp);   // Team Radio credits the current marker before a re-mark (authority only)
         if (rp.Stats.MarkDuration > 0 && role != null && (ricochet ? rp.Build.HasMod("mod.angle_finder") : rp.Build.HasCore("core.marker")))
             role.Mark(Time.time + (float)rp.Stats.MarkDuration, rp);
         if (bullet.rogueKind != (int)DamageKind.Direct) return;   // derived hits never trigger more effects of the same family beyond the rules below
@@ -141,6 +142,9 @@ public static partial class RogueHooks
     }
 
     // ---------------------------------------------------------------- world modifiers read by legacy code
+    /// <summary>Gravity multiplier for the falling part of a Roguelike airborne arc (see FPSController); jumps rise unchanged.</summary>
+    public const float FallGravityMul = 2f;
+
     public static float GravityScale(FPSController player)
     {
         if (!RoguelikeMode.Active || RoguelikeController.Instance == null) return 1f;

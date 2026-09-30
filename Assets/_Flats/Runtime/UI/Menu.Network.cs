@@ -654,7 +654,7 @@ public partial class Menu
 					gameObject.transform.SetAsFirstSibling();
 				}
 			}
-			if (rule == RoguelikeMode.CoopRule)
+			if (rule == RoguelikeMode.CoopRule || RogueRoomActive)
 			{
 				// Roguelike co-op: per-player ready (RDY), no automatic start when the room is full.
 				roomStartSent = false;
@@ -716,9 +716,10 @@ public partial class Menu
 			{
 				gameObject.transform.SetAsFirstSibling();
 			}
-			if (rule == RoguelikeMode.CoopRule)
+			if (rule == RoguelikeMode.CoopRule || RogueRoomActive)
 			{
-				// Roguelike co-op: the newcomer starts not ready; no full-room start and no master hand-off.
+				// Roguelike co-op: the newcomer starts not ready; no full-room start and no master hand-off, so the room creator
+				// stays the run authority (Heat, spawns) until it leaves (X003). The room property decides, not only the local rule.
 				RefreshRogueRoom();
 				return;
 			}

@@ -56,6 +56,18 @@ public class Bullet : MonoBehaviour
 
 	private bool grenadeHit;
 
+	// OnCollisionEnter explodes a launcher round at once while the Start loop can see grenadeHit in the same frame: one blast only.
+	private bool exploded;
+
+	// Enemy rounds that strike a head: the gun's headshot bonus, capped low. Player guns run 1.2x-5x and a player head hit on an
+	// enemy is an instant kill; a bot sniper at 5x would erase a full-health player, so a bot's head hit is a sting, not a one-shot.
+	public const float EnemyHeadshotMulCap = 1.5f;
+
+	// World geometry that shields from a blast. Characters (team layers), bullets, corpses (BulletOnly) and breakable windows
+	// (Glass, which a blast shatters) do not; the same mask RogueHooks.Combat uses for kill-explosion and chain line of sight.
+	private static int explosionBlockMask = -1;
+	private static int ExplosionBlockMask { get { if (explosionBlockMask < 0) explosionBlockMask = LayerMask.GetMask("Default"); return explosionBlockMask; } }
+
 	private void Awake()
 	{
 		mt = base.transform;
@@ -97,44 +109,23 @@ public class Bullet : MonoBehaviour
 		{
 			while (true)
 			{
+				if (exploded)
+				{
+					yield break;
+				}
 				if (grenadeHit)
 				{
 					if (hand)
 					{
 						yield return new WaitForSeconds(0.5f);
 					}
-					base.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
-					Vector3 explosionPos = base.transform.position;
-					Collider[] colliders = Physics.OverlapSphere(layerMask: (LayerMask)((1 << LayerMask.NameToLayer("RedTeam")) + (1 << LayerMask.NameToLayer("BlueTeam"))), position: explosionPos, radius: radius);
-					GameObject he = UnityEngine.Object.Instantiate(grenadeHitEffect, explosionPos, Quaternion.identity) as GameObject;
-					he.GetComponent<ParticleSystem>().startColor = shooter.GetChild(0).GetComponent<Renderer>().material.color;
-					Collider[] array = colliders;
-					foreach (Collider collider in array)
-					{
-						if (Physics.Linecast(explosionPos, collider.transform.position + Vector3.up, 0))
-						{
-							continue;
-						}
-						DamageReceiver damageReceiver = ((!(collider.gameObject.name == "CameraTarget")) ? collider.gameObject.GetComponent<DamageReceiver>() : collider.transform.parent.parent.parent.parent.parent.parent.gameObject.GetComponent<DamageReceiver>());
-						if ((bool)damageReceiver)
-						{
-							float num = damage * (1f + (float)Menu.myCharacter.attack * 0.1f) - Vector3.Distance(explosionPos, collider.transform.position) * dist;
-							if (collider.gameObject.layer != shooter.gameObject.layer || (FlatsOfflineScores.FreeForAll && collider.transform.root != shooter.root))
-							{
-								damageReceiver.ApplyDamage(num, 0, shooter);
-                                if (RoguelikeMode.Active && num > 0 && !damageReceiver.userIsPlayer) RogueRangedStatus.OnHit(this, damageReceiver, false);
-							}
-						}
-					}
-					UnityEngine.Object.Destroy(base.gameObject);
+					Explode(base.transform.position, base.transform.position);
+					yield break;
 				}
-				else
+				waitTime -= Time.deltaTime;
+				if (waitTime < 0f)
 				{
-					waitTime -= Time.deltaTime;
-					if (waitTime < 0f)
-					{
-						break;
-					}
+					break;
 				}
 				yield return new WaitForSeconds(0f);
 			}
@@ -143,37 +134,70 @@ public class Bullet : MonoBehaviour
 		{
 			yield break;
 		}
-		base.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
-		Vector3 position = base.transform.position;
-		LayerMask layerMask = (1 << LayerMask.NameToLayer("RedTeam")) + (1 << LayerMask.NameToLayer("BlueTeam"));
-		Collider[] array2 = Physics.OverlapSphere(position, radius, layerMask);
-		GameObject gameObject = UnityEngine.Object.Instantiate(grenadeHitEffect, position, Quaternion.identity) as GameObject;
-		gameObject.GetComponent<ParticleSystem>().startColor = shooter.GetChild(0).GetComponent<Renderer>().material.color;
-		Collider[] array3 = array2;
-		foreach (Collider collider2 in array3)
+		Explode(base.transform.position, base.transform.position);
+	}
+
+	/// <summary>The one blast of a grenade (hand grenade timer, launcher round on impact). Every DamageReceiver in range with a clear
+	/// line through world geometry to one of its colliders takes the damage once, falling off with the distance to its nearest such
+	/// collider and never below zero. The thrower's attack is already in <see cref="damage"/> (FPSController and AI fire code), so
+	/// it is not applied again here: the old blast multiplied by the local Menu.myCharacter.attack, which counted a player's attack
+	/// twice and gave enemy grenades the victim machine's attack instead of the thrower's replicated stat tier.</summary>
+	private void Explode(Vector3 center, Vector3 sightFrom)
+	{
+		if (exploded)
 		{
-			if (Physics.Linecast(position, collider2.transform.position + Vector3.up, 0))
-			{
-				continue;
-			}
-			DamageReceiver damageReceiver2 = ((!(collider2.gameObject.name == "CameraTarget")) ? collider2.gameObject.GetComponent<DamageReceiver>() : collider2.transform.parent.parent.parent.parent.parent.parent.gameObject.GetComponent<DamageReceiver>());
-			if ((bool)damageReceiver2)
-			{
-				float num2 = damage * (1f + (float)Menu.myCharacter.attack * 0.1f) - Vector3.Distance(position, collider2.transform.position) * dist;
-				if (collider2.gameObject.layer != shooter.gameObject.layer || (FlatsOfflineScores.FreeForAll && collider2.transform.root != shooter.root))
-				{
-					damageReceiver2.ApplyDamage(num2, 0, shooter);
-                    if (RoguelikeMode.Active && num2 > 0 && !damageReceiver2.userIsPlayer) RogueRangedStatus.OnHit(this, damageReceiver2, false);
-				}
-			}
+			return;
+		}
+		exploded = true;
+		var body = base.GetComponent<Rigidbody>();
+		if (body != null) body.linearVelocity = Vector3.zero;
+		if (shooter == null)
+		{
+			UnityEngine.Object.Destroy(base.gameObject);
+			return;
+		}
+		GameObject effect = UnityEngine.Object.Instantiate(grenadeHitEffect, center, Quaternion.identity) as GameObject;
+		if (effect != null) effect.GetComponent<ParticleSystem>().startColor = shooter.GetChild(0).GetComponent<Renderer>().material.color;
+		LayerMask teams = (1 << LayerMask.NameToLayer("RedTeam")) + (1 << LayerMask.NameToLayer("BlueTeam"));
+		var nearest = new System.Collections.Generic.Dictionary<DamageReceiver, float>();
+		foreach (Collider collider in Physics.OverlapSphere(center, radius, teams))
+		{
+			if (collider == null) continue;
+			DamageReceiver receiver = collider.gameObject.name == "CameraTarget" ? collider.GetComponentInParent<DamageReceiver>() : collider.gameObject.GetComponent<DamageReceiver>();
+			if (receiver == null || receiver.Dead) continue;
+			if (collider.gameObject.layer == shooter.gameObject.layer && !(FlatsOfflineScores.FreeForAll && collider.transform.root != shooter.root)) continue;
+			// the victim's own parts never shield it; anything else on the world mask does
+			RaycastHit wall;
+			if (Physics.Linecast(sightFrom, collider.bounds.center, out wall, ExplosionBlockMask, QueryTriggerInteraction.Ignore) && wall.collider != null && wall.collider.transform.root != collider.transform.root) continue;
+			float distance = Vector3.Distance(center, collider.transform.position);
+			float known;
+			if (!nearest.TryGetValue(receiver, out known) || distance < known) nearest[receiver] = distance;
+		}
+		foreach (var pair in nearest)
+		{
+			if (pair.Key == null) continue;
+			float amount = damage - pair.Value * dist;
+			if (!(amount > 0f)) continue;   // the edge of the blast deals nothing; a negative amount used to heal
+			pair.Key.ApplyDamage(amount, 0, shooter);
+			if (RoguelikeMode.Active && !pair.Key.userIsPlayer) RogueRangedStatus.OnHit(this, pair.Key, false);
 		}
 		UnityEngine.Object.Destroy(base.gameObject);
+	}
+
+	/// <summary>Headshot multiplier for an AI round (the shooter's current gun, capped at <see cref="EnemyHeadshotMulCap"/>).</summary>
+	private float EnemyHeadshotMul()
+	{
+		AI ai = shooter != null ? shooter.GetComponent<AI>() : null;
+		Gun gun = ai != null && ai.primaryWeapon != null ? ai.primaryWeapon.GetComponent<Gun>() : null;
+		// a round still in flight after its shooter died: the lowest bonus any gun has
+		return gun != null ? Mathf.Clamp(gun.headshotBonus, 1f, EnemyHeadshotMulCap) : 1.2f;
 	}
 
 	private void OnCollisionEnter(Collision col)
 	{
         // A shooter's controller may already be removed by the death sequence.
         if (shooter == null) { UnityEngine.Object.Destroy(gameObject); return; }
+        if (exploded) return;   // a grenade that already went off only waits for its Destroy
         if (col.transform.root == shooter.root) return;
         FPSController playerShooter = shooter.GetComponent<FPSController>();
 		if (trail != null)
@@ -217,15 +241,23 @@ public class Bullet : MonoBehaviour
 				{
 					col.transform.root.GetComponent<Collider>().BroadcastMessage("EnemyDirection", vector, SendMessageOptions.DontRequireReceiver);
 				}
-				DamageReceiver component = col.gameObject.GetComponent<DamageReceiver>();
+				// an AI round on a head collider (CameraTarget carries no DamageReceiver): the character above it takes a moderate
+				// head hit, never the instant-kill flag. It goes through ApplyBulletDamage like a body hit, so the victim-owner rules
+				// (NetworkDamage to the owner in Classic multiplayer; the owner's copy in co-op) and the Roguelike player intake
+				// (downed, shields, damage taken) apply unchanged.
+				bool aiHead = col.gameObject.name == "CameraTarget";   // a player's head hit takes the branch below
+				DamageReceiver component = aiHead ? col.collider.GetComponentInParent<DamageReceiver>() : col.gameObject.GetComponent<DamageReceiver>();
 				if ((bool)component)
 				{
+					float aiHeadMul = aiHead ? EnemyHeadshotMul() : 1f;
 					bool rogueHead = RoguelikeMode.Active && rogueForceHeadshot && rogueKind == 0 && playerShooter != null && !component.userIsPlayer;   // Fresh Magazine: counts as a headshot
 					if (rogueHead && playerShooter.primaryWeapon != null) damage *= Mathf.Min(playerShooter.primaryWeapon.GetComponent<Gun>().headshotBonus, (float)Flats.Core.Roguelike.BuildStats.FreshMagazineMaxMul);   // capped forced headshot
 					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) { damage *= RogueHooks.HitDamageMul(this, rogueHead, contactPoint.point); damage *= RogueHooks.MetaHitMul(this, component, rogueHead, contactPoint.point, damage); damage = RogueHooks.MetaExecute(this, component, damage, rogueHead); }
 					if (RoguelikeMode.Active && damage > 0f && (Menu.network == 0 || (shooter != null && shooter.GetComponent<PhotonView>() != null && shooter.GetComponent<PhotonView>().isMine)))
 						component.RogueReactToHit(shooter, rogueHead);
-					component.ApplyBulletDamage(damage, rogueKind != 0 ? -1 : (rogueHead && (component.hitPoints - damage <= 0f || RoguelikeMode.Coop) && component.gameObject.tag == "Enemy" ? 1 : 0), shooter);
+					// Roguelike (solo and co-op): a head hit always reports the flag and the receiver decides lethality from the damage
+					// after mitigation (shield front, Guardian last stand, invulnerable cores); raw damage used to kill through them in solo
+					component.ApplyBulletDamage(damage * aiHeadMul, rogueKind != 0 ? -1 : (rogueHead && (component.hitPoints - damage <= 0f || RoguelikeMode.Active) && component.gameObject.tag == "Enemy" ? 1 : 0), shooter);
 					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) { RogueHooks.OnBulletHitEnemy(this, component, damage, rogueHead); RogueHooks.TryPenetrate(this, col); }
 				}
 				else if (col.gameObject.name == "PhaseSkipper")
@@ -259,8 +291,9 @@ public class Bullet : MonoBehaviour
 					bool derived = rogueKind != 0;
 					if (RoguelikeMode.Active && damage > 0f && (Menu.network == 0 || (shooter != null && shooter.GetComponent<PhotonView>() != null && shooter.GetComponent<PhotonView>().isMine)))
 						component2.RogueReactToHit(shooter, !derived);
-					// co-op roguelike: the flag only reports the hit part; the master decides lethality from its own hit points
-					if ((component2.hitPoints - damage <= 0f || RoguelikeMode.Coop) && gameObject2.tag == "Enemy" && !derived)
+					// roguelike (solo and co-op): the flag only reports the hit part; the receiver (the master in co-op) decides lethality
+					// from its own hit points after mitigation. Classic keeps the instant kill when the raw damage is lethal.
+					if ((component2.hitPoints - damage <= 0f || RoguelikeMode.Active) && gameObject2.tag == "Enemy" && !derived)
 					{
 						component2.ApplyBulletDamage(damage, 1, shooter);
 					}
@@ -284,31 +317,8 @@ public class Bullet : MonoBehaviour
 			{
 				return;
 			}
-			base.GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
-			Vector3 position = base.transform.position;
-			LayerMask layerMask = (1 << LayerMask.NameToLayer("RedTeam")) + (1 << LayerMask.NameToLayer("BlueTeam"));
-			Collider[] array = Physics.OverlapSphere(contactPoint.point, radius, layerMask);
-			GameObject gameObject4 = UnityEngine.Object.Instantiate(grenadeHitEffect, contactPoint.point, Quaternion.identity) as GameObject;
-			gameObject4.GetComponent<ParticleSystem>().startColor = shooter.GetChild(0).GetComponent<Renderer>().material.color;
-			Collider[] array2 = array;
-			foreach (Collider collider in array2)
-			{
-				if (Physics.Linecast(contactPoint.point, collider.transform.position + Vector3.up, 0))
-				{
-					continue;
-				}
-				DamageReceiver damageReceiver = ((!(collider.gameObject.name == "CameraTarget")) ? collider.gameObject.GetComponent<DamageReceiver>() : collider.transform.parent.parent.parent.parent.parent.parent.gameObject.GetComponent<DamageReceiver>());
-				if ((bool)damageReceiver)
-				{
-					float num = damage * (1f + (float)Menu.myCharacter.attack * 0.1f) - Vector3.Distance(position, collider.transform.position) * dist;
-					if (collider.gameObject.layer != shooter.gameObject.layer)
-					{
-						damageReceiver.ApplyDamage(num, 0, shooter);
-                        if (RoguelikeMode.Active && num > 0 && !damageReceiver.userIsPlayer) RogueRangedStatus.OnHit(this, damageReceiver, false);
-					}
-				}
-			}
-			UnityEngine.Object.Destroy(base.gameObject);
+			// the contact normal points away from the struck surface: sight lines start just off it, not inside the wall
+			Explode(contactPoint.point, contactPoint.point + contactPoint.normal * 0.25f);
 		}
 	}
 

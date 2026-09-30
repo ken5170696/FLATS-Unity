@@ -26,6 +26,19 @@ namespace Flats.Core.Roguelike
     }
     public static class RogueSimulation
     {
+        /// <summary>Controlled estimate, not runtime telemetry. releasedKillFraction is the regular
+        /// bounty weight actually killed; cancellation applies to the remainder, not to extra enemies.</summary>
+        public static double EstimatedIncomeCoins(int depth, int difficulty, string objectiveId,
+            double releasedKillFraction, double headshotRate = .5, double eventFraction = .1, bool compensate = true)
+        {
+            RogueStateBag.Unit(releasedKillFraction); RogueStateBag.Unit(headshotRate); RogueStateBag.Unit(eventFraction);
+            var def = RogueCatalog.Encounter(objectiveId);
+            if (def == null) throw new ArgumentException("objectiveId");
+            double g = RogueDepth.BudgetCoins(depth, difficulty);
+            double compensation = compensate && objectiveId.StartsWith("obj.", StringComparison.Ordinal) && objectiveId != "obj.clear"
+                ? Math.Min(releasedKillFraction, .8 * (1 - releasedKillFraction)) : 0;
+            return g * (releasedKillFraction * (1 + headshotRate * .5) + def.RewardFraction + eventFraction + compensation);
+        }
         public static SimulationResult Run(long seed, int players, int difficulty, int stages = 20, double headshotRate = .5, double eventSuccessRate = .75, int rescuePerStage = 0, double consumableSpendFraction = .2, string buildStrategy = "balanced", int startDepth = 1)
         {
             if (players < 1 || players > 4 || stages < 1 || stages > 10000 || startDepth < 1 || startDepth > 1000000 || rescuePerStage < 0) throw new ArgumentOutOfRangeException();

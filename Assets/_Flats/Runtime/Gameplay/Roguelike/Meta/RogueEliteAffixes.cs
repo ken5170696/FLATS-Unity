@@ -40,6 +40,14 @@ public sealed class RogueEliteAffixes : MonoBehaviour
 
     bool Has(string id) { return EliteAffixes.Has(Affixes, id); }
 
+    /// <summary>An elite projects its affixes only while alive: the Die RPC sets Dead on every copy at once, while hitPoints can still
+    /// be positive on a copy that did not resolve the killing hit (co-op hits resolve on the shooter's client).</summary>
+    static bool Alive(RogueEliteAffixes a)
+    {
+        var dr = a.GetComponent<DamageReceiver>();
+        return dr != null && !dr.Dead && dr.hitPoints > 0;
+    }
+
     // ------------------------------------------------------------------ damage to players
     /// <summary>A hit from <paramref name="shooter"/> on a player (runs on the player's owner, where the legacy code resolves it).</summary>
     public static float OnHitPlayer(Transform shooter, DamageReceiver player, float damage)
@@ -74,7 +82,7 @@ public sealed class RogueEliteAffixes : MonoBehaviour
         var auraDef = EliteAffixes.Def("af.shield_aura");
         foreach (var other in live)
         {
-            if (other == null || other.gameObject == enemy.gameObject || !other.Has("af.shield_aura")) continue;
+            if (other == null || other.gameObject == enemy.gameObject || !other.Has("af.shield_aura") || !Alive(other)) continue;
             if (Vector3.Distance(other.transform.position, enemy.transform.position) <= auraDef.V2) return false;
         }
         return true;
@@ -89,9 +97,7 @@ public sealed class RogueEliteAffixes : MonoBehaviour
         var auraDef = EliteAffixes.Def("af.shield_aura");
         foreach (var other in live)
         {
-            if (other == null || other.gameObject == enemy.gameObject || !other.Has("af.shield_aura")) continue;
-            var dr = other.GetComponent<DamageReceiver>();
-            if (dr == null || dr.hitPoints <= 0) continue;
+            if (other == null || other.gameObject == enemy.gameObject || !other.Has("af.shield_aura") || !Alive(other)) continue;
             if (Vector3.Distance(other.transform.position, enemy.transform.position) <= auraDef.V2) { aura = true; break; }
         }
         damage *= (float)EliteAffixes.AuraMul(aura);
@@ -114,9 +120,7 @@ public sealed class RogueEliteAffixes : MonoBehaviour
     {
         foreach (var a in live)
         {
-            if (a == null || !a.Has("af.berserker")) continue;
-            var dr = a.GetComponent<DamageReceiver>();
-            if (dr == null || dr.hitPoints <= 0) continue;
+            if (a == null || !a.Has("af.berserker") || !Alive(a)) continue;
             if (Vector3.Distance(a.transform.position, where) > EliteAffixes.BerserkerRange) continue;
             a.enragedUntil = Time.time + (float)EliteAffixes.Def("af.berserker").V3;
         }

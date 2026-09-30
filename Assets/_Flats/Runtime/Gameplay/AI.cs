@@ -124,6 +124,14 @@ public class AI : MonoBehaviour
 	[System.NonSerialized] public int rogueInstance;
 	[System.NonSerialized] public int rogueElite;
 
+	// Attack and Search reach every copy as RPCs, and Photon starts an RPC's IEnumerator with StartCoroutine(IEnumerator), which
+	// StopCoroutine("Attack") cannot stop (X004): the loops stacked and fired extra shots. They are owned here by handle instead;
+	// every entry point goes through BeginAttack/BeginSearch, so at most one of each runs.
+	private Coroutine attackRoutine;
+	private Coroutine searchRoutine;
+	private bool attackRunning;
+	private bool searchRunning;
+
 	private void Awake()
 	{
         if (RoguelikeMode.Active) RogueEnemyStatus.Attach(gameObject);
@@ -244,7 +252,7 @@ public class AI : MonoBehaviour
 				closestEnemy = null;
 				foreach (Transform target in targets)
 				{
-					if (target != null)
+					if (IsValidTarget(target))
 					{
 						if (closestEnemy == null)
 						{
@@ -264,7 +272,7 @@ public class AI : MonoBehaviour
 					else if (roleFlanker && closestEnemy != null && targets.Count > 1)
 					{
 						Transform other = null;
-						foreach (Transform t in targets) if (t != null && t != closestEnemy && t.tag == "Player" && (other == null || Vector3.Distance(mt.position, t.position) < Vector3.Distance(mt.position, other.position))) other = t;
+						foreach (Transform t in targets) if (IsValidTarget(t) && t != closestEnemy && t.tag == "Player" && (other == null || Vector3.Distance(mt.position, t.position) < Vector3.Distance(mt.position, other.position))) other = t;
 						if (other != null) closestEnemy = other;
 					}
 				}
@@ -550,7 +558,7 @@ public class AI : MonoBehaviour
 		while (true)
 		{
             if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) { yield return null; continue; }
-			targets.RemoveAll(target => target == null || !target.gameObject.activeInHierarchy);
+			targets.RemoveAll(target => !IsValidTarget(target));
 			if (Menu.isMaster())
 			{
 				if (targets.Count > 0)
@@ -703,7 +711,7 @@ public class AI : MonoBehaviour
 								}
 								if (Menu.network == 0)
 								{
-									StartCoroutine("Attack");
+									BeginAttack();
 								}
 								else if (Menu.network != 1 && PhotonNetwork.isMasterClient && base.gameObject.activeSelf)
 								{
@@ -794,9 +802,9 @@ public class AI : MonoBehaviour
 						}
 						else if (Menu.network == 0)
 						{
-							StartCoroutine("Search");
+							BeginSearch();
 						}
-						else if (Menu.network != 1 && PhotonNetwork.isMasterClient && base.gameObject.activeSelf)
+						else if (Menu.network != 1 && PhotonNetwork.isMasterClient && base.gameObject.activeSelf && !searchRunning)
 						{
 							base.gameObject.GetPhotonView().RPC("Search", PhotonTargets.All);
 						}
@@ -808,9 +816,9 @@ public class AI : MonoBehaviour
 						canShoot = false;
 						if (Menu.network == 0)
 						{
-							StartCoroutine("Search");
+							BeginSearch();
 						}
-						else if (Menu.network != 1 && PhotonNetwork.isMasterClient && base.gameObject.activeSelf)
+						else if (Menu.network != 1 && PhotonNetwork.isMasterClient && base.gameObject.activeSelf && !searchRunning)
 						{
 							base.gameObject.GetPhotonView().RPC("Search", PhotonTargets.All);
 						}
@@ -840,7 +848,7 @@ public class AI : MonoBehaviour
 			GameObject[] array2 = array;
 			foreach (GameObject gameObject in array2)
 			{
-				if (gameObject.layer != base.gameObject.layer || FlatsOfflineScores.FreeForAll)
+				if ((gameObject.layer != base.gameObject.layer || FlatsOfflineScores.FreeForAll) && IsValidTarget(gameObject.transform))
 				{
 					targets.Add(gameObject.transform);
 				}
@@ -849,7 +857,7 @@ public class AI : MonoBehaviour
 			GameObject[] array3 = array;
 			foreach (GameObject gameObject2 in array3)
 			{
-				if (gameObject2 != base.gameObject && (gameObject2.layer != base.gameObject.layer || FlatsOfflineScores.FreeForAll))
+				if (gameObject2 != base.gameObject && (gameObject2.layer != base.gameObject.layer || FlatsOfflineScores.FreeForAll) && IsValidTarget(gameObject2.transform))
 				{
 					targets.Add(gameObject2.transform);
 				}
@@ -858,20 +866,82 @@ public class AI : MonoBehaviour
 		else
 		{
 			StopAllCoroutines();
+			ForgetRoutines();
 		}
+	}
+
+	/// <summary>
+	/// A target this enemy may engage (A6): present and active, not dead (Die deactivates the children and removes the root only
+	/// 5 s later) and, in Roguelike, not downed. With every player down the enemy holds its fire instead of shooting the downed.
+	/// </summary>
+	private static bool IsValidTarget(Transform target)
+	{
+		if (target == null || !target.gameObject.activeInHierarchy) return false;
+		DamageReceiver receiver = target.GetComponent<DamageReceiver>();
+		if (receiver != null && receiver.Dead) return false;
+		if (RoguelikeMode.Active)
+		{
+			RoguePlayer player = target.GetComponent<RoguePlayer>();
+			if (player != null && player.Downed) return false;
+		}
+		return true;
 	}
 
 	[PunRPC]
 	private IEnumerator Attack()
 	{
+		BeginAttack();
+		yield break;
+	}
+
+	/// <summary>Enter attack mode. The offline call and the RPC both come here, so a repeated call never starts a second loop.</summary>
+	private void BeginAttack()
+	{
 		inSight = true;
 		isPatrol = false;
+		if (attackRunning || !base.gameObject.activeInHierarchy) return;
+		attackRunning = true;
+		Coroutine routine = StartCoroutine(AttackLoop());
+		if (attackRunning) attackRoutine = routine;
+	}
+
+	/// <summary>Search for a lost target. At most one runs; a repeated call while one runs is ignored.</summary>
+	private void BeginSearch()
+	{
+		if (searchRunning || !base.gameObject.activeInHierarchy) return;
+		searchRunning = true;
+		Coroutine routine = StartCoroutine(SearchLoop());
+		if (searchRunning) searchRoutine = routine;   // a search that ended at once (target already in view) leaves no stale handle
+	}
+
+	/// <summary>Stop the attack and search loops that BeginAttack/BeginSearch started.</summary>
+	private void StopAttackRoutines()
+	{
+		bool wasSearching = searchRunning;
+		if (attackRoutine != null) StopCoroutine(attackRoutine);
+		if (searchRoutine != null) StopCoroutine(searchRoutine);
+		ForgetRoutines();
+		// a search that ends early restores the walking speed, as one that finishes does
+		if (wasSearching && agent != null) agent.speed = defaultSpeed;
+	}
+
+	/// <summary>The loops were stopped by other means (StopAllCoroutines, deactivation): clear the handles so new ones can start.</summary>
+	private void ForgetRoutines()
+	{
+		attackRoutine = null;
+		searchRoutine = null;
+		attackRunning = false;
+		searchRunning = false;
+	}
+
+	private IEnumerator AttackLoop()
+	{
 		while (true)
 		{
             if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) { yield return null; continue; }
 			if (Menu.isMaster())
 			{
-				if (canShoot && enableFire && targets.Count > 0 && targets[0] != null && targets[0].gameObject.activeSelf)
+				if (canShoot && enableFire && targets.Count > 0 && IsValidTarget(targets[0]))
 				{
 					if (Menu.network == 0)
 					{
@@ -897,7 +967,13 @@ public class AI : MonoBehaviour
 	[PunRPC]
 	private IEnumerator Search()
 	{
-		targets.RemoveAll(target => target == null || !target.gameObject.activeInHierarchy);
+		BeginSearch();
+		yield break;
+	}
+
+	private IEnumerator SearchLoop()
+	{
+		targets.RemoveAll(target => !IsValidTarget(target));
 		tt = trailTime;
 		canShoot = false;
 		inSight = false;
@@ -972,6 +1048,8 @@ public class AI : MonoBehaviour
 			}
 			yield return new WaitForSeconds(0f);
 		}
+		searchRoutine = null;
+		searchRunning = false;
 		tt = trailTime;
 		agent.speed = defaultSpeed;
 		inSight = true;
@@ -1019,8 +1097,7 @@ public class AI : MonoBehaviour
 		canShoot = false;
 		attacked = false;
 		tt = trailTime;
-		StopCoroutine("Attack");
-		StopCoroutine("Search");
+		StopAttackRoutines();
 	}
 
 	[PunRPC]
@@ -1061,6 +1138,7 @@ public class AI : MonoBehaviour
 			yield break;
 		}
         if (RoguelikeMode.Active) while (RogueEnemyStatus.Stunned(this)) yield return null;
+        if (RoguelikeMode.Active && RogueKillPrediction.IsPredictedDead(gameObject)) { enableFire = true; yield break; }   // the kill was predicted during the wait (X005)
 		if (currentGun.oneShot)
 		{
 			GameObject mf = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, firePosition.position, mt.rotation) as GameObject;
@@ -1125,6 +1203,7 @@ public class AI : MonoBehaviour
 		while (true)
 		{
             if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) { yield return null; continue; }
+            if (RoguelikeMode.Active && RogueKillPrediction.IsPredictedDead(gameObject)) break;   // a predicted kill ends the burst on this client (X005)
 			GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, firePosition.position, mt.rotation) as GameObject;
 			mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 			base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
@@ -1181,21 +1260,34 @@ public class AI : MonoBehaviour
 		}
 	}
 
+	/// <summary>
+	/// Hit reaction: turn toward where the attack came from. <paramref name="dir"/> is a direction, not a position: Bullet sends
+	/// (shot origin - hit point) and a biting zombie sends (zombie - victim). It used to be treated as a position (X010).
+	/// </summary>
 	public void EnemyDirection(Vector3 dir)
 	{
         if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) return;
 		if (!attacked && Menu.isMaster())
 		{
-			Vector3 forward = dir - mt.position;
-			Quaternion rotation = Quaternion.LookRotation(forward);
-			rotation.x = 0f;
-			rotation.z = 0f;
+			Vector3 forward = dir;
+			Vector3 flat = new Vector3(forward.x, 0f, forward.z);
+			if (flat.sqrMagnitude < 0.0001f)
+			{
+				return;
+			}
+			Quaternion rotation = Quaternion.LookRotation(flat);
 			Quaternion rotation2 = Quaternion.LookRotation(forward);
 			rotation2.eulerAngles = new Vector3(rotation2.eulerAngles.x + 1f, rotation2.eulerAngles.y, rotation2.eulerAngles.z);
 			mt.rotation = rotation;
 			ct.rotation = rotation2;
 			attacked = true;
 		}
+	}
+
+	/// <summary>Turn toward a world position (the planted bomb in Singleplayer), with the same rules as <see cref="EnemyDirection"/>.</summary>
+	public void FacePosition(Vector3 position)
+	{
+		EnemyDirection(position - mt.position);
 	}
 
 	[PunRPC]
@@ -1263,11 +1355,11 @@ public class AI : MonoBehaviour
 		}
 		if (targets.Count > 0)
 		{
-			if (targets[0] == null || !targets[0].gameObject.activeSelf)
+			if (!IsValidTarget(targets[0]))
 			{
 				CreateList();
 			}
-			if (Menu.gameState == "Singleplayer" && Singleplayer.enemy <= 2 && !lessEnemy)
+			if (targets.Count > 0 && Menu.gameState == "Singleplayer" && Singleplayer.enemy <= 2 && !lessEnemy)
 			{
 				StartCoroutine("SetDestination", targets[0].position);
 				lessEnemy = true;
@@ -1338,25 +1430,29 @@ public class AI : MonoBehaviour
 		{
 			return;
 		}
-		targets = new List<Transform>();
-		GameObject[] array = GameObject.FindGameObjectsWithTag("Player");
-		if (array.Length > 0)
-		{
-			GameObject[] array2 = array;
-			foreach (GameObject gameObject in array2)
-			{
-				targets.Add(gameObject.transform);
-			}
-		}
-		else
+		// the same rules as every other rebuild: the other team only, never the dead or downed (this list used to take every
+		// player, teammates included, and drop the opposing bots)
+		CreateList();
+		if (GameObject.FindGameObjectsWithTag("Player").Length == 0)
 		{
 			StopAllCoroutines();
+			ForgetRoutines();
+		}
+	}
+
+	private void OnDisable()
+	{
+		// deactivating the GameObject ends every coroutine; stale handles must not block a later Attack or Search
+		if (!base.gameObject.activeInHierarchy)
+		{
+			ForgetRoutines();
 		}
 	}
 
 	private void OnDestroy()
 	{
 		StopAllCoroutines();
+		ForgetRoutines();
 	}
 
 	private bool IsInRangeOf(Transform target)
@@ -1423,7 +1519,7 @@ public class AI : MonoBehaviour
 			renderer.gameObject.layer = gameObject.layer;
 			renderer.material.color = value ? Color.gray : Color.red;
 		}
-		StopCoroutine("Attack");
+		StopAttackRoutines();
 		isPatrol = true;
 		foreach (var bot in FindObjectsOfType<AI>()) bot.CreateList();
 	}

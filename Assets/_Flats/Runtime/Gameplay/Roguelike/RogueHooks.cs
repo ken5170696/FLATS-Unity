@@ -199,6 +199,18 @@ public static partial class RogueHooks
         return role == null ? baseHitPoints : role.MaxHealth(baseHitPoints);
     }
 
+    /// <summary>Damage taken by an enemy as a whole percent (0 unharmed, 100 dead): hitPoints over the maximum DamageReceiver assigns
+    /// at spawn (the same base and role multipliers). Finale HUD lines read it; their machines only learn of the kill itself.</summary>
+    public static int EnemyDamagePercent(RogueEnemyRole role)
+    {
+        if (role == null) return 0;
+        var dr = role.GetComponent<DamageReceiver>(); var ai = role.GetComponent<AI>();
+        if (dr == null) return 0;
+        float max = EnemyMaxHealth(dr, 1000f * (1f + (ai != null ? ai.stats_Defense : 0) * 0.1f) * Flats.Core.EnemyTuning.Health);
+        if (dr.hitPoints > max) max = dr.hitPoints;
+        return max > 0f ? Mathf.Clamp(Mathf.RoundToInt((1f - Mathf.Max(0f, dr.hitPoints) / max) * 100f), 0, 100) : 0;
+    }
+
     /// <summary>DamageReceiver.Die for a non-player. Runs on every client; the authority pays.</summary>
     /// <summary>First thing a dying Roguelike enemy does on every copy: it stops being a target and a moving body at once. Its
     /// markers go (a "Last enemies" waypoint used to stay on the invisible root for five seconds and drift with it, F14), the

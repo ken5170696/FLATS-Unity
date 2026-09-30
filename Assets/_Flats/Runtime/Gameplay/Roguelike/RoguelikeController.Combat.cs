@@ -20,6 +20,14 @@ public partial class RoguelikeController
 
     public int AliveEnemies { get { int n = 0; foreach (var e in liveEnemies.Values) if (e != null) n++; return n; } }
     public bool WavesDone { get { return state != null && nextWave >= state.encounter.waves.Length && !spawning; } }
+    /// <summary>Authority: planned enemies not on the field yet (queued arrivals plus waves not released).</summary>
+    public int UnreleasedEnemies { get { int n = spawnQueue.Count; if (state != null) for (int w = nextWave; w < state.encounter.waves.Length; w++) n += state.encounter.waves[w].roles.Length; return n; } }
+    /// <summary>Authority: arrivals prefer a ring around this point (a called extraction under siege). Null for the normal rule.</summary>
+    public Vector3? SpawnAnchor { get; set; }
+    /// <summary>Authority: the opening wave prefers points nearer this point than the squad (the route to a Break Out exit).</summary>
+    public Vector3? SpawnRouteTarget { get; set; }
+    // a mission objective (not Clear, not a finale) that is still running: waves come early while the field is thin
+    bool MissionPressure { get { var enc = state.encounter; return objectiveRunner != null && !objectiveDone && !enc.IsFinale && enc.objectiveId != "obj.clear"; } }
     public bool StageObjectiveDone { get { return objectiveDone; } }
     public bool CommanderDead { get { return commanderDied; } }
     bool commanderDied;
@@ -75,6 +83,7 @@ public partial class RoguelikeController
         DebugOverrideEncounter();
         CloseScreens();
         nextWave = 0; objectiveDone = false; stageEnding = false; commanderDied = false;
+        spawnQueue.Clear(); spawning = false; spawnDelay = 0; lastSpawnPoint = -1; enemyCache.Clear(); SpawnAnchor = null; SpawnRouteTarget = null;
         objectiveKillsNeeded = RogueDirector.CountEnemies(state.encounter); objectiveKills = 0;
         RespawnDeadPlayers();
         ChoosePlanPoints();
@@ -99,35 +108,60 @@ public partial class RoguelikeController
         state.stageSeconds += dt;
         pacing.Tick(dt);
         var waves = state.encounter.waves;
-        if (nextWave < waves.Length && pacing.ShouldRelease(state.stageSeconds, waves[nextWave], AliveEnemies, state.encounter.concurrentCap, !objectiveDone, false))
+        // queued arrivals count as present, so a wave stalled behind the cap never has the next one piled on top of it
+        if (nextWave < waves.Length && pacing.ShouldRelease(state.stageSeconds, waves[nextWave], AliveEnemies + spawnQueue.Count, state.encounter.concurrentCap, !objectiveDone, false, MissionPressure))
         {
-            StartCoroutine(SpawnWave(nextWave));
+            QueueWave(nextWave);
             pacing.Released(state.stageSeconds);
             nextWave++;
         }
+        TickSpawnQueue(dt);
+        SweepVanishedEnemies(dt);
         TickObjective(dt);
         TickEvents(dt);
         if (!stageEnding && objectiveDone && nextWave >= waves.Length && AliveEnemies == 0 && !spawning)
             StartCoroutine(EndStage());
     }
 
-    bool spawning;
-    IEnumerator SpawnWave(int waveIndex)
+    // One authority queue for every released wave, spawned one at a time and never past the concurrent cap. Waves released while
+    // an earlier one still waited used to run parallel coroutines that could each pass the cap check in the same frame, and the
+    // first to finish cleared the shared flag while the other was still spawning.
+    struct PendingSpawn { public int instanceId, wave; public string role; public bool elite; }
+    readonly Queue<PendingSpawn> spawnQueue = new Queue<PendingSpawn>();
+    bool spawning;   // queue not empty; a validation skip may clear it to drop the rest
+    float spawnDelay;
+    int lastSpawnPoint = -1;
+
+    void QueueWave(int waveIndex)
     {
-        spawning = true;
         var wave = state.encounter.waves[waveIndex];
         if (waveIndex > 0) Notify(new RogueEventMessage { kind = "banner", text = "Reinforcements!", value = 1.5 });
-        int lastPoint = -1;
         for (int i = 0; i < wave.roles.Length; i++)
-        {
-            while (AliveEnemies >= state.encounter.concurrentCap && state.phase == RunPhase.Combat) yield return new WaitForSeconds(0.5f);
-            if (state.phase != RunPhase.Combat) break;
-            int instanceId = machine.InstanceIdFor(waveIndex, i);
-            try { SpawnEnemy(instanceId, wave.roles[i], wave.elite[i], waveIndex == 0, ref lastPoint); }
-            catch (Exception ex) { Debug.LogException(ex); }
-            yield return new WaitForSeconds(waveIndex == 0 ? 0.25f : 0.45f);   // the opening wave arrives quickly
-        }
-        spawning = false;
+            spawnQueue.Enqueue(new PendingSpawn { instanceId = machine.InstanceIdFor(waveIndex, i), wave = waveIndex, role = wave.roles[i], elite = wave.elite[i] });
+        spawning = spawnQueue.Count > 0;
+    }
+
+    void TickSpawnQueue(float dt)
+    {
+        if (!spawning) spawnQueue.Clear();
+        if (spawnQueue.Count == 0) { spawning = false; return; }
+        spawnDelay -= dt;
+        if (spawnDelay > 0 || AliveEnemies >= state.encounter.concurrentCap) return;
+        var next = spawnQueue.Dequeue();
+        try { SpawnEnemy(next.instanceId, next.role, next.elite, next.wave == 0, ref lastSpawnPoint); }
+        catch (Exception ex) { Debug.LogException(ex); }
+        // a slot that could not be placed never reaches the field: void it so the plan and the Clear count still close
+        if (!liveEnemies.ContainsKey(next.instanceId) && machine.EnemyCancelled(next.instanceId)) objectiveKills++;
+        spawnDelay = next.wave == 0 ? 0.25f : 0.45f;   // the opening wave arrives quickly
+        spawning = spawnQueue.Count > 0;
+    }
+
+    /// <summary>Authority: a spawn point position for an extra enemy by the arrival rules (the anchor ring when one is set).</summary>
+    public Vector3 PickSpawnPosition()
+    {
+        if (spawnPoints == null || spawnPoints.childCount == 0) return Vector3.zero;
+        lastSpawnPoint = PickSpawnPoint(lastSpawnPoint, false);
+        return spawnPoints.GetChild(lastSpawnPoint).position;
     }
 
     void SpawnEnemy(int instanceId, string roleId, bool elite, bool openingWave, ref int lastPoint)
@@ -147,6 +181,7 @@ public partial class RoguelikeController
         // the role component is attached on every client from AI.SyncTeam; the authority attaches early so the map is complete
         var role = RogueEnemyRole.Attach(go, roleId, instanceId, elite);
         liveEnemies[instanceId] = role;
+        RememberCachedInstantiate(instanceId, go);
         Singleplayer.enemy++;
         BindEnemyMarkers(role);
     }
@@ -154,6 +189,8 @@ public partial class RoguelikeController
     /// <summary>Engagement band for enemy arrivals (metres to the nearest player). The old farthest-point rule put the opening wave
     /// 300-400 m away on most maps, so a stage opened with a minute of nothing and then everyone arrived at once.</summary>
     public const float SpawnMinDistance = 40f, SpawnBandDistance = 120f, OpeningMinDistance = 60f;
+    /// <summary>Ring around SpawnAnchor (metres): near enough to reach the zone during a hold, never inside it.</summary>
+    public const float AnchorMinDistance = 25f, AnchorMaxDistance = 70f;
 
     int PickSpawnPoint(int lastPoint, bool openingWave)
     {
@@ -181,12 +218,31 @@ public partial class RoguelikeController
             }
             return far;
         }
+        if (SpawnAnchor.HasValue)
+        {
+            // an objective under siege (the called extraction): arrivals come from a ring around it, still clear of every player
+            Vector3 anchor = SpawnAnchor.Value; var ring = new List<int>();
+            foreach (int idx in candidates) { float d = Vector3.Distance(spawnPoints.GetChild(idx).position, anchor); if (d >= AnchorMinDistance && d <= AnchorMaxDistance) ring.Add(idx); }
+            if (ring.Count > 0) return ring[UnityEngine.Random.Range(0, ring.Count)];
+            // no authored point in the ring (FlatCity's exit had none within 70 m): the three candidates nearest the anchor, so the
+            // siege still comes from the zone's side instead of the far end of the map
+            var byAnchor = new List<int>(candidates);
+            byAnchor.Sort((a, b) => Vector3.Distance(spawnPoints.GetChild(a).position, anchor).CompareTo(Vector3.Distance(spawnPoints.GetChild(b).position, anchor)));
+            return byAnchor[UnityEngine.Random.Range(0, Mathf.Min(3, byAnchor.Count))];
+        }
         if (openingWave)
         {
             // the three nearest points at least OpeningMinDistance away (any distance if none): contact within seconds, but spread over
             // several lanes and far enough that the squad can see them coming instead of taking focused fire from one spot
             var order = new List<int>(); for (int k = 0; k < candidates.Count; k++) order.Add(k);
             order.Sort((a, b) => distances[a].CompareTo(distances[b]));
+            if (SpawnRouteTarget.HasValue)
+            {
+                // Break Out: the opening wave stands on the way (points nearer the exit than the squad), so the walk there is a fight
+                Vector3 target = SpawnRouteTarget.Value;
+                var route = order.FindAll(k => Vector3.Distance(spawnPoints.GetChild(candidates[k]).position, target) < distances[k]);
+                if (route.Count > 0) order = route;
+            }
             var near = order.FindAll(k => distances[k] >= OpeningMinDistance);
             if (near.Count == 0) near = order;
             return candidates[near[UnityEngine.Random.Range(0, Mathf.Min(3, near.Count))]];
@@ -209,6 +265,7 @@ public partial class RoguelikeController
     {
         if (role == null) return;
         liveEnemies.Remove(role.InstanceId);
+        if (IsAuthority) ForgetCachedInstantiate(role.InstanceId, role.gameObject);
         if (!IsAuthority || machine == null || state.phase != RunPhase.Combat) return;
         string killerKey = KeyOfTransform(killer);
         if (role.RoleId == "role.finale") commanderDied = true;
@@ -222,6 +279,7 @@ public partial class RoguelikeController
             var marker = role.MarkedBy;
             var bonus = marker != null ? machine.MarkedKillBonus(marker.Key, payout) : null;
             if (bonus != null && bonus.Total > 0) Notify(new RogueEventMessage { kind = "log", text = "Marked kill bonus +{0}|" + RogueMoney.Format(FirstValue(bonus)) });
+            ChargeMarkedKill(role);
             BroadcastSoon();
         }
         OnObjectiveEnemyKilled(role);
@@ -229,12 +287,69 @@ public partial class RoguelikeController
         if (emergencyRunner != null) emergencyRunner.OnEnemyKilled(role);
     }
 
-    /// <summary>An enemy left the field without dying (recovered, despawned): its bounty is void.</summary>
-    public void OnEnemyRemoved(RogueEnemyRole role)
+    /// <summary>An enemy left the field without dying (recovered, despawned, destroyed): its bounty is void. Safe to call from
+    /// OnDestroy after a normal death (Die already removed it, so nothing is voided or counted twice).</summary>
+    public void OnEnemyRemoved(RogueEnemyRole role) { if (role != null) RemoveEnemy(role.InstanceId, role.gameObject); }
+
+    void RemoveEnemy(int instanceId, GameObject go)
+    {
+        if (!liveEnemies.Remove(instanceId)) return;
+        if (!IsAuthority) return;
+        ForgetCachedInstantiate(instanceId, go);
+        if (machine != null && state.phase == RunPhase.Combat) { machine.EnemyCancelled(instanceId); objectiveKills++; }
+    }
+
+    // X007: an enemy destroyed without Die (a despawn, a kill volume, a watchdog) left a dead entry in liveEnemies and its slot open,
+    // so nothing ever voided it. The authority sweeps destroyed entries twice a second.
+    float sweepTimer;
+    void SweepVanishedEnemies(float dt)
+    {
+        sweepTimer -= dt;
+        if (sweepTimer > 0) return;
+        sweepTimer = 0.5f;
+        List<int> gone = null;
+        foreach (var kv in liveEnemies)
+        {
+            if (kv.Value == null) { if (gone == null) gone = new List<int>(); gone.Add(kv.Key); }
+            else if (!enemyCache.ContainsKey(kv.Key)) RememberCachedInstantiate(kv.Key, kv.Value.gameObject);   // extras spawned elsewhere
+        }
+        if (gone != null) foreach (int id in gone) RemoveEnemy(id, null);
+    }
+
+    // X006: enemies are room-cached scene objects and every client destroys its own dead copy locally, so the cached instantiate
+    // outlived the enemy and a late joiner received a ghost. The master removes the cached instantiate and the view's buffered
+    // RPCs (the first half of PhotonNetwork.Destroy) without the network destroy, which would cut the death short on every screen.
+    readonly Dictionary<int, int[]> enemyCache = new Dictionary<int, int[]>();   // instanceId -> { instantiationId, creator, viewID }
+
+    void RememberCachedInstantiate(int instanceId, GameObject go)
+    {
+        if (Menu.network == 0 || go == null) return;
+        var view = go.GetComponent<PhotonView>();
+        if (view != null && view.instantiationId > 0) enemyCache[instanceId] = new[] { view.instantiationId, view.CreatorActorNr, view.viewID };
+    }
+
+    void ForgetCachedInstantiate(int instanceId, GameObject go)
+    {
+        if (go != null && !enemyCache.ContainsKey(instanceId)) RememberCachedInstantiate(instanceId, go);
+        int[] cached;
+        if (!enemyCache.TryGetValue(instanceId, out cached)) return;
+        enemyCache.Remove(instanceId);
+        if (Menu.network == 0 || !PhotonNetwork.inRoom || !PhotonNetwork.isMasterClient) return;
+        var instantiate = new ExitGames.Client.Photon.Hashtable(); instantiate[(byte)7] = cached[0];
+        PhotonNetwork.networkingPeer.OpRaiseEvent(202, instantiate, true, new RaiseEventOptions { CachingOption = EventCaching.RemoveFromRoomCache, TargetActors = new[] { cached[1] } });
+        var rpcs = new ExitGames.Client.Photon.Hashtable(); rpcs[(byte)0] = cached[2];
+        PhotonNetwork.networkingPeer.OpRaiseEvent(200, rpcs, true, new RaiseEventOptions { CachingOption = EventCaching.RemoveFromRoomCache });
+    }
+
+    /// <summary>Master or solo: removes an enemy from every client and the room cache at once (host-change reset, not a death).</summary>
+    public void DespawnEnemyEverywhere(RogueEnemyRole role)
     {
         if (role == null) return;
-        liveEnemies.Remove(role.InstanceId);
-        if (IsAuthority && machine != null) { machine.EnemyCancelled(role.InstanceId); objectiveKills++; }
+        var go = role.gameObject;
+        liveEnemies.Remove(role.InstanceId); enemyCache.Remove(role.InstanceId);
+        var view = go.GetComponent<PhotonView>();
+        if (Menu.network != 0 && PhotonNetwork.inRoom && PhotonNetwork.isMasterClient && view != null && view.instantiationId > 0) PhotonNetwork.Destroy(go);
+        else Destroy(go);
     }
 
     string KeyOfTransform(Transform t)
@@ -263,8 +378,9 @@ public partial class RoguelikeController
             if (objectiveRunner.Succeeded) CompleteObjective();
             return;
         }
-        // Clear: every planned enemy dead or voided
-        if (nextWave >= state.encounter.waves.Length && objectiveKills >= objectiveKillsNeeded && AliveEnemies == 0 && !spawning) CompleteObjective();
+        // Clear: the whole plan released and spawned, and no live registered enemy left. A kill counter could never reach its total
+        // when an enemy vanished without Die or a slot failed to spawn (X007); the counter only feeds the HUD.
+        if (nextWave >= state.encounter.waves.Length && !spawning && AliveEnemies == 0) CompleteObjective();
     }
 
     void OnObjectiveEnemyKilled(RogueEnemyRole role) { if (objectiveRunner != null) objectiveRunner.OnEnemyKilled(role); }
@@ -285,11 +401,26 @@ public partial class RoguelikeController
         // a fallback success (Convoy lost, Protect device lost) pays the reduced amount directly; the old pay-then-claw-back left the
         // team total and the banner at the full amount (F29)
         double fraction = objectiveRunner != null ? Math.Max(0.0, Math.Min(1.0, objectiveRunner.RewardFraction)) : 1.0;
+        // a finished mission ends the plan: slots never released (later waves, the spawn queue) are cancelled BEFORE the payout, the
+        // order RunMachine needs to count the mission compensation. Enemies already on the field stay, still pay, and must still
+        // be cleared before the stage ends. Clear has nothing left by now; a finale keeps its waves.
+        var enc = state.encounter;
+        if (!enc.IsFinale && enc.objectiveId != "obj.clear") CancelUnreleasedPlan();
+        SpawnAnchor = null; SpawnRouteTarget = null;
         var pay = machine.ObjectiveCompleted(fraction);
         Notify(new RogueEventMessage { kind = "banner", text = pay.Total > 0 ? "Objective complete!\n+{0} each|" + RogueMoney.Format(FirstValue(pay)) : "Objective complete!", value = 3 });
         if (objectiveRunner != null) objectiveRunner.Dispose();
         objectiveRunner = null;
         Broadcast();
+    }
+
+    void CancelUnreleasedPlan()
+    {
+        foreach (var pending in spawnQueue) machine.EnemyCancelled(pending.instanceId);   // a paid or already voided slot returns false
+        spawnQueue.Clear(); spawning = false;
+        var waves = state.encounter.waves;
+        for (int w = nextWave; w < waves.Length; w++) for (int i = 0; i < waves[w].roles.Length; i++) machine.EnemyCancelled(machine.InstanceIdFor(w, i));
+        nextWave = waves.Length;
     }
 
     static long FirstValue(Payout p) { foreach (var v in p.Minor.Values) return v; return 0; }

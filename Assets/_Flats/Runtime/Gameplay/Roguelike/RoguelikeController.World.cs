@@ -26,7 +26,8 @@ public partial class RoguelikeController
 
     /// <summary>Authority, before the plan is broadcast: choose enough reachable, well-spread anchors for the objective, the event and the emergency.</summary>
     /// <summary>Objective anchors (metres from the squad; FLATS characters are about 6 m tall): far enough that the start is not the
-    /// objective, near enough to reach in roughly ten seconds of running. Maps without such a point fall back to any reachable one.</summary>
+    /// objective, near enough to reach in roughly ten seconds of running. The preferred maximum is measured along the NavMesh walk, and
+    /// walks over 1.8x the straight distance are avoided (RogueWorld.PickPoints). Maps without such a point fall back to any reachable one.</summary>
     public const float ObjectiveMinDistance = 30f, ObjectivePreferredMaxDistance = 200f;
 
     void ChoosePlanPoints()
@@ -176,6 +177,54 @@ public partial class RoguelikeController
         var keys = new List<string>();
         foreach (var go in RogueWorld.AlivePlayers()) if (RogueEnemyRole.JammedAt(go.transform.position)) keys.Add(RogueWorld.KeyOf(go));
         return keys;
+    }
+
+    // ---------------------------------------------------------------- Marker core and Team Radio (authority)
+    // Kill charge for scale (RogueRun.ChargeUltimates): the killer gains 5-8 for a 100-160 weight enemy, every other member 1-2, so a full
+    // ultimate takes roughly 15-20 kills. A marked kill gives the marker 2 (a squad share plus one, about a third of a kill); a teammate's
+    // hit on your mark gives 1 (one squad share), at most once every 2 s, so Team Radio alone adds at most 30 a minute of sustained focus.
+    public const int MarkedKillCharge = 2, TeamRadioCharge = 1;
+    public const float TeamRadioInterval = 2f;
+    readonly Dictionary<string, float> teamRadioNext = new Dictionary<string, float>();
+
+    /// <summary>Authority, after a paid kill (OnEnemyDied): "Marked kills by anyone charge your ultimate" for the Marker core.
+    /// The marker's own share of the kill, if it was the killer, still comes from EnemyKilled; this is the extra for the mark.</summary>
+    public void ChargeMarkedKill(RogueEnemyRole role)
+    {
+        if (!IsAuthority || machine == null || state == null || role == null || state.phase != RunPhase.Combat) return;
+        var marker = role.MarkedBy;
+        if (marker == null) return;
+        string key = marker.Key;
+        var p = state.Player(key);
+        if (p == null || !p.connected || p.build == null || !p.build.HasCore("core.marker")) return;   // Angle Finder marks carry no charge promise
+        if (RogueEnemyRole.JammedAt(marker.transform.position)) return;   // same rule as kill charge: no charge inside a live jammer field
+        machine.ChargeUltimate(key, MarkerCharge(p, MarkedKillCharge));
+        BroadcastSoon();
+    }
+
+    /// <summary>Authority, for every player bullet that hits an enemy (RogueHooks.OnBulletHitEnemy, before this hit re-marks it):
+    /// Team Radio charges the marking player when a teammate hits the enemy that player marked.</summary>
+    public void OnMarkedEnemyHit(RogueEnemyRole role, RoguePlayer shooter)
+    {
+        if (!IsAuthority || machine == null || state == null || role == null || shooter == null || state.phase != RunPhase.Combat || role.Dead) return;
+        var marker = role.MarkedBy;
+        if (marker == null || marker == shooter || marker.Stats == null || !marker.Stats.TeamRadio) return;
+        string key = marker.Key;
+        if (key == shooter.Key) return;
+        float next;
+        if (teamRadioNext.TryGetValue(key, out next) && Time.time < next) return;
+        var p = state.Player(key);
+        if (p == null || !p.connected || p.build == null || string.IsNullOrEmpty(p.build.ultimate) || p.ultimateCharge >= 100) return;
+        if (RogueEnemyRole.JammedAt(marker.transform.position)) return;
+        teamRadioNext[key] = Time.time + TeamRadioInterval;
+        machine.ChargeUltimate(key, MarkerCharge(p, TeamRadioCharge));
+        BroadcastSoon();
+    }
+
+    /// <summary>Overcharge scales these like kill charge (RogueRun.ChargeUltimates); never below 1.</summary>
+    static int MarkerCharge(RunPlayer p, int amount)
+    {
+        return Math.Max(1, (int)Math.Round(amount * BuildStats.Compute(p.build).UltimateChargeMul));
     }
 
     /// <summary>Authority: spawn a scene gun for a purchased weapon and tell the buyer to exchange into it.</summary>

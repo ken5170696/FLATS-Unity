@@ -62,7 +62,7 @@ public partial class RoguelikeController
         foreach (var p in state.players) p.connected = PhotonPlayerByKey(p.key) != null;
         if (state.phase == RunPhase.Combat || state.phase == RunPhase.Cleared || state.phase == RunPhase.Reward)
         {
-            foreach (var role in new List<RogueEnemyRole>(liveEnemies.Values)) if (role != null) { machine.EnemyCancelled(role.InstanceId); Destroy(role.gameObject); }
+            foreach (var role in new List<RogueEnemyRole>(liveEnemies.Values)) if (role != null) { machine.EnemyCancelled(role.InstanceId); DespawnEnemyEverywhere(role); }
             liveEnemies.Clear();
             DisposeEvents();
             stageEnding = false; objectiveDone = false; nextWave = 0; pacing = new RoguePacing();
@@ -212,7 +212,7 @@ public partial class RoguelikeController
     void CleanupSession()
     {
         foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.CancelAll(); }
-        RogueEnemyRole.SetOutlines(false, Vector3.zero, 0);
+        RogueEnemyRole.ClearOutlines();   // every player's Enemy Sight source, not only the legacy global one
         DisposeEvents();
         CloseOverview();
         CloseScreens();

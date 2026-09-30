@@ -149,6 +149,10 @@ public partial class FPSController : MonoBehaviour
 
 	private float rogueLift;
 
+	private float rogueFall;
+
+	private float rogueJumpPrevY;
+
 	public static int sensitivity = 5;
 
 	public static bool edgeRendering = false;
@@ -1117,7 +1121,12 @@ public partial class FPSController : MonoBehaviour
 			{
 				if (mt.parent == null)
 				{
-					cc.Move(mt.up * 12f * Time.deltaTime);
+					// Roguelike jump-height bonuses raise the push speed (rise grows with its square) so the target height is reachable.
+					float jumpMul = RoguelikeMode.Active ? RogueHooks.JumpHeightMul(this) : 1f;
+					// Descending since the previous frame means the apex has passed (the controller gravity acts between frames).
+					bool pastApex = isJump && mt.position.y <= rogueJumpPrevY;
+					rogueJumpPrevY = mt.position.y;
+					cc.Move(mt.up * 12f * (RoguelikeMode.Active ? Mathf.Sqrt(jumpMul) : 1f) * Time.deltaTime);
 					if (!isGrounded())
 					{
 						isJump = true;
@@ -1126,7 +1135,13 @@ public partial class FPSController : MonoBehaviour
 					{
 						jumping = false;
 					}
-					if (mt.position.y >= Y + 5f * (RoguelikeMode.Active ? RogueHooks.JumpHeightMul(this) : 1f) || Physics.Raycast(mct.position, Vector2.up, 2f))
+					if (mt.position.y >= Y + 5f * jumpMul || Physics.Raycast(mct.position, Vector2.up, 2f))
+					{
+						jumping = false;
+					}
+					// The push ends at the apex. Before, a jump that fell short of the target height (a Roguelike bonus, a ledge
+					// under the rising player) kept pushing up for the whole fall, so a jump off a roof floated down.
+					if (RoguelikeMode.Active && pastApex)
 					{
 						jumping = false;
 					}
@@ -1211,8 +1226,12 @@ public partial class FPSController : MonoBehaviour
 				float gravityScale = RoguelikeMode.Active ? RogueHooks.GravityScale(this) : 1f;
 				if (gravityScale < 1f && !isGrounded()) { rogueLift += 9.81f * (1f - gravityScale) * Time.deltaTime; cc.Move(Vector3.up * rogueLift * Time.deltaTime); }
 				else rogueLift = 0f;
+				// Characters are about 6 m tall, so real-world gravity makes a rooftop drop feel floaty (80 m took 4.1 s).
+				// Roguelike descents (never the rise of a jump, never inside a low-gravity zone) fall with extra gravity.
+				if (RoguelikeMode.Active && gravityScale >= 1f && !isGrounded() && cc.velocity.y < -0.5f) { rogueFall += 9.81f * (RogueHooks.FallGravityMul - 1f) * Time.deltaTime; cc.Move(Vector3.down * rogueFall * Time.deltaTime); }
+				else rogueFall = 0f;
 			}
-			else rogueLift = 0f;
+			else { rogueLift = 0f; rogueFall = 0f; }
 			if (Menu.changedSettings)
 			{
 				if (Menu.VRmode)

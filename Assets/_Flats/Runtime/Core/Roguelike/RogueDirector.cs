@@ -131,14 +131,14 @@ namespace Flats.Core.Roguelike
         }
 
         /// <summary>
-        /// Splits the stage budget into 2-4 waves. Role weights unlock by depth; elites take a bounded share.
+        /// Splits the stage budget into 3-5 waves. Role weights unlock by depth; elites take a bounded share.
         /// A finale replaces the last regular wave with the finale target (weight x6) plus its guard.
         /// </summary>
         public static WavePlan[] PlanWaves(RogueRng rng, int depth, int difficulty, int players, RouteDef route, bool finale)
         {
             int budget = RogueDepth.StageEnemyBudget(depth, difficulty, players);
             if (finale) budget = Math.Max(6, budget * 2 / 3);
-            int waveCount = budget <= 10 ? 2 : budget <= 24 ? 3 : 4;
+            int waveCount = budget <= 26 ? 3 : budget <= 55 ? 4 : 5;
             var roles = new List<EnemyRoleDef>();
             var roleWeights = new List<double>();
             foreach (var r in RogueCatalog.EnemyRoles)
@@ -168,7 +168,7 @@ namespace Flats.Core.Roguelike
                     bool isElite = i > 0 && rng.Chance(eliteFraction);
                     rolesOut.Add(role.Id); elite.Add(isElite); weights.Add(isElite ? role.Weight * RogueCatalog.EliteWeightMultiplier : role.Weight);
                 }
-                waves[i] = new WavePlan { roles = rolesOut.ToArray(), elite = elite.ToArray(), weights = weights.ToArray(), releaseAfterSeconds = i == 0 ? 0 : 25 + 20 * i };
+                waves[i] = new WavePlan { roles = rolesOut.ToArray(), elite = elite.ToArray(), weights = weights.ToArray(), releaseAfterSeconds = i == 0 ? 0 : 12 + 14 * i };
             }
             if (finale)
             {
@@ -198,11 +198,12 @@ namespace Flats.Core.Roguelike
     {
         public double Pressure;                 // 0..1
         public double RestUntil;                // absolute seconds
-        public const double RestAfterDown = 8, RestAfterHeavyDamage = 4, MinWaveGap = 12;
+        public const double RestAfterDown = 8, RestAfterHeavyDamage = 4, MinWaveGap = 8, MissionWaveGap = 6;
         private double lastRelease = -1000;
 
         public void OnPlayerDamaged(double now, double fraction)
         {
+            RogueStateBag.NonNegative(now); RogueStateBag.Unit(fraction);
             Pressure = Math.Min(1, Pressure + fraction * 0.5);
             if (fraction >= 0.3) RestUntil = Math.Max(RestUntil, now + RestAfterHeavyDamage);
         }
@@ -215,18 +216,20 @@ namespace Flats.Core.Roguelike
 
         public void Tick(double dt)
         {
+            RogueStateBag.NonNegative(dt);
             Pressure = Math.Max(0, Pressure - dt * 0.08);
         }
 
         /// <summary>Release when the wave's earliest time passed, the rest window ended, the field has room and pressure is not maxed.</summary>
-        public bool ShouldRelease(double now, WavePlan wave, int aliveEnemies, int concurrentCap, bool objectiveActive, bool emergencyActive)
+        public bool ShouldRelease(double now, WavePlan wave, int aliveEnemies, int concurrentCap, bool objectiveActive, bool emergencyActive, bool forcePressure = false)
         {
-            if (now < wave.releaseAfterSeconds) return false;
+            bool missionPressure = forcePressure && objectiveActive && aliveEnemies < concurrentCap / 2.0;
+            if (!missionPressure && now < wave.releaseAfterSeconds) return false;
             if (now < RestUntil) return false;
-            if (now - lastRelease < MinWaveGap) return false;
+            if (now - lastRelease < (missionPressure ? MissionWaveGap : MinWaveGap)) return false;
             if (aliveEnemies + wave.roles.Length > concurrentCap && aliveEnemies > concurrentCap / 3) return false;
             if (emergencyActive && aliveEnemies > concurrentCap / 2) return false;
-            if (Pressure > 0.85 && aliveEnemies > 2) return false;
+            if (!missionPressure && Pressure > 0.85 && aliveEnemies > 2) return false;
             return true;
         }
 

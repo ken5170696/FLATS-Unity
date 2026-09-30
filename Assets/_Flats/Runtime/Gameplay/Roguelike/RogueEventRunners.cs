@@ -268,10 +268,12 @@ public sealed class LureCrateRunner : RogueEventRunner
 public sealed class GasLeakRunner : RogueEventRunner
 {
     GasLeakEvent machine; readonly GameObject[] switches = new GameObject[3]; readonly GameObject[] zones = new GameObject[3]; Vector3 origin; readonly Dictionary<int, Dictionary<string, float>> held = new Dictionary<int, Dictionary<string, float>>();
-    int shownZones; float damageTick; bool leaked;
+    int shownZones; float damageTick; bool leaked; float sentFraction;
     public override void Begin()
     {
         origin = Point(0);
+        // guests never run TickEvents (authority only): this drives their gas damage from the replicated zone and fraction
+        RogueGasTicker.Attach(this);
         for (int i = 0; i < 3; i++)
         {
             switches[i] = RogueWorld.Cube("VentSwitch" + i, Point(i), new Vector3(1f, 2.2f, 0.6f), RogueWorld.Green, true);
@@ -301,9 +303,17 @@ public sealed class GasLeakRunner : RogueEventRunner
         if (machine.Phase == GasPhase.Warning) StatusText = N("Gas in {0} s  Switches {1}/2", Mathf.CeilToInt((float)machine.Countdown), done);
         else if (machine.Phase == GasPhase.Leaking) { StatusText = N("GAS LEAKING! Switches {0}/2", done); if (!leaked) { leaked = true; Banner("Gas is leaking! You can still contain it: 2 switches.", 3); } }
         else StatusText = N("Gas contained");
-        if (machine.ZonesLeaking != shownZones) { shownZones = machine.ZonesLeaking; Controller.Notify(new RogueEventMessage { kind = "gas", index = shownZones }); ShowZones(shownZones); }
-        // damage: authoritative for the local player on every client via the replicated zone count; here for the authority's own player
-        ApplyGasDamage(dt, (float)machine.DamageFractionPerSecond);
+        // the machine's own damage fraction travels with the zone count, so guests start taking damage when the host does
+        // (DamageFractionPerSecond stays 0 for the first 3 s of leakage) and stop with it
+        float fraction = (float)machine.DamageFractionPerSecond;
+        if (machine.ZonesLeaking != shownZones || fraction != sentFraction)
+        {
+            shownZones = machine.ZonesLeaking; sentFraction = fraction;
+            Controller.Notify(new RogueEventMessage { kind = "gas", index = shownZones, value = fraction });
+            ShowZones(shownZones);
+        }
+        // damage: each client applies it to its own local player from the replicated zone count and fraction; here the authority's own player
+        ApplyGasDamage(dt, fraction);
         if (machine.Phase == GasPhase.Contained) { Failed = true; }   // contained after a leak: no success bounty (the machine keeps Failed), but purified
         if (machine.Status == EventStatus.Succeeded) Succeeded = true;
     }
@@ -332,9 +342,10 @@ public sealed class GasLeakRunner : RogueEventRunner
     }
     public override void OnClientEvent(RogueEventMessage e)
     {
-        if (e.kind == "gas") { shownZones = e.index; clientFraction = shownZones > 0 ? 0.04f : 0f; ShowZones(shownZones); }
+        if (e.kind == "gas") { shownZones = e.index; clientFraction = shownZones > 0 ? Mathf.Max(0f, (float)e.value) : 0f; ShowZones(shownZones); }
     }
     public void ClientTick(float dt) { if (machine == null) ApplyGasDamage(dt, clientFraction); }
+    public override void Dispose() { foreach (var s in switches) RogueWorld.Destroy(s); foreach (var z in zones) RogueWorld.Destroy(z); RogueGasTicker.Detach(this); }
     public override void OnCommand(RogueCommandMessage cmd)
     {
         if (machine == null || !cmd.text.StartsWith("vent:")) return;
@@ -344,7 +355,28 @@ public sealed class GasLeakRunner : RogueEventRunner
         Dictionary<string, float> byPlayer; if (!held.TryGetValue(i, out byPlayer)) held[i] = byPlayer = new Dictionary<string, float>();
         byPlayer[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
     }
-    public override void Dispose() { foreach (var s in switches) RogueWorld.Destroy(s); foreach (var z in zones) RogueWorld.Destroy(z); }
+}
+
+/// <summary>Per-frame driver for a guest's gas damage: event runners tick only on the authority (TickEvents), so without it a guest
+/// never took gas damage at all. The authority's runner applies its own player's damage in Tick; ClientTick is a no-op there.</summary>
+public sealed class RogueGasTicker : MonoBehaviour
+{
+    GasLeakRunner runner;
+    static GameObject host;
+    public static void Attach(GasLeakRunner r)
+    {
+        if (host == null) host = new GameObject("RogueGasTicker");
+        var t = host.GetComponent<RogueGasTicker>();
+        if (t == null) t = host.AddComponent<RogueGasTicker>();
+        t.runner = r;
+    }
+    public static void Detach(GasLeakRunner r)
+    {
+        if (host == null) return;
+        var t = host.GetComponent<RogueGasTicker>();
+        if (t != null && t.runner == r) { RogueWorld.Destroy(host); host = null; }
+    }
+    void Update() { if (runner != null && RoguelikeMode.Active) runner.ClientTick(Time.deltaTime); }
 }
 
 public sealed class PowerOutageRunner : RogueEventRunner

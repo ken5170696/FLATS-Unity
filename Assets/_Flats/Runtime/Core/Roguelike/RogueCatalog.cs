@@ -78,7 +78,7 @@ namespace Flats.Core.Roguelike
         public const double HeadshotMoneyMultiplier = 1.5;
         public const double DashDistance = 20, DashSpeed = 50, DashCooldownSeconds = 6, DashMinIntervalSeconds = .3;
         public const double TierPriceStep = .5;
-        public const double ClearRewardFraction = .2, ObjectiveRewardFraction = .3, BreakoutRewardFraction = .35, FinaleRewardFraction = .6;
+        public const double ClearRewardFraction = .2, ObjectiveRewardFraction = .3, BreakoutRewardFraction = .35, FinaleRewardFraction = .4;
         public const double ConvoyFailureRewardMultiplier = .5;
 
         public static int MaxTier(string id)
@@ -123,7 +123,7 @@ namespace Flats.Core.Roguelike
             new ItemDef("core.ricochet", ItemKind.Core, "Ricochet", "Bullets bounce once off walls at 80% damage. Ricochet hits deal +30%.", 60, 3, 1, TagRicochet),
             new ItemDef("core.demolition", ItemKind.Core, "Demolition", "Kills explode: 40% of the killing damage in a 6 m radius and a short knockback. Explosions never chain.", 60, 3, 1, TagDemolition),
             new ItemDef("core.marker", ItemKind.Core, "Marker", "Your hits mark enemies for 4 s. Marked enemies take +12% damage from everyone. Marked kills by anyone charge your ultimate.", 60, 3, 1, TagMarker),
-            new ItemDef("core.mobility", ItemKind.Core, "Mobility", "+12% speed, revive 40% faster, carry objects at full speed. The first shot after a dash or a jump landing deals +20%.", 60, 3, 1, TagMobility),
+            new ItemDef("core.mobility", ItemKind.Core, "Mobility", "+12% speed, revive 40% faster, carry objects at full speed. Dash cooldown x" + TierList("core.mobility", 2) + " by tier. The first shot after a dash or a jump landing deals +20%.", 60, 3, 1, TagMobility),
         };
 
         public static readonly ItemDef[] Mods =
@@ -186,13 +186,20 @@ namespace Flats.Core.Roguelike
         };
         public const int EliteWeightMultiplier = 2, FinaleWeightMultiplier = 6;
 
+        /// <summary>"0.7/0.6/0.5": one tier parameter for T1/T2/T3, culture-invariant so the English text and its translation key never vary by locale.</summary>
+        static string TierList(string id, int parameter)
+        {
+            var c = System.Globalization.CultureInfo.InvariantCulture;
+            return RogueTiers.Value(id, 1, parameter).ToString(c) + "/" + RogueTiers.Value(id, 2, parameter).ToString(c) + "/" + RogueTiers.Value(id, 3, parameter).ToString(c);
+        }
+
         public static readonly EncounterDef[] Objectives =
         {
             new EncounterDef("obj.clear", "Clear Out", "Eliminate every enemy in the area.", 1, 0, 100, ClearRewardFraction, null, null, null),
             new EncounterDef("obj.capture", "Hold the Zone", "Stand inside the marked zone until it is secured. More players secure it faster.", 1, 1, 90, ObjectiveRewardFraction, null, null, new[] { "ev.low_gravity" }),
             new EncounterDef("obj.carry", "Deliver the Crate", "Carry the supply crate to the drop point. The carrier cannot shoot.", 2, 1, 80, ObjectiveRewardFraction, null, new[] { "droplinks" }, null),
             new EncounterDef("obj.protect", "Protect the Repair", "Keep the repair device alive until it reaches 100%.", 2, 1, 80, ObjectiveRewardFraction, null, null, new[] { "ev.repair_device" }),
-            new EncounterDef("obj.breakout", "Break Out", "Fight through to the extraction marker. Everyone must arrive.", 3, 2, 70, BreakoutRewardFraction, null, null, new[] { "em.gas_leak" }),
+            new EncounterDef("obj.breakout", "Break Out", "Fight to the extraction point. When everyone is inside, extraction is called: hold the zone against reinforcements until the countdown ends.", 3, 2, 70, BreakoutRewardFraction, null, null, new[] { "em.gas_leak" }),
         };
 
         public static readonly EncounterDef[] Events =

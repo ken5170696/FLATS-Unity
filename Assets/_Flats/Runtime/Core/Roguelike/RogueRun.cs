@@ -338,6 +338,8 @@ namespace Flats.Core.Roguelike
             if (State.ledger.objectivePaid) return new Payout();
             var def = RogueCatalog.Encounter(State.encounter.IsFinale ? State.encounter.finaleId : State.encounter.objectiveId);
             State.ledger.objectiveMinor = RogueMoney.MulFraction(State.ledger.budgetMinor, (def != null ? def.RewardFraction : 0) * rewardMultiplier);
+            bool mission = !State.encounter.IsFinale && State.encounter.objectiveId != "obj.clear";
+            if (mission) State.ledger.objectiveMinor += RogueMoney.MulFraction(RogueEconomy.MissionCancellationCompensation(State.ledger), rewardMultiplier);
             var payout = RogueEconomy.PayObjective(State.ledger, State.ValidMembers(), 0);
             Credit(payout);
             if (State.ledger.objectivePaid) foreach (var p in State.players) if (p.connected) p.ultimateCharge = Math.Min(100, p.ultimateCharge + 15);
