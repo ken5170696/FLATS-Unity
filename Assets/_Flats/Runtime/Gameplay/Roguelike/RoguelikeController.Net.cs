@@ -189,6 +189,8 @@ public partial class RoguelikeController
     IEnumerator EndRunPresentation()
     {
         leaving = true;
+        RogueAudio.Loop("gas_loop", false);
+        RogueAudio.Play(state != null && state.end == RunEnd.Evacuated ? "run_evac" : "run_end");
         var meta = RogueSaveStore.ReadMeta();
         if (RogueSave.RecordRunEnd(meta, state, localKey)) RogueSaveStore.WriteMeta(meta);
         MetaRunEnded();
@@ -236,6 +238,8 @@ public partial class RoguelikeController
         BindEnemyMarkers(role);                       // idempotent; runs on the authority's own copy as well
         if (liveEnemies.ContainsKey(role.InstanceId)) return;
         liveEnemies[role.InstanceId] = role;
+        if (role.Elite && role.RoleId != "role.finale") RogueAudio.Play("elite_spawn", 0.8f);
+        else if (role.RoleId == "role.finale") RogueAudio.Play("elite_spawn");
         if (!IsAuthority) Singleplayer.enemy++;
     }
 

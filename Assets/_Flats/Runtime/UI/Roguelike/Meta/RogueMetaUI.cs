@@ -35,13 +35,7 @@ public static class RogueMetaUI
         b.onClick.RemoveAllListeners();
         if (action != null) b.onClick.AddListener(() => { Sound(); action(); });
     }
-    public static void Sound()
-    {
-        var menu = Menu.Current;
-        if (menu == null || menu.pressSE == null) return;
-        var src = menu.GetComponent<AudioSource>();
-        if (src != null) src.PlayOneShot(menu.pressSE);
-    }
+    public static void Sound() { RogueAudio.Click(); }
     public static MetaProfile Clone(MetaProfile p) { return JsonUtility.FromJson<MetaProfile>(JsonUtility.ToJson(p)); }
     public static string PresetName(string name)
     {

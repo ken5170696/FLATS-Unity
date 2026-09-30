@@ -15,8 +15,14 @@ namespace Flats.Core.Roguelike
         {
             var item = RogueCatalog.Item(id); if (item == null || item.Kind != ItemKind.Ultimate) throw new ArgumentException("ultimate id");
             Id = id; ReviveUsed = reviveUsed;
-            switch (id) { case "ult.emergency_revive": DurationSeconds = 0; break; case "ult.lethal_shot": case "ult.invincible": DurationSeconds = 5; break; default: DurationSeconds = 8; break; }
+            DurationSeconds = DurationFor(id);
         }
+        /// <summary>Effect duration of an ultimate in seconds (0 for the instant Emergency Revive). The adapter and the item texts read the same table.</summary>
+        public static double DurationFor(string id)
+        {
+            switch (id) { case "ult.emergency_revive": return 0; case "ult.lethal_shot": case "ult.invincible": return LethalSeconds; default: return StandardSeconds; }
+        }
+        public const double StandardSeconds = 12, LethalSeconds = 7;
         // 充能及跨裝備的一次／run 旗標由 RunMachine.SpendUltimate 持有；此物件只處理效果時效。
         public bool Activate(double now) { RogueStateBag.NonNegative(now); if (IsActive(now) || (Id == "ult.emergency_revive" && ReviveUsed)) return false; started = now; activated = true; if (Id == "ult.emergency_revive") ReviveUsed = true; return true; }
         public bool IsActive(double now) { return RemainingSeconds(now) > 0; }
@@ -29,7 +35,7 @@ namespace Flats.Core.Roguelike
         public string Id { get; private set; }
         public double CooldownSeconds { get; private set; }
         public int MaxCharges { get; private set; }
-        public const double ShieldCapacity = 400, ShieldDurationSeconds = 4;
+        public const double ShieldCapacity = 400, ShieldDurationSeconds = 6, ShieldCooldownSeconds = 12;
         private readonly List<double> recharge = new List<double>();
         private double shield, shieldUntil, observedNow;
         private bool secondJumpUsed;
@@ -38,7 +44,7 @@ namespace Flats.Core.Roguelike
             var item = RogueCatalog.Item(id); if (item == null || item.Kind != ItemKind.Tactical) throw new ArgumentException("tactical id");
             Id = id; stats = stats ?? new BuildStats();
             MaxCharges = id == "tactical.dash" ? Math.Max(1, Math.Min(2, stats.DashCharges)) : 1;
-            CooldownSeconds = id == "tactical.dash" ? 6 * RogueStateBag.Positive(stats.DashCooldownMul) : id == "tactical.shield" ? 12 : 0;
+            CooldownSeconds = id == "tactical.dash" ? 6 * RogueStateBag.Positive(stats.DashCooldownMul) : id == "tactical.shield" ? ShieldCooldownSeconds : 0;
         }
         public void Tick(double now) { RogueStateBag.NonNegative(now); if (now < observedNow) throw new ArgumentOutOfRangeException("now", "時間不可倒退"); observedNow = now; recharge.RemoveAll(t => t <= now); if (now >= shieldUntil) shield = 0; }
         public int Charges(double now) { Tick(now); return MaxCharges - recharge.Count; }

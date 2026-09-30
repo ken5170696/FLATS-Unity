@@ -145,17 +145,62 @@ public static class RogueWorld
         return go;
     }
 
-    /// <summary>Translucent gas volume: flat, readable, never opaque (enemies stay visible through it).</summary>
+    /// <summary>Translucent gas volume: a low haze disc on the ground plus drifting soft puffs, readable as fog and never opaque
+    /// (enemies stay visible through it). Puffs use the role-icon shader (alpha blended, shipped with players).</summary>
     public static GameObject GasVolume(string name, Vector3 center, float radius)
     {
-        var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        go.name = name;
-        UnityEngine.Object.Destroy(go.GetComponent<Collider>());
-        go.transform.position = center + Vector3.up * 3f;
-        go.transform.localScale = new Vector3(radius * 2f, 3f, radius * 2f);
-        var mat = new Material(Shader.Find("Sprites/Default")) { color = Gas };
-        var r = go.GetComponent<Renderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        return go;
+        var root = new GameObject(name);
+        root.transform.position = center;
+        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        disc.name = "Haze";
+        UnityEngine.Object.Destroy(disc.GetComponent<Collider>());
+        disc.transform.SetParent(root.transform, false);
+        disc.transform.localPosition = Vector3.up * 0.9f;
+        disc.transform.localScale = new Vector3(radius * 2f, 0.9f, radius * 2f);
+        var haze = Gas; haze.a = 0.22f;
+        var mat = new Material(Shader.Find("Sprites/Default")) { color = haze };
+        var r = disc.GetComponent<Renderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var template = Resources.Load<Material>("UI/Roguelike/RogueRoleIcon");
+        if (template != null)
+        {
+            var puffMaterial = new Material(template.shader) { mainTexture = SoftCircle(), color = new Color(Gas.r, Gas.g, Gas.b, 0.3f) };
+            int puffs = Mathf.Clamp(Mathf.RoundToInt(radius * 0.8f), 12, 40);
+            var rng = new System.Random(name.GetHashCode());
+            for (int i = 0; i < puffs; i++)
+            {
+                var quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                UnityEngine.Object.Destroy(quad.GetComponent<Collider>());
+                quad.name = "Puff";
+                quad.transform.SetParent(root.transform, false);
+                float angle = (float)rng.NextDouble() * Mathf.PI * 2f, dist = Mathf.Sqrt((float)rng.NextDouble()) * radius * 0.92f;
+                quad.transform.localPosition = new Vector3(Mathf.Cos(angle) * dist, 1.5f + (float)rng.NextDouble() * 5f, Mathf.Sin(angle) * dist);
+                float size = Mathf.Lerp(radius * 0.35f, radius * 0.7f, (float)rng.NextDouble());
+                quad.transform.localScale = new Vector3(size, size * 0.7f, 1f);
+                var pr = quad.GetComponent<Renderer>(); pr.sharedMaterial = puffMaterial; pr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; pr.receiveShadows = false;
+                var puff = quad.AddComponent<RogueGasPuff>(); puff.Phase = (float)rng.NextDouble() * 10f; puff.Drift = 1.2f + (float)rng.NextDouble() * 1.6f; puff.Spin = ((float)rng.NextDouble() - 0.5f) * 14f;
+            }
+        }
+        return root;
+    }
+
+    static Texture2D softCircle;
+    /// <summary>A radial alpha falloff, built once: the fog puff sprite.</summary>
+    public static Texture2D SoftCircle()
+    {
+        if (softCircle != null) return softCircle;
+        const int size = 64;
+        softCircle = new Texture2D(size, size, TextureFormat.RGBA32, false) { name = "SoftCircle", wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
+        var pixels = new Color32[size * size];
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = (x + 0.5f) / size - 0.5f, dy = (y + 0.5f) / size - 0.5f;
+                float d = Mathf.Sqrt(dx * dx + dy * dy) * 2f;
+                float a = Mathf.Clamp01(1f - d); a = a * a * (3f - 2f * a);
+                pixels[y * size + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+            }
+        softCircle.SetPixels32(pixels); softCircle.Apply(false, true);
+        return softCircle;
     }
 
     public static void Destroy(GameObject go) { if (go != null) UnityEngine.Object.Destroy(go); }
@@ -216,11 +261,98 @@ public static class RogueWorldFx
         UnityEngine.Object.Destroy(go, 0.15f);
     }
 
+    /// <summary>Ground slam: a ring that races outward across the floor and thins out, plus a few flat chips thrown up from the impact.</summary>
+    public static void Shockwave(Vector3 center, float radius, Color color)
+    {
+        var go = new GameObject("Shockwave");
+        go.transform.position = center;
+        var wave = go.AddComponent<RogueShockwave>();
+        wave.Radius = radius; wave.Color = color;
+    }
+
     public static void Burst(Vector3 center, float radius, Transform shooter)
     {
         var ring = RogueWorld.Ring("Burst", center, radius, shooter != null && shooter.childCount > 0 && shooter.GetChild(0).GetComponent<Renderer>() != null ? shooter.GetChild(0).GetComponent<Renderer>().material.color : Color.white, 0.4f);
         UnityEngine.Object.Destroy(ring, 0.35f);
     }
+}
+
+/// <summary>One fog puff of a gas volume: faces the camera, drifts on a slow circle and turns, so the volume reads as moving gas.</summary>
+public class RogueGasPuff : MonoBehaviour
+{
+    public float Phase, Drift = 2f, Spin = 6f;
+    Vector3 home;
+    void Start() { home = transform.localPosition; }
+    void LateUpdate()
+    {
+        var cam = Camera.main; if (cam == null) return;
+        float t = Time.time * 0.35f + Phase;
+        transform.localPosition = home + new Vector3(Mathf.Sin(t), 0.25f * Mathf.Sin(t * 0.7f), Mathf.Cos(t)) * Drift;
+        transform.rotation = cam.transform.rotation * Quaternion.Euler(0f, 0f, Time.time * Spin + Phase * 40f);
+    }
+}
+
+/// <summary>Expanding floor ring and thrown chips for a melee ground slam; destroys itself when the ring has run its course.</summary>
+public class RogueShockwave : MonoBehaviour
+{
+    public float Radius = 5f, Seconds = 0.42f;
+    public Color Color = Color.white;
+    readonly List<Transform> segments = new List<Transform>();
+    readonly List<Transform> chips = new List<Transform>();
+    readonly List<Vector3> chipVelocity = new List<Vector3>();
+    Material material; float age;
+    const int Segments = 28;
+    void Start()
+    {
+        material = RogueWorld.Unlit(Color);
+        for (int i = 0; i < Segments; i++)
+        {
+            var seg = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Destroy(seg.GetComponent<Collider>());
+            seg.transform.SetParent(transform, false);
+            var r = seg.GetComponent<Renderer>(); r.sharedMaterial = material; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            segments.Add(seg.transform);
+        }
+        for (int i = 0; i < 10; i++)
+        {
+            var chip = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            Destroy(chip.GetComponent<Collider>());
+            chip.transform.SetParent(transform, false);
+            chip.transform.localScale = Vector3.one * UnityEngine.Random.Range(0.18f, 0.36f);
+            chip.transform.localRotation = UnityEngine.Random.rotation;
+            var r = chip.GetComponent<Renderer>(); r.sharedMaterial = material; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            float a = UnityEngine.Random.Range(0f, Mathf.PI * 2f);
+            chips.Add(chip.transform); chipVelocity.Add(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * UnityEngine.Random.Range(3f, 7f) + Vector3.up * UnityEngine.Random.Range(7f, 12f));
+        }
+        Place(0f);
+    }
+    void Place(float t)
+    {
+        float radius = Mathf.Lerp(0.6f, Radius, Mathf.Sin(t * Mathf.PI * 0.5f)), height = Mathf.Lerp(0.5f, 0.1f, t), thick = Mathf.Lerp(0.9f, 0.25f, t);
+        for (int i = 0; i < segments.Count; i++)
+        {
+            float a0 = i * Mathf.PI * 2f / Segments, a1 = (i + 1) * Mathf.PI * 2f / Segments;
+            Vector3 p0 = new Vector3(Mathf.Cos(a0), 0, Mathf.Sin(a0)) * radius, p1 = new Vector3(Mathf.Cos(a1), 0, Mathf.Sin(a1)) * radius;
+            segments[i].localPosition = (p0 + p1) * 0.5f + Vector3.up * height * 0.5f;
+            segments[i].localRotation = Quaternion.LookRotation(p1 - p0);
+            segments[i].localScale = new Vector3(thick, height, Vector3.Distance(p0, p1) + 0.05f);
+        }
+    }
+    void Update()
+    {
+        age += Time.deltaTime;
+        float t = Mathf.Clamp01(age / Seconds);
+        Place(t);
+        for (int i = 0; i < chips.Count; i++)
+        {
+            chipVelocity[i] += Vector3.down * 28f * Time.deltaTime;
+            chips[i].localPosition += chipVelocity[i] * Time.deltaTime;
+            chips[i].Rotate(Vector3.one * 360f * Time.deltaTime, Space.Self);
+            if (chips[i].localPosition.y < 0f) chips[i].gameObject.SetActive(false);
+        }
+        if (age >= Seconds + 0.25f) Destroy(gameObject);
+    }
+    void OnDestroy() { if (material != null) Destroy(material); }
 }
 
 /// <summary>A world object that bullets can damage (devices, carriers, drones). The authority owns the health; hits are forwarded to the runner.</summary>
@@ -252,10 +384,11 @@ public class RogueDamageable : MonoBehaviour
 public class RogueInteractable : MonoBehaviour
 {
     public string Action = "";       // command text prefix, e.g. "switch:0"
-    public float Radius = 3.5f;
+    public float Radius = 6f;         // world units (characters are 6.4 tall): reachable without hugging the prop
     public string Prompt = "";
     public bool Enabled = true;
     float sendAccumulator;
+    string promptText, promptLabel;
 
     void Update()
     {
@@ -277,7 +410,13 @@ public class RogueInteractable : MonoBehaviour
         else
         {
             if (sendAccumulator > 0) { ctrl.Command(new RogueCommandMessage { kind = "objective", text = Action, value = sendAccumulator }); sendAccumulator = 0; }
-            if (!string.IsNullOrEmpty(Prompt)) ctrl.Banner(RoguelikeController.T("Hold {0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)), 0.3f);
+            if (!string.IsNullOrEmpty(Prompt))
+            {
+                // the prompt text is rebuilt only when the binding label or the prompt changes, and shown without a coroutine per frame
+                string label = RogueInput.InteractLabel;
+                if (promptText == null || promptLabel != label) { promptLabel = label; promptText = RoguelikeController.T("Hold {0}: {1}", label, RoguelikeController.T(Prompt)); }
+                ctrl.Prompt(promptText);
+            }
         }
     }
 }
@@ -289,6 +428,7 @@ public class RogueCarryable : MonoBehaviour
     public string HolderKey = "";
     public string Prompt = "Pick up";
     public string DisplayName = "Supply crate";     // translation key used by banners, the HUD hint and the waypoint
+    string promptText, promptLabel;
     Vector3 lastValid, baseScale;
     float pressCooldown;
     string lastHolder = "";
@@ -338,7 +478,12 @@ public class RogueCarryable : MonoBehaviour
         {
             ctrl2.NoteInteractPrompt();
             if (RogueInput.InteractDown) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":pickup" }); pressCooldown = 0.5f; }
-            else ctrl2.Banner(RoguelikeController.T("{0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)), 0.3f);
+            else
+            {
+                string label = RogueInput.InteractLabel;
+                if (promptText == null || promptLabel != label) { promptLabel = label; promptText = RoguelikeController.T("{0}: {1}", label, RoguelikeController.T(Prompt)); }
+                ctrl2.Prompt(promptText);
+            }
         }
     }
 
@@ -388,7 +533,7 @@ public class RogueCarryable : MonoBehaviour
         if (fc != null && fc.primaryWeapon != null) fc.primaryWeapon.gameObject.SetActive(!holding);
         var anim = player.GetComponent<Animator>();
         if (anim != null) anim.SetBool("Bomb", holding);
-        if (carrying && RogueWorld.KeyOf(player) == RoguelikeMode.LocalPlayerKey) { var menu = Menu.Current; if (menu != null && menu.pressSE != null) { var src = menu.GetComponent<AudioSource>(); if (src != null) src.PlayOneShot(menu.pressSE); } }
+        if (carrying && RogueWorld.KeyOf(player) == RoguelikeMode.LocalPlayerKey) RogueAudio.Click();
     }
 
     void OnDestroy() { if (socketedTo != null) { SetCarryPose(socketedTo, false); socketedTo = null; } }

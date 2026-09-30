@@ -243,7 +243,7 @@ public class AI : MonoBehaviour
 				closestEnemy = null;
 				foreach (Transform target in targets)
 				{
-					if (target != null)
+					if (target != null && RogueTargetable(target))
 					{
 						if (closestEnemy == null)
 						{
@@ -557,7 +557,7 @@ public class AI : MonoBehaviour
 					Transform transform = null;
 					foreach (Transform target in targets)
 					{
-						if (target != null)
+						if (target != null && RogueTargetable(target))
 						{
 							if (transform == null)
 							{
@@ -830,6 +830,17 @@ public class AI : MonoBehaviour
 		}
 	}
 
+	// Roguelike: a downed teammate (damage-immune until revived) and a dead player's root (kept five seconds for the ragdoll) are
+	// still tagged Player; an enemy that kept sorting them as its closest target stood shooting a body while the living player walked
+	// past unbothered. Classic modes never reach this check.
+	private static bool RogueTargetable(Transform target)
+	{
+		if (!RoguelikeMode.Active || target == null || target.tag != "Player") return true;
+		var rogue = target.GetComponent<RoguePlayer>();
+		if (rogue != null && rogue.Downed) return false;
+		return target.GetComponent<FPSController>() != null;
+	}
+
 	private void CreateList()
 	{
 		targets = new List<Transform>();
@@ -839,7 +850,7 @@ public class AI : MonoBehaviour
 			GameObject[] array2 = array;
 			foreach (GameObject gameObject in array2)
 			{
-				if (gameObject.layer != base.gameObject.layer || FlatsOfflineScores.FreeForAll)
+				if ((gameObject.layer != base.gameObject.layer || FlatsOfflineScores.FreeForAll) && RogueTargetable(gameObject.transform))
 				{
 					targets.Add(gameObject.transform);
 				}
@@ -1327,8 +1338,8 @@ public class AI : MonoBehaviour
 		if (RoguelikeMode.Active)
 		{
 			range *= RogueHooks.EnemyRangeScale();
-			// marksmen hold their distance: too close means "not in range" so they back off toward a farther waypoint (Search)
-			if (rolePreferredRange >= 80f && num < rolePreferredRange * 0.35f) return false;
+			// marksmen keep firing at any distance: reporting "not in range" up close sent them walking toward the player without
+			// ever shooting (Search moves toward the target), which read as the enemy ignoring the player
 		}
 		return num < range;
 	}

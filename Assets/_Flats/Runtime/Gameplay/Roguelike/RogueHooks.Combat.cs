@@ -8,6 +8,20 @@ using UnityEngine;
 public static partial class RogueHooks
 {
     const float ChainRange = 10f, ExplosionRadius = 6f, HomingRange = 60f;
+    static int worldMask = -1;
+    static int WorldMask { get { if (worldMask < 0) worldMask = LayerMask.GetMask("Default"); return worldMask; } }
+    /// <summary>Live, undead enemies without a tag search: the role registry every spawned enemy joins.</summary>
+    static IEnumerable<RogueEnemyRole> LiveEnemies()
+    {
+        var all = RogueEnemyRole.All;
+        for (int i = 0; i < all.Count; i++)
+        {
+            var role = all[i]; if (role == null) continue;
+            var receiver = role.GetComponent<DamageReceiver>();
+            if (receiver == null || receiver.Dead) continue;
+            yield return role;
+        }
+    }
 
     /// <summary>A player bullet hit an enemy. Runs on every client that simulates the bullet; derived damage is reported only by the owner (ApplyDamage rule).</summary>
     public static void OnBulletHitEnemy(Bullet bullet, DamageReceiver target, float damage, bool headshot)
@@ -30,23 +44,27 @@ public static partial class RogueHooks
         if (rp.ChainBullets && rp.Chain.CanTrigger(new DamageContext(rp.Key, bullet.rogueRootShot), DamageKind.Chain) && rp.Chain.TryStartChain(rp.Key))
         {
             var candidates = new List<ChainCandidate>();
-            foreach (var enemy in GameObject.FindGameObjectsWithTag("Enemy"))
+            var byId = new Dictionary<string, RogueEnemyRole>();
+            foreach (var role in LiveEnemies())
             {
-                if (enemy == target.gameObject || enemy.GetComponent<AI>() == null) continue;
+                var enemy = role.gameObject;
+                if (enemy == target.gameObject) continue;
                 float d = Vector3.Distance(target.transform.position, enemy.transform.position);
-                bool visible = d <= ChainRange && !Physics.Linecast(target.transform.position + Vector3.up * 2f, enemy.transform.position + Vector3.up * 2f, LayerMask.GetMask("Default"));
-                candidates.Add(new ChainCandidate(enemy.GetInstanceID().ToString(), d, visible));
+                bool visible = d <= ChainRange && !Physics.Linecast(target.transform.position + Vector3.up * 2f, enemy.transform.position + Vector3.up * 2f, WorldMask);
+                string id = enemy.GetInstanceID().ToString();
+                byId[id] = role;
+                candidates.Add(new ChainCandidate(id, d, visible));
             }
             var chosen = EffectChainRules.ChainTargets(candidates, null, 3, ChainRange);
             var ctx = new DamageContext(rp.Key, bullet.rogueRootShot).Derived(DamageKind.Chain);
             foreach (var id in chosen)
-                foreach (var enemy in GameObject.FindGameObjectsWithTag("Enemy"))
-                    if (enemy.GetInstanceID().ToString() == id && rp.Chain.TryRegisterDerivedHit(ctx, id))
-                    {
-                        var dr = enemy.GetComponent<DamageReceiver>();
-                        if (dr != null) dr.ApplyDamage(damage * (float)TriggerCoefficients.Chain, -1, bullet.shooter);
-                        RogueWorldFx.Arc(target.transform.position + Vector3.up * 2f, enemy.transform.position + Vector3.up * 2f, bullet.shooter);
-                    }
+            {
+                RogueEnemyRole role;
+                if (!byId.TryGetValue(id, out role) || !rp.Chain.TryRegisterDerivedHit(ctx, id)) continue;
+                var dr = role.GetComponent<DamageReceiver>();
+                if (dr != null) dr.ApplyDamage(damage * (float)TriggerCoefficients.Chain, -1, bullet.shooter);
+                RogueWorldFx.Arc(target.transform.position + Vector3.up * 2f, role.transform.position + Vector3.up * 2f, bullet.shooter);
+            }
             rp.Chain.FinishChain(rp.Key);
         }
     }
@@ -105,15 +123,16 @@ public static partial class RogueHooks
         if (rp == null || !rp.HomingBullets) return;
         Vector3 dir = rb.linearVelocity.normalized;
         Transform best = null; float bestDot = 0;
-        foreach (var enemy in GameObject.FindGameObjectsWithTag("Enemy"))
+        // the registry instead of a tag search: this runs for every homing bullet every frame
+        foreach (var role in LiveEnemies())
         {
-            if (enemy.GetComponent<AI>() == null) continue;
-            Vector3 to = enemy.transform.position + Vector3.up * 2f - bullet.transform.position;
-            if (to.magnitude > HomingRange) continue;
+            Vector3 to = role.transform.position + Vector3.up * 2f - bullet.transform.position;
+            if (to.sqrMagnitude > HomingRange * HomingRange) continue;
             float dot = Vector3.Dot(dir, to.normalized);
             if (!EffectChainRules.HomingSteer(dot, 15)) continue;
-            if (Physics.Linecast(bullet.transform.position, enemy.transform.position + Vector3.up * 2f, LayerMask.GetMask("Default"))) continue;
-            if (best == null || dot > bestDot) { best = enemy.transform; bestDot = dot; }
+            if (best != null && dot <= bestDot) continue;   // the line-of-sight probe only for a candidate that would win
+            if (Physics.Linecast(bullet.transform.position, role.transform.position + Vector3.up * 2f, WorldMask)) continue;
+            best = role.transform; bestDot = dot;
         }
         if (best == null) return;
         Vector3 wanted = (best.position + Vector3.up * 2f - bullet.transform.position).normalized;

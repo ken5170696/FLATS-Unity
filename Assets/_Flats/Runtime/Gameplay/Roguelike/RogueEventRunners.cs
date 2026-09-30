@@ -48,6 +48,8 @@ public abstract class RogueEventRunner
 
     public virtual void Begin() { }
     public virtual void Tick(float dt) { }
+    /// <summary>Non-authority clients: per-frame local effects driven by replicated state (gas damage on the local player).</summary>
+    public virtual void ClientTick(float dt) { }
     public virtual void OnCommand(RogueCommandMessage cmd) { }
     public virtual void OnClientEvent(RogueEventMessage e) { }
     public virtual void OnEnemyKilled(RogueEnemyRole role) { }
@@ -177,7 +179,7 @@ public sealed class RepairDeviceRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "sidedevice") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (p != null && Vector3.Distance(p.transform.position, device.transform.position) <= 5f) repairing[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        if (p != null && Vector3.Distance(p.transform.position, device.transform.position) <= 8f) repairing[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
     }
     public override void Dispose() { RogueWorld.Destroy(device); }
 }
@@ -242,7 +244,9 @@ public sealed class LureCrateRunner : RogueEventRunner
     {
         if (machine == null) return;
         var holder = string.IsNullOrEmpty(machine.Holder) ? null : RogueWorld.PlayerByKey(machine.Holder);
-        if (holder != null) { var rp = holder.GetComponent<RoguePlayer>(); if (rp != null && rp.Downed) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); } }
+        // a holder that died or left (its object is gone) frees the crate, exactly like a downed holder; otherwise it stays "held" by nobody
+        if (!string.IsNullOrEmpty(machine.Holder) && holder == null) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); }
+        else if (holder != null) { var rp = holder.GetComponent<RoguePlayer>(); if (rp != null && rp.Downed) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); } }
         Controller.LureTarget = (machine.Carried || machine.Planted) && crate != null ? crate.transform : null;
         machine.Tick(dt);
         StatusText = machine.Planted ? N("Lure planted {0} s", Mathf.CeilToInt((float)machine.Countdown)) : machine.Carried ? N("Lure carried: press {0} to plant", RogueInput.KeyText("Interact")) : N("Lure crate: optional");
@@ -258,14 +262,17 @@ public sealed class LureCrateRunner : RogueEventRunner
         else if (cmd.text == "lure:drop" && machine.Holder == cmd.playerKey && machine.OnPlanted()) { SetHolder(""); Banner("Lure planted: enemies are drawn to it.", 2); }
     }
     public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "carry" && e.text.StartsWith("LureCrate|") && carry != null) { carry.HolderKey = e.text.Substring(10); ApplyLureCarrying(carry.HolderKey); Controller.LureTarget = crate != null ? crate.transform : null; } }
-    public override void Dispose() { Controller.LureTarget = null; RogueWorld.Destroy(crate); }
+    // the crate is destroyed with the stage: whoever still held it must not stay in the carrying state (no fire, slow walk) with nothing in hand
+    public override void Dispose() { Controller.LureTarget = null; ApplyLureCarrying(""); RogueWorld.Destroy(crate); }
 }
 
 // ---------------------------------------------------------------- emergencies
 public sealed class GasLeakRunner : RogueEventRunner
 {
     GasLeakEvent machine; readonly GameObject[] switches = new GameObject[3]; readonly GameObject[] zones = new GameObject[3]; Vector3 origin; readonly Dictionary<int, Dictionary<string, float>> held = new Dictionary<int, Dictionary<string, float>>();
-    int shownZones; float damageTick; bool leaked;
+    int shownZones; float damageTick; bool leaked; readonly bool[] switchDone = new bool[3]; float leakSeenAt = -1f;
+    // zone radii in world units (characters are 6.4 tall): the first zone already covers a courtyard, the third most of a district
+    static float ZoneRadius(int zone) { return 22f + 14f * zone; }
     public override void Begin()
     {
         origin = Point(0);
@@ -273,7 +280,7 @@ public sealed class GasLeakRunner : RogueEventRunner
         {
             switches[i] = RogueWorld.Cube("VentSwitch" + i, Point(i), new Vector3(1f, 2.2f, 0.6f), RogueWorld.Green, true);
             RogueWaypoint.Attach(switches[i], "Warning", "Vent {0}|" + (i + 1), RogueWorld.Green, 2.4f, 2).Pulse = true;
-            var it = switches[i].AddComponent<RogueInteractable>(); it.Action = "vent:" + i; it.Prompt = "Vent switch (hold)"; it.Radius = 3.5f;
+            var it = switches[i].AddComponent<RogueInteractable>(); it.Action = "vent:" + i; it.Prompt = "Vent switch (hold)"; it.Radius = 6f;
             RogueWorld.Beacon("VentBeacon" + i, Point(i), RogueWorld.Green).transform.SetParent(switches[i].transform, true);
         }
         if (Authority)
@@ -294,7 +301,7 @@ public sealed class GasLeakRunner : RogueEventRunner
             foreach (var kv in new List<KeyValuePair<string, float>>(byPlayer)) { if (kv.Value > 0) machine.OnSwitchProgress(i, kv.Key, Mathf.Min(dt, kv.Value)); byPlayer[kv.Key] = Mathf.Max(0, kv.Value - dt); }
         }
         machine.Tick(dt);
-        int done = 0; for (int i = 0; i < 3; i++) if (machine.SwitchProgress(i) >= 2.5) { done++; if (switches[i] != null) switches[i].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.White); }
+        int done = 0; for (int i = 0; i < 3; i++) if (machine.SwitchProgress(i) >= 2.5) { done++; if (!switchDone[i]) { switchDone[i] = true; if (switches[i] != null) switches[i].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.White); Controller.Notify(new RogueEventMessage { kind = "vent", index = i }); } }
         if (machine.Phase == GasPhase.Warning) StatusText = N("Gas in {0} s  Switches {1}/2", Mathf.CeilToInt((float)machine.Countdown), done);
         else if (machine.Phase == GasPhase.Leaking) { StatusText = N("GAS LEAKING! Switches {0}/2", done); if (!leaked) { leaked = true; Banner("Gas is leaking! You can still contain it: 2 switches.", 3); } }
         else StatusText = N("Gas contained");
@@ -309,39 +316,42 @@ public sealed class GasLeakRunner : RogueEventRunner
         for (int i = 0; i < 3; i++)
         {
             bool on = i < count;
-            if (on && zones[i] == null) zones[i] = RogueWorld.GasVolume("GasZone" + i, origin, 10f + 10f * i);
+            if (on && zones[i] == null) zones[i] = RogueWorld.GasVolume("GasZone" + i, origin, ZoneRadius(i));
             else if (!on && zones[i] != null) { RogueWorld.Destroy(zones[i]); zones[i] = null; }
         }
     }
-    float clientFraction;
     void ApplyGasDamage(float dt, float fraction)
     {
+        var local = RoguelikeController.FindLocalPlayer();
+        float radius = shownZones > 0 ? ZoneRadius(shownZones - 1) : 0f;
+        bool inside = local != null && shownZones > 0 && Vector3.Distance(local.transform.position, origin) <= radius;
+        var hud = Controller.Hud; if (hud != null) hud.SetGasOverlay(inside ? 1f : 0f);
+        RogueAudio.Loop("gas_loop", inside, 0.55f);
         damageTick += dt;
         if (damageTick < 0.5f) return;
         float slice = damageTick; damageTick = 0;
-        if (fraction <= 0 || shownZones <= 0) return;
-        var local = RoguelikeController.FindLocalPlayer();
-        if (local == null) return;
-        float radius = 10f + 10f * (shownZones - 1);
-        if (Vector3.Distance(local.transform.position, origin) > radius) return;
+        if (fraction <= 0 || !inside) return;
         var dr = local.GetComponent<DamageReceiver>();
         if (dr != null) dr.ApplyDamage(RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * fraction * slice, -1, local.transform);
     }
     public override void OnClientEvent(RogueEventMessage e)
     {
-        if (e.kind == "gas") { shownZones = e.index; clientFraction = shownZones > 0 ? 0.04f : 0f; ShowZones(shownZones); }
+        if (e.kind == "gas") { shownZones = e.index; if (shownZones > 0 && leakSeenAt < 0f) leakSeenAt = Time.time; if (shownZones == 0) leakSeenAt = -1f; ShowZones(shownZones); }
+        if (e.kind == "vent" && e.index >= 0 && e.index < 3 && switches[e.index] != null && !switchDone[e.index]) { switchDone[e.index] = true; switches[e.index].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.White); }
     }
-    public void ClientTick(float dt) { if (machine == null) ApplyGasDamage(dt, clientFraction); }
+    // clients mirror the authority's three-second grace after the leak starts, then take the same fraction
+    float ClientFraction { get { return shownZones > 0 && leakSeenAt >= 0f && Time.time - leakSeenAt >= (float)GasLeakEvent.GraceSeconds ? (float)GasLeakEvent.GasDamageFraction : 0f; } }
+    public override void ClientTick(float dt) { if (machine == null) ApplyGasDamage(dt, ClientFraction); }
     public override void OnCommand(RogueCommandMessage cmd)
     {
         if (machine == null || !cmd.text.StartsWith("vent:")) return;
         int i = cmd.text[5] - '0'; if (i < 0 || i > 2) return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (p == null || Vector3.Distance(p.transform.position, switches[i].transform.position) > 5f) return;
+        if (p == null || Vector3.Distance(p.transform.position, switches[i].transform.position) > 8f) return;
         Dictionary<string, float> byPlayer; if (!held.TryGetValue(i, out byPlayer)) held[i] = byPlayer = new Dictionary<string, float>();
         byPlayer[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
     }
-    public override void Dispose() { foreach (var s in switches) RogueWorld.Destroy(s); foreach (var z in zones) RogueWorld.Destroy(z); }
+    public override void Dispose() { var hud = Controller.Hud; if (hud != null) hud.SetGasOverlay(0f); RogueAudio.Loop("gas_loop", false); foreach (var s in switches) RogueWorld.Destroy(s); foreach (var z in zones) RogueWorld.Destroy(z); }
 }
 
 public sealed class PowerOutageRunner : RogueEventRunner
@@ -351,7 +361,7 @@ public sealed class PowerOutageRunner : RogueEventRunner
     {
         generator = RogueWorld.Cube("Generator", Point(0), new Vector3(1.6f, 2.2f, 1.6f), RogueWorld.Gold, true);
         RogueWaypoint.Attach(generator, "Warning", "Generator", RogueWorld.Gold, 2.4f, 2).Pulse = true;
-        var it = generator.AddComponent<RogueInteractable>(); it.Action = "generator"; it.Prompt = "Restart the generator (hold 8 s)"; it.Radius = 4f;
+        var it = generator.AddComponent<RogueInteractable>(); it.Action = "generator"; it.Prompt = "Restart the generator (hold 8 s)"; it.Radius = 6f;
         RogueWorld.Beacon("GeneratorBeacon", Point(0), RogueWorld.Gold).transform.SetParent(generator.transform, true);
         SetDark(true);
         if (Authority) machine = new PowerOutageEvent();
@@ -381,7 +391,7 @@ public sealed class PowerOutageRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "generator") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (p != null && Vector3.Distance(p.transform.position, generator.transform.position) <= 5f) held[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        if (p != null && Vector3.Distance(p.transform.position, generator.transform.position) <= 8f) held[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
     }
     public override void Dispose() { SetDark(false); RogueWorld.Destroy(generator); }
 }
@@ -404,7 +414,8 @@ public sealed class MobileBombRunner : RogueEventRunner
     {
         if (machine == null) return;
         var holder = string.IsNullOrEmpty(machine.Holder) ? null : RogueWorld.PlayerByKey(machine.Holder);
-        if (holder != null)
+        if (!string.IsNullOrEmpty(machine.Holder) && holder == null) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); }   // holder died or left: the bomb is free again
+        else if (holder != null)
         {
             var rp = holder.GetComponent<RoguePlayer>();
             if (rp != null && rp.Downed) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); }

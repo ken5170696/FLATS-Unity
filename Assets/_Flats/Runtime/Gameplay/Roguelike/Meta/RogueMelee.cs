@@ -110,15 +110,32 @@ public sealed class RogueMelee : MonoBehaviour
         }
     }
     void RestoreBob() { if (fc != null && Mine && bob != Vector3.zero) fc.MeleeEye.localPosition -= bob; bob = Vector3.zero; }
+    // ground slam: the view dips and shudders for a third of a second after the impact so the hit lands on the player too
+    float slamKick; const float SlamKickSeconds = 0.32f;
+    RogueMeleeVisual heavyTuning; string heavyTuningModel;
+    CharacterController ownerBody;
     void LateUpdate()
     {
         // Animator 的可見性曲線可能在 Show 之後重新開啟槍；每幀在動畫後維持隱藏。
         if (Busy || Guarding) HideWeapons();
-        if (!RoguelikeMode.Active || !Mine || Def == null || Def.Special != MeleeSpecial.GroundSlam || fc == null) return;
-        var cc = GetComponent<CharacterController>(); if (cc == null || cc.velocity.sqrMagnitude < .2f) return;
-        var prefab = Resources.Load<GameObject>(Def.Model);
-        var tuning = prefab != null ? prefab.GetComponent<RogueMeleeVisual>() : null;
-        bob = Vector3.up * Mathf.Sin(Time.time * 11) * (tuning != null ? tuning.HeavyBob : 0); fc.MeleeEye.localPosition += bob;
+        if (!RoguelikeMode.Active || !Mine || Def == null || fc == null) return;
+        Vector3 offset = Vector3.zero;
+        if (slamKick > 0f)
+        {
+            float k = slamKick / SlamKickSeconds; slamKick -= Time.deltaTime;
+            offset += Vector3.down * (0.42f * k * k) + Vector3.up * (0.09f * k * Mathf.Sin(Time.time * 58f));
+        }
+        if (Def.Special == MeleeSpecial.GroundSlam)
+        {
+            if (ownerBody == null) ownerBody = GetComponent<CharacterController>();
+            if (ownerBody != null && ownerBody.velocity.sqrMagnitude >= .2f)
+            {
+                if (heavyTuning == null || heavyTuningModel != Def.Model) { var prefab = Resources.Load<GameObject>(Def.Model); heavyTuning = prefab != null ? prefab.GetComponent<RogueMeleeVisual>() : null; heavyTuningModel = Def.Model; }
+                offset += Vector3.up * Mathf.Sin(Time.time * 11) * (heavyTuning != null ? heavyTuning.HeavyBob : 0);
+            }
+        }
+        if (offset == Vector3.zero) return;
+        bob = offset; fc.MeleeEye.localPosition += bob;
     }
     [PunRPC] void RogueMeleeHeld(bool held, PhotonMessageInfo info)
     {
@@ -134,6 +151,7 @@ public sealed class RogueMelee : MonoBehaviour
         Busy = true; LastSwingTime = swingStart = Time.time;
         var swing = sequence.Begin(Time.time);
         fc.MeleeAnimation(true, false); Show(def);
+        RogueAudio.PlayAt("melee_swing", fc.MeleeEye.position, Mine ? 0.8f : 0.5f);
         bool throwAxe = false;
         try
         {
@@ -149,7 +167,12 @@ public sealed class RogueMelee : MonoBehaviour
             }
             Pose(1, false);
             if (throwAxe) { if (model != null) model.SetActive(false); state.AxeThrown = true; StartCoroutine(Throw(def, swing)); }
-            else if (Mine) Hit(def, swing, fc.MeleeEye.position, fc.MeleeEye.forward);
+            else if (fc != null)   // a remote copy loses its controller on death while this coroutine may still be in its windup
+            {
+                // the slam lands on every copy (shockwave, impact sound); the hit resolution stays with the owner
+                if (MeleeRules.HitsAll(def)) SlamImpact(def, fc.MeleeEye.position, fc.MeleeEye.forward);
+                if (Mine) Hit(def, swing, fc.MeleeEye.position, fc.MeleeEye.forward);
+            }
             LastHitTime = Time.time;
             end = Time.time + (float)swing.Recovery;
             while (Time.time < end) { if (token != generation || !RoguelikeMode.Active || Def != def || player.Downed) yield break; Pose(1 - (end - Time.time) / (float)swing.Recovery, true); yield return null; }
@@ -162,18 +185,37 @@ public sealed class RogueMelee : MonoBehaviour
         }
         finally { if (token == generation) { Guarding = Busy = false; if (fc != null) fc.MeleeAnimation(false); Hide(); } }
     }
+    /// <summary>Where a ground slam lands: the floor in front of the swing (a downward probe from the reach point), not eye height.</summary>
+    Vector3 SlamPoint(MeleeDef def, Vector3 origin, Vector3 direction)
+    {
+        Vector3 flat = direction; flat.y = 0f; if (flat.sqrMagnitude < 1e-4f) flat = transform.forward; flat.Normalize();
+        Vector3 probe = origin + flat * (float)def.Range * 0.75f;
+        foreach (var candidate in Physics.RaycastAll(probe + Vector3.up * 2f, Vector3.down, 14f, ~0, QueryTriggerInteraction.Ignore))
+            if (candidate.collider.GetComponentInParent<DamageReceiver>() == null && candidate.collider.GetComponentInParent<FPSController>() == null) return candidate.point;
+        return new Vector3(probe.x, transform.position.y, probe.z);
+    }
+    void SlamImpact(MeleeDef def, Vector3 origin, Vector3 direction)
+    {
+        Vector3 point = SlamPoint(def, origin, direction);
+        RogueWorldFx.Shockwave(point, (float)MeleeRules.HitRadius(def), visual != null ? visual.SlamColor : RogueWorld.Gold);
+        RogueAudio.PlayAt("slam", point);   // the ground is hit even when no enemy is
+        if (Mine) slamKick = SlamKickSeconds;
+    }
     void Hit(MeleeDef def, MeleeSwing swing, Vector3 origin, Vector3 direction)
     {
-        Vector3 center = origin + direction * (float)def.Range;
+        bool slam = MeleeRules.HitsAll(def);
+        Vector3 center = slam ? SlamPoint(def, origin, direction) + Vector3.up * 1.5f : origin + direction * (float)def.Range;
         var candidates = new Dictionary<DamageReceiver, float>();
-        Collider[] colliders = MeleeRules.HitsAll(def) ? Physics.OverlapSphere(center, (float)MeleeRules.HitRadius(def))
+        Collider[] colliders = slam ? Physics.OverlapSphere(center, (float)MeleeRules.HitRadius(def))
             : Physics.OverlapCapsule(origin, center, (float)MeleeRules.HitRadius(def));
         foreach (var c in colliders)
         {
             var receiver = c.GetComponentInParent<DamageReceiver>();
             if (receiver == null || receiver.userIsPlayer || receiver.Dead || receiver.GetComponent<AI>() == null || receiver.gameObject.layer == gameObject.layer) continue;
             Vector3 point = c.ClosestPoint(origin);
-            if (Vector3.Dot(point - origin, direction) < -.1f || !Visible(origin, receiver)) continue;
+            // a slam hits all around its impact point; a swing only what is in front of the swing
+            if (!slam && Vector3.Dot(point - origin, direction) < -.1f) continue;
+            if (!Visible(slam ? center : origin, receiver)) continue;
             float distance = (point - origin).sqrMagnitude;
             if (!candidates.ContainsKey(receiver) || distance < candidates[receiver]) candidates[receiver] = distance;
         }
@@ -203,7 +245,7 @@ public sealed class RogueMelee : MonoBehaviour
         if (Menu.network == 0 && alive && receiver.Dead) RogueMeleeStats.ConfirmKill(transform);
         state.OnHit(Time.time);
         RogueEnemyStatus.RequestMelee(receiver.gameObject, def, -toAttacker.normalized * (float)MeleeRules.KnockbackMeters(def), transform);
-        PlayHit();
+        if (!MeleeRules.HitsAll(def)) PlayHit();   // the slam already played its impact once
     }
     IEnumerator Throw(MeleeDef def, MeleeSwing swing)
     {
@@ -311,7 +353,7 @@ public sealed class RogueMelee : MonoBehaviour
     }
     void PoseGuard() { if (visual != null && poseDriver != null) poseDriver.SetPose(visual.GuardPosition, visual.GuardRotation); }
     void PlayHit() { if (visual != null && visual.HitSound != null) GetComponent<AudioSource>().PlayOneShot(visual.HitSound); }
-    void PlayDeflect() { if (visual != null && visual.DeflectSound != null) GetComponent<AudioSource>().PlayOneShot(visual.DeflectSound); }
+    void PlayDeflect() { if (!RogueAudio.Play("deflect") && visual != null && visual.DeflectSound != null) GetComponent<AudioSource>().PlayOneShot(visual.DeflectSound); }
     void Hide()
     {
         if (poseDriver != null) poseDriver.End();

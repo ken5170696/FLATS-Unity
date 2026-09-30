@@ -121,6 +121,8 @@ public partial class RoguelikeController
         if (emergencyRunner != null) { emergencyRunner.Dispose(); emergencyRunner = null; }
         if (objectiveRunner != null) { objectiveRunner.Dispose(); objectiveRunner = null; }
         LureTarget = null; PowerRerouted = false; ClearGravityZones();
+        // every carryable prop is gone with its runner: no player may keep the carrying state (no fire, slow walk) into the next phase
+        foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = false; }
         objectiveText = ""; lastSentObjectiveText = "";
         huntInstance = -1; pendingInvulnerable.Clear();
         foreach (var world in GameObject.FindGameObjectsWithTag("Untagged")) { }   // world props are tracked by their runners

@@ -76,15 +76,19 @@ public class RogueEnemyRole : MonoBehaviour
         slowUntil = until; slowScale = Mathf.Clamp(scale, 0.2f, 1f);
     }
 
+    UnityEngine.AI.NavMeshAgent agent;
     void Update()
     {
         if (markVisual != null && markVisual.activeSelf && !Marked) markVisual.SetActive(false);
-        if (ai != null)
+        if (ai != null && Time.time < slowUntil)
         {
-            var agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
-            if (agent != null && agent.enabled) { float baseSpeed = ai.defaultSpeed; if (Time.time < slowUntil) agent.speed = Mathf.Min(agent.speed, baseSpeed * slowScale); }
+            if (agent == null) agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+            if (agent != null && agent.enabled) { float baseSpeed = ai.defaultSpeed; agent.speed = Mathf.Min(agent.speed, baseSpeed * slowScale); }
         }
     }
+
+    /// <summary>Every live role (registry for per-frame scans such as homing and chain bullets; replaces tag searches).</summary>
+    public static List<RogueEnemyRole> All { get { return all; } }
 
     public static RogueEnemyRole Attach(GameObject go, string roleId, int instanceId, bool elite)
     {
@@ -114,6 +118,7 @@ public class RogueEnemyRole : MonoBehaviour
         }
         if (roleId == "role.finale") { ai.roleSpeedScale = 0.8f; ai.roleDamageScale = 1.3f; }
         BuildMarker();
+        if (Def != null && Def.FrontReduction > 0) BuildRiotShield();
         if (!all.Contains(this)) all.Add(this);
     }
 
@@ -163,13 +168,42 @@ public class RogueEnemyRole : MonoBehaviour
         var view = marker.AddComponent<RogueRoleMarker>();
         view.Configure(Def != null ? Def.Marker : "Warning", Elite, RoleId == "role.finale", HuntMarked);
     }
+    // ---------------------------------------------------------------- riot shield (front reduction made visible)
+    GameObject riotShield;
+    /// <summary>A role with a frontal reduction carries a flat riot shield in front of its chest, so the reduction is readable
+    /// and the flank is the obvious answer. Built from primitives in the FLATS palette; no collider (hits resolve on the body).</summary>
+    void BuildRiotShield()
+    {
+        if (riotShield != null || !RoguelikeMode.Active) return;
+        riotShield = new GameObject("RiotShield");
+        riotShield.transform.SetParent(transform, false);
+        // root units (the root is scaled x4, the capsule is 1.6 tall): chest at y 1.0, body front at z 0.5
+        riotShield.transform.localPosition = new Vector3(0f, 0.95f, 0.66f);
+        riotShield.transform.localRotation = Quaternion.identity;
+        Color plate = RogueRoleMarker.RoleTint(Def != null ? Def.Marker : "Shield"), edge = new Color(0.12f, 0.13f, 0.16f), window = new Color(0.85f, 0.94f, 1f);
+        AddBox(riotShield, edge, new Vector3(0f, 0f, 0.02f), new Vector3(0.78f, 1.04f, 0.05f));       // frame
+        AddBox(riotShield, plate, new Vector3(0f, 0f, -0.01f), new Vector3(0.68f, 0.94f, 0.05f));     // plate
+        AddBox(riotShield, window, new Vector3(0f, 0.28f, -0.04f), new Vector3(0.5f, 0.24f, 0.04f));  // viewing slit
+        AddBox(riotShield, edge, new Vector3(0f, -0.22f, -0.04f), new Vector3(0.1f, 0.3f, 0.04f));    // grip stripe
+    }
+    void AddBox(GameObject parent, Color color, Vector3 localPos, Vector3 size)
+    {
+        var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        Destroy(box.GetComponent<Collider>());
+        box.layer = gameObject.layer;
+        box.transform.SetParent(parent.transform, false);
+        box.transform.localPosition = localPos; box.transform.localScale = size;
+        var r = box.GetComponent<Renderer>(); r.sharedMaterial = RogueWorld.Unlit(color);
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+    }
+
     static void AddQuad(GameObject parent, Material mat, Color color, Vector3 localPos, Vector3 scale, float zRot)
     {
         var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
         Destroy(q.GetComponent<Collider>());
         q.transform.SetParent(parent.transform, false);
         q.transform.localPosition = localPos; q.transform.localScale = scale; q.transform.localRotation = Quaternion.Euler(0, 0, zRot);
-        var r = q.GetComponent<Renderer>(); r.sharedMaterial = mat; r.material.color = color;
+        var r = q.GetComponent<Renderer>(); mat.color = color; r.sharedMaterial = mat;   // mat is already this quad's own instance: no second copy
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         var billboard = q.AddComponent<RogueBillboard>();
         billboard.zRotation = zRot;

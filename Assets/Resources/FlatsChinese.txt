@@ -66,7 +66,7 @@ After a headshot the next shot cycles {0}% faster.	爆頭後，下次射擊的�
 A headshot puts {0} round back into the magazine.	爆頭會補回 {0} 發子彈至彈匣。
 Aim steadies {0}% faster after raising the sight.	開鏡後準星穩定速度提高 {0}%。
 The last round in the magazine deals x{0} damage.	彈匣末發子彈造成 ×{0} 傷害。
-Slams the ground: hits every enemy within {0} m.	震擊地面，命中 {0} 公尺內所有敵人。
+Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s.	震擊地面：命中 {0} 公尺內所有敵人，將其擊退 {1} 公尺並震懾 {2} 秒。
 Triggered {0} times · extra damage {1} · absorbed {2}	觸發 {0} 次・額外傷害 {1}・吸收傷害 {2}
 A kill puts {0} rounds back into the magazine.	擊殺會補回 {0} 發子彈至彈匣。
 Stuns for {0} s (elites and bosses {1}% of that).	癱瘓 {0} 秒（菁英與首領僅持續該時間的 {1}%）。
@@ -1720,13 +1720,13 @@ Restore full health now.	立即回復全部生命。
 Field Repair	野戰修復
 Restore full health and refill ammunition.	回復全部生命並補滿彈藥。
 Vitality	體力
-+12% maximum health per tier (max 5 tiers). Heals the added amount.	每階最大生命 +12%（最多 5 階），並回復增加的量。
++12% maximum health per tier (max 7 tiers). Heals the added amount.	每階最大生命 +12%（最多 7 階），並回復增加的量。
 Firepower	火力
-+8% weapon damage per tier (max 5 tiers).	每階武器傷害 +8%（最多 5 階）。
++8% weapon damage per tier (max 7 tiers).	每階武器傷害 +8%（最多 7 階）。
 Magazine	彈匣
-+15% magazine capacity per tier (max 5 tiers), at least +1 round.	每階彈匣容量 +15%（最多 5 階），至少 +1 發。
++15% magazine capacity per tier (max 7 tiers), at least +1 round.	每階彈匣容量 +15%（最多 7 階），至少 +1 發。
 Agility	敏捷
-+6% movement speed per tier (max 5 tiers).	每階移動速度 +6%（最多 5 階）。
++6% movement speed per tier (max 7 tiers).	每階移動速度 +6%（最多 7 階）。
 Precision	精準
 Headshots deal +25% damage and bullets pierce one enemy at 60% damage. Body shots deal -10%.	爆頭傷害 +25%，子彈可穿透一名敵人（60% 傷害）。身體命中 -10%。
 Assault	突擊
@@ -1800,21 +1800,21 @@ Passive: press Jump again in the air for a second jump. Resets on landing.	被�
 Dash	衝刺
 Active: dash 8 m forward. 6 s cooldown. Stops at walls and edges.	主動：向前衝刺 8 m。冷卻 6 秒。遇牆與邊緣停止。
 Shield	護盾
-Active: absorb 400 damage for 4 s. 12 s cooldown. Re-activating replaces the shield, it does not stack.	主動：4 秒內吸收 400 傷害。冷卻 12 秒。重複啟用會取代護盾，不疊加。
+Active: absorb 400 damage for 6 s. 12 s cooldown. Re-activating replaces the shield, it does not stack.	主動：6 秒內吸收 400 傷害。冷卻 12 秒。重複啟用會取代護盾，不疊加。
 Infinite Fire	無限火力
-8 s of unlimited ammunition with no reloads. Fire rate unchanged.	8 秒無限彈藥、不需換彈。射速不變。
+12 s of unlimited ammunition with no reloads. Fire rate unchanged.	12 秒無限彈藥、不需換彈。射速不變。
 Lethal Shot	致命射擊
-5 s: direct hits kill regular enemies outright. Finale targets take +200% instead.	5 秒內直接命中即擊殺普通敵人。章末目標改為 +200% 傷害。
+7 s: direct hits kill regular enemies outright. Finale targets take +200% instead.	7 秒內直接命中即擊殺普通敵人。章末目標改為 +200% 傷害。
 Invincible	無敵
-5 s of immunity to combat and gas damage. Only you.	5 秒免疫戰鬥與毒霧傷害。僅限自己。
+7 s of immunity to combat and gas damage. Only you.	7 秒免疫戰鬥與毒霧傷害。僅限自己。
 Emergency Revive	緊急復甦
 Once per run: instantly revive downed or dead teammates with their build. Solo: survive one lethal hit.	每局一次：立即復活倒地或死亡的隊友並保留其 Build。單人：擋下一次致命傷害。
 Enemy Sight	敵人透視
-8 s: outlines of every spawned enemy within 80 m.	8 秒顯示 80 m 內所有已生成敵人的輪廓。
+12 s: outlines of every spawned enemy within 80 m.	12 秒顯示 80 m 內所有已生成敵人的輪廓。
 Chain Bullets	閃電連鎖子彈
-8 s: hits arc to up to 3 enemies within 10 m at 50% damage. Chains do not count as headshots.	8 秒內命中會連鎖至 10 m 內最多 3 名敵人（50% 傷害）。連鎖不算爆頭。
+12 s: hits arc to up to 3 enemies within 10 m at 50% damage. Chains do not count as headshots.	12 秒內命中會連鎖至 10 m 內最多 3 名敵人（50% 傷害）。連鎖不算爆頭。
 Homing Bullets	子彈追蹤
-8 s: bullets steer toward the nearest visible enemy within 15 degrees.	8 秒內子彈會朝 15 度內最近的可見敵人轉向。
+12 s: bullets steer toward the nearest visible enemy within 15 degrees.	12 秒內子彈會朝 15 度內最近的可見敵人轉向。
 Replace your primary weapon. Ammunition is refilled.	更換主武器，並補滿彈藥。
 Rifleman	步槍手
 Rusher	突進者

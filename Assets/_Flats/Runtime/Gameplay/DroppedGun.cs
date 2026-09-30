@@ -71,6 +71,7 @@ public class DroppedGun : MonoBehaviour
 		message = GameObject.Find("Message").transform;
 		currentGunImage = message.GetChild(1).GetChild(0).GetComponent<Image>();
 		thisGunImage = message.GetChild(1).GetChild(1).GetComponent<Image>();
+		CompactExchangePrompt(message.GetChild(1));
 		if (sight != 0)
 		{
 			GameObject gameObject = FlatsSightTarget.Create("Sights/" + Menu.sightDictionary[sight]);
@@ -90,6 +91,29 @@ public class DroppedGun : MonoBehaviour
 				PhotonNetwork.Destroy(base.gameObject);
 			}
 		}
+	}
+
+	// The authored exchange prompt (two 120x60 gun images, a 50 pt arrow and a caption that best-fits up to 40 pt) filled the middle of
+	// the view whenever a gun lay at the player's feet. Once per session it is stepped down to a compact strip; the prefab keeps its
+	// bindings (child order, images, texts) so this touches only sizes.
+	static bool compacted;
+	static void CompactExchangePrompt(Transform prompt)
+	{
+		if (compacted || prompt == null || prompt.childCount < 4) return;
+		compacted = true;
+		for (int i = 0; i < 2; i++)
+		{
+			var image = prompt.GetChild(i) as RectTransform;
+			if (image == null) continue;
+			image.sizeDelta = new Vector2(84f, 42f);
+			image.anchoredPosition = new Vector2(i == 0 ? -80f : 80f, 92f);
+		}
+		var arrow = prompt.GetChild(2).GetComponent<Text>();
+		if (arrow != null) { arrow.fontSize = 26; arrow.resizeTextForBestFit = false; }
+		var arrowRect = prompt.GetChild(2) as RectTransform; if (arrowRect != null) arrowRect.anchoredPosition = new Vector2(0f, 92f);
+		var caption = prompt.GetChild(3).GetComponent<Text>();
+		if (caption != null) { caption.fontSize = 13; caption.resizeTextMinSize = 9; caption.resizeTextMaxSize = 15; }
+		var captionRect = prompt.GetChild(3) as RectTransform; if (captionRect != null) captionRect.anchoredPosition = new Vector2(0f, 60f);
 	}
 
 	private void OnDestroy()

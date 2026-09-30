@@ -23,6 +23,7 @@ public sealed class RogueMeleeVisual : MonoBehaviour
     public AnimationCurve WindupCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
     public AnimationCurve SwingCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
     public AudioClip HitSound, DeflectSound;
+    [Tooltip("Ground slam: colour of the shockwave ring drawn on the floor at the impact point.")] public Color SlamColor = new Color(1f, 0.85f, 0.2f);
     public float HeavyBob = .045f;
     public float ThirdPersonScale = 3f;
     public Vector3 HandPosition = new Vector3(0, .08f, 0);

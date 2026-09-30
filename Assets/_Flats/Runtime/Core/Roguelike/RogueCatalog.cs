@@ -74,7 +74,7 @@ namespace Flats.Core.Roguelike
     public static class RogueCatalog
     {
         public const string RulesVersion = "1";
-        public const int MaxCores = 2, MaxMods = 6, StatTiers = 5;
+        public const int MaxCores = 2, MaxMods = 8, StatTiers = 7;
         public const double HeadshotMoneyMultiplier = 1.5;
 
         // ---- tags shared by cores and mods
@@ -90,10 +90,10 @@ namespace Flats.Core.Roguelike
 
         public static readonly ItemDef[] Stats =
         {
-            new ItemDef("stat.health", ItemKind.Stat, "Vitality", "+12% maximum health per tier (max 5 tiers). Heals the added amount.", 25, StatTiers, 0, TagGeneric),
-            new ItemDef("stat.damage", ItemKind.Stat, "Firepower", "+8% weapon damage per tier (max 5 tiers).", 30, StatTiers, 0, TagGeneric),
-            new ItemDef("stat.magazine", ItemKind.Stat, "Magazine", "+15% magazine capacity per tier (max 5 tiers), at least +1 round.", 25, StatTiers, 0, TagGeneric),
-            new ItemDef("stat.speed", ItemKind.Stat, "Agility", "+6% movement speed per tier (max 5 tiers).", 25, StatTiers, 0, TagGeneric),
+            new ItemDef("stat.health", ItemKind.Stat, "Vitality", "+12% maximum health per tier (max 7 tiers). Heals the added amount.", 25, StatTiers, 0, TagGeneric),
+            new ItemDef("stat.damage", ItemKind.Stat, "Firepower", "+8% weapon damage per tier (max 7 tiers).", 30, StatTiers, 0, TagGeneric),
+            new ItemDef("stat.magazine", ItemKind.Stat, "Magazine", "+15% magazine capacity per tier (max 7 tiers), at least +1 round.", 25, StatTiers, 0, TagGeneric),
+            new ItemDef("stat.speed", ItemKind.Stat, "Agility", "+6% movement speed per tier (max 7 tiers).", 25, StatTiers, 0, TagGeneric),
         };
 
         public static readonly ItemDef[] Cores =
@@ -142,18 +142,18 @@ namespace Flats.Core.Roguelike
         {
             new ItemDef("tactical.doublejump", ItemKind.Tactical, "Double Jump", "Passive: press Jump again in the air for a second jump. Resets on landing.", 45, 1, 1, TagMobility),
             new ItemDef("tactical.dash", ItemKind.Tactical, "Dash", "Active: dash 8 m forward. 6 s cooldown. Stops at walls and edges.", 45, 1, 1, TagMobility, TagAssault),
-            new ItemDef("tactical.shield", ItemKind.Tactical, "Shield", "Active: absorb 400 damage for 4 s. 12 s cooldown. Re-activating replaces the shield, it does not stack.", 45, 1, 1, TagGeneric),
+            new ItemDef("tactical.shield", ItemKind.Tactical, "Shield", "Active: absorb 400 damage for 6 s. 12 s cooldown. Re-activating replaces the shield, it does not stack.", 45, 1, 1, TagGeneric),
         };
 
         public static readonly ItemDef[] Ultimates =
         {
-            new ItemDef("ult.infinite_fire", ItemKind.Ultimate, "Infinite Fire", "8 s of unlimited ammunition with no reloads. Fire rate unchanged.", 80, 1, 2, TagSuppression, TagReload),
-            new ItemDef("ult.lethal_shot", ItemKind.Ultimate, "Lethal Shot", "5 s: direct hits kill regular enemies outright. Finale targets take +200% instead.", 80, 1, 2, TagPrecision),
-            new ItemDef("ult.invincible", ItemKind.Ultimate, "Invincible", "5 s of immunity to combat and gas damage. Only you.", 80, 1, 2, TagAssault),
+            new ItemDef("ult.infinite_fire", ItemKind.Ultimate, "Infinite Fire", "12 s of unlimited ammunition with no reloads. Fire rate unchanged.", 80, 1, 2, TagSuppression, TagReload),
+            new ItemDef("ult.lethal_shot", ItemKind.Ultimate, "Lethal Shot", "7 s: direct hits kill regular enemies outright. Finale targets take +200% instead.", 80, 1, 2, TagPrecision),
+            new ItemDef("ult.invincible", ItemKind.Ultimate, "Invincible", "7 s of immunity to combat and gas damage. Only you.", 80, 1, 2, TagAssault),
             new ItemDef("ult.emergency_revive", ItemKind.Ultimate, "Emergency Revive", "Once per run: instantly revive downed or dead teammates with their build. Solo: survive one lethal hit.", 80, 1, 2, TagMarker, TagMobility),
-            new ItemDef("ult.enemy_sight", ItemKind.Ultimate, "Enemy Sight", "8 s: outlines of every spawned enemy within 80 m.", 80, 1, 2, TagMarker),
-            new ItemDef("ult.chain_bullets", ItemKind.Ultimate, "Chain Bullets", "8 s: hits arc to up to 3 enemies within 10 m at 50% damage. Chains do not count as headshots.", 80, 1, 2, TagRicochet, TagDemolition),
-            new ItemDef("ult.homing_bullets", ItemKind.Ultimate, "Homing Bullets", "8 s: bullets steer toward the nearest visible enemy within 15 degrees.", 80, 1, 2, TagPrecision, TagMobility),
+            new ItemDef("ult.enemy_sight", ItemKind.Ultimate, "Enemy Sight", "12 s: outlines of every spawned enemy within 80 m.", 80, 1, 2, TagMarker),
+            new ItemDef("ult.chain_bullets", ItemKind.Ultimate, "Chain Bullets", "12 s: hits arc to up to 3 enemies within 10 m at 50% damage. Chains do not count as headshots.", 80, 1, 2, TagRicochet, TagDemolition),
+            new ItemDef("ult.homing_bullets", ItemKind.Ultimate, "Homing Bullets", "12 s: bullets steer toward the nearest visible enemy within 15 degrees.", 80, 1, 2, TagPrecision, TagMobility),
         };
 
         public static readonly EnemyRoleDef[] EnemyRoles =

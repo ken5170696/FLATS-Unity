@@ -15,6 +15,8 @@ Open **FLATS → Project Overview** in Unity for scene and prefab shortcuts. Use
 | Spectator overlay | WatchCamera prefab → Canvas | WatchCamera switches players and its OpenMenu button opens pause and Settings |
 | General control rows (sensitivity, aim sensitivity, handedness) | SettingsScreen prefab → Control | Menu.Options and Menu.Controls update settings by row name |
 | Shared weapon balance | Runtime/Core/WeaponCatalog.cs | Immutable defaults feed GunInfo at startup; Gun holds per-instance ammunition and copied stats |
+| Roguelike sound effect | Assets/Resources/Audio/Roguelike/<name>.wav | `RogueAudio.Play("<name>")` loads clips by file name; see ROGUELIKE_SURVIVAL.md |
+| Hit-direction strips, weapon exchange prompt | GameplayHUD prefab (DamageFrom*), GameInterface → Message/WeaponChange | `EnemySensor` and `DroppedGun` size them down once at start (460-unit strips, 84x42 gun images) |
 | Map geometry, lights, spawn points | Individual map scene | Map and gameplay components |
 | Runtime rendering | URP assets and camera prefabs | See RENDERING.md before altering stacks or effects |
 | Imported models, textures, audio | Existing Art and Audio folders | Import settings and original source attribution |

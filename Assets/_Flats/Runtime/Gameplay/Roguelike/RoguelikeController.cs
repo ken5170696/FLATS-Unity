@@ -48,6 +48,7 @@ public partial class RoguelikeController : MonoBehaviour
         hudRefresh -= Time.deltaTime;
         if (hudRefresh <= 0 && runStarted) { hudRefresh = 0.5f; RefreshHud(); }
         TickOverview();
+        TickPrompt();
     }
 
     void OnDestroy()
@@ -83,7 +84,14 @@ public partial class RoguelikeController : MonoBehaviour
         sceneReady = true;
         SetupMusic();
         hudView = RogueHudView.Open(hud);
-        if (hudView != null) scoreText.enabled = false;   // the roguelike HUD replaces the legacy score line
+        if (hudView != null)
+        {
+            scoreText.enabled = false;   // the roguelike HUD replaces the legacy score line
+            // the shared centre banner (Message/Text, best fit up to 30) and the top-right log feed (Arial 20) were sized for a HUD with
+            // nothing else on screen; next to the roguelike panels they read as oversized, so both step down while this HUD is up
+            phaseText.resizeTextMaxSize = Mathf.Min(phaseText.resizeTextMaxSize, 22);
+            logFontSize = 15;
+        }
 
         // Wait for the local player: legacy Singleplayer/Multiplayer Start spawns Flatman.
         float wait = 0;
@@ -310,8 +318,26 @@ public partial class RoguelikeController : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- presentation refresh
+    RunPhase soundPhase = RunPhase.Prep; bool soundPhaseKnown;
+    /// <summary>Phase stings and the music's second layer (the combat layer of the authored BGM pair) follow the run phase.</summary>
+    void OnPhaseSound(RunPhase phase)
+    {
+        if (soundPhaseKnown && phase == soundPhase) return;
+        bool first = !soundPhaseKnown; soundPhaseKnown = true; soundPhase = phase;
+        if (Menu.network == 0) Singleplayer.chance = phase == RunPhase.Combat;   // the second BGM source fades in during combat
+        if (first) return;
+        switch (phase)
+        {
+            case RunPhase.Combat: RogueAudio.Play("stage_start"); break;
+            case RunPhase.Cleared: RogueAudio.Play("stage_clear"); break;
+            case RunPhase.Reward: RogueAudio.Play("ui_reward", 0.8f); break;
+            case RunPhase.Route: case RunPhase.ChapterEnd: RogueAudio.Play("chapter"); break;
+        }
+    }
+
     void OnStateChanged()
     {
+        if (state != null) OnPhaseSound(state.phase);
         if (state != null && state.phase == RunPhase.Combat) BuildClientWorld();
         else if (state != null && !IsAuthority && state.phase != RunPhase.Combat) DisposeEvents();
         if (state != null && state.phase != RunPhase.Prep) screenDismissed = false;
@@ -333,22 +359,29 @@ public partial class RoguelikeController : MonoBehaviour
         switch (e.kind)
         {
             case "bounty":
+                if (e.minor > 0) RogueAudio.Coin();
                 if (e.minor > 0) Log(T(e.flag ? "Headshot bounty +{0}" : "Bounty +{0}", RogueMoney.Format(e.minor)) + (string.IsNullOrEmpty(e.text) ? "" : " (" + e.text + ")"));
                 if (e.minor > 0 && hudView != null) hudView.ShowBounty("+$" + RogueMoney.Format(e.minor) + (e.flag && e.playerKey == localKey ? "  " + T("Headshot") : ""));   // every member is paid the same bounty
                 break;
-            case "banner": Banner(Decode(e.text), (float)(e.value > 0 ? e.value : 3)); break;
+            case "banner": RogueAudio.OnBanner(e.text); Banner(Decode(e.text), (float)(e.value > 0 ? e.value : 3)); break;
             case "log": Log(Decode(e.text)); break;
-            case "downed": MetaTeammateDowned(e.playerKey); Log(T("{0} is down!", e.text)); { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.AcknowledgeDown(e.index); } break;
+            case "downed": MetaTeammateDowned(e.playerKey); if (e.playerKey != localKey) RogueAudio.Play("downed_ally"); Log(T("{0} is down!", e.text)); { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.AcknowledgeDown(e.index); } break;
             case "downrefused": { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.RefuseDown(e.index); } break;
-            case "died": Log(T("{0} died.", e.text)); break;
-            case "revived": Log(T(e.flag ? "Emergency revive: {0}" : "Revived: {0}", e.text)); break;
+            case "died": RogueAudio.Play("died", e.playerKey == localKey ? 1f : 0.6f); Log(T("{0} died.", e.text)); break;
+            case "revived": RogueAudio.Play("revive"); Log(T(e.flag ? "Emergency revive: {0}" : "Revived: {0}", e.text)); break;
             case "tx": OnTransactionResult(e); break;
             case "rescueshield": MetaRescueShieldEvent(e); break;
-            case "ult": Log(e.text == "" ? T("Ultimate used") : T("Ultimate: {0}", ItemName(e.text))); OnUltimateConfirmed(e); break;
+            case "ult": RogueAudio.Play("ult_use", e.playerKey == localKey ? 1f : 0.55f); Log(e.text == "" ? T("Ultimate used") : T("Ultimate: {0}", ItemName(e.text))); OnUltimateConfirmed(e); break;
             case "objective": Log(e.text); break;
             case "objtext": ApplyObjectiveText(e.text); break;
             case "equip": OnEquipEvent(e); break;
-            case "revprog": if (e.playerKey == localKey && hudView != null) hudView.SetRevive((float)e.value, T("{0} is reviving you", e.text)); break;
+            case "revprog":
+                if (e.playerKey == localKey)
+                {
+                    if (hudView != null) hudView.SetRevive((float)e.value, T("{0} is reviving you", e.text));
+                    var victim = RogueHooks.Local; if (victim != null) victim.NoteBeingRevived();   // the bleed-out clock pauses while the hold continues
+                }
+                break;
             case "inv":
                 if (!IsAuthority)
                 {
@@ -365,17 +398,21 @@ public partial class RoguelikeController : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- helpers
+    // Called from many per-frame sites (every interactable, carryable, the HUD, the player): the tag search runs once per frame at most.
+    static GameObject localPlayerCache; static int localPlayerFrame = -1;
     public static GameObject FindLocalPlayer()
     {
+        if (localPlayerFrame == Time.frameCount && localPlayerCache != null && localPlayerCache.activeInHierarchy && localPlayerCache.GetComponent<FPSController>() != null) return localPlayerCache;
+        localPlayerFrame = Time.frameCount; localPlayerCache = null;
         foreach (var go in GameObject.FindGameObjectsWithTag("Player"))
         {
             var fps = go.GetComponent<FPSController>();
             if (fps == null) continue;
-            if (Menu.network == 0) return go;
+            if (Menu.network == 0) { localPlayerCache = go; break; }
             var view = go.GetPhotonView();
-            if (view != null && view.isMine) return go;
+            if (view != null && view.isMine) { localPlayerCache = go; break; }
         }
-        return null;
+        return localPlayerCache;
     }
 
     public static string ItemName(string id)
@@ -428,7 +465,29 @@ public partial class RoguelikeController : MonoBehaviour
         if (line == null) return;
         line.transform.SetParent(logs, false);
         line.transform.SetAsFirstSibling();
-        line.GetComponent<Text>().text = text;
+        var lineText = line.GetComponent<Text>();
+        lineText.text = text;
+        if (logFontSize > 0) lineText.fontSize = logFontSize;
+    }
+    int logFontSize;
+    /// <summary>The HUD view, for runners that drive screen-space effects (gas tint).</summary>
+    public RogueHudView Hud { get { return hudView; } }
+
+    // Interaction prompts ("Hold E: Repair") are refreshed every frame by the prop the player stands at: they share the banner
+    // text but use a timestamp instead of a coroutine, so a frame of prompting costs no allocation. A banner in flight wins.
+    string promptText; float promptUntil = -1f;
+    public void Prompt(string text)
+    {
+        if (phaseText == null || string.IsNullOrEmpty(text) || bannerRoutine != null) return;
+        if (phaseText.text != text) { phaseText.text = text; }
+        if (!phaseText.enabled) phaseText.enabled = true;
+        promptText = text; promptUntil = Time.unscaledTime + 0.3f;
+    }
+    void TickPrompt()
+    {
+        if (promptText == null || Time.unscaledTime < promptUntil) return;
+        if (bannerRoutine == null && phaseText != null && phaseText.text == promptText) { phaseText.text = ""; phaseText.enabled = false; }
+        promptText = null;
     }
 
     Coroutine bannerRoutine;
@@ -442,7 +501,13 @@ public partial class RoguelikeController : MonoBehaviour
     IEnumerator BannerRoutine(string text, float seconds)
     {
         phaseText.enabled = true; phaseText.text = text;
-        yield return new WaitForSeconds(seconds);
+        // firing dismisses a banner early: a long warning must never sit over the crosshair while the player is already acting on it
+        float until = Time.time + seconds, minimum = Time.time + 0.6f;
+        while (Time.time < until)
+        {
+            if (Time.time >= minimum && phaseText.text == text && Menu.current == "Playing" && (FlatsControls.Down("Fire") || FlatsControls.PadState("Fire", 1))) break;
+            yield return null;
+        }
         if (phaseText.text == text) { phaseText.text = ""; phaseText.enabled = false; }
         bannerRoutine = null;
     }

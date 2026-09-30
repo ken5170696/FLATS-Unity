@@ -163,13 +163,15 @@ public class RogueScreenView : MonoBehaviour
         button.onClick.AddListener(() => { PlayPress(); if (action != null) action(); });
     }
 
-    static bool confirmOpen() { var v = FindObjectOfType<ConfirmationDialogView>(); return v != null && v.gameObject.activeInHierarchy; }
-
-    static void PlayPress()
+    // polled every frame by Update: the scene search is repeated at most five times a second
+    static ConfirmationDialogView confirmCache; static float confirmCheckedAt = -1f;
+    static bool confirmOpen()
     {
-        var menu = Menu.Current;
-        if (menu != null && menu.pressSE != null) { var src = menu.GetComponent<AudioSource>(); if (src != null) src.PlayOneShot(menu.pressSE); }
+        if (confirmCache == null || Time.unscaledTime - confirmCheckedAt > 0.2f) { confirmCache = FindObjectOfType<ConfirmationDialogView>(); confirmCheckedAt = Time.unscaledTime; }
+        return confirmCache != null && confirmCache.gameObject.activeInHierarchy;
     }
+
+    static void PlayPress() { RogueAudio.Click(); }
 
     /// <summary>Binds the Overview button; an empty label hides it.</summary>
     public void SetOverview(string label, Action onClick)

@@ -37,8 +37,13 @@ public class RoguePlayer : MonoBehaviour
     int suppressionStacks; float suppressionUntil;
     float reloadBurstUntil;
 
-    public const float BleedOutSeconds = 30f, ReviveHoldSeconds = 3f, ReviveRange = 3.5f;
+    // characters are 6.4 units tall (a 4x-scaled 1.6 capsule): 7 units is about one body length, close enough to read as "next to"
+    public const float BleedOutSeconds = 30f, ReviveHoldSeconds = 3f, ReviveRange = 7f;
     float reviveLastHold = -10f;
+    float beingRevivedUntil = -10f;
+    /// <summary>The authority reported a teammate holding the revive on this player: the bleed-out clock pauses while it keeps coming.</summary>
+    public void NoteBeingRevived() { beingRevivedUntil = Time.time + 0.75f; }
+    public bool BeingRevived { get { return Downed && Time.time < beingRevivedUntil; } }
 
     static bool localCancelled;
     public static void ResetLocalStatics() { localCancelled = true; }
@@ -128,9 +133,24 @@ public class RoguePlayer : MonoBehaviour
         {
             float absorbed = Mathf.Min(shieldHp, damage);
             shieldHp -= absorbed; damage -= absorbed;
-            if (shieldHp <= 0) RoguelikeController.Instance?.Log(RoguelikeController.T("Shield broken"));
+            if (shieldHp <= 0) { RoguelikeController.Instance?.Log(RoguelikeController.T("Shield broken")); RogueAudio.Play("shield_break"); SyncShield(); }
         }
         return damage;
+    }
+
+    // ---------------------------------------------------------------- shield replication (squad list readout on teammates' HUDs)
+    /// <summary>The owner tells every other copy how much tactical shield is up, so the squad list can draw it; nothing else reads the mirror.</summary>
+    void SyncShield()
+    {
+        if (!isMine || Menu.network == 0) return;
+        var view = GetComponent<PhotonView>();
+        if (view != null) view.RPC("RogueShieldSync", PhotonTargets.Others, shieldHp, Mathf.Max(0f, shieldUntil - Time.time));
+    }
+    [PunRPC] void RogueShieldSync(float hp, float remaining, PhotonMessageInfo info)
+    {
+        var view = GetComponent<PhotonView>();
+        if (view == null || info.sender != view.owner || isMine) return;
+        shieldHp = Mathf.Max(0f, hp); shieldUntil = Time.time + Mathf.Clamp(remaining, 0f, 30f);
     }
 
     /// <summary>Lethal hit on the owner: solo dies at once (unless a self-revive is armed); co-op goes down and can be revived.</summary>
@@ -149,6 +169,7 @@ public class RoguePlayer : MonoBehaviour
             ctrl.Command(new RogueCommandMessage { kind = "ult" });
             receiver.hitPoints = MaxHealth() * 0.5f;
             ctrl.Banner(RoguelikeController.T("Emergency revive!"), 2f);
+            RogueAudio.Play("revive");
             return true;
         }
         Downed = true;
@@ -158,6 +179,7 @@ public class RoguePlayer : MonoBehaviour
         downRequest++;
         ctrl.Command(new RogueCommandMessage { kind = "downed", index = downRequest });
         ctrl.Banner(RoguelikeController.T("You are down! Hold on for a revive."), 3f);
+        RogueAudio.Play("downed");
         StartCoroutine(DownedRoutine());
         return true;
     }
@@ -166,7 +188,7 @@ public class RoguePlayer : MonoBehaviour
     {
         while (Downed && bleedOut > 0)
         {
-            bleedOut -= Time.deltaTime;
+            if (!BeingRevived) bleedOut -= Time.deltaTime;   // a rescue in progress holds the clock; an interrupted hold lets it run again
             // only a revive that the authority ruled AFTER acknowledging this down counts (F01); a refused down means we were already dead
             if (downRefused == downRequest) { break; }
             if (downAcked == downRequest && authorityLife == PlayerLife.Alive) { Revive(); yield break; }
@@ -355,7 +377,7 @@ public class RoguePlayer : MonoBehaviour
     /// <summary>The authority confirmed the ultimate: run its local effect.</summary>
     public void BeginUltimate(string id)
     {
-        float duration = id == "ult.lethal_shot" || id == "ult.invincible" ? 5f : id == "ult.emergency_revive" ? 0f : 8f;
+        float duration = (float)UltimateRuntime.DurationFor(id);   // one table for the effect, the HUD fill and the item text
         if (duration <= 0) return;
         ultimateActive = id;
         ultimateUntil = Time.time + duration; ultimateDuration = duration;
@@ -377,7 +399,7 @@ public class RoguePlayer : MonoBehaviour
         get
         {
             if (Stats.Dash) return dashCharges > 0 ? 1f : Mathf.Clamp01(1f - (dashCooldownUntil - Time.time) / Mathf.Max(0.1f, 6f * (float)Stats.DashCooldownMul));
-            if (Stats.Shield) return Time.time >= shieldCooldownUntil ? 1f : Mathf.Clamp01(1f - (shieldCooldownUntil - Time.time) / (12f * (float)Stats.ShieldCooldownMul));
+            if (Stats.Shield) return Time.time >= shieldCooldownUntil ? 1f : Mathf.Clamp01(1f - (shieldCooldownUntil - Time.time) / ((float)TacticalRuntime.ShieldCooldownSeconds * (float)Stats.ShieldCooldownMul));
             if (Stats.DoubleJump) return airJumpsLeft > 0 ? 1f : 0.35f;
             return 0f;
         }
@@ -393,7 +415,7 @@ public class RoguePlayer : MonoBehaviour
         }
     }
     /// <summary>Shield left as 0..1 of a fresh shield (0 when none is up), and seconds before a downed player bleeds out; HUD readouts.</summary>
-    public float ShieldFraction { get { return shieldHp > 0 && Time.time < shieldUntil ? Mathf.Clamp01(shieldHp / 400f) : 0f; } }
+    public float ShieldFraction { get { return shieldHp > 0 && Time.time < shieldUntil ? Mathf.Clamp01(shieldHp / (float)TacticalRuntime.ShieldCapacity) : 0f; } }
     public float BleedOutRemaining { get { return Downed ? Mathf.Max(0f, bleedOut) : 0f; } }
     public bool TacticalActive { get { return (Stats.Shield && Time.time < shieldUntil) || (Stats.Dash && Time.time < dashCooldownUntil - 5.5f * (float)Stats.DashCooldownMul); } }
     public bool UltimateActive { get { return ultimateActive != ""; } }
@@ -427,8 +449,15 @@ public class RoguePlayer : MonoBehaviour
 
     void TryTactical()
     {
-        if (Stats.Dash && dashCharges > 0 && Time.time >= dashCooldownUntil) { dashCharges--; dashCooldownUntil = Time.time + 6f * (float)Stats.DashCooldownMul; StartCoroutine(DashRoutine()); StartCoroutine(RechargeDash()); }
-        else if (Stats.Shield && Time.time >= shieldCooldownUntil) { shieldHp = 400f; shieldUntil = Time.time + 4f; shieldCooldownUntil = Time.time + 12f * (float)Stats.ShieldCooldownMul; RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f); }
+        if (Stats.Dash && dashCharges > 0 && Time.time >= dashCooldownUntil) { dashCharges--; dashCooldownUntil = Time.time + 6f * (float)Stats.DashCooldownMul; RogueAudio.Play("dash"); StartCoroutine(DashRoutine()); StartCoroutine(RechargeDash()); }
+        else if (Stats.Shield && Time.time >= shieldCooldownUntil)
+        {
+            shieldHp = (float)TacticalRuntime.ShieldCapacity; shieldUntil = Time.time + (float)TacticalRuntime.ShieldDurationSeconds;
+            shieldCooldownUntil = Time.time + (float)TacticalRuntime.ShieldCooldownSeconds * (float)Stats.ShieldCooldownMul;
+            RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f);
+            RogueAudio.Play("shield_up");
+            SyncShield();
+        }
     }
 
     IEnumerator RechargeDash() { yield return new WaitForSeconds(6f * (float)Stats.DashCooldownMul); dashCharges = Mathf.Min(Stats.DashCharges, dashCharges + 1); }

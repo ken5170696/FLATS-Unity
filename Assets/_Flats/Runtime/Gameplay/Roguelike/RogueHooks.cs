@@ -14,7 +14,11 @@ public static partial class RogueHooks
     public static void OnPlayerStarted(FPSController player)
     {
         if (!RoguelikeMode.Active || player == null) return;
-        if (player.GetComponent<RoguePlayer>() == null) player.gameObject.AddComponent<RoguePlayer>();
+        if (player.GetComponent<RoguePlayer>() == null)
+        {
+            player.gameObject.AddComponent<RoguePlayer>();
+            var view = player.GetComponent<PhotonView>(); if (view != null) view.RefreshRpcMonoBehaviourCache();   // RoguePlayer carries RPCs (shield mirror)
+        }
         if (RoguelikeMode.Active) RogueMelee.Attach(player);
         if (player.GetComponent<RogueDownedPresentation>() == null) player.gameObject.AddComponent<RogueDownedPresentation>();
     }

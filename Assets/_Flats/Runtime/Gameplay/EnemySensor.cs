@@ -56,7 +56,26 @@ public class EnemySensor : MonoBehaviour
 			damageLeft = transform.GetChild(10).GetComponent<Image>();
 			damageRight = transform.GetChild(11).GetComponent<Image>();
 			damageBack = transform.GetChild(12).GetComponent<Image>();
+			CompactIndicators();
 		}
+	}
+
+	// The authored hit-direction strips are 800 units wide (a full half of the 800-unit canvas) and the rear strip 450 tall, so a
+	// hit from the side washed over half the view. Narrower strips still read as a direction from the edge; sized once per session.
+	static bool compacted;
+	void CompactIndicators()
+	{
+		if (compacted) return;
+		compacted = true;
+		Resize(damageLeft, new Vector2(460f, 0f), new Vector2(230f, 0f));
+		Resize(damageRight, new Vector2(460f, 0f), new Vector2(-230f, 0f));
+		Resize(damageBack, new Vector2(0f, 260f), new Vector2(0f, 130f));
+	}
+	static void Resize(Image image, Vector2 size, Vector2 position)
+	{
+		if (image == null) return;
+		var rect = image.rectTransform;
+		rect.sizeDelta = size; rect.anchoredPosition = position;
 	}
 
 	private void OnDisable()

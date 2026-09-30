@@ -138,9 +138,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4fb0f7202cb1d3d459f20fd052895916, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::RogueMeleeVisual
-  RestPosition: {x: -1, y: 0.75, z: 1.15}
-  ChargedPosition: {x: -1.1, y: 0.85, z: 0.85}
-  HitPosition: {x: -0.9, y: 0.8, z: 1.65}
+  RestPosition: {x: -0.62, y: 0.5, z: 1.1}
+  ChargedPosition: {x: -0.45, y: 0.72, z: 0.8}
+  HitPosition: {x: -0.15, y: 0.62, z: 1.7}
   RestRotation: {x: 90, y: 0, z: 0}
   ChargedRotation: {x: 80, y: 0, z: 0}
   HitRotation: {x: 100, y: 0, z: 0}
@@ -205,7 +205,7 @@ MonoBehaviour:
   ThirdPersonScale: 2
   HandPosition: {x: 0, y: 0.18, z: -0.09}
   HandRotation: {x: 0, y: 0, z: 0}
-  GuardPosition: {x: -1.1, y: 0.85, z: 1.2}
+  GuardPosition: {x: -0.12, y: 0.55, z: 1.15}
   GuardRotation: {x: 90, y: 0, z: 0}
 --- !u!1 &4138794308598555158
 GameObject:
