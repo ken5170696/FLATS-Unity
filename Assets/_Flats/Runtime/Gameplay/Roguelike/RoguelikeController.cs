@@ -697,7 +697,8 @@ public partial class RoguelikeController : MonoBehaviour
     void TickMusicLayer()
     {
         if (Menu.network != 0 || !sceneReady || ambient == null || ambient.Length < 2 || ambient[1] == null || !ambient[1].isPlaying) return;
-        float target = Singleplayer.chance && state != null && state.phase == RunPhase.Combat ? Menu.mySettings.sound_bgm / 10f : 0f;
+        // the run phase decides, not Singleplayer.chance: the original modes' own code clears that flag for their own reasons
+        float target = state != null && state.phase == RunPhase.Combat ? Menu.mySettings.sound_bgm / 10f : 0f;
         if (!Mathf.Approximately(ambient[1].volume, target)) ambient[1].volume = Mathf.MoveTowards(ambient[1].volume, target, Time.unscaledDeltaTime * 0.8f);
     }
 
