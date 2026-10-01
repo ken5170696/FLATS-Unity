@@ -21,12 +21,26 @@ public class RogueRunTitleCard : MonoBehaviour
     [Tooltip("Distance the content slides in (canvas units).")] public float slideDistance = 60f;
     [Tooltip("Input is not read for skipping during the first moment, so the press that started the run does not skip it.")] public float skipGuard = 0.15f;
 
+    [Tooltip("Longest the card waits for the scene and the local player before it gives way anyway (seconds).")] public float maxHold = 20f;
+    [Tooltip("The world is shown this long after the local player exists, so the camera hand-over to the spawned player (a black frame or two) stays under the card.")] public float settle = 1.5f;
+    float readySince = -1f;
+
+    bool WorldReady()
+    {
+        var run = RoguelikeController.Instance;
+        bool now = run != null && run.State != null && RoguelikeController.FindLocalPlayer() != null;
+        if (!now) { readySince = -1f; return false; }
+        if (readySince < 0f) readySince = Time.unscaledTime;
+        return Time.unscaledTime - readySince >= settle;
+    }
+
     public static RogueRunTitleCard Show(string run, string info)
     {
         var prefab = Resources.Load<RogueRunTitleCard>(ResourcePath);
         if (prefab == null) { Debug.LogWarning("FLATS_ROGUE_UI missing Resources/" + ResourcePath); return null; }
         var card = Instantiate(prefab);
         card.name = "RogueRunTitleCard";
+        DontDestroyOnLoad(card.gameObject);   // it spans the scene change
         if (card.runLine != null) card.runLine.text = run ?? "";
         if (card.infoLine != null) card.infoLine.text = info ?? "";
         card.StartCoroutine(card.Run());
@@ -49,8 +63,12 @@ public class RogueRunTitleCard : MonoBehaviour
                 float k = Mathf.Clamp01(e / Mathf.Max(0.01f, slideIn)); k = 1f - (1f - k) * (1f - k) * (1f - k);
                 content.anchoredPosition = home + new Vector2((k - 1f) * slideDistance, 0f);
             }
-            if (e >= visibleFor) break;
-            if (e >= skipGuard && RogueModeTransition.AnyInputPressed()) { skipped = true; break; }
+            // The card covers the launch until there is something to look at: the run scene loaded, the run state known and the local
+            // player spawned (a co-op client also waits for the host). Fading out on the clock alone left a black or sky-coloured
+            // screen with stray menu buttons and the shop drawn over nothing.
+            bool ready = WorldReady() || e >= maxHold;
+            if (e >= visibleFor && ready) break;
+            if (e >= skipGuard && ready && RogueModeTransition.AnyInputPressed()) { skipped = true; break; }
             yield return null;
         }
         if (content != null) content.anchoredPosition = home;

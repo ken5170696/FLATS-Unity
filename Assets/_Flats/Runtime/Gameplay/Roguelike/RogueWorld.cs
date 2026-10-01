@@ -13,7 +13,7 @@ public static class RogueWorld
 {
     public static readonly Color Peach = new Color(1f, 0.6f, 0.75f), Pink = new Color(1f, 0.12f, 0.5f), White = new Color(0.96f, 0.96f, 0.96f), Ink = new Color(0.2f, 0.2f, 0.2f);
     public static readonly Color Green = new Color(0.55f, 0.95f, 0.45f), Gas = new Color(0.65f, 0.9f, 0.35f, 0.35f), Blue = new Color(0.25f, 0.6f, 1f), Gold = new Color(1f, 0.85f, 0.2f), Pink2 = new Color(1f, 0.12f, 0.5f);
-    static Material unlit;
+    static Material unlit, unlitFade;
 
     public static Material Unlit(Color c)
     {
@@ -24,6 +24,12 @@ public static class RogueWorld
             // "Texture Only", which ignores _Color: every code-coloured prop (rings, beacons, shields, status lights) drew plain white.
             unlit = Resources.Load<Material>("UI/Roguelike/RogueFlat");
             if (unlit == null) unlit = new Material(Shader.Find("Sprites/Default"));
+        }
+        // a colour with alpha gets the alpha-blended twin (beacons, the jammer's field ring): the opaque shader ignores alpha
+        if (c.a < 0.999f)
+        {
+            if (unlitFade == null) unlitFade = Resources.Load<Material>("UI/Roguelike/RogueFlatFade");
+            if (unlitFade != null) return new Material(unlitFade) { color = c };
         }
         var m = new Material(unlit) { color = c };
         return m;
@@ -280,8 +286,8 @@ public static class RogueWorld
     public static GameObject Beacon(string name, Vector3 position, Color color)
     {
         var go = Cube(name, position, new Vector3(0.6f, 30f, 0.6f), color, false);
-        var r = go.GetComponent<Renderer>(); var c = color; c.a = 0.55f; r.sharedMaterial = Unlit(c);
-        r.sharedMaterial.SetFloat("_Mode", 2);
+        var r = go.GetComponent<Renderer>(); var c = color; c.a = 0.55f; r.sharedMaterial = Unlit(c);   // translucent: the world stays visible through it
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         return go;
     }
 

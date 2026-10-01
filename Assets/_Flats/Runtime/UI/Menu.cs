@@ -1300,6 +1300,9 @@ public partial class Menu : MonoBehaviour
         if (TickBindingCapture()) return;
         TickLocalMatch();
         TickRogueRoom();
+        // The version notice belongs to the main page. Leaving that page by any path (an invite, a quick join, a pad shortcut pressed
+        // before OK) closes it; it used to stay drawn over the room, the map vote and every later page.
+        if (current != "Main" && anim != null && anim.GetBool("Update")) anim.SetBool("Update", false);
 		InputDevice activeDevice = InputManager.ActiveDevice;
         if (multiplayerConnecting && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed ||
             activeDevice.Action2.WasPressed))

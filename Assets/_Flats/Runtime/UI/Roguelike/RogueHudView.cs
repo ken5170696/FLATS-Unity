@@ -23,7 +23,7 @@ public partial class RogueHudView : MonoBehaviour
     [Header("Squad")] public GameObject squadRoot; public RogueHudSquadRow squadTemplate;
     [Header("Waypoints")] public RectTransform waypointRoot; public RogueHudWaypoint waypointTemplate; public int maxWaypoints = 6; public float edgeInset = 36f;
     [Tooltip("Marker scale on screen from near to far (never above 1: the authored tile is the crisp size), at the screen edge, its opacity when it sits over the crosshair, and the distance under which it thins out.")]
-    public float markerScaleNear = 0.82f, markerScaleFar = 0.58f, markerScaleEdge = 0.68f, markerCentreAlpha = 0.3f, markerNearFade = 10f;
+    public float markerCentreAlpha = 0.3f, markerNearFade = 10f, edgeIconScale = 0.85f;
     [Header("Shared HUD texts while this HUD is up")]
     [Tooltip("Largest size of the shared centre banner, and the size of the top-right log lines (both were authored for the Classic HUD, with nothing else on screen).")]
     public int bannerMaxFontSize = 16, logFontSize = 12;
@@ -114,9 +114,6 @@ public partial class RogueHudView : MonoBehaviour
     {
         canvas = GetComponentInParent<Canvas>();
         canvasRect = canvas != null ? canvas.GetComponent<RectTransform>() : null;
-        // the shared HUD canvas scales 800x600 to the screen (a non-integer factor on most displays): without pixel snapping every
-        // 11-15 pt label lands between pixels and reads soft; snapped while this HUD exists, restored with it
-        if (canvas != null) { pixelPerfectWas = canvas.pixelPerfect; canvas.pixelPerfect = true; }
         if (squadTemplate != null) squadTemplate.gameObject.SetActive(false);
         if (waypointTemplate != null) waypointTemplate.gameObject.SetActive(false);
         SetEvent("", "", false); SetEvent("", "", true); SetEventProgress(false, -1f); SetEventProgress(true, -1f); HideBoss(); SetHint("", "");
@@ -140,11 +137,8 @@ public partial class RogueHudView : MonoBehaviour
         SetObjectiveStep("", ""); SetPrompt("", "");
         if (objectiveTap != null) { objectiveTap.onClick.RemoveAllListeners(); objectiveTap.onClick.AddListener(() => { var c = RoguelikeController.Instance; if (c != null) c.OpenBriefingDetails(); }); }
     }
-
-    bool pixelPerfectWas;
     void OnDestroy()
     {
-        if (canvas != null) canvas.pixelPerfect = pixelPerfectWas;
         HideLegacyVitals(false); FlatsLocalization.Changed -= OnLanguageChanged; RogueMetaFeedback.Triggered -= OnMetaEffect;
         RestoreGuards();   // the shared banner goes back where it was authored
         if (legacyLogs != null) legacyLogs.anchoredPosition = legacyLogsHome;
@@ -844,7 +838,7 @@ public partial class RogueHudView : MonoBehaviour
             }
             if (m.group != null) m.group.alpha = alpha;
             // only the icon tile scales with distance; the label and distance texts keep their authored size so they stay sharp
-            float s = !onScreen ? 0.85f : enemy ? Mathf.Lerp(enemyIconScale.x, enemyIconScale.y, Mathf.InverseLerp(enemyFadeDistance.x, 40f, dist))
+            float s = !onScreen ? edgeIconScale : enemy ? Mathf.Lerp(enemyIconScale.x, enemyIconScale.y, Mathf.InverseLerp(enemyFadeDistance.x, 40f, dist))
                 : Mathf.Lerp(iconScale.x, iconScale.y, Mathf.InverseLerp(6f, 60f, dist));
             if (m.rect != null && m.rect.localScale != Vector3.one) m.rect.localScale = Vector3.one;
             if (m.back != null) m.back.rectTransform.localScale = new Vector3(s, s, 1);

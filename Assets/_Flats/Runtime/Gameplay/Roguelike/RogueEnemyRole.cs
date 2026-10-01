@@ -357,6 +357,8 @@ public class RogueEnemyRole : MonoBehaviour
     void PlaceRiotShield()
     {
         if (riotShield == null || shieldArm == null || !riotShield.activeSelf) return;
+        // SyncTeam moves the body to its team layer after this role was configured: the shield follows, so every camera that shows the body shows it
+        if (riotShield.layer != gameObject.layer) foreach (var t in riotShield.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = gameObject.layer;
         float scale = Mathf.Abs(transform.lossyScale.y);
         riotShield.transform.position = shieldArm.position + transform.rotation * (RiotShieldArmOffset * scale);
         riotShield.transform.rotation = transform.rotation * Quaternion.Euler(0f, RiotShieldArmYaw, 0f);

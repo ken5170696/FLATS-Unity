@@ -484,6 +484,7 @@ Handgun	手槍
 Inspect	檢視
 Learned	已學會
 Loadout	配置
+Armory loadout	軍械庫配置
 Rescues	救援次數
 Shotgun	霰彈槍
 Support	支援
@@ -2496,3 +2497,7 @@ AlreadySold	已售出
 WrongPhase	目前階段無法進行
 RerollsExhausted	沒有重抽次數
 NotOwned	尚未擁有
+Stage plan	關卡計畫
+Not started	尚未開始
+Objective, enemies and bounty are set when everyone is ready.	目標、敵人與賞金會在全員就緒後決定。
+SQUAD RUN	小隊出擊

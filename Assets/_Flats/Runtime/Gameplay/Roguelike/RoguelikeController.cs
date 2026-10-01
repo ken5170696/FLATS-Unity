@@ -228,6 +228,16 @@ public partial class RoguelikeController : MonoBehaviour
         localKey = RoguelikeMode.LocalPlayerKey;
         transport = Menu.network == 0 ? (IRogueTransport)new OfflineRogueTransport(this) : new PhotonRogueTransport(GetComponent<PhotonView>());
 
+        // A squad run has no menu-side title card. Without a cover the players watched the empty scene (sky colour, the HUD's waiting
+        // state, leftover room buttons) until everyone had spawned and the host's first snapshot arrived; the card holds until then.
+        if (Menu.network != 0 && FindObjectOfType<RogueRunTitleCard>() == null)
+        {
+            string mapName = "";
+            foreach (var m in RogueCatalog.Maps) if (m.BuildIndex == UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex) mapName = T(m.Name);
+            string difficulty = T(RoguelikeMode.DifficultyNames[Mathf.Clamp(RoguelikeMode.Difficulty, 1, 3)]);
+            RogueRunTitleCard.Show(T("SQUAD RUN"), mapName == "" ? difficulty : mapName + "  ·  " + difficulty);
+        }
+
         // Scene objects: wait for the shared interface exactly like Singleplayer.Start does.
         while (GameObject.Find("SpawnPoints") == null || GameObject.Find("Score") == null || GameObject.Find("Message") == null || GameObject.Find("Menu") == null)
             yield return null;

@@ -905,8 +905,9 @@ public class AI : MonoBehaviour
 						canShoot = false;
 					}
 				}
-				else
+				else if (!RoguelikeMode.Active)
 				{
+					// Roguelike rescans once a second (Start): with every player down this branch searched the scene twice per enemy per frame
 					CreateList();
 				}
 			}

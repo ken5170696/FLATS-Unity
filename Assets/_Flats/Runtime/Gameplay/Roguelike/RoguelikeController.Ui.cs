@@ -343,7 +343,7 @@ public partial class RoguelikeController
             case RunPhase.ChapterEnd: wanted = "chapterend"; break;
         }
         if (wanted == "" || (screenDismissed && wanted == "shop")) { CloseScreens(); return; }
-        if (screen == null) screen = RogueScreenView.Open(this);
+        if (screen == null) { screen = RogueScreenView.Open(this); if (screen != null && overview != null) screen.SetCovered(true); }
         if (screen == null) return;
         screenMode = wanted;
         switch (wanted)
@@ -499,7 +499,8 @@ public partial class RoguelikeController
             bool canTake = !decided && me.build.RejectReason(def) == null;
             Action take = () => TakeReward(index, itemId);
             string tag = RogueItemKinds.Tag(def, RarityText(def));
-            if (screen.AddCard(RogueIcons.ForItem(def), DisplayName(def), tag, EffectLine(def, me.build), T("Take"), canTake, status, take) == null)
+            // a card stacks what a row prints side by side: the effect, the tier and the pairing each get their own line
+            if (screen.AddCard(RogueIcons.ForItem(def), DisplayName(def), tag, EffectLine(def, me.build).Replace("   ", "\n").Replace("  ", "\n"), T("Take"), canTake, status, take) == null)
                 screen.AddRow(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build), T("Free"), tag, T("Take"), canTake, status, take);
         }
         // QA-24: the alternative to every card is a reroll ticket; the note says what is given up, what is gained and what it does

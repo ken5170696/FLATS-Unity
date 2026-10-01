@@ -150,6 +150,84 @@ public class RogueScreenView : MonoBehaviour
         Bind(primary, primaryLabel, primaryIcon, primaryText, primaryIconName, onPrimary);
         Bind(secondary, secondaryLabel, secondaryIcon, secondaryText, secondaryIconName, onSecondary);
         if (footerNote != null) footerNote.text = note ?? "";
+        LayoutFooter();
+    }
+
+    /// <summary>Another full panel (the TAB overview) is drawn over this screen: its paper is hidden meanwhile, because the papers are
+    /// slightly translucent and this screen's rows showed through the overview as a ghost.</summary>
+    public void SetCovered(bool covered)
+    {
+        if (paper != null && paper.gameObject.activeSelf == covered) paper.gameObject.SetActive(!covered);
+    }
+
+    [Header("Footer layout")]
+    [Tooltip("Left inset of a footer button's label while its icon shows, and without one (canvas units).")] public float labelInsetWithIcon = 36f, labelInset = 10f;
+    [Tooltip("A footer button grows from its authored width up to this to fit its label on one line.")] public float footerButtonMaxWidth = 260f;
+    [Tooltip("Air between the footer buttons, and between the note and the nearest button.")] public float footerGap = 12f;
+    bool footerHomeKnown; Vector2 primaryHome, secondaryHome; float primaryWidth, secondaryWidth, noteLeft;
+
+    /// <summary>The footer row from what is visible: a lone secondary button takes the primary's place at the right edge, each button is
+    /// as wide as its label needs (icon included), and the note ends before the leftmost button instead of running under it.</summary>
+    void LayoutFooter()
+    {
+        var p = primary != null ? primary.transform as RectTransform : null;
+        var s = secondary != null ? secondary.transform as RectTransform : null;
+        if (!footerHomeKnown)
+        {
+            footerHomeKnown = true;
+            if (p != null) { primaryHome = p.anchoredPosition; primaryWidth = p.sizeDelta.x; }
+            if (s != null) { secondaryHome = s.anchoredPosition; secondaryWidth = s.sizeDelta.x; }
+            if (footerNote != null) noteLeft = footerNote.rectTransform.offsetMin.x;
+        }
+        bool primaryOn = p != null && p.gameObject.activeSelf, secondaryOn = s != null && s.gameObject.activeSelf;
+        float right = p != null ? -primaryHome.x : 24f;   // distance of the row's right end from the paper's right edge
+        float used = right;
+        if (primaryOn) { float w = FitFooterButton(p, primaryLabel, primaryIcon, primaryWidth); p.anchoredPosition = primaryHome; used += w + footerGap; }
+        if (secondaryOn)
+        {
+            float w = FitFooterButton(s, secondaryLabel, secondaryIcon, secondaryWidth);
+            s.anchoredPosition = new Vector2(-used, secondaryHome.y);
+            used += w + footerGap;
+        }
+        if (footerNote != null)
+        {
+            var note = footerNote.rectTransform;
+            note.offsetMin = new Vector2(noteLeft + overviewGrowth, note.offsetMin.y);
+            note.offsetMax = new Vector2(-used, note.offsetMax.y);
+        }
+    }
+
+    [Tooltip("The Overview button grows from its authored width up to this to keep its label and key cap on one line.")] public float overviewMaxWidth = 210f;
+    float overviewWidth = -1f, overviewGrowth;
+
+    /// <summary>"Overview  [Tab]" is longer in some languages than the authored button: it widens to the label and the note moves along.</summary>
+    void FitOverview()
+    {
+        var rt = overview != null ? overview.transform as RectTransform : null;
+        if (rt == null || overviewLabel == null) return;
+        if (overviewWidth < 0) overviewWidth = rt.sizeDelta.x;
+        var label = overviewLabel.rectTransform;
+        float padding = label.anchorMin.x != label.anchorMax.x ? label.offsetMin.x - label.offsetMax.x : 46f;
+        float width = Mathf.Clamp(overviewLabel.preferredWidth + padding + 4f, overviewWidth, Mathf.Max(overviewWidth, overviewMaxWidth));
+        rt.sizeDelta = new Vector2(width, rt.sizeDelta.y);
+        overviewGrowth = width - overviewWidth;
+        if (footerHomeKnown) LayoutFooter();
+    }
+
+    float FitFooterButton(RectTransform button, Text label, Image icon, float authoredWidth)
+    {
+        bool hasIcon = icon != null && icon.gameObject.activeSelf;
+        float inset = hasIcon ? labelInsetWithIcon : labelInset;
+        float width = authoredWidth;
+        if (label != null)
+        {
+            var rt = label.rectTransform;
+            rt.offsetMin = new Vector2(inset, rt.offsetMin.y); rt.offsetMax = new Vector2(-labelInset, rt.offsetMax.y);
+            float needed = label.preferredWidth + inset + labelInset;
+            width = Mathf.Clamp(needed, authoredWidth, Mathf.Max(authoredWidth, footerButtonMaxWidth));
+        }
+        button.sizeDelta = new Vector2(width, button.sizeDelta.y);
+        return width;
     }
 
     /// <summary>Rewrites the primary button's label and the footer note in place (a countdown ticking once per second), keeping the
@@ -158,6 +236,7 @@ public class RogueScreenView : MonoBehaviour
     {
         if (primaryLabel != null && primary != null && primary.gameObject.activeSelf && primaryLabel.text != (label ?? "")) primaryLabel.text = label ?? "";
         if (footerNote != null && footerNote.text != (note ?? "")) footerNote.text = note ?? "";
+        if (footerHomeKnown) LayoutFooter();
     }
 
     /// <summary>Footer buttons stay visible but greyed when the local player may not use them (a non-host at the chapter end).</summary>
@@ -207,6 +286,7 @@ public class RogueScreenView : MonoBehaviour
         if (overview.gameObject.activeSelf != show) overview.gameObject.SetActive(show);
         if (!show) return;
         if (overviewLabel != null) overviewLabel.text = label;
+        FitOverview();
         overview.onClick.RemoveAllListeners();
         overview.onClick.AddListener(() => { PlayPress(); if (onClick != null) onClick(); });
     }

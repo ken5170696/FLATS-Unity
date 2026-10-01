@@ -199,7 +199,9 @@ public partial class RoguelikeController
         string gear = string.Join(" · ", new[] { m.primary, m.secondary, m.melee }.Where(id => !string.IsNullOrEmpty(id)).Select(id => RogueMetaUI.T(MetaProfiles.ArmoryName(id))).ToArray());
         string branches = string.Join("   ", ((SkillBranch[])Enum.GetValues(typeof(SkillBranch))).Where(b => SkillTree.SpentIn(m.skills, b) > 0)
             .OrderByDescending(b => SkillTree.SpentIn(m.skills, b)).Select(b => T(b.ToString()) + " " + SkillTree.SpentIn(m.skills, b)).ToArray());
-        overview.AddStat("Experience", RogueMetaUI.L(MetaText.Level(m.level)), gear,
+        // the loadout names three weapons: in the value column it wrapped over the level bar, so it has its own row
+        if (gear.Length > 0) overview.AddStat("Fire", T("Armory loadout"), "", gear, -1, TintInk);
+        overview.AddStat("Experience", RogueMetaUI.L(MetaText.Level(m.level)), "",
             (branches.Length > 0 ? branches + "   " : "") + RogueMetaUI.L(MetaText.Fairness(m.level, highest)), highest > 0 ? m.level / (float)Math.Max(highest, 1) : -1, TintBlue);
     }
 
