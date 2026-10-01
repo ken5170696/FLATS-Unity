@@ -103,7 +103,8 @@ public static class FlatsPortalBuild
         const string catalogueAsset = "Assets/Resources/FlatsModCatalogue.txt";
         const string photonAsset = "Assets/Resources/FlatsPhotonClient.txt";
         const string stampAsset = "Assets/Resources/" + FlatsBuildStamp.ResourceName + ".txt";
-        if (File.Exists(stampAsset) || File.Exists(stampAsset + ".meta")) throw new BuildFailedException("Reserved generated build stamp asset or metadata already exists.");
+        // generated content only: a stamp left behind by a build that was killed is simply replaced
+        if (File.Exists(stampAsset) || File.Exists(stampAsset + ".meta")) { AssetDatabase.DeleteAsset(stampAsset); File.Delete(stampAsset); File.Delete(stampAsset + ".meta"); }
         if (File.Exists(photonAsset) || File.Exists(photonAsset + ".meta")) throw new BuildFailedException("Reserved generated Photon client asset or metadata already exists.");
         string photonClient = Environment.GetEnvironmentVariable("FLATS_PHOTON_APP_ID");
         if (!string.IsNullOrWhiteSpace(photonClient) && (!Guid.TryParse(photonClient, out var clientId) || clientId == Guid.Empty))

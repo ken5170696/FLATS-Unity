@@ -50,6 +50,7 @@ public partial class RoguelikeController : MonoBehaviour
         if (hudRefresh <= 0 && runStarted) { hudRefresh = 0.5f; RefreshHud(); }
         TickOverview();
         TickStageClockBanner();
+        TickMusicLayer();
         // a client builds the stage's objective and event world once the intro is over, the same moment the authority starts them
         if (clientWorldPending && !SpawnsHeld) { clientWorldPending = false; if (state != null && state.phase == RunPhase.Combat && !IsAuthority) BuildClientWorld(); }
     }
@@ -689,9 +690,21 @@ public partial class RoguelikeController : MonoBehaviour
         return FlatsLocalization.Translate(args == null || args.Length == 0 ? key : string.Format(key, args));
     }
 
+    /// <summary>
+    /// Solo: the second source of the BGM pair (the combat layer) fades in while a stage is fought and out between stages. The
+    /// original modes fade it in Singleplayer's own rule loops; the roguelike rule has none, so the layer stayed silent.
+    /// </summary>
+    void TickMusicLayer()
+    {
+        if (Menu.network != 0 || !sceneReady || ambient == null || ambient.Length < 2 || ambient[1] == null || !ambient[1].isPlaying) return;
+        float target = Singleplayer.chance && state != null && state.phase == RunPhase.Combat ? Menu.mySettings.sound_bgm / 10f : 0f;
+        if (!Mathf.Approximately(ambient[1].volume, target)) ambient[1].volume = Mathf.MoveTowards(ambient[1].volume, target, Time.unscaledDeltaTime * 0.8f);
+    }
+
     int musicPair = -1;
     void SetupMusic()
     {
+        if (state != null && state.phase == RunPhase.Ended) return;   // the result screen stopped the music: it stays stopped
         var sp = GetComponent<Singleplayer>();
         if (ambient == null || ambient.Length < 2) return;
         if (Menu.network == 0 && sp != null && sp.singleplayerBGM != null && sp.singleplayerBGM.Length >= 2)

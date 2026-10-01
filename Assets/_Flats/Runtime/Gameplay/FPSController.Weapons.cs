@@ -245,13 +245,15 @@ public partial class FPSController
 				GameObject mf = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 				if (RoguelikeMode.Active) FlatsFeel.Fire(this, base.GetComponent<AudioSource>(), currentGun, mf); else base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
-				float inaccuracy = RoguelikeMode.Active ? (float)Flats.Core.Roguelike.RecoilRules.Inaccuracy(currentGun.accuracy, Aiming) : 100f - currentGun.accuracy;   // Roguelike: never exactly zero, so spread traits act on every weapon
+				// Roguelike, the owner's rounds (the ones that deal damage): never exactly zero, so spread traits act on every weapon.
+				// A remote copy does not know whether its owner aims, so its cosmetic rounds keep the legacy spread.
+				float inaccuracy = RoguelikeMode.Active && MyView(base.gameObject) ? (float)Flats.Core.Roguelike.RecoilRules.Inaccuracy(currentGun.accuracy, Aiming) : 100f - currentGun.accuracy;
 				int pellets = currentGun.burstCount + (RoguelikeMode.Active ? RogueHooks.ExtraPellets(this, currentGun.id) : 0);
 				float spreadScale = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
 				long rogueRound = RoguelikeMode.Active ? RogueNextRound() : 0;   // one shell: every pellet shares this round (Fresh Magazine, QA-32)
 				for (int i = 0; i < pellets; i++)
 				{
-					var rogueShot = RoguelikeMode.Active ? RogueHooks.MetaShot(this, Aiming, i == 0) : Flats.Core.Roguelike.ShotModifiers.Neutral;
+					var rogueShot = RoguelikeMode.Active ? RogueHooks.MetaShot(this, Aiming, i == 0, i > 0) : Flats.Core.Roguelike.ShotModifiers.Neutral;   // pellets after the first share their shell
 					if (i == 0) rogueInterval = (float)rogueShot.IntervalMul;
 					if (i == 0 && RoguelikeMode.Active && MyView(base.gameObject)) FlatsFeel.Recoil(this, currentGun, Aiming, (float)rogueShot.RecoilMul);
 					float x = UnityEngine.Random.Range(0f - inaccuracy, inaccuracy) * spreadScale * (float)rogueShot.SpreadMul;
@@ -314,7 +316,7 @@ public partial class FPSController
 				if (RoguelikeMode.Active) FlatsFeel.Fire(this, base.GetComponent<AudioSource>(), currentGun, mf2); else base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
 				if (RoguelikeMode.Active && MyView(base.gameObject)) FlatsFeel.Recoil(this, currentGun, Aiming, (float)rogueShot.RecoilMul);
 				float aimSpread = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
-				float inaccuracy = RoguelikeMode.Active ? (float)Flats.Core.Roguelike.RecoilRules.Inaccuracy(currentGun.accuracy, Aiming) : 100f - currentGun.accuracy;   // Roguelike: never exactly zero, so spread traits act on every weapon
+				float inaccuracy = RoguelikeMode.Active && MyView(base.gameObject) ? (float)Flats.Core.Roguelike.RecoilRules.Inaccuracy(currentGun.accuracy, Aiming) : 100f - currentGun.accuracy;   // owner only, as in the shell branch above
 				float ram1 = UnityEngine.Random.Range(0f - inaccuracy, inaccuracy) * aimSpread * (float)rogueShot.SpreadMul;
 				float ram2 = UnityEngine.Random.Range(0f - inaccuracy, inaccuracy) * aimSpread * (float)rogueShot.SpreadMul;
 				Vector3 dir = ct.TransformDirection(ram1, ram2, 1500f);

@@ -16,8 +16,9 @@ public static class FlatsBuildStamp
         get
         {
             if (text != null) return text;
+            if (Application.isEditor) return text = "editor";   // never a stamp left behind by an interrupted build
             var asset = Resources.Load<TextAsset>(ResourceName);
-            text = asset != null && !string.IsNullOrWhiteSpace(asset.text) ? asset.text.Trim() : Application.isEditor ? "editor" : "unstamped";
+            text = asset != null && !string.IsNullOrWhiteSpace(asset.text) ? asset.text.Trim() : "unstamped";
             return text;
         }
     }

@@ -10,7 +10,7 @@ using UnityEngine;
 ///  - Hit and kill: a headshot rings, a kill has its own sound, a headshot kill holds the game for a few hundredths of a second
 ///    (solo), clearing a stage ends in a short slow motion (solo), and a dying enemy bursts into chips of its own colour on
 ///    every copy.
-///  - Taking damage: a thud for every hit the local player takes, a heartbeat under low health.
+///  - Taking damage: a thud for every hit that hurts the local player, a heartbeat under low health.
 ///  - Footsteps and landings (FlatsFootsteps), bullet impacts on the world.
 /// Sounds come from the Roguelike bank (RogueAudio, Resources/Audio/Roguelike); a missing clip is silent. Numbers are design
 /// parameters on Resources/Feel/FlatsFeelSettings. Every entry point is safe to call from the legacy combat code: it never throws.
@@ -106,6 +106,10 @@ public static class FlatsFeel
             var s = Settings;
             if (enemy == null || s.deathBurst == null) return;
             var go = UnityEngine.Object.Instantiate(s.deathBurst, enemy.position + Vector3.up * s.burstHeight, Quaternion.identity);
+            // the authored effect removes itself after its own short life; the burst lives longer
+            var authoredLife = go.GetComponent<Destroy>();
+            if (authoredLife != null) authoredLife.destroyTime = s.burstLifetime + 0.5f;
+            else UnityEngine.Object.Destroy(go, s.burstLifetime + 0.5f);
             var ps = go.GetComponent<ParticleSystem>();
             if (ps == null) return;
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
@@ -118,7 +122,6 @@ public static class FlatsFeel
             var shape = ps.shape; shape.enabled = true; shape.shapeType = ParticleSystemShapeType.Sphere; shape.radius = 0.8f;   // outwards in every direction
             ps.Emit(count);
             ps.Play(true);
-            UnityEngine.Object.Destroy(go, s.burstLifetime + 0.5f);
         }
         catch (Exception e) { Debug.LogException(e); }
     }
@@ -133,7 +136,7 @@ public static class FlatsFeel
     // ---------------------------------------------------------------- taking damage
     static float lastHurtAt = -10f;
 
-    /// <summary>The local player took damage from a known source.</summary>
+    /// <summary>The local player lost health to a hit (after shields and damage reduction).</summary>
     public static void LocalHurt(float damage)
     {
         try
@@ -150,6 +153,7 @@ public static class FlatsFeel
 
     // ---------------------------------------------------------------- world impacts
     static float lastImpactAt = -10f;
+    static AudioSource[] impactVoices; static int nextImpactVoice;
 
     /// <summary>A round hit the world (a wall, the ground, glass).</summary>
     public static void WorldImpact(Vector3 point)
@@ -161,20 +165,41 @@ public static class FlatsFeel
             if (now - lastImpactAt < s.impactInterval) return;
             Transform listener = Listener;
             if (listener == null || (listener.position - point).sqrMagnitude > s.impactRange * s.impactRange) return;
+            var clip = RogueAudio.Clip(UnityEngine.Random.value < 0.5f ? "impact_a" : "impact_b");
+            if (clip == null) return;
             lastImpactAt = now;
-            RogueAudio.PlayAt(UnityEngine.Random.value < 0.5f ? "impact_a" : "impact_b", point, s.impactVolume);
+            // a few positional voices used in turn; the falloff is linear over the range, sized for this world (characters are ~6 m tall)
+            if (impactVoices == null || impactVoices[0] == null)
+            {
+                impactVoices = new AudioSource[4];
+                for (int i = 0; i < impactVoices.Length; i++)
+                {
+                    var go = new GameObject("FlatsImpactVoice");
+                    go.hideFlags = HideFlags.HideAndDontSave;
+                    UnityEngine.Object.DontDestroyOnLoad(go);
+                    var v = go.AddComponent<AudioSource>();
+                    v.playOnAwake = false; v.loop = false; v.spatialBlend = 1f; v.dopplerLevel = 0f;
+                    v.rolloffMode = AudioRolloffMode.Linear; v.minDistance = 8f;
+                    impactVoices[i] = v;
+                }
+            }
+            var voice = impactVoices[nextImpactVoice]; nextImpactVoice = (nextImpactVoice + 1) % impactVoices.Length;
+            voice.transform.position = point;
+            voice.maxDistance = Mathf.Max(voice.minDistance + 1f, s.impactRange);
+            voice.pitch = UnityEngine.Random.Range(0.92f, 1.08f);
+            voice.PlayOneShot(clip, Mathf.Clamp01(s.impactVolume));
         }
         catch (Exception e) { Debug.LogException(e); }
     }
 
     // ---------------------------------------------------------------- characters
-    /// <summary>A player of a run (local or a teammate's copy): footsteps and landings.</summary>
+    /// <summary>A player of a run (the local one or a teammate's copy): footsteps and landings.</summary>
     public static void AttachPlayer(FPSController player, bool local)
     {
         try
         {
             if (player == null) return;
-            FlatsFootsteps.Attach(player.gameObject, local ? player : null);
+            FlatsFootsteps.Attach(player.gameObject, player, local);
             if (local) FlatsFeelTicker.Ensure();
         }
         catch (Exception e) { Debug.LogException(e); }
@@ -183,7 +208,7 @@ public static class FlatsFeel
     /// <summary>An enemy of a run: footsteps heard when it is close.</summary>
     public static void AttachEnemy(GameObject enemy)
     {
-        try { if (enemy != null) FlatsFootsteps.Attach(enemy, null); }
+        try { if (enemy != null) FlatsFootsteps.Attach(enemy, null, false); }
         catch (Exception e) { Debug.LogException(e); }
     }
 
@@ -252,7 +277,8 @@ public sealed class FlatsFireVoices : MonoBehaviour
 public sealed class FlatsFeelTicker : MonoBehaviour
 {
     static FlatsFeelTicker instance;
-    float holdUntil = -1f, holdScale = 1f; bool holding;
+    bool holding; float holdUntil = -1f, holdScale = 1f, baseFixedDelta;
+    float queuedSeconds, queuedScale;       // a gentler hold asked for during a stronger one: it follows
     AudioSource heart; float heartVolume;
     DamageReceiver localReceiver; RoguePlayer localPlayer; float localCheckAt = -10f;
 
@@ -267,30 +293,59 @@ public sealed class FlatsFeelTicker : MonoBehaviour
     }
 
     /// <summary>
-    /// Runs the game at <paramref name="scale"/> for <paramref name="seconds"/> of real time. Only from normal speed: a pause, a menu
-    /// or another hold keeps its own time scale, and the hold ends early when something else changes it.
+    /// Runs the game at <paramref name="scale"/> for <paramref name="seconds"/> of real time. It starts only from normal speed (a
+    /// pause, a menu or another owner of the time scale keeps theirs). A pause during a hold keeps the hold: the pause menu saves
+    /// and restores the held scale, and the hold then ends as it would have. Anything else that changes the time scale takes it over.
     /// </summary>
     public static void Hold(float seconds, float scale)
     {
         var t = Ensure();
-        if (t.holding) { if (scale <= t.holdScale) t.holdUntil = Mathf.Max(t.holdUntil, Time.unscaledTime + seconds); return; }
+        if (t.holding)
+        {
+            if (scale <= t.holdScale) t.holdUntil = Mathf.Max(t.holdUntil, Time.unscaledTime + seconds);
+            else { t.queuedSeconds = seconds; t.queuedScale = scale; }   // the stage-clear slow motion after a hit-stop
+            return;
+        }
         if (!Mathf.Approximately(Time.timeScale, 1f)) return;
-        t.holding = true; t.holdScale = scale; t.holdUntil = Time.unscaledTime + seconds;
+        t.Begin(seconds, scale);
+    }
+
+    void Begin(float seconds, float scale)
+    {
+        if (!holding) baseFixedDelta = Time.fixedDeltaTime;
+        holding = true; holdScale = scale; holdUntil = Time.unscaledTime + seconds;
         Time.timeScale = scale;
+        Time.fixedDeltaTime = baseFixedDelta * scale;   // physics keeps its step rate: ragdolls and rounds stay smooth
+    }
+
+    void Release(bool restoreTimeScale)
+    {
+        holding = false; queuedSeconds = 0f;
+        if (restoreTimeScale) Time.timeScale = 1f;
+        Time.fixedDeltaTime = baseFixedDelta;
     }
 
     void Update()
     {
         if (holding)
         {
-            bool mine = Mathf.Approximately(Time.timeScale, holdScale);
-            if (!mine) holding = false;                                             // a pause or a menu took the time scale over
-            else if (Time.unscaledTime >= holdUntil || Menu.current != "Playing") { Time.timeScale = 1f; holding = false; }
+            float scale = Time.timeScale;
+            if (Mathf.Approximately(scale, holdScale))
+            {
+                if (Menu.current != "Playing") Release(true);                         // a screen opened: it runs at full speed
+                else if (Time.unscaledTime >= holdUntil)
+                {
+                    if (queuedSeconds > 0f) { float seconds = queuedSeconds, next = queuedScale; queuedSeconds = 0f; Begin(seconds, next); }
+                    else Release(true);
+                }
+            }
+            else if (scale != 0f) Release(false);   // someone else owns the time scale now (a scene load, a result): hands off
+            // scale 0: paused. The pause menu saved the held scale and puts it back; the branch above then ends the hold.
         }
         TickHeartbeat();
     }
 
-    void OnDestroy() { if (holding && Mathf.Approximately(Time.timeScale, holdScale)) Time.timeScale = 1f; if (instance == this) instance = null; }
+    void OnDestroy() { if (holding) Release(Mathf.Approximately(Time.timeScale, holdScale)); if (instance == this) instance = null; }
 
     void TickHeartbeat()
     {
@@ -315,7 +370,7 @@ public sealed class FlatsFeelTicker : MonoBehaviour
         if (target <= 0f && (heart == null || !heart.isPlaying)) return;
         if (heart == null)
         {
-            var clip = Resources.Load<AudioClip>(RogueAudio.Folder + "heartbeat");
+            var clip = RogueAudio.Clip("heartbeat");
             if (clip == null) return;
             heart = gameObject.AddComponent<AudioSource>();
             heart.spatialBlend = 0f; heart.playOnAwake = false; heart.loop = true; heart.clip = clip; heart.volume = 0f;

@@ -107,7 +107,6 @@ public class DamageReceiver : MonoBehaviour
 		if (!userIsPlayer || !(damage > 0f) || source == null || source.root == base.transform.root) return;
 		try { DamageDirectionIndicator.Report(source.position, damage); }
 		catch (Exception e) { Debug.LogException(e, this); }
-		if (RoguelikeMode.Active) FlatsFeel.LocalHurt(damage);
 	}
 
 	private string command;
@@ -541,6 +540,7 @@ public class DamageReceiver : MonoBehaviour
 			}
 			if (RoguelikeMode.Active) damage = RogueHooks.ModifyIncomingDamage(this, damage, shooter);
 			if (RoguelikeMode.Active && userIsPlayer && !MyView(base.gameObject)) RogueRemotePlayerHit(shooter, damage);
+			if (RoguelikeMode.Active && userIsPlayer && damage > 0f && MyView(base.gameObject) && shooter != null && shooter.root != mt.root) FlatsFeel.LocalHurt(damage);   // what got through shields and reduction
 			hitPoints -= damage;
             if (RoguelikeMode.Active && Menu.network == 0 && !userIsPlayer) RogueCombatNumber.Show(this, damage, headshot == 1, Flats.Core.Roguelike.DamageKind.Direct, shooter);
 			if (!userIsPlayer && myAI != null && myAI.isPatrol && myAI.targets.Count > 0 && myAI.targets[0] != null && !(RoguelikeMode.Active && RogueEnemyStatus.Stunned(myAI)))

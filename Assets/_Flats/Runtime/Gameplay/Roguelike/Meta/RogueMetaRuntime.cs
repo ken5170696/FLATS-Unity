@@ -181,12 +181,12 @@ public class RogueMetaRuntime : MonoBehaviour
     Gun HandGun { get { return fps != null && fps.primaryWeapon != null ? fps.primaryWeapon.GetComponent<Gun>() : null; } }
 
     /// <summary>Per round, on every copy that runs the Shoot RPC. Deterministic from the replicated build and the same RPC sequence.</summary>
-    public ShotModifiers NextRound(bool aiming, bool newTriggerPull)
+    public ShotModifiers NextRound(bool aiming, bool newTriggerPull, bool sameShell = false)
     {
         var gun = HandGun;
         var ctx = new ShotContext
         {
-            Now = Time.time, Aiming = aiming, Moving = Moving, NewTriggerPull = newTriggerPull,
+            Now = Time.time, Aiming = aiming, Moving = Moving, NewTriggerPull = newTriggerPull, SameShell = sameShell,
             RoundsInMagazine = gun != null ? gun.currentAmmo : 0, MagazineCapacity = gun != null ? gun.limitAmmo : 0,
             AimedStillSeconds = aiming && aimStillSince > 0 ? Time.time - aimStillSince : 0,
         };

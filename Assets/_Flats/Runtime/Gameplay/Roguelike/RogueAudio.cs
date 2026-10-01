@@ -65,7 +65,8 @@ public static class RogueAudio
         }
     }
 
-    static AudioClip Clip(string name)
+    /// <summary>A bank clip by file name (cached; null when the bank has none).</summary>
+    public static AudioClip Clip(string name)
     {
         if (string.IsNullOrEmpty(name)) return null;
         AudioClip clip;

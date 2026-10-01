@@ -11,6 +11,7 @@ namespace Flats.Core.Roguelike
         public int MagazineCapacity;
         public double AimedStillSeconds;   // time aimed without firing or moving (PatientShot)
         public bool NewTriggerPull;        // first round of a trigger pull
+        public bool SameShell;             // a further pellet of the shell just fired: it shares that round's place in the streak
     }
 
     /// <summary>Per-round modifiers. Multipliers default to 1; the adapter multiplies them into the legacy numbers.</summary>
@@ -261,29 +262,30 @@ namespace Flats.Core.Roguelike
         {
             var m = ShotModifiers.Neutral;
             if (Def == null) return m;
-            if (c.Now - lastRoundAt > lastInterval + WeaponRules.ConsecutiveWindow) consecutive = 0;
+            if (!c.SameShell && c.Now - lastRoundAt > lastInterval + WeaponRules.ConsecutiveWindow) consecutive = 0;
+            // sustained-fire effects count rounds, not pellets: every pellet of a shell reads the streak its first pellet read
+            int streak = c.SameShell ? Math.Max(0, consecutive - 1) : consecutive;
             if (c.NewTriggerPull)
             {
                 triggerPulls++;
-                if (Def.Drawback == DrawbackKind.LongSpinup && consecutive == 0) m.PreFireDelay = Def.D1;
+                if (Def.Drawback == DrawbackKind.LongSpinup && streak == 0) m.PreFireDelay = Def.D1;
                 if (Def.Trait == TraitKind.DoubleTap && Def.T1 >= 1 && triggerPulls % (int)Def.T1 == 0) { m.FreeRound = true; m.DamageSource = Def.Id; }
             }
             switch (Def.Trait)
             {
                 case TraitKind.KillFrenzy: if (frenzy) { m.IntervalMul /= 1 + Def.T1; m.DamageSource = Def.Id; } break;
                 case TraitKind.FollowUp: if (followUp && c.NewTriggerPull) { m.IntervalMul /= 1 + Def.T1; followUp = false; m.DamageSource = Def.Id; } break;
-                case TraitKind.SustainedAccuracy: m.SpreadMul *= 1 - Math.Min(Def.T2, Def.T1 * consecutive); break;
-                case TraitKind.SpinUpDamage: { double bonus = Math.Min(Def.T2, Def.T1 * consecutive); if (bonus > 0) { m.DamageMul *= 1 + bonus; m.DamageSource = Def.Id; } } break;
+                case TraitKind.SustainedAccuracy: m.SpreadMul *= 1 - Math.Min(Def.T2, Def.T1 * streak); break;
+                case TraitKind.SpinUpDamage: { double bonus = Math.Min(Def.T2, Def.T1 * streak); if (bonus > 0) { m.DamageMul *= 1 + bonus; m.DamageSource = Def.Id; } } break;
                 case TraitKind.LastRoundDouble: if (c.RoundsInMagazine == 1 && c.MagazineCapacity > 1) { m.DamageMul *= Def.T1; m.DamageSource = Def.Id; } break;
                 case TraitKind.PatientShot:
                     if (c.Aiming && c.NewTriggerPull) { int steps = Math.Min(MaxPatientSteps, (int)Math.Floor(c.AimedStillSeconds / Math.Max(0.05, Def.T2))); if (steps > 0) { m.DamageMul *= 1 + Def.T1 * steps; m.DamageSource = Def.Id; } }
                     break;
             }
-            if (Def.Drawback == DrawbackKind.HeavyRecoil) { double heavy = 1 + Math.Min(Def.D2, Def.D1 * consecutive); m.SpreadMul *= heavy; m.RecoilMul *= heavy; }
+            if (Def.Drawback == DrawbackKind.HeavyRecoil) { double heavy = 1 + Math.Min(Def.D2, Def.D1 * streak); m.SpreadMul *= heavy; m.RecoilMul *= heavy; }
             if (Def.Drawback == DrawbackKind.NoHipFire && !c.Aiming) m.SpreadMul *= Def.D1;
             if (c.Aiming && c.Moving) m.SpreadMul *= Sight.AimMoveSpreadMul;
-            consecutive++;
-            lastRoundAt = c.Now;
+            if (!c.SameShell) { consecutive++; lastRoundAt = c.Now; }
             return m;
         }
 

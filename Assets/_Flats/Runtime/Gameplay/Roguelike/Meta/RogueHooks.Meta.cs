@@ -8,10 +8,10 @@ public static partial class RogueHooks
     static RogueMetaRuntime Meta(Component c) { return RoguelikeMode.Active ? RogueMetaRuntime.Of(c) : null; }
 
     /// <summary>Per round, before the bullet is spawned: spread, damage, cadence and free rounds of the gun in hand and the skills.</summary>
-    public static ShotModifiers MetaShot(FPSController player, bool aiming, bool newTriggerPull)
+    public static ShotModifiers MetaShot(FPSController player, bool aiming, bool newTriggerPull, bool sameShell = false)
     {
         var m = Meta(player);
-        return m == null ? ShotModifiers.Neutral : m.NextRound(aiming, newTriggerPull);
+        return m == null ? ShotModifiers.Neutral : m.NextRound(aiming, newTriggerPull, sameShell);
     }
 
     /// <summary>Seconds to wait before the first round of a trigger pull (a cold machine-gun belt).</summary>

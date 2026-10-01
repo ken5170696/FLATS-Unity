@@ -2502,7 +2502,7 @@ Not started	尚未開始
 Objective, enemies and bounty are set when everyone is ready.	目標、敵人與賞金會在全員就緒後決定。
 SQUAD RUN	小隊出擊
 Rejoining the squad...	正在重新加入小隊…
-Headshots that pierce	爆頭重擊，還能穿透
+Headshots hurt, bullets pierce	爆頭重擊，子彈穿透
 Get close, hit hard	貼臉打更痛
 Keep firing, keep growing	越掃越痛
 Reload into a damage burst	換彈後傷害爆發
@@ -2527,10 +2527,10 @@ One more bounce	多反彈一次
 Ricochets mark enemies	反彈命中會標記
 Bigger kill explosions	擊殺爆炸更大
 Stronger grenades	榴彈更痛
-Explosions slow enemies	爆炸會緩速
+Kill explosions slow enemies	擊殺爆炸會緩速
 Marks last longer	標記更久
 Marked kills pay more	標記擊殺賞金更多
-Team hits charge your ultimate	隊友命中幫你充能
+Marks charge your ultimate	隊友打標記幫你充能
 Dash twice	衝刺兩次
 Jump higher	跳更高
 Revive faster	救人更快
@@ -2540,9 +2540,9 @@ Jump again in mid-air	空中再跳一次
 Dash forward	向前衝刺
 Raise a shield	張開護盾
 Unlimited ammo, no reloads	無限子彈，不用換彈
-Every hit kills	打中就死
+Hits kill non-boss enemies	命中即殺（首領除外）
 Take no damage	暫時無敵
-No one stays down	誰都不會倒下
+A second chance for the squad	全隊多一次機會
 See every enemy nearby	看見附近所有敵人
 Hits chain to nearby enemies	命中會連鎖跳電
 Bullets seek enemies	子彈自動追蹤

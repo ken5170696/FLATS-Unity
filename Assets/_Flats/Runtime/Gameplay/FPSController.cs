@@ -518,7 +518,8 @@ public partial class FPSController : MonoBehaviour
 	// Feel layer (Roguelike): the pitch pivot recoil nudges, and what footsteps read. The look itself stays owned by ApplyLook.
 	internal Transform FeelLookPivot => mct;
 	internal bool FeelGrounded => cc != null && mt != null && isGrounded();
-	internal bool FeelControllable => enableControl && enableCamRotate;
+	internal bool FeelControlled => enableControl;       // false in a cutscene or a grab: recoil is dropped
+	internal bool FeelLookFree => enableCamRotate;        // false while the sight is raised or lowered: recoil waits
 
 	private void ApplyLook(Flats.Core.LookInput input, float x, float y)
 	{

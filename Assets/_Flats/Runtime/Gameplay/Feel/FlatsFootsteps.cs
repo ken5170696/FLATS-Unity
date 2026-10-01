@@ -4,25 +4,28 @@ using UnityEngine;
 /// Footsteps and landings of one character in Roguelike Survival. The local player hears its own steps and landings in 2D (and the
 /// view dips on a landing); teammates' copies and enemies play theirs from where they are, and only near the listener. Steps follow
 /// the ground distance covered, so a sprint or a speed upgrade steps faster by itself. Design parameters: FlatsFeelSettings.
+///
+/// Grounding: a player copy (local or remote) asks its controller, which ray-tests the ground (a remote copy never moves its
+/// CharacterController, so the controller's own grounded flag is always false there). An enemy is moved by its NavMeshAgent and has
+/// no reliable grounded flag either, so it counts as on the ground while it is not rising or falling fast.
 /// </summary>
 public sealed class FlatsFootsteps : MonoBehaviour
 {
     static float lastOtherStepAt = -10f;   // all non-local steps share a small gap, so a crowd is a patter and not a wall of noise
 
-    FPSController local;                   // set for the local player only
-    CharacterController body;
+    FPSController player;                  // players only (local or a teammate's copy)
+    bool local;
     Vector3 lastPosition; bool hasLast;
     float travelled, airSeconds;
     bool wasGrounded = true;
     AudioSource voice;                     // non-local characters: a positional source of their own
     int stepIndex;
 
-    public static FlatsFootsteps Attach(GameObject character, FPSController localController)
+    public static FlatsFootsteps Attach(GameObject character, FPSController controller, bool isLocal)
     {
         var steps = character.GetComponent<FlatsFootsteps>();
         if (steps == null) steps = character.AddComponent<FlatsFootsteps>();
-        steps.local = localController;
-        steps.body = character.GetComponent<CharacterController>();
+        steps.player = controller; steps.local = isLocal && controller != null;
         return steps;
     }
 
@@ -38,16 +41,16 @@ public sealed class FlatsFootsteps : MonoBehaviour
         Vector3 delta = position - lastPosition;
         lastPosition = position;
         float ground = new Vector2(delta.x, delta.z).magnitude;
-        if (ground > 12f) { travelled = 0f; return; }   // a teleport (spawn, dash landing far away, revive placement) is not a step
+        if (ground > 12f) { travelled = 0f; airSeconds = 0f; wasGrounded = true; return; }   // a teleport (spawn, revive placement) is not a step
 
-        bool grounded = local != null ? local.FeelGrounded : (body != null && body.enabled ? body.isGrounded : Mathf.Abs(delta.y) < 6f * dt);
+        bool grounded = player != null ? player.FeelGrounded : Mathf.Abs(delta.y) < 8f * dt;
         if (!grounded) { airSeconds += dt; wasGrounded = false; return; }
 
         if (!wasGrounded)
         {
             wasGrounded = true;
-            if (airSeconds >= s.landMinAirSeconds) Land(Mathf.Clamp01(airSeconds / 1.2f));
-            airSeconds = 0f; travelled = 0f;
+            if (airSeconds >= s.landMinAirSeconds) { Land(Mathf.Clamp01(airSeconds / 1.2f)); travelled = 0f; }
+            airSeconds = 0f;
             return;
         }
         airSeconds = 0f;
@@ -63,7 +66,7 @@ public sealed class FlatsFootsteps : MonoBehaviour
         var s = FlatsFeel.Settings;
         stepIndex = (stepIndex + 1 + Random.Range(0, 2)) % 3;
         string clip = stepIndex == 0 ? "step_a" : stepIndex == 1 ? "step_b" : "step_c";
-        if (local != null) { RogueAudio.Play(clip, s.stepVolume); return; }
+        if (local) { RogueAudio.Play(clip, s.stepVolume); return; }
         float now = Time.unscaledTime;
         if (now - lastOtherStepAt < 0.07f || !NearListener(s.otherStepRange)) return;
         lastOtherStepAt = now;
@@ -73,13 +76,13 @@ public sealed class FlatsFootsteps : MonoBehaviour
     void Land(float weight)
     {
         var s = FlatsFeel.Settings;
-        if (local != null)
+        if (local)
         {
             RogueAudio.Play("land", s.landVolume * Mathf.Lerp(0.6f, 1f, weight));
-            if (s.landDipDegrees > 0f) FlatsRecoil.Of(local).Dip(s.landDipDegrees * Mathf.Lerp(0.5f, 1f, weight));
+            if (s.landDipDegrees > 0f) FlatsRecoil.Of(player).Dip(s.landDipDegrees * Mathf.Lerp(0.5f, 1f, weight));
             return;
         }
-        if (!NearListener(s.otherStepRange)) return;
+        if (player == null || !NearListener(s.otherStepRange)) return;   // enemies have no trustworthy airborne state: no landing sound
         PlayOther("land", s.otherStepVolume, 1f);
     }
 
@@ -91,7 +94,7 @@ public sealed class FlatsFootsteps : MonoBehaviour
 
     void PlayOther(string clipName, float volume, float pitch)
     {
-        var clip = Resources.Load<AudioClip>(RogueAudio.Folder + clipName);
+        var clip = RogueAudio.Clip(clipName);
         if (clip == null) return;
         if (voice == null)
         {
