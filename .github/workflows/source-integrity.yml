@@ -1,7 +1,7 @@
 name: Unity source integrity
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: [main, 'codex/**', 'claude/**']
   pull_request:
 permissions:
   contents: read
