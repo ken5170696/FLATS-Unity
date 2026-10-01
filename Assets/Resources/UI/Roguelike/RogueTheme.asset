@@ -49,6 +49,31 @@ MonoBehaviour:
     size: 56
     lineSpacingEn: 1
     lineSpacingZh: 1
+  tileBackdrop: {r: 0.79607844, g: 0.79607844, b: 0.79607844, a: 0.78}
+  tileDisplay:
+    size: 88
+    lineSpacingEn: 1
+    lineSpacingZh: 1
+  tileNumber:
+    size: 72
+    lineSpacingEn: 1
+    lineSpacingZh: 1
+  tileTitle:
+    size: 32
+    lineSpacingEn: 1.1
+    lineSpacingZh: 1.1
+  tileBody:
+    size: 22
+    lineSpacingEn: 1.15
+    lineSpacingZh: 1.25
+  tileHeroNumber:
+    size: 160
+    lineSpacingEn: 1
+    lineSpacingZh: 1
+  tileStatNumber:
+    size: 80
+    lineSpacingEn: 1
+    lineSpacingZh: 1
   h1:
     size: 40
     lineSpacingEn: 1.05

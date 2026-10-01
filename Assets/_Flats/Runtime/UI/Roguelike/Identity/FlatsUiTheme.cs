@@ -21,6 +21,7 @@ public sealed class FlatsUiTheme : ScriptableObject
         Positive = 30, Negative = 31, Warning = 32, Info = 33, Merit = 34,
         Stat = 40, Core = 41, Mod = 42, Tactical = 43, Ultimate = 44, Weapon = 45, Supply = 46,
         RarityCommon = 50, RarityUncommon = 51, RarityRare = 52,
+        TileBackdrop = 60,
     }
 
     [Serializable]
@@ -65,6 +66,11 @@ public sealed class FlatsUiTheme : ScriptableObject
 
     [Header("Type (canvas units of the screen that uses them)")]
     public TypeStyle display = new TypeStyle(56, 1f, 1f);
+    [Header("Tile family (1080p canvas units)")]
+    public Color tileBackdrop = Hex(0xCBCBCB, .78f);
+    public TypeStyle tileDisplay = new TypeStyle(88, 1f, 1f), tileNumber = new TypeStyle(72, 1f, 1f),
+        tileTitle = new TypeStyle(32, 1.1f, 1.1f), tileBody = new TypeStyle(22, 1.15f, 1.25f);
+    public TypeStyle tileHeroNumber = new TypeStyle(160, 1f, 1f), tileStatNumber = new TypeStyle(80, 1f, 1f);
     public TypeStyle h1 = new TypeStyle(40, 1.05f, 1.05f), h2 = new TypeStyle(30, 1.1f, 1.1f), h3 = new TypeStyle(24, 1.15f, 1.15f),
         body = new TypeStyle(22, 1.15f, 1.25f), small = new TypeStyle(18, 1.15f, 1.25f), micro = new TypeStyle(16, 1.1f, 1.1f);
 
@@ -141,6 +147,7 @@ public sealed class FlatsUiTheme : ScriptableObject
     {
         switch (token)
         {
+            case Token.TileBackdrop: return tileBackdrop;
             case Token.BrandPrimary: return brandPrimary;
             case Token.BrandHover: return brandHover;
             case Token.BrandPressed: return brandPressed;

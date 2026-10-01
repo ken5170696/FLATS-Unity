@@ -2553,3 +2553,15 @@ More health	生命更多
 More damage	傷害更高
 Move faster	跑更快
 Acquired	已取得
+Next goals	下一個目標
+This run's build	本局配裝
+Detailed statistics	詳細數據
+Run summary	本局摘要
+Core	核心
+Mods	改件
++{0} XP · +{1} Merits	+{0} 經驗 · +{1} 功勳
+Extraction successful	撤離成功
+Stages cleared	通過關卡
+Gained {0} skill points	獲得 {0} 技能點
+New best	新紀錄
+Gained {0} skill point	獲得 {0} 技能點

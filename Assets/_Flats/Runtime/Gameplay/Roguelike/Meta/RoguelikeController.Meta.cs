@@ -110,10 +110,32 @@ public partial class RoguelikeController
             kills = facts.Kills, headshots = facts.Headshots, rescues = facts.Rescues, objectives = facts.Objectives, stagesCleared = facts.StagesCleared,
             seconds = facts.Seconds, earnedMinor = me != null ? me.earnedMinor : 0,
             build = me != null && me.build != null ? BuildLine(me.build) : "",
+            items = me != null && me.build != null ? BuildItems(me.build) : null,
+            modsUsed = me != null && me.build != null ? (me.build.mods ?? new string[0]).Length : -1,
+            modsCapacity = me != null && me.build != null ? RogueCatalog.MaxMods : -1,
             newBest = previousBestDepth > 0 && state.deepestDepth > previousBestDepth,
             notice = notice,
             continueLabel = Menu.RogueHeadquartersAfterRun ? "Continue to headquarters" : "Continue",
         };
+    }
+
+    /// <summary>The build as the statistics show it: cores, then mods, the tactical and the ultimate, each with its real tier
+    /// (tacticals and ultimates have none: -1 hides the number). Names are catalogue keys; the view translates them.</summary>
+    static RogueResultView.BuildItem[] BuildItems(PlayerBuild b)
+    {
+        var items = new List<RogueResultView.BuildItem>();
+        System.Action<string, int> add = (id, rank) =>
+        {
+            if (string.IsNullOrEmpty(id)) return;
+            var def = RogueCatalog.Item(id);
+            if (def == null) return;
+            items.Add(new RogueResultView.BuildItem { itemId = id, kind = def.Kind, name = def.Name, rank = rank });
+        };
+        foreach (var id in b.cores ?? new string[0]) add(id, b.Tier(id));
+        foreach (var id in b.mods ?? new string[0]) add(id, RogueCatalog.MaxTier(id) > 1 ? b.Tier(id) : -1);
+        add(b.tactical, -1);
+        add(b.ultimate, -1);
+        return items.ToArray();
     }
 
     static string BuildLine(PlayerBuild b)
