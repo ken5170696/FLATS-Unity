@@ -38,7 +38,18 @@ public class RogueScreenView : MonoBehaviour
     public bool RouteMode { get; private set; }
     public FlatsTileOffer FocusedTile { get; private set; }
     public readonly List<FlatsTileOffer> Tiles = new List<FlatsTileOffer>();
-    public bool AcceptsInput { get { return !Suspended && !RewardFeedbackPlaying && !covered && !ConfirmOpen() && (Menu.current == ScreenState || Menu.current == "MainMenu" || Menu.current == ""); } }
+    /// <summary>The screen owns the input: nothing covers it, no take is playing and the menu state is its own (the pause menu,
+    /// the TAB overview and a confirmation each take it away).</summary>
+    public bool AcceptsInput { get { return !Suspended && !RewardFeedbackPlaying && !covered && !ConfirmOpen() && Menu.current == ScreenState; } }
+    /// <summary>False for a moment after the screen fills or changes mode: the second click of a double click on a reward must not
+    /// buy the shop tile, or pick the route, that appears under the pointer.</summary>
+    public bool ActivationAllowed { get { return Time.unscaledTime >= activateFrom; } }
+    [Tooltip("Seconds after the screen fills or changes mode before a tile or the primary action can be activated.")]
+    public float activationDelay = .35f;
+    [Tooltip("A take's press feedback waits while the overview or a dialog covers the screen, but never longer than this (real seconds).")]
+    public float feedbackMaxWait = 2f;
+    public bool HasNote { get { return footerNote != null && !string.IsNullOrEmpty(footerNote.text); } }
+    float activateFrom; bool closed, acceptedLast, drawerWasOpen;
     const string ScreenState = "RogueScreen";
     string previousState, focusKey;
     GameObject previousSelection;
@@ -72,19 +83,35 @@ public class RogueScreenView : MonoBehaviour
         var message = GameObject.Find("Message"); messageCanvas = message != null ? message.GetComponent<Canvas>() : null;
         if (messageCanvas != null) { messageWasEnabled = messageCanvas.enabled; messageCanvas.enabled = false; }
         if (manage != null) manage.onClick.AddListener(() => { if (!AcceptsInput) return; inventoryRoot.SetActive(!inventoryRoot.activeSelf); RebuildNavigation(); });
+        activateFrom = Time.unscaledTime + activationDelay;
     }
     public void Close()
     {
-        if (Suspended) { Destroy(gameObject); return; }
+        if (closed) return;
+        closed = true;
+        if (Suspended) { RestoreCanvases(true); Destroy(gameObject); return; }   // the overview on top owns the input state and restores it when it closes
         if (Menu.current == ScreenState) Menu.current = previousState == ScreenState ? "Playing" : previousState;
         FPSController.enableCamRotate = previousCamRotate || Menu.current == "Playing";
         FlatsCursor.Pop(this);
         if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(previousSelection);
-        if (hudCanvas != null && (hudWasEnabled || Menu.current == "Playing")) hudCanvas.enabled = true;
-        if (messageCanvas != null) messageCanvas.enabled = messageWasEnabled;
+        RestoreCanvases(false);
         Destroy(gameObject);
     }
-    void OnDestroy() { if (focusPolicy != null) focusPolicy.enabled = focusPolicyWasEnabled; FlatsCursor.Pop(this); }
+    /// <summary>Gives the HUD and the message canvas back. Under the TAB overview the overview owns the HUD canvas and restores it
+    /// when it closes, but nobody else re-enables the message canvas, so it comes back here. While the pause menu is up both stay
+    /// as the pause menu left them (it enables them again when it closes).</summary>
+    void RestoreCanvases(bool underOverview)
+    {
+        bool playing = Menu.current == "Playing";
+        if (hudCanvas != null && !underOverview && (hudWasEnabled || playing)) hudCanvas.enabled = true;
+        if (messageCanvas != null && (underOverview || messageWasEnabled || playing)) messageCanvas.enabled = true;
+    }
+    void OnDestroy()
+    {
+        if (focusPolicy != null) focusPolicy.enabled = focusPolicyWasEnabled;
+        FlatsCursor.Pop(this);
+        if (!closed) { closed = true; RestoreCanvases(Suspended); }   // destroyed without Close: never leave the canvases off
+    }
     public void SetTitle(string heading, string sub) { SetTitle("Stage", heading, sub, null); }
     public void SetTitle(string iconName, string heading, string sub, string wallet)
     {
@@ -103,13 +130,13 @@ public class RogueScreenView : MonoBehaviour
     }
     public void UseCards(bool cards)
     {
-        if (CardsMode != cards) { firstPopulation = true; focusKey = null; focusIndex = 0; }
+        if (CardsMode != cards) { firstPopulation = true; focusKey = null; focusIndex = 0; drawerWasOpen = false; activateFrom = Time.unscaledTime + activationDelay; }
         CardsMode = cards; RouteMode = false;
         if (cardsRoot != null) cardsRoot.SetActive(cards);
         if (scroll != null) scroll.gameObject.SetActive(!cards);
         if (walletText != null) walletText.gameObject.SetActive(!cards);
     }
-    public void SetRouteMode() { RouteMode = true; }
+    public void SetRouteMode() { if (!RouteMode) activateFrom = Time.unscaledTime + activationDelay; RouteMode = true; }
     public void SetSquad(string text) { if (squadText != null) squadText.text = text ?? ""; }
     public void SetBuild(Flats.Core.Roguelike.PlayerBuild build)
     {
@@ -139,7 +166,8 @@ public class RogueScreenView : MonoBehaviour
         foreach (var parent in new[] { cardsContent, rowsContent, ownedContent })
             if (parent != null) for (int i = parent.childCount - 1; i >= 0; i--) { var go = parent.GetChild(i).gameObject; if (buildRoot != null && go == buildRoot.gameObject) continue; go.SetActive(false); Destroy(go); }
         foreach (var button in new[] { rerollPaid, rerollTicket, manage }) if (button != null) button.gameObject.SetActive(false);
-        if (inventoryRoot != null) inventoryRoot.SetActive(false);
+        // a rebuild (any squad broadcast in co-op) must not shut the equipment drawer the player has open: FinishBinding reopens it
+        if (inventoryRoot != null) { drawerWasOpen = inventoryRoot.activeSelf; inventoryRoot.SetActive(false); }
     }
     public RogueRewardCardView AddCard(string iconName, string name, string rarity, string effect, string actionText, bool interactable, string status, Action onAction)
     {
@@ -152,16 +180,20 @@ public class RogueScreenView : MonoBehaviour
     {
         RewardFeedbackPlaying = true;
         if (backdrop != null) { backdrop.reduceMotion = reduceMotion; backdrop.Burst(); }
-        float elapsed = 0;
+        float elapsed = 0, waited = 0;
         while (elapsed < rewardPressSeconds)
         {
             if (card != null) card.PressFeedback(elapsed / Mathf.Max(.01f, rewardPressSeconds));
             yield return null;
-            if (Suspended || covered || ConfirmOpen() || Menu.current != ScreenState && Menu.current != "MainMenu" && Menu.current != "") continue;
+            bool held = Suspended || covered || ConfirmOpen() || Menu.current != ScreenState;
+            if (held) { waited += Time.unscaledDeltaTime; if (waited < feedbackMaxWait) continue; }
             elapsed += Time.unscaledDeltaTime;
         }
         RewardFeedbackPlaying = false;
         if (onAction != null) onAction();
+        // the controller skips its refreshes while the feedback plays; if the take was refused (the phase moved on meanwhile)
+        // nothing else would rebuild this screen until the next broadcast
+        var ctrl = RoguelikeController.Instance; if (ctrl != null) ctrl.RefreshRunScreen();
     }
     public RogueOfferRowView AddRow(string name, string effect, string price, string rarity, string actionText, bool interactable, string status, Action onAction)
     { return AddRow("", name, effect, price, rarity, actionText, interactable, status, onAction); }
@@ -180,12 +212,14 @@ public class RogueScreenView : MonoBehaviour
         var row = Instantiate(rowTemplate, parent, false); row.name = "Offer-" + name; row.gameObject.SetActive(true);
         RogueOfferRowView.Bind(row, iconName, name, effect, price, rarity, actionText, interactable, status, onAction, null);
         row.tile.owner = this; row.tile.reduceMotion = reduceMotion;
-        if (owned) { manage.gameObject.SetActive(true); row.tile.SetPitch(RoguelikeController.T("Remove")); }
+        // an owned tile lives in the drawer, outside the focus list: a tap removes at once (the removal asks for confirmation itself)
+        if (owned) { if (manage != null) manage.gameObject.SetActive(true); row.tile.singleTap = true; row.tile.SetPitch(RoguelikeController.T("Remove")); }
         else Register(row.tile);
         return row;
     }
     void Register(FlatsTileOffer tile)
     { if (tile == null) return; tile.owner = this; tile.reduceMotion = reduceMotion; Tiles.Add(tile); if (firstPopulation) tile.Enter(Tiles.Count - 1); }
+    void SyncInputGroup() { if (inputGroup != null) { bool accepts = AcceptsInput; inputGroup.interactable = accepts; inputGroup.blocksRaycasts = accepts; } }
     public void FinishBinding()
     {
         if (!CardsMode && !RouteMode) { int core = Tiles.FindIndex(t => t.hero); if (core > 0) { var hero = Tiles[core]; Tiles.RemoveAt(core); Tiles.Insert(0, hero); } }
@@ -194,6 +228,8 @@ public class RogueScreenView : MonoBehaviour
         if (next != null) Focus(next);
         if (CardsMode) Bind(primary, primaryLabel, RoguelikeController.T("Take"), () => { if (FocusedTile != null) FocusedTile.Activate(); });
         if (CardsMode && primary != null) FlatsUiTheme.SetInteractableNow(primary, next != null && next.Available);
+        if (drawerWasOpen && inventoryRoot != null && manage != null && manage.gameObject.activeSelf) inventoryRoot.SetActive(true);
+        drawerWasOpen = false;
         if (layout != null) layout.Reflow();
         Canvas.ForceUpdateCanvases(); RebuildNavigation(); firstPopulation = false;
         glyphLabels = GetComponentsInChildren<Text>(true); glyphWarmUntil = Time.unscaledTime + 1;
@@ -201,7 +237,7 @@ public class RogueScreenView : MonoBehaviour
         var es = EventSystem.current;
         if (es != null && AcceptsInput && !RogueInput.IsTouch && (es.currentSelectedGameObject == null || !es.currentSelectedGameObject.activeInHierarchy))
         { var first = next != null && next.Available ? (Selectable)next : primary != null && primary.gameObject.activeSelf && primary.interactable ? primary : overview; if (first != null) es.SetSelectedGameObject(first.gameObject); }
-        if (es != null && es.currentSelectedGameObject != null && es.currentSelectedGameObject.transform.IsChildOf(layout.footer)) FocusAction();
+        if (es != null && es.currentSelectedGameObject != null && layout != null && es.currentSelectedGameObject.transform.IsChildOf(layout.footer)) FocusAction();
     }
     public void Focus(FlatsTileOffer tile)
     {
@@ -211,7 +247,7 @@ public class RogueScreenView : MonoBehaviour
         foreach (var other in Tiles) other.SetFocus(other == tile);
         if (detail != null)
         {
-            detail.Bind((RouteMode ? tile.pitch.text + " · " : "") + tile.itemName.text + (string.IsNullOrEmpty(tile.tag.text) ? "" : " · " + tile.tag.text), RouteMode ? "" : tile.DetailNumber ?? "", tile.Description,
+            detail.Bind((RouteMode ? tile.pitch.text + " · " : "") + tile.itemName.text + (string.IsNullOrEmpty(tile.kindLabel.text) ? "" : " · " + tile.kindLabel.text), RouteMode ? "" : tile.DetailNumber ?? "", tile.Description,
                 (tile.DetailNext ?? "").Replace("\n", " · "), Screen.height > Screen.width && !RouteMode ? tile.inlineHost : null);
             if (detailIcon != null) { detailIcon.sprite = tile.icon.sprite; detailIcon.color = tile.Tint; detailIcon.enabled = string.IsNullOrEmpty(tile.DetailNumber) || RouteMode; }
             detail.category.color = tile.Tint;
@@ -224,7 +260,7 @@ public class RogueScreenView : MonoBehaviour
     { acquiredKey = id; acquiredUntil = Time.unscaledTime + .3f; foreach (var tile in Tiles) if (tile.ItemKey == id) tile.Acquired(); if (backdrop != null) { backdrop.reduceMotion = reduceMotion; backdrop.Burst(); } }
     public void SetFooter(string p, Action a, string s, Action b, string note) { SetFooter(p, "Check", a, s, "Quit", b, note); }
     public void SetFooter(string p, string pi, Action a, string s, string si, Action b, string note)
-    { Bind(primary, primaryLabel, p, a); Bind(secondary, secondaryLabel, s, b); if (footerNote != null) footerNote.text = CardsMode ? "" : note ?? ""; }
+    { Bind(primary, primaryLabel, p, a); Bind(secondary, secondaryLabel, s, b); if (footerNote != null) footerNote.text = note ?? ""; }
     public void SetFooterInteractable(bool p, bool s) { FlatsUiTheme.SetInteractableNow(primary, p); FlatsUiTheme.SetInteractableNow(secondary, s); }
     public void SetPrimaryText(string label, string note) { if (primaryLabel != null) primaryLabel.text = label ?? ""; if (footerNote != null) footerNote.text = note ?? ""; }
     public void SetPrimaryHighlight(bool on) { /* BrandPrimary remains the action; the original label expresses readiness. */ }
@@ -240,14 +276,17 @@ public class RogueScreenView : MonoBehaviour
     void Bind(Button button, Text label, string text, Action action)
     {
         if (button == null) return; button.gameObject.SetActive(!string.IsNullOrEmpty(text)); if (label != null) label.text = text ?? "";
-        button.onClick.RemoveAllListeners(); button.onClick.AddListener(() => { if (!AcceptsInput) return; if (button == overview) requestedCoverSelection = button.gameObject; RogueAudio.Click(); if (action != null) action(); });
+        button.onClick.RemoveAllListeners(); button.onClick.AddListener(() => { if (!AcceptsInput || button == primary && !ActivationAllowed) return; if (button == overview) requestedCoverSelection = button.gameObject; RogueAudio.Click(); if (action != null) action(); });
     }
     public void RebuildNavigation()
     {
+        if (layout == null) return;
         var buttons = new List<Selectable>();
         bool drawer = inventoryRoot != null && inventoryRoot.activeSelf;
+        // the button's own flag, not IsInteractable(): the input group is switched off while the overview or a dialog covers the
+        // screen, and a rebuild in that moment would find no buttons and leave the new tiles without navigation
         foreach (var button in GetComponentsInChildren<Button>())
-            if (button.IsActive() && button.IsInteractable() && button.gameObject.activeInHierarchy && (!drawer || button.transform.IsChildOf(inventoryRoot.transform) || button.transform.IsChildOf(layout.footer))) buttons.Add(button);
+            if (button.IsActive() && button.interactable && button.gameObject.activeInHierarchy && (!drawer || button.transform.IsChildOf(inventoryRoot.transform) || button.transform.IsChildOf(layout.footer))) buttons.Add(button);
         foreach (var button in buttons)
         {
             var n = new Navigation { mode = Navigation.Mode.Explicit };
@@ -310,12 +349,23 @@ public class RogueScreenView : MonoBehaviour
     }
     void Update()
     {
+        if (closed) return;
+        // Opened while the pause menu was up (co-op does not stop the run): the screen waits hidden so the pause menu stays usable,
+        // and takes the input over as soon as play resumes.
+        if (!Suspended && Menu.current == "Playing") { Menu.current = ScreenState; previousState = "Playing"; FPSController.enableCamRotate = false; }
         var canvas = GetComponent<Canvas>();
-        if (canvas != null) canvas.enabled = !ConfirmOpen() && (Menu.current == ScreenState || Menu.current == "MainMenu" || Menu.current == "Main" || Menu.current == "");
+        if (canvas != null) canvas.enabled = !ConfirmOpen() && Menu.current == ScreenState;
         if (focusPolicy != null) focusPolicy.enabled = focusPolicyWasEnabled && (covered || canvas != null && !canvas.enabled);
-        if (hudCanvas != null && hudCanvas.enabled) hudCanvas.enabled = false;
-        if (messageCanvas != null && messageCanvas.enabled) messageCanvas.enabled = false;
-        if (inputGroup != null) { inputGroup.interactable = AcceptsInput; inputGroup.blocksRaycasts = AcceptsInput; }
+        // the pause menu owns both canvases while it is up; otherwise the HUD and the banner stay hidden under the screen
+        if (Menu.current == ScreenState)
+        {
+            if (hudCanvas != null && hudCanvas.enabled) hudCanvas.enabled = false;
+            if (messageCanvas != null && messageCanvas.enabled) messageCanvas.enabled = false;
+        }
+        SyncInputGroup();
+        bool accepts = AcceptsInput;
+        if (accepts && !acceptedLast) RebuildNavigation();   // back from the overview, a dialog or the pause menu
+        acceptedLast = accepts;
         if (walletKnown && walletText != null && walletElapsed < walletSeconds)
         { walletElapsed += Time.unscaledDeltaTime; float p = Mathf.Clamp01(walletElapsed / Mathf.Max(.001f, walletSeconds)); walletShown = walletFrom + (long)Math.Round((walletTo - walletFrom) * p); PaintWallet(); walletText.rectTransform.localScale = Vector3.one * (reduceMotion ? 1 : 1 + .12f * Mathf.Sin(p * Mathf.PI)); }
         if (!AcceptsInput) return;

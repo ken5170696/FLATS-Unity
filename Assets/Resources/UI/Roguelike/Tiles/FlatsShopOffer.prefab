@@ -190,7 +190,7 @@ MonoBehaviour:
   - {fileID: 6905140602529066631}
   - {fileID: 4491334767963341118}
   - {fileID: 3564078589357260914}
-  tag: {fileID: 639077869669748541}
+  kindLabel: {fileID: 639077869669748541}
   itemName: {fileID: 2940734688893225378}
   pitch: {fileID: 2711388712779704961}
   price: {fileID: 8158456066772782518}
@@ -200,6 +200,7 @@ MonoBehaviour:
   hero: 0
   route: 0
   reduceMotion: 0
+  singleTap: 0
   inset: 24
   gap: 8
   iconSize: 64

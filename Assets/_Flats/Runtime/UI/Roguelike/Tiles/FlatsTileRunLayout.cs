@@ -14,10 +14,40 @@ public sealed class FlatsTileRunLayout : MonoBehaviour
     public float portraitRewardHeight = 240, portraitInlineHeight = 232, portraitOfferHeight = 212;
     public int shopColumns = 6, compactColumns = 5;
     public float compactAspect = 1.45f;
+    [Tooltip("The note line (who the squad waits for, what Ready does, what skipping a reward gives): beside the subtitle in landscape, a strip above the actions in portrait.")]
+    public float noteWidthShare = .55f;
+    public int noteMinSize = 16;
     Vector2 lastSize;
+    // what the last Reflow was computed for: the layout is recomputed when one of these changes, not every frame
+    int flowScreenW, flowScreenH, flowTiles, flowFlags, flowSettle; Rect flowSafe; float flowScale; FlatsTileOffer flowFocus;
+    string flowNote, flowSquad, flowNumber, flowDescription, flowNext, flowCategory;
     void OnEnable() { Reflow(); }
-    void LateUpdate() { Reflow(); }
-    public void Reflow()
+    void LateUpdate() { if (Changed()) Apply(); }
+    bool Changed()
+    {
+        if (view == null) return false;
+        int flags = (view.CardsMode ? 1 : 0) | (view.RouteMode ? 2 : 0) | (Active(view.primary) ? 4 : 0) | (Active(view.overview) ? 8 : 0) | (Active(view.secondary) ? 16 : 0)
+            | (Active(view.rerollPaid) ? 32 : 0) | (Active(view.rerollTicket) ? 64 : 0) | (Active(view.manage) ? 128 : 0)
+            | (view.inventoryRoot != null && view.inventoryRoot.activeSelf ? 256 : 0) | (view.walletText != null && view.walletText.gameObject.activeSelf ? 512 : 0);
+        var panel = view.detail;
+        bool same = Screen.width == flowScreenW && Screen.height == flowScreenH && Screen.safeArea == flowSafe && GetComponent<Canvas>().scaleFactor == flowScale
+            && view.Tiles.Count == flowTiles && view.FocusedTile == flowFocus && flags == flowFlags
+            && ReferenceEquals(view.footerNote != null ? view.footerNote.text : null, flowNote) && ReferenceEquals(view.squadText != null ? view.squadText.text : null, flowSquad)
+            && (panel == null || ReferenceEquals(panel.number.text, flowNumber) && ReferenceEquals(panel.description.text, flowDescription)
+                && ReferenceEquals(panel.next.text, flowNext) && ReferenceEquals(panel.category.text, flowCategory));
+        if (same) { if (flowSettle <= 0) return false; flowSettle--; return true; }
+        flowSettle = 2;
+        flowScreenW = Screen.width; flowScreenH = Screen.height; flowSafe = Screen.safeArea; flowScale = GetComponent<Canvas>().scaleFactor;
+        flowTiles = view.Tiles.Count; flowFocus = view.FocusedTile; flowFlags = flags;
+        flowNote = view.footerNote != null ? view.footerNote.text : null; flowSquad = view.squadText != null ? view.squadText.text : null;
+        if (panel != null) { flowNumber = panel.number.text; flowDescription = panel.description.text; flowNext = panel.next.text; flowCategory = panel.category.text; }
+        return true;
+    }
+    static bool Active(Button button) { return button != null && button.gameObject.activeSelf; }
+    /// <summary>Lays the screen out now (after a bind or a focus change) and for two more frames, so text measured on a fresh
+    /// font atlas settles; otherwise the layout only runs again when the screen, the mode, a text or the focus changes.</summary>
+    public void Reflow() { flowSettle = 2; Apply(); }
+    void Apply()
     {
         if (view == null || safe == null) return;
         var canvas = (RectTransform)transform;
@@ -38,7 +68,30 @@ public sealed class FlatsTileRunLayout : MonoBehaviour
         B(view.title.rectTransform, 0, 0, w - (view.walletText == null || !view.walletText.gameObject.activeSelf ? 0 : tall ? 240 : 376), 104);
         B(view.subtitle.rectTransform, 0, 104, w, 64);
         B(footer, x, sh - margin - fh, w, fh);
-        float top = margin + hh + gap, bottom = sh - margin - fh - gap;
+        // the note: a strip between the list and the actions in portrait; under the reward tiles in landscape (it runs to two
+        // lines there); otherwise one line on the subtitle's row, right-aligned under the wallet
+        float noteH = 0;
+        if (view.footerNote != null)
+        {
+            bool has = view.HasNote;
+            view.footerNote.gameObject.SetActive(has);
+            if (has)
+            {
+                var text = view.footerNote;
+                text.color = FlatsUiTheme.Rogue.ink;
+                bool underTiles = !tall && view.CardsMode;
+                text.resizeTextForBestFit = !tall && !underTiles; text.resizeTextMinSize = noteMinSize; text.resizeTextMaxSize = view.subtitle.fontSize;
+                text.alignment = tall || underTiles ? TextAnchor.UpperLeft : TextAnchor.UpperRight;
+                if (tall) { noteH = TextHeight(text, w); B(text.rectTransform, 0, sh - margin - fh - gap - noteH - margin, w, noteH); }
+                else if (underTiles)
+                {
+                    float bodyTop = hh + gap, bodyHeight = sh - margin - fh - gap - (margin + hh + gap), tileH = Mathf.Min(640, bodyHeight - 32);
+                    B(text.rectTransform, 16, bodyTop + 16 + tileH + 12, w - detailWidth - gap - 32, Mathf.Max(0, bodyHeight - 16 - tileH - 12));
+                }
+                else { float nw = w * noteWidthShare; B(text.rectTransform, w - nw, 104, nw, 32); }
+            }
+        }
+        float top = margin + hh + gap, bottom = sh - margin - fh - gap - (tall && noteH > 0 ? noteH + gap : 0);
         float bodyH = bottom - top;
         B(body, x, top, w, bodyH);
         float dh = tall ? 0 : view.CardsMode ? bodyH : shopDetailHeight;
@@ -74,11 +127,9 @@ public sealed class FlatsTileRunLayout : MonoBehaviour
         float available = tall ? w : w - (view.primary.gameObject.activeSelf ? pw + gap : 0);
         float aw = tall ? (available - gap) * .5f : (available - gap * Mathf.Max(0, actions.Count - 1)) / Mathf.Max(1, actions.Count);
         for (int i = 0; i < actions.Count; i++) B((RectTransform)actions[i].transform, tall ? i % 2 * (aw + gap) : i * (aw + gap), tall ? i / 2 * 64 : 0, aw, tall ? 56 : fh);
-        B(note, x, bottom - (tall ? 0 : 0), w, 0);
-        // Notes are part of the fixed detail/squad area, never behind a button or notification.
-        if (view.footerNote != null && !view.CardsMode) B(view.footerNote.rectTransform, 20, 72, squad.rect.width - 40, Mathf.Max(0, dh - 88));
-        if (view.squadText != null) B(view.squadText.rectTransform, 20, 20, squad.rect.width - 40, 48);
-        if (tall && view.HasSquad && !view.CardsMode && !view.RouteMode) { B(squad, 0, -64, w, 48); B(view.squadText.rectTransform, 12, 8, w - 24, 32); B(view.footerNote.rectTransform, 0, 0, 0, 0); }
+        B(note, x, bottom, w, 0);
+        if (view.squadText != null) B(view.squadText.rectTransform, 20, 20, squad.rect.width - 40, Mathf.Max(48, dh - 40));
+        if (tall && view.HasSquad && !view.CardsMode && !view.RouteMode) { B(squad, 0, -64, w, 48); B(view.squadText.rectTransform, 12, 8, w - 24, 32); }
         B(inventory, x, top, w, bodyH);
         if (view.ownedContent != null) { var grid = view.ownedContent.GetComponent<GridLayoutGroup>(); if (grid != null) { grid.constraintCount = tall ? 1 : 3; grid.cellSize = new Vector2((w - 48 - grid.spacing.x * (grid.constraintCount - 1)) / grid.constraintCount, 280); } }
         LayoutDetail(view.detail, tall || view.CardsMode);
@@ -108,7 +159,7 @@ public sealed class FlatsTileRunLayout : MonoBehaviour
             B((RectTransform)tile.transform, pad + i % columns * (tw + gap), tall ? y : pad + i / columns * (h + gap), tw, h);
             B(tile.inlineHost, 12, h - portraitInlineHeight - 12, tw - 24, portraitInlineHeight);
             if (tall) y += h + gap;
-            tile.Reflow();
+            tile.Reflow(false);
         }
         if (tall && view.buildRoot != null) { view.buildRoot.SetParent(rewardContent, false); float bh = Mathf.Max(240, height - y - pad); B(view.buildRoot, pad, y, inner, bh); y += bh + gap; }
         float needed = tall ? y - gap + pad : Mathf.Ceil((float)tiles.Count / columns) * (Mathf.Min(640, height - pad * 2) + gap) - gap + pad * 2;
@@ -151,7 +202,7 @@ public sealed class FlatsTileRunLayout : MonoBehaviour
             float rowOffset = tall && focusRow >= 0 && c.y > focusRow ? inlineHeight + gap : 0;
             B((RectTransform)tile.transform, pad + c.x * (cellW + gap), pad + c.y * (cellH + gap) + rowOffset, c.width * cellW + (c.width - 1) * gap, h);
             B(tile.inlineHost, -c.x * (cellW + gap), h + gap, width - pad * 2, inlineHeight);
-            tile.hero = c.width > 1 && tile.Core; tile.route = view.RouteMode; tile.Reflow();
+            tile.hero = c.width > 1 && tile.Core; tile.route = view.RouteMode; tile.Reflow(false);
         }
         float needed = rows * (cellH + gap) - gap + pad * 2 + (focusRow >= 0 ? inlineHeight + gap : 0);
         if (!tall && !view.RouteMode && needed > height + 1)
@@ -172,7 +223,8 @@ public sealed class FlatsTileRunLayout : MonoBehaviour
         bool phone = Screen.height > Screen.width;
         if (phone) stacked = false;
         float inset = 24;
-        float numberW = stacked ? w - 48 : phone ? 112 : Mathf.Min(320, w * .26f);
+        // phones: the number column is as wide as its number ("+55%" must not wrap), within two fifths of the panel
+        float numberW = stacked ? w - 48 : phone ? Mathf.Clamp(Mathf.Ceil(panel.number.preferredWidth) + 8, 112, w * .4f) : Mathf.Min(320, w * .26f);
         float headingHeight = TextHeight(panel.category, w - 48);
         B(panel.category.rectTransform, inset, inset, w - 48, Mathf.Max(32, headingHeight));
         float valueY = inset + Mathf.Max(32, headingHeight) + 16;

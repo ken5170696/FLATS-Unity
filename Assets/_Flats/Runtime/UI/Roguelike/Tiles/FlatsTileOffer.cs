@@ -10,9 +10,12 @@ public sealed class FlatsTileOffer : Button
     public RectTransform visual, inlineHost;
     public Image face, icon, iconPlate, flash, check, categoryStripe;
     public Image[] focusEdges;
-    public Text tag, itemName, pitch, price, reason;
+    [UnityEngine.Serialization.FormerlySerializedAs("tag")] public Text kindLabel;
+    public Text itemName, pitch, price, reason;
     public CanvasGroup visibility;
     public bool reward, hero, route, reduceMotion;
+    [Tooltip("Touch: activate on the first tap instead of focus first, confirm second (tiles outside the screen's focus list).")]
+    public bool singleTap;
     public float inset = 24, gap = 8, iconSize = 72, rewardIconSize = 224;
     public float focusScale = 1.04f, pressScale = .97f, focusSeconds = .08f;
     public float enterSeconds = .16f, staggerSeconds = .04f, enterDistance = 16, acquireSeconds = .24f;
@@ -37,6 +40,10 @@ public sealed class FlatsTileOffer : Button
     public int minimumPitchSize = 26;
     float scale = 1, flashUntil;
     Coroutine entrance;
+    static readonly System.Collections.Generic.Dictionary<string, Sprite> largeIcons = new System.Collections.Generic.Dictionary<string, Sprite>();
+    // what the last Reflow was computed for: the geometry is recomputed when one of these changes, not every frame
+    float flowW = -1, flowH = -1; int flowScreenW, flowScreenH, flowFlags, flowSettle;
+    string flowPitch, flowName, flowReason, flowPrice, flowKind; Sprite flowIcon;
 
     public bool InputAllowed { get { return owner == null || owner.AcceptsInput; } }
     protected override void OnEnable() { base.OnEnable(); transition = Transition.None; }
@@ -44,7 +51,7 @@ public sealed class FlatsTileOffer : Button
     {
         Color tint; string caption;
         Tint = RogueItemKinds.Parse(kind, out tint, out caption) ? tint : FlatsUiTheme.Rogue.weapon;
-        itemName.text = name ?? ""; tag.text = caption ?? ""; pitch.text = name ?? "";
+        itemName.text = name ?? ""; kindLabel.text = caption ?? ""; pitch.text = name ?? "";
         price.text = !string.IsNullOrEmpty(cost) && cost.StartsWith("$") ? "<size=" + FlatsUiTheme.Rogue.tileBody.size + ">$</size>" + cost.Substring(1) : cost ?? ""; reason.text = string.IsNullOrEmpty(status) ? "" : char.ToUpper(status[0]) + status.Substring(1);
         price.fontSize = !string.IsNullOrEmpty(cost) && cost.StartsWith("$") ? FlatsUiTheme.Rogue.tileNumber.size : FlatsUiTheme.Rogue.tileBody.size;
         Description = effect ?? ""; ActionLabel = actionText ?? ""; activate = action;
@@ -53,19 +60,20 @@ public sealed class FlatsTileOffer : Button
         interactable = available; RogueIcons.Apply(icon, iconName == "Sight" ? "Target" : iconName);
         if (icon.sprite == null) RogueIcons.Apply(icon, "Square");
         iconKey = iconName == "Sight" ? "Target" : iconName; smallIcon = icon.sprite;
-        largeIcon = Resources.Load<Sprite>("UI/Roguelike/Tiles/Icons/" + iconKey);
+        if (string.IsNullOrEmpty(iconKey)) largeIcon = null;
+        else if (!largeIcons.TryGetValue(iconKey, out largeIcon)) largeIcons[iconKey] = largeIcon = Resources.Load<Sprite>("UI/Roguelike/Tiles/Icons/" + iconKey);
         onClick.RemoveAllListeners(); onClick.AddListener(Activate);
         Paint(); Reflow();
     }
     public void SetItem(string id, string value, string next, bool core, bool bought)
     { ItemKey = id; DetailNumber = value; DetailNext = next; Core = core; hero = core; Sold = bought; Paint(); if (Focused && owner != null) owner.Focus(this); }
-    public void SetDescription(string value) { Description = value ?? ""; }
+    public void SetDescription(string value) { Description = (value ?? "").Replace(" -> ", " → "); }   // the rule text writes an upgrade as "a -> b"
     public void SetWeaponIcon(Sprite sprite) { if (sprite == null) return; weapon = true; icon.sprite = sprite; icon.enabled = true; if (iconPlate != null) iconPlate.enabled = false; }
     public void SetPitch(string value) { rawPitch = value ?? ""; pitch.text = rawPitch; Reflow(); }
     public void SetRoute(string key, string map, string name, string bounty)
-    { route = true; Tint = key == "safe" ? FlatsUiTheme.Rogue.tactical : key == "danger" ? FlatsUiTheme.Rogue.ultimate : FlatsUiTheme.Rogue.ink; tag.text = ""; itemName.text = map; price.text = bounty; price.fontSize = FlatsUiTheme.Rogue.tileNumber.size; SetPitch(name); Paint(); }
+    { route = true; Tint = key == "safe" ? FlatsUiTheme.Rogue.tactical : key == "danger" ? FlatsUiTheme.Rogue.ultimate : FlatsUiTheme.Rogue.ink; kindLabel.text = ""; itemName.text = map; price.text = bounty; price.fontSize = FlatsUiTheme.Rogue.tileNumber.size; SetPitch(name); Paint(); }
     public void SetFocus(bool value) { Focused = value; if (!value) touchArmed = false; Paint(); }
-    public void Activate() { if (Available && InputAllowed && activate != null) activate(); }
+    public void Activate() { if (Available && InputAllowed && (owner == null || owner.ActivationAllowed) && activate != null) activate(); }
     void Focus()
     {
         if (!InputAllowed) return;
@@ -96,7 +104,7 @@ public sealed class FlatsTileOffer : Button
     public override void OnPointerClick(PointerEventData e)
     {
         if (!InputAllowed || e.button != PointerEventData.InputButton.Left) return;
-        if (pointerTouch || e.pointerId >= 0 || RogueInput.IsTouch)
+        if (!singleTap && (pointerTouch || e.pointerId >= 0 || RogueInput.IsTouch))
         { if (!touchArmed) { Focus(); touchArmed = true; return; } }
         Activate();
     }
@@ -110,7 +118,7 @@ public sealed class FlatsTileOffer : Button
         if (visual != null) visual.localScale = Vector3.one * scale;
         Paint();
     }
-    void LateUpdate() { Reflow(); }
+    void LateUpdate() { Reflow(false); }
     void Paint()
     {
         if (face != null) face.color = Available || route ? Tint : FlatsUiTheme.Rogue.supply;
@@ -124,7 +132,12 @@ public sealed class FlatsTileOffer : Button
     { if (flash != null) { flashUntil = Time.unscaledTime + acquireSeconds * (1 - progress); Paint(); } }
     public void Acquired() { flashUntil = Time.unscaledTime + acquireSeconds; }
     public void Enter(int index)
-    { if (entrance != null) StopCoroutine(entrance); entrance = StartCoroutine(EnterRoutine(index)); }
+    {
+        if (entrance != null) StopCoroutine(entrance);
+        // filled while the overview covers the screen: no entrance to play, and a coroutine cannot start on an inactive object
+        if (!isActiveAndEnabled) { entrance = null; if (visibility != null) visibility.alpha = 1; if (visual != null) visual.anchoredPosition = Vector2.zero; return; }
+        entrance = StartCoroutine(EnterRoutine(index));
+    }
     IEnumerator EnterRoutine(int index)
     {
         for (float t = -index * staggerSeconds; t < enterSeconds; t += Time.unscaledDeltaTime)
@@ -165,9 +178,21 @@ public sealed class FlatsTileOffer : Button
     }
     float TextWidth(string value)
     { var settings = pitch.GetGenerationSettings(Vector2.zero); settings.horizontalOverflow = HorizontalWrapMode.Overflow; return pitch.cachedTextGeneratorForLayout.GetPreferredWidth(value, settings) / pitch.pixelsPerUnit; }
-    public void Reflow()
+    public void Reflow() { Reflow(true); }
+    /// <summary>Lays the tile out. Unforced calls (every frame from LateUpdate) return at once unless the tile's size, the screen, a
+    /// text or a mode changed since the last layout; two more passes follow a change so text measured on a fresh font atlas settles.</summary>
+    public void Reflow(bool force)
     {
         if (visual == null || pitch == null) return;
+        var own = ((RectTransform)transform).rect;
+        int flags = (reward ? 1 : 0) | (hero ? 2 : 0) | (route ? 4 : 0) | (weapon ? 8 : 0) | (inlineHost != null && inlineHost.gameObject.activeSelf ? 16 : 0);
+        bool same = own.width == flowW && own.height == flowH && Screen.width == flowScreenW && Screen.height == flowScreenH && flags == flowFlags
+            && ReferenceEquals(rawPitch, flowPitch) && ReferenceEquals(itemName.text, flowName) && ReferenceEquals(reason.text, flowReason)
+            && ReferenceEquals(price.text, flowPrice) && ReferenceEquals(kindLabel.text, flowKind) && smallIcon == flowIcon;
+        if (same && !force) { if (flowSettle <= 0) return; flowSettle--; }
+        else if (!same) flowSettle = 2;
+        flowW = own.width; flowH = own.height; flowScreenW = Screen.width; flowScreenH = Screen.height; flowFlags = flags;
+        flowPitch = rawPitch; flowName = itemName.text; flowReason = reason.text; flowPrice = price.text; flowKind = kindLabel.text; flowIcon = smallIcon;
         price.enabled = true;
         float edge = !reward && !hero && !route ? Mathf.Min(inset, 16) : inset;
         float w = ((RectTransform)transform).rect.width, h = ((RectTransform)transform).rect.height;
@@ -186,7 +211,7 @@ public sealed class FlatsTileOffer : Button
         float nameY = h - bottom - nameHeight;
         Box(itemName.rectTransform, left, nameY, textWidth, nameHeight);
         float tagWidth = Mathf.Max(1, w - 2 * edge - (string.IsNullOrEmpty(price.text) ? 0 : Mathf.Min(w * .52f, price.preferredWidth + gap)));
-        Box(tag.rectTransform, edge, edge, tagWidth, Measure(tag, tagWidth));
+        Box(kindLabel.rectTransform, edge, edge, tagWidth, Measure(kindLabel, tagWidth));
         Box(price.rectTransform, w * .4f, edge - 8, w * .6f - edge, FlatsUiTheme.Rogue.tileNumber.size + 16);
         if (check != null) Box(check.rectTransform, edge, contentH - edge - 32, 32, 32);
         bool watermarked = !reward && !hero && !route && !weapon;

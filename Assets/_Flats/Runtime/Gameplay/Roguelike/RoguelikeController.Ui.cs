@@ -358,6 +358,9 @@ public partial class RoguelikeController
         EnsureLocalPlayerAlive();
     }
 
+    /// <summary>For the run screen: rebuild after a take's press feedback, during which RefreshScreens holds back.</summary>
+    public void RefreshRunScreen() { RefreshScreens(); }
+
     void CloseScreens()
     {
         if (screen != null) { screen.Close(); screen = null; }
@@ -733,8 +736,10 @@ public partial class RoguelikeController
     /// <summary>One short line of what the build holds, by category: the shop header uses it so a purchase can be judged against it.</summary>
     static string SlotSummary(PlayerBuild b)
     {
-        return T("Cores {0}/{1}", b.cores.Length, RogueCatalog.MaxCores) + "   " + T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods) + "   " +
-               T("Tactical") + " " + (string.IsNullOrEmpty(b.tactical) ? "-" : ItemName(b.tactical)) + "   " + T("Ultimate") + " " + (string.IsNullOrEmpty(b.ultimate) ? "-" : ItemName(b.ultimate));
+        // the tactical and the ultimate are named once the player has one; an empty slot adds nothing to read here
+        return T("Cores {0}/{1}", b.cores.Length, RogueCatalog.MaxCores) + " · " + T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods)
+            + (string.IsNullOrEmpty(b.tactical) ? "" : " · " + T("Tactical") + " " + ItemName(b.tactical))
+            + (string.IsNullOrEmpty(b.ultimate) ? "" : " · " + T("Ultimate") + " " + ItemName(b.ultimate));
     }
 
     /// <summary>Cores a mod is built for (shared tags), for the "works with" hint; generic mods pair with nothing in particular.</summary>
@@ -836,20 +841,12 @@ public partial class RoguelikeController
         else if (def.Kind == ItemKind.Stat) tile.SetDescription(EffectText(def, 1));
     }
 
-    // One presentation decision point for the future rule-owned headline table.
-    // Multi-parameter effects deliberately have no headline: a threshold must never masquerade as a benefit.
+    /// <summary>The large number of a tile's detail: the benefit itself, from the rule layer's table (RogueHeadlines), never a
+    /// threshold or a cap that merely comes first in the sentence. "" where the benefit is not a number: the icon is shown instead.</summary>
     static string HeadlineNumber(ItemDef def, PlayerBuild build, int shownTier, bool sold)
     {
-        var args = def.EffectArgs(shownTier);
-        if (args.Length != 1) return "";
-        string number = args[0];
-        int marker = def.Effect.IndexOf("{0}", StringComparison.Ordinal);
-        if (marker < 0) return "";
-        string suffix = def.Effect.Substring(marker + 3);
-        if (suffix.StartsWith("%")) number += "%";
-        else if (suffix.StartsWith(" s")) number += " s";
-        else if (suffix.StartsWith(" m")) number += " m";
-        return number;
+        string format, value;
+        return RogueHeadlines.TryGet(def, shownTier, out format, out value) ? T(format, value) : "";
     }
 
     // ---------------------------------------------------------------- QA-20 / QA-19 stage clock (the authority's replicated clock)

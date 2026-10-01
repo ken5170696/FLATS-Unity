@@ -13,6 +13,8 @@ public sealed class RogueAcquisitionView : MonoBehaviour
     [Header("Authored notification layout")]
     public Vector2 screenAnchor = new Vector2(0.5f, 0f), screenOffset = new Vector2(0f, 8f);
     public Vector2 combatAnchor = new Vector2(0.5f, 0f), combatOffset = new Vector2(0f, 104f);
+    [Tooltip("The card's pivot in each place: under the header of a run screen it hangs from its top edge, in combat it stands on its bottom edge.")]
+    public Vector2 screenPivot = new Vector2(0.5f, 1f), combatPivot = new Vector2(0.5f, 0f);
     public float minimumWidth = 180f, maximumWidth = 540f, edgePadding = 12f;
     public float textInset = 48f, textRightPadding = 12f, headingGap = 8f;
     public bool reduceMotion;
@@ -66,6 +68,7 @@ public sealed class RogueAcquisitionView : MonoBehaviour
         if (card == null || title == null || pitch == null || heading == null) return;
         bool screenOpen = Menu.current != "Playing";
         card.anchorMin = card.anchorMax = screenOpen ? screenAnchor : combatAnchor;
+        card.pivot = screenOpen ? screenPivot : combatPivot;
         card.anchoredPosition = screenOpen ? screenOffset : combatOffset;
         var canvas = (RectTransform)transform;
         float headingWidth = heading.preferredWidth;
