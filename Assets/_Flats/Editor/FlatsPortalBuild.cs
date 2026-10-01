@@ -102,6 +102,8 @@ public static class FlatsPortalBuild
         var source = CaptureSource();
         const string catalogueAsset = "Assets/Resources/FlatsModCatalogue.txt";
         const string photonAsset = "Assets/Resources/FlatsPhotonClient.txt";
+        const string stampAsset = "Assets/Resources/" + FlatsBuildStamp.ResourceName + ".txt";
+        if (File.Exists(stampAsset) || File.Exists(stampAsset + ".meta")) throw new BuildFailedException("Reserved generated build stamp asset or metadata already exists.");
         if (File.Exists(photonAsset) || File.Exists(photonAsset + ".meta")) throw new BuildFailedException("Reserved generated Photon client asset or metadata already exists.");
         string photonClient = Environment.GetEnvironmentVariable("FLATS_PHOTON_APP_ID");
         if (!string.IsNullOrWhiteSpace(photonClient) && (!Guid.TryParse(photonClient, out var clientId) || clientId == Guid.Empty))
@@ -128,6 +130,11 @@ public static class FlatsPortalBuild
                 File.WriteAllText(catalogueAsset,catalogue);
                 AssetDatabase.ImportAsset(catalogueAsset,ImportAssetOptions.ForceSynchronousImport);
             }
+            // What a player quotes in a report: optional label, short commit, date, dev/dirty marks (FlatsBuildStamp.Text).
+            Directory.CreateDirectory("Assets/Resources");
+            File.WriteAllText(stampAsset, FlatsBuildStamp.Compose(Environment.GetEnvironmentVariable("FLATS_BUILD_LABEL"), source.commit,
+                DateTime.UtcNow.ToString("yyyy-MM-dd"), Environment.GetEnvironmentVariable("FLATS_DEVELOPMENT_BUILD") == "1", source.dirty));
+            AssetDatabase.ImportAsset(stampAsset, ImportAssetOptions.ForceSynchronousImport);
             if (target == BuildTarget.Android || target == BuildTarget.iOS)
             {
                 PlayerSettings.SetApplicationIdentifier(named, "io.github.ken5170696.flats.preview");
@@ -180,6 +187,7 @@ public static class FlatsPortalBuild
         {
             if(File.Exists(photonAsset)) AssetDatabase.DeleteAsset(photonAsset);
             if(File.Exists(catalogueAsset)) AssetDatabase.DeleteAsset(catalogueAsset);
+            if(File.Exists(stampAsset)) AssetDatabase.DeleteAsset(stampAsset);
             PlayerSettings.SetApplicationIdentifier(named, oldIdentifier);
             PlayerSettings.bundleVersion = oldVersion;
             PlayerSettings.SetScriptingBackend(named, oldBackend);
