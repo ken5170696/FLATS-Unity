@@ -10,6 +10,8 @@ public class FlatsTileWall : LayoutGroup
     public float compactCellHeight=144;
     public bool singleRow;
     public int heroColumns=2, portraitColumns=1;
+    [Tooltip("Landscape: rows share the wall's own height instead of cellHeight, so a parent that resizes the wall resizes its tiles.")]
+    public bool fillHeight;
     readonly System.Collections.Generic.List<Rect> cells=new System.Collections.Generic.List<Rect>();
     public override void CalculateLayoutInputHorizontal() { base.CalculateLayoutInputHorizontal(); }
     public override void CalculateLayoutInputVertical() { Arrange(false); }
@@ -32,7 +34,13 @@ public class FlatsTileWall : LayoutGroup
             int x=0,y=0;
             for(int pos=0;;pos++) { x=pos%cols; y=pos/cols; if(x+sx>cols)continue; var candidate=new Rect(x,y,sx,sy); bool hit=false; foreach(var used in cells)if(used.Overlaps(candidate)){hit=true;break;} if(!hit){cells.Add(candidate);break;} }
             maxRow=Mathf.Max(maxRow,y+sy);
-            if(apply) { SetChildAlongAxis(rectChildren[i],0,padding.left+(rectTransform.rect.width-padding.horizontal-width)/2+x*(cell+gap),sx*cell+(sx-1)*gap); SetChildAlongAxis(rectChildren[i],1,padding.top+y*(height+gap),sy*height+(sy-1)*gap); }
+        }
+        if(fillHeight&&!tall&&maxRow>0)height=Mathf.Max(1,(rectTransform.rect.height-padding.vertical-gap*(maxRow-1))/maxRow);
+        for(int i=0;apply&&i<rectChildren.Count;i++)
+        {
+            var c=cells[i];
+            SetChildAlongAxis(rectChildren[i],0,padding.left+(rectTransform.rect.width-padding.horizontal-width)/2+c.x*(cell+gap),c.width*cell+(c.width-1)*gap);
+            SetChildAlongAxis(rectChildren[i],1,padding.top+c.y*(height+gap),c.height*height+(c.height-1)*gap);
         }
         float needed=padding.vertical+Mathf.Max(0,maxRow*(height+gap)-gap);
         SetLayoutInputForAxis(needed,needed,-1,1);

@@ -333,6 +333,11 @@ public class RogueResultView : MonoBehaviour
                 tile.Bind(name,"","",item.rank<0?"":item.rank.ToString(System.Globalization.CultureInfo.InvariantCulture),null,token);
                 tiles.Add(tile);
             }
+            if(tiles.Count==0)   // a run that ended before anything was picked up says so instead of showing an empty panel
+            {
+                var none=Instantiate(buildTemplate,buildTemplate.transform.parent,false);
+                none.gameObject.SetActive(true);none.Bind("No core","","","",null,FlatsUiTheme.Token.Supply);tiles.Add(none);
+            }
             buildTiles=tiles.ToArray();
             if(buildCapacity!=null)buildCapacity.text=summary.modsUsed>=0&&summary.modsCapacity>=0?RogueMetaUI.L(MetaText.Value("Mods {0}/{1}",summary.modsUsed,summary.modsCapacity)):"";
             if(build!=null)build.text=RogueMetaUI.T("Stages cleared")+": "+summary.stagesCleared+"\n"+string.Join(" · ",summary.items.Where(i=>i!=null).Select(i=>RogueMetaUI.T(i.name)+(i.rank>=0?" "+i.rank:"")).ToArray());
