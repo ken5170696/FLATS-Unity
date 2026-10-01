@@ -46,7 +46,10 @@ public partial class RoguelikeController
     {
         var p = state != null ? state.Player(cmd.playerKey) : null;
         if (p == null) return;
-        if (!p.build.meta.Empty && (state.depth > 1 || state.phase != RunPhase.Prep)) return;   // a loadout cannot change mid-run
+        // a roster entry without a build (incomplete or legacy state) cannot take a loadout; one without a meta loadout has none yet,
+        // which is what "empty" means here (SetLoadout below already treats a missing meta as the first loadout)
+        if (p.build == null) { Debug.LogWarning("FLATS_ROGUE_LOADOUT_REJECTED " + p.key + ": the player has no build"); return; }
+        if (p.build.meta != null && !p.build.meta.Empty && (state.depth > 1 || state.phase != RunPhase.Prep)) return;   // a loadout cannot change mid-run
         MetaLoadout declared = null;
         try { declared = JsonUtility.FromJson<MetaLoadout>(cmd.text); } catch (System.Exception) { }
         var errors = new List<string>();

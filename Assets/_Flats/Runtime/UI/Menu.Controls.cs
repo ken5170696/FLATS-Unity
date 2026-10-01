@@ -68,6 +68,8 @@ public partial class Menu
         RefreshPersonalRows();
         // Language can also change outside this page, for example by importing a save.
         FlatsLocalization.Changed += RefreshPersonalRows;
+        // The Roguelike page formats some tiles from already-translated text (Menu.Roguelike).
+        FlatsLocalization.Changed += RefreshRoguelikeLanguage;
     }
     // Rows added to SettingsScreen.prefab later (SprintMode, WheelSwitch, DamageNumbers) have no scene override pointing their Plus/Minus
     // at this Menu, so their persistent PlusMinus call has no target. Wire any Plus/Minus button without a live persistent target once.

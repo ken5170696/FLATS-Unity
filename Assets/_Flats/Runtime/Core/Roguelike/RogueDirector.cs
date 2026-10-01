@@ -48,6 +48,22 @@ namespace Flats.Core.Roguelike
     {
         public const double BaseEventChance = 0.45, BaseEmergencyChance = 0.30;
         public const int RecentWindow = 3;
+        /// <summary>Chaos promises "frequent emergencies": its stages roll the emergency at one and a half times the chance.</summary>
+        public const double ChaosEmergencyMul = 1.5;
+
+        /// <summary>Emergency chance multiplier of a difficulty tier: 1 on Normal and Hard, <see cref="ChaosEmergencyMul"/> on Chaos.</summary>
+        public static double EmergencyDifficultyMul(int difficulty) { return RogueDepth.ClampDifficulty(difficulty) >= RogueDepth.MaxDifficulty ? ChaosEmergencyMul : 1.0; }
+
+        /// <summary>
+        /// Chance that a stage (from depth 3, never a finale) carries an emergency: the base chance times the route's and the
+        /// difficulty's multipliers, capped at 1. A route without events (the Quiet Route) has none on any difficulty.
+        /// </summary>
+        public static double EmergencyChance(int difficulty, RouteDef route)
+        {
+            double routeMul = route != null ? route.EventChanceMul : 1.0;
+            if (route != null && route.Tag == "safe") routeMul = 0.0;
+            return Math.Max(0.0, Math.Min(1.0, BaseEmergencyChance * routeMul * EmergencyDifficultyMul(difficulty)));
+        }
 
         public static EncounterPlan Plan(RogueRng root, string runSalt, int encounterId, int depth, int difficulty, int players, MapDef map, string routeTag, IList<EncounterHistory> history)
         {
@@ -82,7 +98,7 @@ namespace Flats.Core.Roguelike
                     var ev = Choose(rng, RogueCatalog.Events, depth, tags, history, h => h.eventId, exclusive);
                     if (ev != null) { plan.eventId = ev.Id; exclusive.Add(ev.Id); exclusive.AddRange(ev.Exclusive); }
                 }
-                double emergencyChance = Math.Min(1.0, BaseEmergencyChance * route.EventChanceMul) * (routeTag == "safe" ? 0.0 : 1.0);
+                double emergencyChance = EmergencyChance(difficulty, route);
                 // at most one emergency, never on the first two stages, never on a stage that already has a strongly spatial objective it excludes
                 if (depth >= 3 && rng.Chance(emergencyChance))
                 {

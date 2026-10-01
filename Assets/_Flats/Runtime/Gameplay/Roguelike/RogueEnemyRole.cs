@@ -101,6 +101,8 @@ public class RogueEnemyRole : MonoBehaviour
             return;
         }
         if (markVisual != null && markVisual.activeSelf && (!Marked || Gone)) markVisual.SetActive(false);
+        // "Power rerouted: enemy shields are down": the shield is put away while its reduction is off
+        if (riotShield != null && riotShield.activeSelf == PowerDown) riotShield.SetActive(!PowerDown);
         if (ai != null && Time.time < slowUntil)
         {
             if (agent == null) agent = GetComponent<UnityEngine.AI.NavMeshAgent>();
@@ -315,33 +317,31 @@ public class RogueEnemyRole : MonoBehaviour
     }
     // ---------------------------------------------------------------- riot shield (front reduction made visible)
     GameObject riotShield;
-    /// <summary>A role with a frontal reduction carries a flat riot shield in front of its chest, so the reduction is readable
-    /// and the flank is the obvious answer. Built from primitives in the FLATS palette; no collider (hits resolve on the body).</summary>
+    /// <summary>The armory's riot shield model (the same black silhouette the player's Riot Shield uses), held in front of the chest.</summary>
+    public const string RiotShieldModel = "Armory/Melee/Shield";
+    /// <summary>Shield placement in the enemy root's units (the root is scaled x4): centre height, distance in front of the body, and size.</summary>
+    public static Vector3 RiotShieldOffset = new Vector3(0f, 0.84f, 0.5f);
+    public static float RiotShieldScale = 0.58f;
+    /// <summary>A role with a frontal reduction carries a riot shield in front of its chest, so the reduction is readable and the flank
+    /// is the obvious answer. Looks only: no collider (hits resolve on the body and the facing angle, ShieldFacing).</summary>
     void BuildRiotShield()
     {
         if (riotShield != null || !RoguelikeMode.Active) return;
-        riotShield = new GameObject("RiotShield");
-        riotShield.transform.SetParent(transform, false);
-        // root units (the root is scaled x4, the capsule is 1.6 tall): chest at y 1.0, body front at z 0.5
-        riotShield.transform.localPosition = new Vector3(0f, 0.95f, 0.66f);
+        var prefab = Resources.Load<GameObject>(RiotShieldModel);
+        if (prefab == null) return;
+        riotShield = Instantiate(prefab, transform, false);
+        riotShield.name = "RiotShield";
+        riotShield.transform.localPosition = RiotShieldOffset;
         riotShield.transform.localRotation = Quaternion.identity;
-        Color plate = RogueRoleMarker.RoleTint(Def != null ? Def.Marker : "Shield"), edge = new Color(0.12f, 0.13f, 0.16f), window = new Color(0.85f, 0.94f, 1f);
-        AddBox(riotShield, edge, new Vector3(0f, 0f, 0.02f), new Vector3(0.78f, 1.04f, 0.05f));       // frame
-        AddBox(riotShield, plate, new Vector3(0f, 0f, -0.01f), new Vector3(0.68f, 0.94f, 0.05f));     // plate
-        AddBox(riotShield, window, new Vector3(0f, 0.28f, -0.04f), new Vector3(0.5f, 0.24f, 0.04f));  // viewing slit
-        AddBox(riotShield, edge, new Vector3(0f, -0.22f, -0.04f), new Vector3(0.1f, 0.3f, 0.04f));    // grip stripe
+        riotShield.transform.localScale = Vector3.one * RiotShieldScale;
+        var tuning = riotShield.GetComponent<RogueMeleeVisual>(); if (tuning != null) Destroy(tuning);   // the player's hand poses do not apply
+        foreach (var c in riotShield.GetComponentsInChildren<Collider>()) Destroy(c);
+        foreach (var r in riotShield.GetComponentsInChildren<Renderer>())
+        {
+            r.gameObject.layer = gameObject.layer;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        }
     }
-    void AddBox(GameObject parent, Color color, Vector3 localPos, Vector3 size)
-    {
-        var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        Destroy(box.GetComponent<Collider>());
-        box.layer = gameObject.layer;
-        box.transform.SetParent(parent.transform, false);
-        box.transform.localPosition = localPos; box.transform.localScale = size;
-        var r = box.GetComponent<Renderer>(); r.sharedMaterial = RogueWorld.Unlit(color);
-        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
-    }
-
     static void AddQuad(GameObject parent, Material mat, Color color, Vector3 localPos, Vector3 scale, float zRot)
     {
         var q = GameObject.CreatePrimitive(PrimitiveType.Quad);

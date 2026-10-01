@@ -24,6 +24,9 @@ public partial class RogueHudView : MonoBehaviour
     [Header("Waypoints")] public RectTransform waypointRoot; public RogueHudWaypoint waypointTemplate; public int maxWaypoints = 6; public float edgeInset = 36f;
     [Tooltip("Marker scale on screen from near to far (never above 1: the authored tile is the crisp size), at the screen edge, its opacity when it sits over the crosshair, and the distance under which it thins out.")]
     public float markerScaleNear = 0.82f, markerScaleFar = 0.58f, markerScaleEdge = 0.68f, markerCentreAlpha = 0.3f, markerNearFade = 10f;
+    [Header("Shared HUD texts while this HUD is up")]
+    [Tooltip("Largest size of the shared centre banner, and the size of the top-right log lines (both were authored for the Classic HUD, with nothing else on screen).")]
+    public int bannerMaxFontSize = 16, logFontSize = 12;
     [Header("Hint")] public GameObject hintLine; public Text hintText; public Image hintIcon;
     [Tooltip("Layout element of the hint text: its preferred width is the text's own width up to hintMaxWidth, so a long hint wraps " +
         "onto a second line inside the plate instead of running off a narrow screen.")] public LayoutElement hintTextLayout;
@@ -248,7 +251,7 @@ public partial class RogueHudView : MonoBehaviour
             bool downed = vitalsPlayer.Downed;
             if (hpFill != null)
             {
-                hpFill.fillAmount = downed ? Mathf.Clamp01(vitalsPlayer.BleedOutRemaining / RoguePlayer.BleedOutSeconds) : fill;
+                hpFill.fillAmount = downed ? vitalsPlayer.BleedOutFraction : fill;   // of the owner's own bleed-out length (heat shortens it), not the base 30 s (F17)
                 hpFill.color = downed ? hpDownedColor : fill <= 0.35f ? Color.Lerp(hpLowColor, Color.white, 0.25f * (1f + Mathf.Sin(Time.unscaledTime * 8f))) : hpColor;
             }
             // damage "chip": a pale bar that holds the old value briefly, then drains, so a hit reads as a loss
@@ -265,8 +268,10 @@ public partial class RogueHudView : MonoBehaviour
                 hpText.text = hpInt + Secondary(" / " + maxInt, hpMaxSize);
                 if (hpMaxText != null) hpMaxText.text = "";   // older layouts: the max now shares the current value's line
             }
-            int bleed = downed ? Mathf.CeilToInt(vitalsPlayer.BleedOutRemaining) : -1;
-            if (vitalsStatus != null && bleed != shownBleed) { shownBleed = bleed; vitalsStatus.text = bleed >= 0 ? RoguelikeController.T("Down {0}s", bleed) : ""; }
+            // -3: downed, but this copy has not received the owner's clock yet (a spectated teammate, F17): "…" instead of a false 0
+            // (-2 is taken: OnLanguageChanged uses it to force a redraw)
+            int bleed = !downed ? -1 : vitalsPlayer.HasBleedOutClock ? Mathf.CeilToInt(vitalsPlayer.BleedOutRemaining) : -3;
+            if (vitalsStatus != null && bleed != shownBleed) { shownBleed = bleed; vitalsStatus.text = bleed >= 0 ? RoguelikeController.T("Down {0}s", bleed) : bleed == -3 ? RoguelikeController.T("Down {0}s", "…") : ""; }
         }
         if (weaponPanel != null && vitalsFps != null && vitalsFps.primaryWeapon != null)
         {

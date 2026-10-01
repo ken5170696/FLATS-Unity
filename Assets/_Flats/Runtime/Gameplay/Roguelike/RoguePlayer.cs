@@ -254,7 +254,7 @@ public class RoguePlayer : MonoBehaviour
         { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.ClearRescueShield(); }   // and a Rescue Shield (QA-32)
         if (controller != null) RogueActionGate.CancelConflicts(controller, "downed");   // aiming, reloading, a hold: all end when going down
         bleedOut = BleedOutSeconds * (float)MetaRun.BleedOutMul(RogueHooks.Heat());
-        downedAt = Time.time; downedFor = bleedOut;
+        downedFor = bleedOut;
         receiver.hitPoints = 1f;
         if (controller != null) controller.enableFire = false;
         downRequest++;
@@ -313,8 +313,11 @@ public class RoguePlayer : MonoBehaviour
         if (!isMine)
         {
             if (!Downed && life == PlayerLife.Downed && controller != null) controller.RogueCancelWeaponConflicts();
-            // a teammate's copy starts its own bleed-out clock when the down arrives (the owner's timer never pauses, so it tracks it)
-            if (!Downed && life == PlayerLife.Downed) { downedAt = Time.time; downedFor = BleedOutSeconds * (float)MetaRun.BleedOutMul(RogueHooks.Heat()); }
+            // F17: a teammate's copy never runs a bleed-out clock of its own. The owner's clock pauses while a rescue is in progress
+            // (DownedRoutine), so a local estimate from "when the down arrived" kept counting during a revive and drifted for late
+            // joiners. The owner's real seconds arrive with its vitals (RogueVitals); they may come before this snapshot, so going
+            // down keeps a clock already received, and only leaving the downed state forgets it.
+            if (Downed && life != PlayerLife.Downed) { ClearRemoteBleedOut(); beingRevivedUntil = -10f; }
             Downed = life == PlayerLife.Downed;
             if (controller != null) controller.enableFire = !Downed;
         }
@@ -328,6 +331,7 @@ public class RoguePlayer : MonoBehaviour
         shieldHp = 0; shieldUntil = 0; assaultBuffUntil = 0; reloadBurstUntil = 0; if (suppression != null) suppression.Clear(); overshield.Clear();
         dashesRunning = 0; dashUntil = -10f; dashQueuedUntil = -10f; beingRevivedUntil = -10f;
         Downed = false; Carrying = false;
+        ClearRemoteBleedOut(); vitalsSentAt = -10f;   // no replicated clock survives the session; the owner reports its state again at once
         { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.CancelAll(); }
         if (controller != null && isMine) controller.enableFire = true;
     }
@@ -335,6 +339,7 @@ public class RoguePlayer : MonoBehaviour
     public void OnDied()
     {
         Downed = false;
+        ClearRemoteBleedOut(); beingRevivedUntil = -10f;
         EndUltimate();
         shieldHp = 0; overshield.Clear();
         { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.ClearRescueShield(); }
@@ -381,7 +386,9 @@ public class RoguePlayer : MonoBehaviour
     /// the rescuer's hold is not broken by the victim's own movement (QA-33).</summary>
     public bool BeingRevived { get { return Downed && Time.time < beingRevivedUntil; } }
 
-    /// <summary>Owner of a downed player: the authority reported revive progress on it ("revprog" event, 0..1).</summary>
+    /// <summary>A downed player's copy: the authority reported revive progress on it ("revprog" event, 0..1). On the owner this
+    /// holds the crawl and the bleed-out clock for ReviveCrawlLockSeconds (renewed by every progress event, released by 0 or 1);
+    /// other copies may be told as well and only mirror the "being revived" state: their countdown is the owner's (F17).</summary>
     public void NoteReviveProgress(float progress)
     {
         if (!Downed) return;
@@ -441,28 +448,42 @@ public class RoguePlayer : MonoBehaviour
     // Hit points are simulated by the owner only; teammates' copies kept the prefab value, so the squad list showed every living
     // teammate at full health. The owner sends its health, maximum and shield when they change (at most 4 times a second, and
     // every 2 s so a late joiner catches up); other copies display those values.
+    // F17: the same report carries the owner's bleed-out clock (seconds left and the full length; -1 and 0 when not downed). The
+    // owner's clock is the only one: it stops while a teammate revives and runs again when the hold breaks, and every other copy
+    // shows that number instead of counting on its own. While downed it goes out every 0.25 s; going down, being revived, a
+    // revive ending and getting up are sent at once, so a paused clock stops on every screen within one report.
     float vitalsSentAt = -10f, sentHp = -1f, sentMax = -1f, sentShield = -1f;
+    bool sentDowned, sentReviving;
     float remoteHp, remoteMax, remoteShield; bool hasRemoteVitals;
+    float remoteBleedOut = -1f, remoteBleedOutTotal;   // the owner's clock as last reported; -1: none received for this down
+    void ClearRemoteBleedOut() { remoteBleedOut = -1f; remoteBleedOutTotal = 0f; }
     void SendVitals()
     {
         if (Menu.network == 0 || receiver == null) return;
         var view = GetComponent<PhotonView>();
         if (view == null || !view.isMine || !PhotonNetwork.inRoom) return;
         float now = Time.unscaledTime;
-        if (now - vitalsSentAt < 0.25f) return;
+        bool reviving = BeingRevived;
+        bool clockChanged = Downed != sentDowned || reviving != sentReviving;
+        if (!clockChanged && now - vitalsSentAt < 0.25f) return;
         float hp = Downed ? 0f : Mathf.Max(0f, receiver.hitPoints), max = MaxHealth(), shield = ShieldFraction;
         bool changed = Mathf.Abs(hp - sentHp) >= 1f || Mathf.Abs(max - sentMax) >= 1f || Mathf.Abs(shield - sentShield) >= 0.02f;
-        if (!changed && now - vitalsSentAt < 2f) return;
-        vitalsSentAt = now; sentHp = hp; sentMax = max; sentShield = shield;
-        view.RPC("RogueVitals", PhotonTargets.Others, hp, max, shield);
+        if (!Downed && !clockChanged && !changed && now - vitalsSentAt < 2f) return;
+        vitalsSentAt = now; sentHp = hp; sentMax = max; sentShield = shield; sentDowned = Downed; sentReviving = reviving;
+        view.RPC("RogueVitals", PhotonTargets.Others, hp, max, shield, Downed ? Mathf.Max(0f, bleedOut) : -1f, Downed ? downedFor : 0f);
     }
 
     [PunRPC]
-    void RogueVitals(float hp, float max, float shield, PhotonMessageInfo info)
+    void RogueVitals(float hp, float max, float shield, float bleedOutLeft, float bleedOutTotal, PhotonMessageInfo info)
     {
         var view = GetComponent<PhotonView>();
         if (isMine || view == null || (info.sender != null && view.owner != null && info.sender.ID != view.owner.ID)) return;   // only the owner reports
         remoteHp = Mathf.Max(0f, hp); remoteMax = Mathf.Max(1f, max); remoteShield = Mathf.Clamp01(shield); hasRemoteVitals = true;
+        // kept even when this copy is not shown downed yet: the authority's life snapshot travels separately and may come later
+        if (bleedOutLeft >= 0f) { remoteBleedOut = bleedOutLeft; remoteBleedOutTotal = Mathf.Max(0f, bleedOutTotal); }
+        // the owner is no longer downed (-1; NaN lands here too). A copy still shown downed keeps the last seconds until the
+        // authority's snapshot ends the downed state (ApplyLife clears the clock then), instead of flashing "…" for a moment
+        else if (!Downed) ClearRemoteBleedOut();
     }
 
     void Update()
@@ -590,10 +611,25 @@ public class RoguePlayer : MonoBehaviour
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null) ctrl.Command(new RogueCommandMessage { kind = "overshield", value = fraction });
     }
-    float downedAt, downedFor;
-    /// <summary>Seconds before a downed player bleeds out: the owner's own timer, or a teammate copy's estimate from when the down arrived.</summary>
-    public float BleedOutRemaining { get { return !Downed ? 0f : isMine ? Mathf.Max(0f, bleedOut) : Mathf.Max(0f, downedFor - (Time.time - downedAt)); } }
-    public float BleedOutFraction { get { float total = isMine ? BleedOutSeconds * (float)MetaRun.BleedOutMul(RogueHooks.Heat()) : downedFor; return total > 0f ? Mathf.Clamp01(BleedOutRemaining / total) : 0f; } }
+    float downedFor;   // owner: the full length of the current bleed-out (the base time x the heat multiplier at the moment of the down)
+    /// <summary>Seconds before a downed player bleeds out: the owner's own timer; on a teammate's copy the owner's last reported
+    /// value (F17), which holds still while a revive is in progress. 0 when not downed, and on a copy that has no report yet
+    /// (see HasBleedOutClock: show "…" rather than "0 s" then).</summary>
+    public float BleedOutRemaining { get { return !Downed ? 0f : isMine ? Mathf.Max(0f, bleedOut) : remoteBleedOut >= 0f ? remoteBleedOut : 0f; } }
+    /// <summary>The bleed-out left as 0..1 of its full length (the owner's length, heat included); a copy without a report yet
+    /// shows a full bar, never an empty one.</summary>
+    public float BleedOutFraction
+    {
+        get
+        {
+            if (!Downed) return 0f;
+            if (!HasBleedOutClock) return 1f;
+            float total = isMine ? downedFor : remoteBleedOutTotal;
+            return total > 0f ? Mathf.Clamp01(BleedOutRemaining / total) : 0f;
+        }
+    }
+    /// <summary>This copy knows the bleed-out clock: always on the owner; on a teammate's copy once the owner's report arrived.</summary>
+    public bool HasBleedOutClock { get { return isMine || remoteBleedOut >= 0f; } }
     /// <summary>Replicated hit points and maximum for a teammate's copy (the owner's own values on the local player); for the spectate bar.</summary>
     public float DisplayHealth { get { return !isMine && hasRemoteVitals ? remoteHp : receiver != null ? Mathf.Max(0f, receiver.hitPoints) : 0f; } }
     public float DisplayMaxHealth { get { return !isMine && hasRemoteVitals ? remoteMax : isMine ? MaxHealth() : Mathf.Max(observedMaxHealth, 1f); } }
@@ -618,7 +654,7 @@ public class RoguePlayer : MonoBehaviour
         if (Downed && downedWaypoint == null) { downedWaypoint = RogueWaypoint.Attach(gameObject, "Medkit", "", new Color(1f, 0.35f, 0.45f), 1.6f, 5); downedWaypoint.Pulse = true; }
         else if (!Downed && downedWaypoint != null) { RogueWaypoint.Detach(gameObject); downedWaypoint = null; }
         // the marker counts the bleed-out down so the squad sees who must be reached first
-        if (downedWaypoint != null) downedWaypoint.Label = "Revive {0} · {1} s|" + DisplayName() + "|" + Mathf.CeilToInt(BleedOutRemaining);
+        if (downedWaypoint != null) downedWaypoint.Label = "Revive {0} · {1} s|" + DisplayName() + "|" + (HasBleedOutClock ? Mathf.CeilToInt(BleedOutRemaining).ToString() : "…");   // "…" until the owner's clock arrives (F17), never a false "0 s"
     }
     public string DisplayName()
     {

@@ -353,7 +353,7 @@ MonoBehaviour:
   m_FontData:
     m_Font: {fileID: 12800000, guid: 7e97e1fb4f0f2684293e6fd3c05e5d04, type: 3}
     m_FontSize: 28
-    m_FontStyle: 1
+    m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
     m_MaxSize: 40
@@ -1017,7 +1017,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FlatsDisabledLook
   disabledFace: {r: 0.15196078, g: 1, b: 0.41, a: 1}
   disabledContentAlpha: 1
-  focusScale: 1.06
+  focusScale: 1
 --- !u!114 &1591504531758192163
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1199,7 +1199,7 @@ MonoBehaviour:
   m_FontData:
     m_Font: {fileID: 12800000, guid: 7e97e1fb4f0f2684293e6fd3c05e5d04, type: 3}
     m_FontSize: 14
-    m_FontStyle: 1
+    m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
     m_MaxSize: 40
@@ -1613,7 +1613,7 @@ MonoBehaviour:
   m_FontData:
     m_Font: {fileID: 12800000, guid: 7e97e1fb4f0f2684293e6fd3c05e5d04, type: 3}
     m_FontSize: 20
-    m_FontStyle: 1
+    m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
     m_MaxSize: 40
@@ -2040,7 +2040,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FlatsDisabledLook
   disabledFace: {r: 1, g: 1, b: 1, a: 1}
   disabledContentAlpha: 1
-  focusScale: 1.06
+  focusScale: 1
 --- !u!114 &4459565771867021443
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2329,7 +2329,7 @@ MonoBehaviour:
   m_FontData:
     m_Font: {fileID: 12800000, guid: 7e97e1fb4f0f2684293e6fd3c05e5d04, type: 3}
     m_FontSize: 18
-    m_FontStyle: 1
+    m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
     m_MaxSize: 40
@@ -2441,7 +2441,7 @@ MonoBehaviour:
   m_FontData:
     m_Font: {fileID: 12800000, guid: 7e97e1fb4f0f2684293e6fd3c05e5d04, type: 3}
     m_FontSize: 18
-    m_FontStyle: 1
+    m_FontStyle: 0
     m_BestFit: 0
     m_MinSize: 10
     m_MaxSize: 40
@@ -2806,7 +2806,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FlatsDisabledLook
   disabledFace: {r: 1, g: 1, b: 1, a: 1}
   disabledContentAlpha: 1
-  focusScale: 1.06
+  focusScale: 1
 --- !u!114 &6921885262407623156
 MonoBehaviour:
   m_ObjectHideFlags: 0

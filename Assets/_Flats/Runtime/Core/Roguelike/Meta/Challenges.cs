@@ -13,13 +13,16 @@ namespace Flats.Core.Roguelike
     /// <summary>One-off achievements. Claimed ids live in MetaProfile.firstTimes, so each pays once.</summary>
     public static class FirstTimes
     {
+        /// <summary>"Reach stage 2-5 (10 stages deep)": the chapter-stage form every screen uses, with the depth the rule checks.</summary>
+        static string DepthText(int depth) { return "Reach stage " + RogueDepth.ChapterOf(depth) + "-" + RogueDepth.StageInChapter(depth) + " (" + depth + " stages deep)"; }
+
         public static readonly FirstTimeDef[] All =
         {
             new FirstTimeDef { Id = "ft.evac", Text = "Evacuate a squad", Merits = 60, Xp = 100, Earned = f => f.End == RunEnd.Evacuated },
             new FirstTimeDef { Id = "ft.chapter1", Text = "Clear a chapter finale", Merits = 100, Xp = 150, Earned = f => f.FinalesCleared >= 1 },
             new FirstTimeDef { Id = "ft.chapter2", Text = "Clear two chapter finales in one run", Merits = 150, Xp = 250, Earned = f => f.FinalesCleared >= 2 },
-            new FirstTimeDef { Id = "ft.depth10", Text = "Reach stage 10", Merits = 120, Xp = 200, Earned = f => f.DeepestDepth >= 10 },
-            new FirstTimeDef { Id = "ft.depth20", Text = "Reach stage 20", Merits = 200, Xp = 300, Earned = f => f.DeepestDepth >= 20 },
+            new FirstTimeDef { Id = "ft.depth10", Text = DepthText(10), Merits = 120, Xp = 200, Earned = f => f.DeepestDepth >= 10 },
+            new FirstTimeDef { Id = "ft.depth20", Text = DepthText(20), Merits = 200, Xp = 300, Earned = f => f.DeepestDepth >= 20 },
             new FirstTimeDef { Id = "ft.hard", Text = "Clear a finale on Hard", Merits = 120, Xp = 150, Earned = f => f.FinalesCleared >= 1 && f.Difficulty >= 2 },
             new FirstTimeDef { Id = "ft.chaos", Text = "Clear a finale on Chaos", Merits = 180, Xp = 200, Earned = f => f.FinalesCleared >= 1 && f.Difficulty >= 3 },
             new FirstTimeDef { Id = "ft.heat3", Text = "Clear a finale at Heat 3", Merits = 150, Xp = 200, Earned = f => f.FinalesCleared >= 1 && f.Heat >= 3 },

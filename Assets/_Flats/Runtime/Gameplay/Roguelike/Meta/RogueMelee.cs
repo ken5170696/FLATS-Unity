@@ -27,6 +27,7 @@ public sealed class RogueMelee : MonoBehaviour
     Transform skinnedPrimary, skinnedSecondary;
     RangedWeaponDef primaryDef, secondaryDef;
     RogueMeleeHUD hud;
+    bool hudFailed;
     int generation;
     public static float GuardMoveScale(FPSController owner)
     {
@@ -75,10 +76,19 @@ public sealed class RogueMelee : MonoBehaviour
         }
         if (state == null || state.Def != Def) { Cancel(); state = new MeleeState(Def); }
         if (!Mine) return;
-        if (hud == null)
+        if (hud == null && !hudFailed)
         {
+            // one attempt: a prefab that is missing or lost its RogueMeleeHUD must not instantiate and throw every frame
             var prefab = Resources.Load<GameObject>("Armory/MeleeHUD");
-            if (prefab != null) { hud = Instantiate(prefab).GetComponent<RogueMeleeHUD>(); hud.Bind(this); }
+            var created = prefab != null ? Instantiate(prefab) : null;
+            hud = created != null ? created.GetComponent<RogueMeleeHUD>() : null;
+            if (hud != null) hud.Bind(this);
+            else
+            {
+                hudFailed = true;
+                if (created != null) Destroy(created);
+                Debug.LogError("RogueMelee: Resources/Armory/MeleeHUD is missing or has no RogueMeleeHUD component; the melee HUD is disabled.");
+            }
         }
         bool held = Held();
         if (held != oldHeld)
@@ -151,6 +161,7 @@ public sealed class RogueMelee : MonoBehaviour
         int token = ++generation; var sequence = state;
         Busy = true; LastSwingTime = swingStart = Time.time;
         var swing = sequence.Begin(Time.time);
+        poseStep = swing.ComboIndex;
         fc.MeleeAnimation(true, false); Show(def);
         RogueAudio.PlayAt("melee_swing", fc.MeleeEye.position, Mine ? 0.8f : 0.5f);
         bool throwAxe = false;
@@ -334,7 +345,12 @@ public sealed class RogueMelee : MonoBehaviour
     {
         var m = receiver.GetComponent<RogueMelee>();
         if (m == null || m.Def == null || !receiver.userIsPlayer) return damage;
-        if (bullet && m.Busy && MeleeRules.Deflects(m.Def, Time.time - m.swingStart))
+        // One rule on every copy (the swing runs from the same Smash RPC everywhere): MeleeRules.Deflects with the weapon's S3
+        // window. The katana's S3 equals its whole swing (Windup + Recovery), so the frames a swing overruns its nominal length
+        // (the waits end on a frame boundary) count as the swing's last moment instead of dropping out of the window.
+        double intoSwing = Time.time - m.swingStart, swingLength = m.Def.Windup + m.Def.Recovery;
+        if (intoSwing >= swingLength) intoSwing = swingLength - 1e-4;
+        if (bullet && m.Busy && MeleeRules.Deflects(m.Def, intoSwing))
         {
             if (Time.time - m.lastDeflect > .08f) { m.lastDeflect = Time.time; m.PlayDeflect(); }
             return 0;
@@ -357,6 +373,7 @@ public sealed class RogueMelee : MonoBehaviour
         if (poseDriver == null) poseDriver = gameObject.AddComponent<RogueMeleeIK>();
         poseDriver.enabled = true;
         poseDriver.Begin(fc, visual, model.transform);
+        if (visual.SlashTrail != null) { visual.SlashTrail.emitting = false; visual.SlashTrail.Clear(); }
         HideWeapons(); Pose(0, false);
     }
     // 整個武器呈現（含瞄具鏡片 canvas 與瞄具相機）交給共用的參考計數隱藏，揮擊時也結束開鏡。
@@ -373,21 +390,63 @@ public sealed class RogueMelee : MonoBehaviour
     {
         if (model == null || visual == null || poseDriver == null) return;
         t = Mathf.Clamp01(t);
-        if (recovery)
+        // a combo weapon cuts along a different line on each step (ComboPoses); every other weapon has the one charged/hit pose
+        Vector3 chargedPosition = visual.ChargedPosition, chargedRotation = visual.ChargedRotation, hitPosition = visual.HitPosition, hitRotation = visual.HitRotation, bulge = Vector3.zero;
+        if (visual.ComboPoses != null && visual.ComboPoses.Length > 0)
+        {
+            var cut = visual.ComboPoses[Mathf.Clamp(poseStep, 0, visual.ComboPoses.Length - 1)];
+            chargedPosition = cut.ChargedPosition; chargedRotation = cut.ChargedRotation; hitPosition = cut.HitPosition; hitRotation = cut.HitRotation; bulge = cut.ArcBulge;
+        }
+        bool cutting = false;
+        if (visual.ComboPoses != null && visual.ComboPoses.Length > 0 && Def != null && Def.Windup + Def.Recovery > 0)
+        {
+            // a combo cut runs on the whole swing's clock: at 0.1 s the windup alone is too short to see a blade travel
+            float whole = (float)(Def.Windup + Def.Recovery);
+            float u = recovery ? ((float)Def.Windup + t * (float)Def.Recovery) / whole : t * (float)Def.Windup / whole;
+            float a = visual.CutStart, b = Mathf.Max(a + 0.05f, visual.CutEnd), c = Mathf.Max(b, visual.ReturnStart);
+            Vector3 position; Quaternion rotation;
+            if (u < a)
+            {
+                float p = visual.WindupCurve.Evaluate(u / a);
+                position = Vector3.Lerp(visual.RestPosition, chargedPosition, p);
+                rotation = Quaternion.Slerp(Quaternion.Euler(visual.RestRotation), Quaternion.Euler(chargedRotation), p);
+            }
+            else if (u < c)
+            {
+                float p = visual.SwingCurve.Evaluate(Mathf.Clamp01((u - a) / (b - a)));
+                position = Vector3.Lerp(chargedPosition, hitPosition, p) + bulge * Mathf.Sin(p * Mathf.PI);
+                rotation = Quaternion.Slerp(Quaternion.Euler(chargedRotation), Quaternion.Euler(hitRotation), p);
+                cutting = u < b + 0.06f;
+            }
+            else
+            {
+                float p = Mathf.SmoothStep(0f, 1f, (u - c) / Mathf.Max(0.001f, 1f - c));
+                position = Vector3.Lerp(hitPosition, visual.RestPosition, p);
+                rotation = Quaternion.Slerp(Quaternion.Euler(hitRotation), Quaternion.Euler(visual.RestRotation), p);
+            }
+            poseDriver.SetPose(position, rotation.eulerAngles);
+        }
+        else if (recovery)
         {
             float p = visual.SwingCurve.Evaluate(t);
-            poseDriver.SetPose(Vector3.Lerp(visual.HitPosition, visual.RestPosition, p),
-                Quaternion.Slerp(Quaternion.Euler(visual.HitRotation), Quaternion.Euler(visual.RestRotation), p).eulerAngles);
+            poseDriver.SetPose(Vector3.Lerp(hitPosition, visual.RestPosition, p),
+                Quaternion.Slerp(Quaternion.Euler(hitRotation), Quaternion.Euler(visual.RestRotation), p).eulerAngles);
+            cutting = t < 0.15f;   // the trail lingers for the first moment after the cut lands
         }
         else
         {
             bool charge = t <= visual.ChargeFraction;
             float p = charge ? visual.WindupCurve.Evaluate(t / visual.ChargeFraction)
                 : visual.SwingCurve.Evaluate((t - visual.ChargeFraction) / (1 - visual.ChargeFraction));
-            poseDriver.SetPose(Vector3.Lerp(charge ? visual.RestPosition : visual.ChargedPosition, charge ? visual.ChargedPosition : visual.HitPosition, p),
-                Quaternion.Slerp(Quaternion.Euler(charge ? visual.RestRotation : visual.ChargedRotation), Quaternion.Euler(charge ? visual.ChargedRotation : visual.HitRotation), p).eulerAngles);
+            Vector3 position = Vector3.Lerp(charge ? visual.RestPosition : chargedPosition, charge ? chargedPosition : hitPosition, p);
+            if (!charge) position += bulge * Mathf.Sin(p * Mathf.PI);
+            poseDriver.SetPose(position,
+                Quaternion.Slerp(Quaternion.Euler(charge ? visual.RestRotation : chargedRotation), Quaternion.Euler(charge ? chargedRotation : hitRotation), p).eulerAngles);
+            cutting = !charge;
         }
+        if (visual.SlashTrail != null && visual.SlashTrail.emitting != cutting) visual.SlashTrail.emitting = cutting;
     }
+    int poseStep;
     void PoseGuard() { if (visual != null && poseDriver != null) poseDriver.SetPose(visual.GuardPosition, visual.GuardRotation); }
     void PlayHit() { if (visual != null && visual.HitSound != null) GetComponent<AudioSource>().PlayOneShot(visual.HitSound); }
     void PlayDeflect() { if (!RogueAudio.Play("deflect") && visual != null && visual.DeflectSound != null) GetComponent<AudioSource>().PlayOneShot(visual.DeflectSound); }

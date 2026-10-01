@@ -1061,7 +1061,7 @@ MonoBehaviour:
   canvas: {fileID: 2253991357558349177}
   arcRoot: {fileID: 793193639862780768}
   arcTemplate: {fileID: 8030303177379288634}
-  arcRadius: 112
+  arcRadius: 84
   spriteRadiusFraction: 0.42
   arcColor: {r: 1, g: 0.16, b: 0.2, a: 0.95}
   fullDamage: 150

@@ -9,6 +9,7 @@ using UnityEngine.AI;
 /// - shield bearer: advances slowly to about 20 m, facing the target so its shield side takes the fire;
 /// - flanker: circles to a point beside the target (about 75 degrees off the line of fire), in solo as well;
 /// - jammer: holds 18-50 m, close enough that its 30 m field reaches the squad.
+/// A role only holds where it can fire (AI.RogueCanFireAt: line of sight and weapon range); otherwise it closes in on the target.
 /// Stunned enemies, enemies on a link arc and searches (target lost) are left to the legacy rules.
 /// </summary>
 public sealed class RogueEnemyTactics : MonoBehaviour
@@ -45,12 +46,19 @@ public sealed class RogueEnemyTactics : MonoBehaviour
         float preferred = (float)role.Def.PreferredRange;
         switch (role.RoleId)
         {
-            case "role.rusher": if (d > preferred + RushSlack) Go(at); else Hold(); break;
-            case "role.shieldbearer": if (d > preferred * ShieldAdvanceShare) Go(at); else Hold(); break;
-            case "role.marksman": if (d < preferred * RetreatShare) Retreat(self, away, RetreatStep); else Hold(); break;
-            case "role.jammer": if (d < JammerMin) Retreat(self, away, JammerMin); else if (d > JammerMax) Go(at); else Hold(); break;
-            case "role.flanker": Flank(at, away, preferred); break;
+            case "role.rusher": if (d > preferred + RushSlack) Go(at); else HoldOrClose(target, at); break;
+            case "role.shieldbearer": if (d > preferred * ShieldAdvanceShare) Go(at); else HoldOrClose(target, at); break;
+            case "role.marksman": if (d < preferred * RetreatShare) Retreat(self, away, RetreatStep); else HoldOrClose(target, at); break;
+            case "role.jammer": if (d < JammerMin) Retreat(self, away, JammerMin); else if (d > JammerMax) Go(at); else HoldOrClose(target, at); break;
+            case "role.flanker": Flank(target, at, away, preferred); break;
         }
+    }
+
+    /// <summary>Hold only where the role can shoot from (A10): a holder with no line of sight or out of weapon range stood behind a wall
+    /// and looked as if it ignored the player. It walks toward the target until it can fire, then holds as before.</summary>
+    void HoldOrClose(Transform target, Vector3 at)
+    {
+        if (ai.RogueCanFireAt(target)) Hold(); else Go(at);
     }
 
     void Go(Vector3 point)
@@ -85,14 +93,14 @@ public sealed class RogueEnemyTactics : MonoBehaviour
         }
     }
 
-    void Flank(Vector3 at, Vector3 away, float preferred)
+    void Flank(Transform target, Vector3 at, Vector3 away, float preferred)
     {
         Vector3 dir = away.sqrMagnitude > 0.01f ? away.normalized : transform.forward;
         float side = role.InstanceId % 2 == 0 ? 1f : -1f;
         Vector3 wanted = at + Quaternion.Euler(0f, side * FlankAngle, 0f) * dir * Mathf.Max(8f, preferred);
         NavMeshHit hit;
         if (!NavMesh.SamplePosition(wanted, out hit, 10f, NavMesh.AllAreas)) { Go(at); return; }
-        if ((hit.position - transform.position).sqrMagnitude < 9f) { Hold(); return; }   // on the flank: stand and shoot
+        if ((hit.position - transform.position).sqrMagnitude < 9f) { HoldOrClose(target, at); return; }   // on the flank: stand and shoot
         Go(hit.position);
     }
 }

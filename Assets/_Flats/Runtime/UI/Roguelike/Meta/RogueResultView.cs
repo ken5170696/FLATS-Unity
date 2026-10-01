@@ -163,7 +163,7 @@ public class RogueResultView : MonoBehaviour
         string arg = reward.lines != null && reward.lines.Length > 0 && reward.lines[0] != null && reward.lines[0].source == reward.abuse ? reward.lines[0].arg : null;
         if (string.IsNullOrEmpty(arg))
             arg = reward.abuse == "Play at least {0} seconds to earn experience" ? MetaProgression.MinSecondsForReward.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                : reward.abuse == "Leaving before stage {0} earns nothing" ? MetaProgression.MinStagesWhenAbandoned.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
+                : reward.abuse == MetaProgression.AbandonedEarlyReason ? MetaProgression.MinStagesWhenAbandoned.ToString(System.Globalization.CultureInfo.InvariantCulture) : "";
         return RogueMetaUI.L(MetaText.Value(reward.abuse, arg));
     }
 

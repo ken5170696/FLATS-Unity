@@ -19,8 +19,9 @@ public static class RogueWorld
     {
         if (unlit == null)
         {
-            // Authored material on the FLATS world shader ("Texture Only"), so it exists in player builds; the built-in
-            // Unlit/Color shader is stripped from players because no scene asset references it.
+            // Authored material on the FLATS tinted world shader ("Simple Color Texture": texture x _Color), so it exists in player
+            // builds; the built-in Unlit/Color shader is stripped from players because no scene asset references it. It was on
+            // "Texture Only", which ignores _Color: every code-coloured prop (rings, beacons, shields, status lights) drew plain white.
             unlit = Resources.Load<Material>("UI/Roguelike/RogueFlat");
             if (unlit == null) unlit = new Material(Shader.Find("Sprites/Default"));
         }
@@ -1081,7 +1082,32 @@ public class RogueCarryable : MonoBehaviour
     Vector3 CarrierGround { get { return hasCarrierGround ? carrierGround : lastValid - Vector3.up * HalfExtents.y; } }
 
     void OnEnable() { if (!live.Contains(this)) live.Add(this); }
-    void OnDisable() { live.Remove(this); }
+    // F16: an item that is switched off or destroyed while somebody holds it used to leave the list only. Its holder kept
+    // RoguePlayer.Carrying (no fire, carry speed), the carry pose and the hidden weapon until some other pickup or drop happened to
+    // refresh the flags: "the body is gone but I am still carrying". Both callbacks now end the carry on this copy.
+    void OnDisable() { ReleaseLocalCarry(); }
+    void OnDestroy() { ReleaseLocalCarry(); }
+
+    /// <summary>
+    /// This copy's item stops being carried, whatever the reason (disabled, destroyed, scene closing): no holder, off the live list,
+    /// the arms back to the Animator, this item's own share of the carry pose and of the hidden weapon given back, and every
+    /// player's Carrying recomputed. Idempotent: OnDisable and OnDestroy both call it, and socketedTo is cleared before the pose is
+    /// released, so the share is given back exactly once. Local only: the authority's own release (drop, break, carrier lost) still
+    /// travels as its usual event; a copy that only lost its item gets it back with the authority's next "held".
+    /// </summary>
+    void ReleaseLocalCarry()
+    {
+        bool changed = live.Remove(this) || !string.IsNullOrEmpty(HolderKey) || !string.IsNullOrEmpty(lastHolder);
+        HolderKey = ""; lastHolder = ""; dropPending = false;
+        if (rig != null) rig.Restore();
+        rig = null;
+        var previous = socketedTo;
+        socketedTo = null;
+        // by reference: a destroyed carrier (Unity's fake null) still holds this item's count and must give it back
+        if ((object)previous != null) { SetCarryPose(previous, false); changed = true; }
+        if (changed) RefreshCarryingFlags();
+    }
+
     void Start() { lastValid = transform.position; baseScale = transform.localScale; body = GetComponent<Collider>(); }
 
     void Update()
@@ -1105,7 +1131,16 @@ public class RogueCarryable : MonoBehaviour
             if (released) Released(carrier);
             else dropPending = false;   // picked up again: an older drop no longer applies
         }
-        if (holder == null && socketedTo != null)
+        else if (holder != null && (object)socketedTo != (object)holder)
+        {
+            // F16 (B03): the same holder key, another object. The "held" arrived before this copy had the carrier's avatar, or the
+            // avatar was rebuilt (a respawn): the flag said carrying while the item stayed where it lay, bound to nobody. Bind the
+            // carried look to the avatar that exists now (RefreshCarriedLook releases the old one's share first).
+            RefreshCarriedLook(holder);
+            RefreshCarryingFlags();
+        }
+        // by reference: a destroyed carrier is Unity-null but still holds this item's share of the carry pose
+        if (holder == null && (object)socketedTo != null)
         {
             // the carrier's object vanished: drop the pose here at the last ground seen under it; the authority releases the holder
             RefreshCarriedLook(null);
@@ -1244,7 +1279,8 @@ public class RogueCarryable : MonoBehaviour
     void RefreshCarriedLook(GameObject holder)
     {
         if (baseScale == Vector3.zero) baseScale = transform.localScale;
-        if (socketedTo != null) { if (rig != null) rig.Restore(); rig = null; SetCarryPose(socketedTo, false); socketedTo = null; }
+        // by reference, and cleared before the release: a destroyed avatar's share is still given back, and only once
+        if ((object)socketedTo != null) { if (rig != null) rig.Restore(); rig = null; var previous = socketedTo; socketedTo = null; SetCarryPose(previous, false); }
         if (Visual == null) transform.localScale = holder != null ? baseScale * CarriedScale : baseScale;
         if (holder != null)
         {
@@ -1275,9 +1311,12 @@ public class RogueCarryable : MonoBehaviour
     static readonly Dictionary<GameObject, int> carriedCount = new Dictionary<GameObject, int>();
     void SetCarryPose(GameObject player, bool carrying)
     {
+        if ((object)player == null) return;
+        // counted per avatar object (never per key), so a rebuilt avatar starts at zero and an old one's release cannot touch it
         int count; carriedCount.TryGetValue(player, out count);
         count = Mathf.Max(0, count + (carrying ? 1 : -1));
-        carriedCount[player] = count;
+        if (count == 0) carriedCount.Remove(player); else carriedCount[player] = count;   // no entry outlives its last item (or its avatar)
+        if (player == null) return;   // the avatar was destroyed: its count is settled, there is no pose or weapon left to restore
         bool holding = count > 0;   // the pose only clears when the last carried item is released
         var fc = player.GetComponent<FPSController>();
         // hidden per owner (this item): melee, downed and carry never un-hide each other; it also ends aiming and the scope view
@@ -1286,8 +1325,6 @@ public class RogueCarryable : MonoBehaviour
         if (anim != null) anim.SetBool("Bomb", holding);
         if (carrying && RogueWorld.KeyOf(player) == RoguelikeMode.LocalPlayerKey) RogueAudio.Click();
     }
-
-    void OnDestroy() { if (socketedTo != null) { if (rig != null) rig.Restore(); SetCarryPose(socketedTo, false); socketedTo = null; } }
 
     /// <summary>
     /// Every copy: RoguePlayer.Carrying for every player from what the live carryables' holders are. The runners used to set the flag

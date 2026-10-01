@@ -324,7 +324,7 @@ public class RogueMetaHub : MonoBehaviour
     public void ConfirmReset()
     {
         reopenModal = ConfirmReset;
-        string body = RogueMetaUI.L(MetaText.Refund(Profile.Active)) + "\n\n" + string.Join("\n", Profile.Active.skills.SelectMany(id => MetaText.Skill(SkillTree.Node(id))).Select(RogueMetaUI.L).ToArray());
+        string body = RogueMetaUI.L(MetaText.Refund(Profile.Active)) + "\n\n" + string.Join("\n", Profile.Active.skills.SelectMany(id => MetaText.Skill(SkillTree.Node(id))).Select(RogueMetaUI.L).Distinct().ToArray());
         ShowModal("Reset skills for free", body, RogueIcons.Get("Reload"), "Confirm reset", () => { if (Transact(p => MetaProfiles.Respec(p, p.activePreset))) HideModal(); }, Profile.Active.skills.Length > 0);
     }
     static string Trait(string id)

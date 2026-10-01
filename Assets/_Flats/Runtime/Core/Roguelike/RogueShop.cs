@@ -167,8 +167,21 @@ namespace Flats.Core.Roguelike
                 case "mod.bigger_boom":
                 case "mod.shockwave": return !build.HasCore("core.demolition");
                 case "mod.choke": return !CarriesWeapon(build, 8, 9);
+                // one more pierce or bounce, up to two: nothing is left to add once the core's tier already gives two
+                case "mod.piercing_rounds": return !Changes(def, build, s => s.PenetrateDepth);
+                case "mod.double_bounce": return !Changes(def, build, s => s.RicochetBounces);
             }
             return false;
+        }
+
+        /// <summary>Whether owning the mod changes one derived number of this build (compared with the same build without it).</summary>
+        static bool Changes(ItemDef mod, PlayerBuild build, Func<BuildStats, int> read)
+        {
+            var without = build.Clone(); without.Remove(mod.Id);
+            var with = without.Clone();
+            if (with.mods.Length >= RogueCatalog.MaxMods) return true;   // no free slot: RejectReason decides, not this rule
+            with.Apply(mod);
+            return read(BuildStats.Compute(with)) != read(BuildStats.Compute(without));
         }
 
         /// <summary>An unknown primary (-1: a co-op joiner's character default) counts as possibly matching, so nobody is starved; an unknown
@@ -194,7 +207,7 @@ namespace Flats.Core.Roguelike
             foreach (var s in RogueCatalog.Stats)
             {
                 int tier = build.StatTier(s.Id);
-                if (tier >= s.MaxStacks) continue;
+                if (tier >= s.MaxStacks || !build.StatTierHasEffect(s.Id)) continue;   // a tier that the total cap would swallow is not sold
                 candidates.Add(s); weights.Add(1.0 + Math.Min(5, RogueCatalog.StatTiers - tier) * 0.5);   // capped at the five-tier weight: more tiers must not crowd cores and mods out of the offers
             }
             int i = rng.WeightedIndex(weights);

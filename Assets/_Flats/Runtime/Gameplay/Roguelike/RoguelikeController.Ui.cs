@@ -321,7 +321,7 @@ public partial class RoguelikeController
                 name = p.name, icon = body && p.life == PlayerLife.Alive ? "Shield" : rp != null && rp.Carrying && p.life == PlayerLife.Alive ? "Crate" : RogueIcons.ForLife(p.life),
                 hp = p.life == PlayerLife.Alive ? (rp != null ? rp.HealthFraction() : 1f) : p.life == PlayerLife.Downed && rp != null && rp.Downed ? rp.BleedOutFraction : 0,
                 shield = p.life == PlayerLife.Alive && rp != null ? rp.ShieldFraction : 0f,
-                state = p.life == PlayerLife.Downed ? (rp != null && rp.Downed ? T("Downed {0} s", Mathf.CeilToInt(rp.BleedOutRemaining)) : T("Downed")) : p.life == PlayerLife.Dead ? T("Dead") : body ? T("Body shield") : rp != null && rp.Carrying ? T("Carrying") : (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) && p.ready ? T("Ready") : "",
+                state = p.life == PlayerLife.Downed ? (rp != null && rp.Downed ? T("Downed {0} s", rp.HasBleedOutClock ? Mathf.CeilToInt(rp.BleedOutRemaining).ToString() : "…") : T("Downed")) : p.life == PlayerLife.Dead ? T("Dead") : body ? T("Body shield") : rp != null && rp.Carrying ? T("Carrying") : (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) && p.ready ? T("Ready") : "",
                 tint = p.life == PlayerLife.Alive ? new Color(0.3f, 0.75f, 0.4f) : p.life == PlayerLife.Downed ? new Color(1f, 0.7f, 0.1f) : new Color(0.95f, 0.3f, 0.35f)
             });
         }
@@ -373,7 +373,7 @@ public partial class RoguelikeController
             bool staleTier = (def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod) && !offer.sold && offer.tierAtSample != me.build.Tier(def.Id);
             string status = offer.sold ? T("Bought") : staleTier ? T("Tier changed: reroll for a new price") : me.build.RejectReason(def) != null ? T(me.build.RejectReason(def)) : me.walletMinor < offer.priceMinor ? T("Not enough money") : "";
             bool pending = pendingTx.ContainsValue(offer.itemId);
-            add(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build), "$" + RogueMoney.Format(offer.priceMinor), RogueItemKinds.Tag(def, RarityText(def)), offer.sold ? "" : T("Buy"),
+            add(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build, offer), "$" + RogueMoney.Format(offer.priceMinor), RogueItemKinds.Tag(def, RarityText(def)), offer.sold ? "" : T("Buy"),
                 !offer.sold && status == "" && !pending, pending ? T("Buying...") : status,
                 () => Buy(me, index, offer));
         }
@@ -387,7 +387,7 @@ public partial class RoguelikeController
             bool pendingRemove = pendingTx.ContainsValue("remove:" + id);
             // the tier goes on the effect line: on the title it pushed long names under the rarity tag (QA-30)
             string tier = TierText(me.build, id);
-            add(RogueIcons.ForItem(def), DisplayName(def), (tier == "" ? "" : tier + "   ") + T("Owned") + (FlatsLocalization.IsChinese ? "：" : ": ") + T(def.Effect), refund > 0 ? "+$" + RogueMoney.Format(refund) : T("No refund"), RogueItemKinds.Tag(def, RarityText(def)), T("Remove"),
+            add(RogueIcons.ForItem(def), DisplayName(def), (tier == "" ? "" : tier + "   ") + T("Owned") + (FlatsLocalization.IsChinese ? "：" : ": ") + EffectText(def, me.build.Tier(id)), refund > 0 ? "+$" + RogueMoney.Format(refund) : T("No refund"), RogueItemKinds.Tag(def, RarityText(def)), T("Remove"),
                 !pendingRemove, pendingRemove ? T("Removing...") : "", () => ConfirmRemove(me, itemId));
         }
         bool rerollPending = pendingTx.ContainsValue(PendingReroll) || pendingTx.ContainsValue(PendingTicket);
@@ -559,7 +559,7 @@ public partial class RoguelikeController
             var parts = state.routeOptions[i].Split('|');
             var map = RogueCatalog.Map(parts[0]); var route = RogueCatalog.Route(parts.Length > 1 ? parts[1] : "");
             int index = i;
-            screen.AddRow(RogueIcons.ForRoute(route.Tag), T(route.Name) + ": " + (map != null ? T(map.SceneName) : parts[0]), T(route.Brief), RouteRewardText(route), route.Tag == "danger" ? T("Risky") : route.Tag == "safe" ? T("Safer") : "", T("Go"),
+            screen.AddRow(RogueIcons.ForRoute(route.Tag), T(route.Name) + ": " + (map != null ? T(map.Name) : parts[0]), T(route.Brief), RouteRewardText(route), route.Tag == "danger" ? T("Risky") : route.Tag == "safe" ? T("Safer") : "", T("Go"),
                 IsAuthority, IsAuthority ? "" : T("Host decides"), () => Command(new RogueCommandMessage { kind = "route", index = index }));
         }
         screen.SetFooter(null, null, null, null, "");
@@ -621,12 +621,21 @@ public partial class RoguelikeController
         return list;
     }
 
-    /// <summary>"Tier 2/3" for cores and mods that have tiers; empty for single-tier items.</summary>
+    /// <summary>"Tier 2/5" for cores and mods that have tiers ("Tier 5/5 (max)" at the top); empty for single-tier items.</summary>
     static string TierText(PlayerBuild b, string id)
     {
         int max = RogueCatalog.MaxTier(id), tier = b.Tier(id);
-        return max > 1 ? T("Tier {0}/{1}", tier, max) : "";
+        return max > 1 ? TierLabel(tier, max) : "";
     }
+
+    static string TierLabel(int tier, int max) { return tier >= max ? T("Tier {0}/{1} (max)", tier, max) : T("Tier {0}/{1}", tier, max); }
+
+    /// <summary>An item's effect sentence with the numbers of one tier, in the local language. The catalog's template is the
+    /// translation key and the numbers come from RogueTiers through ItemDef.EffectArgs, so every tier reads its own values.</summary>
+    static string EffectText(ItemDef def, int tier) { return T(def.Effect, (object[])def.EffectArgs(tier)); }
+
+    /// <summary>The same sentence as an upgrade preview: each number that changes reads "now -> next".</summary>
+    static string EffectText(ItemDef def, int fromTier, int toTier) { return T(def.Effect, (object[])def.EffectArgs(fromTier, toTier)); }
 
     void ConfirmRemove(RunPlayer me, string itemId)
     {
@@ -684,7 +693,7 @@ public partial class RoguelikeController
         if (!string.IsNullOrEmpty(b.ultimate)) parts.Add(ItemName(b.ultimate));
         parts.Add(T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods));
         if (b.healthTier + b.damageTier + b.magazineTier + b.speedTier > 0)
-            parts.Add(T("Health +{0}  Damage +{1}  Magazine +{2}  Speed +{3}", b.healthTier, b.damageTier, b.magazineTier, b.speedTier));
+            parts.Add(T("Health T{0}  Damage T{1}  Magazine T{2}  Speed T{3}", b.healthTier, b.damageTier, b.magazineTier, b.speedTier));   // tiers, not percentages
         return string.Join("  ", parts.ToArray());
     }
 
@@ -718,29 +727,56 @@ public partial class RoguelikeController
         return T("Pairs with {0}", string.Join("/", names.ToArray())) + "   " + slot;
     }
 
-    static string EffectLine(ItemDef def, PlayerBuild b)
+    static string StatPct(string statId, BuildStats s)
     {
+        switch (statId)
+        {
+            case "stat.health": return Pct(s.HealthMul);
+            case "stat.damage": return Pct(s.DamageMul);
+            case "stat.magazine": return Pct(s.MagazineMul);
+            default: return Pct(s.SpeedMul);
+        }
+    }
+
+    /// <summary>
+    /// The description of a shop row or a reward card. <paramref name="offer"/> is the shop offer the row stands for (null for a
+    /// reward card): the build is live, so a row that was just bought must describe what was bought, not the purchase after it.
+    /// A sold row therefore shows the tier it sold and the current state only; an offer still on sale previews the next step.
+    /// </summary>
+    static string EffectLine(ItemDef def, PlayerBuild b, ShopOffer offer = null)
+    {
+        bool sold = offer != null && offer.sold;
         if (def.Kind == ItemKind.Stat)
         {
-            var before = BuildStats.Compute(b); var after = b.Clone(); after.SetStatTier(def.Id, b.StatTier(def.Id) + 1); var stats = BuildStats.Compute(after);
-            string now, next;
-            switch (def.Id)
-            {
-                case "stat.health": now = Pct(before.HealthMul); next = Pct(stats.HealthMul); break;
-                case "stat.damage": now = Pct(before.DamageMul); next = Pct(stats.DamageMul); break;
-                case "stat.magazine": now = Pct(before.MagazineMul); next = Pct(stats.MagazineMul); break;
-                default: now = Pct(before.SpeedMul); next = Pct(stats.SpeedMul); break;
-            }
-            return T(def.Effect) + "  " + T("Tier {0}/{1}: {2} -> {3}", b.StatTier(def.Id), def.MaxStacks, now, next);
+            int statTier = b.StatTier(def.Id);
+            string now = StatPct(def.Id, BuildStats.Compute(b));
+            // nothing to preview once it is bought, at the last tier, or when the total cap would swallow the next tier
+            if (sold || b.RejectReason(def) != null) return EffectText(def, 1) + "  " + T("Tier {0}/{1}: {2}", statTier, def.MaxStacks, now);
+            var after = b.Clone(); after.SetStatTier(def.Id, statTier + 1);
+            return EffectText(def, 1) + "  " + T("Tier {0}/{1}: {2} -> {3}", statTier, def.MaxStacks, now, StatPct(def.Id, BuildStats.Compute(after)));
         }
-        if (def.Kind == ItemKind.Tactical && !string.IsNullOrEmpty(b.tactical) && b.tactical != def.Id) return T(def.Effect) + "  " + T("Replaces {0}.", ItemName(b.tactical));
-        if (def.Kind == ItemKind.Ultimate && !string.IsNullOrEmpty(b.ultimate) && b.ultimate != def.Id) return T(def.Effect) + "  " + T("Replaces {0} (charge is kept).", ItemName(b.ultimate));
-        if (def.Kind == ItemKind.Weapon && b.primaryWeapon >= 0) return T(def.Effect) + "  " + T("Replaces {0}.", WeaponCatalogName(b.primaryWeapon)) + WeaponRangeSuffix(def);
-        string slotLine = SlotLine(def, b);
-        // cores and mods now have tiers (F44/F45): an owned one offers the next tier
+        if (def.Kind == ItemKind.Tactical && !sold && !string.IsNullOrEmpty(b.tactical) && b.tactical != def.Id) return EffectText(def, 1) + "  " + T("Replaces {0}.", ItemName(b.tactical));
+        if (def.Kind == ItemKind.Ultimate && !sold && !string.IsNullOrEmpty(b.ultimate) && b.ultimate != def.Id) return EffectText(def, 1) + "  " + T("Replaces {0} (charge is kept).", ItemName(b.ultimate));
+        if (def.Kind == ItemKind.Weapon)
+        {
+            // after the purchase the primary IS this weapon: "Replaces <the gun just bought>" was nonsense
+            bool replaces = !sold && b.primaryWeapon >= 0 && b.primaryWeapon != RogueCatalog.WeaponIndexOf(def.Id);
+            return EffectText(def, 1) + (replaces ? "  " + T("Replaces {0}.", WeaponCatalogName(b.primaryWeapon)) : "") + WeaponRangeSuffix(def);
+        }
+        if (def.Kind != ItemKind.Core && def.Kind != ItemKind.Mod) return EffectText(def, 1);
         int maxTier = RogueCatalog.MaxTier(def.Id), tier = b.Tier(def.Id);
-        if ((def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod) && maxTier > 1) slotLine = (tier > 0 ? T("Upgrade to tier {0}/{1}", tier + 1, maxTier) : T("Tier {0}/{1}", 1, maxTier)) + (slotLine == "" ? "" : "   " + slotLine);
-        return slotLine == "" ? T(def.Effect) : T(def.Effect) + "\n" + slotLine;
+        if (sold)
+        {
+            // the tier this row sold (the offer remembers the tier it was sampled at), with that tier's numbers
+            int bought = Mathf.Clamp(offer.tierAtSample + 1, 1, Mathf.Max(1, maxTier));
+            return EffectText(def, bought) + (maxTier > 1 ? "\n" + TierLabel(bought, maxTier) : "");
+        }
+        if (tier > 0 && tier >= maxTier) return EffectText(def, tier) + (maxTier > 1 ? "\n" + TierLabel(tier, maxTier) : "");   // nothing left to upgrade to
+        // an upgrade takes no new slot, so its row has no slot line: it shows what each number becomes
+        if (tier > 0) return EffectText(def, tier, tier + 1) + "\n" + T("Upgrade to tier {0}/{1}", tier + 1, maxTier);
+        string slotLine = SlotLine(def, b);
+        if (maxTier > 1) slotLine = T("Tier {0}/{1}", 1, maxTier) + (slotLine == "" ? "" : "   " + slotLine);
+        return slotLine == "" ? EffectText(def, 1) : EffectText(def, 1) + "\n" + slotLine;
     }
 
     // ---------------------------------------------------------------- QA-20 / QA-19 stage clock (the authority's replicated clock)
@@ -784,6 +820,6 @@ public partial class RoguelikeController
     static string WeaponCatalogName(int index) { return index >= 0 && index < Flats.Core.WeaponCatalog.Count ? RogueItemKinds.WeaponDisplayName(RogueHooks.MetaWeaponDisplay(index, Flats.Core.WeaponCatalog.GetDefault(index)).gunName) : "?"; }
     static string Pct(double mul) { return (mul >= 1 ? "+" : "") + Math.Round((mul - 1) * 100) + "%"; }
     static string RarityText(ItemDef def) { return def.Rarity == 2 ? T("Rare") : def.Rarity == 1 ? T("Uncommon") : ""; }
-    static string RouteText(string mapId, string routeTag) { var m = RogueCatalog.Map(mapId); var r = RogueCatalog.Route(routeTag); return (m != null ? T(m.SceneName) : mapId) + " (" + T(r.Name) + ")"; }
+    static string RouteText(string mapId, string routeTag) { var m = RogueCatalog.Map(mapId); var r = RogueCatalog.Route(routeTag); return (m != null ? T(m.Name) : mapId) + " (" + T(r.Name) + ")"; }
     static string RouteRewardText(RouteDef r) { return T("Bounty {0}%", (r.BudgetMul >= 1 ? "+" : "") + Math.Round((r.BudgetMul - 1) * 100)); }
 }

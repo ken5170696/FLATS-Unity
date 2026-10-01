@@ -5,13 +5,19 @@ namespace Flats.Core.Roguelike
 {
     public enum ItemKind { Supply = 0, Weapon = 1, Stat = 2, Core = 3, Mod = 4, Tactical = 5, Ultimate = 6 }
 
-    /// <summary>One purchasable or pickable entry. `name` and `effect` are English localization keys.</summary>
+    /// <summary>
+    /// One purchasable or pickable entry. `name` and `effect` are English localization keys. An effect that prints numbers which
+    /// depend on the tier (cores, mods) or on a rule constant (stats) is a template with {0}.. placeholders: <see cref="Values"/>
+    /// supplies the numbers for a tier from RogueTiers and the rule constants, so the text can never drift from the rule and the
+    /// translation table holds one template row per item.
+    /// </summary>
     public sealed class ItemDef
     {
         public readonly string Id;
         public readonly ItemKind Kind;
         public readonly string Name;
-        public readonly string Effect;      // one sentence, the real mechanic
+        public readonly string Effect;      // one sentence, the real mechanic; a template when Values is set
+        public Func<int, string[]> Values;  // tier (1-based) -> the template's arguments; null for a fixed sentence
         public readonly int BasePrice;      // coins in chapter 1
         public readonly int MaxStacks;      // 1 for singletons; stat tiers use 5
         public readonly int Rarity;         // 0 common, 1 uncommon, 2 rare (also shown as text)
@@ -19,6 +25,22 @@ namespace Flats.Core.Roguelike
         public ItemDef(string id, ItemKind kind, string name, string effect, int basePrice, int maxStacks, int rarity, params string[] tags)
         { Id = id; Kind = kind; Name = name; Effect = effect; BasePrice = basePrice; MaxStacks = maxStacks; Rarity = rarity; Tags = tags ?? new string[0]; }
         public bool HasTag(string tag) { return Array.IndexOf(Tags, tag) >= 0; }
+        public ItemDef With(Func<int, string[]> values) { Values = values; return this; }
+
+        /// <summary>The template's arguments for one tier (clamped to 1..max by RogueTiers); empty for a fixed sentence.</summary>
+        public string[] EffectArgs(int tier) { return Values == null ? new string[0] : Values(Math.Max(1, tier)); }
+
+        /// <summary>Arguments of an upgrade preview: "a -> b" where the two tiers differ, the plain value where they do not.</summary>
+        public string[] EffectArgs(int fromTier, int toTier)
+        {
+            var from = EffectArgs(fromTier); var to = EffectArgs(toTier);
+            var merged = new string[to.Length];
+            for (int i = 0; i < to.Length; i++) merged[i] = i < from.Length && from[i] != to[i] ? from[i] + " -> " + to[i] : to[i];
+            return merged;
+        }
+
+        /// <summary>English rendering for one tier (tests, logs). The adapter formats the translated template with the same arguments.</summary>
+        public string EffectText(int tier) { return Values == null ? Effect : string.Format(Effect, EffectArgs(tier)); }
     }
 
     /// <summary>Enemy battlefield role. Weight drives bounty normalisation; the adapter maps the rest onto the legacy AI.</summary>
@@ -53,10 +75,10 @@ namespace Flats.Core.Roguelike
 
     public sealed class MapDef
     {
-        public readonly string Id, SceneName;
+        public readonly string Id, SceneName, Name;   // Name is the player-facing English key ("Flat City"); SceneName is the scene asset
         public readonly int BuildIndex;
         public readonly string[] Tags;
-        public MapDef(string id, string sceneName, int buildIndex, params string[] tags) { Id = id; SceneName = sceneName; BuildIndex = buildIndex; Tags = tags; }
+        public MapDef(string id, string sceneName, string name, int buildIndex, params string[] tags) { Id = id; SceneName = sceneName; Name = name; BuildIndex = buildIndex; Tags = tags; }
     }
 
     public sealed class RouteDef
@@ -90,19 +112,36 @@ namespace Flats.Core.Roguelike
         public const double ClearRewardFraction = .2, ObjectiveRewardFraction = .3, BreakoutRewardFraction = .35, FinaleRewardFraction = .4;
         public const double ConvoyFailureRewardMultiplier = .5;
 
+        /// <summary>Highest tier of a tiered core or mod (RogueTiers holds this many values per parameter).</summary>
+        public const int ItemTiers = RogueTiers.Count;
+
         public static int MaxTier(string id)
         {
             var def = Item(id);
             if (def == null) return 0;
-            if (def.Kind == ItemKind.Core) return 3;
+            if (def.Kind == ItemKind.Core) return ItemTiers;
             if (def.Kind != ItemKind.Mod) return def.MaxStacks;
             switch (id)
             {
                 case "mod.piercing_rounds": case "mod.double_bounce": case "mod.double_dash":
                 case "mod.angle_finder": case "mod.rubber_rounds": case "mod.choke": case "mod.team_radio": return 1;
-                default: return 3;
+                // jump height is clamped at x1.5 (BuildStats.Compute) and tier 3 already reaches it: a fourth tier would sell nothing
+                case "mod.spring_legs": return 3;
+                default: return ItemTiers;
             }
         }
+
+        // ---- numbers for the effect templates: culture-invariant, so the English text and its translation never vary by locale
+        static readonly System.Globalization.CultureInfo Inv = System.Globalization.CultureInfo.InvariantCulture;
+        static string Num(double v) { return Math.Round(v, 2).ToString("0.##", Inv); }
+        /// <summary>"25" for 0.25.</summary>
+        static string Pct(double fraction) { return Math.Round(Math.Abs(fraction) * 100, 1).ToString("0.#", Inv); }
+        /// <summary>"25" for a x1.25 (or x0.75) multiplier: the size of the change.</summary>
+        static string PctOf(double multiplier) { return Pct(multiplier - 1); }
+        static double V(string id, int tier, int parameter = 0) { return RogueTiers.Value(id, tier, parameter); }
+        static readonly BuildStats Rules = new BuildStats();   // the default rule parameters (close range, momentum window, suppression window)
+        static string[] StatArgs(double perTier, string extra = null)
+        { return extra == null ? new[] { Pct(perTier), StatTiers.ToString(Inv) } : new[] { Pct(perTier), StatTiers.ToString(Inv), extra }; }
 
         // ---- tags shared by cores and mods
         public const string TagPrecision = "precision", TagAssault = "assault", TagSuppression = "suppression", TagReload = "reload",
@@ -117,52 +156,63 @@ namespace Flats.Core.Roguelike
 
         public static readonly ItemDef[] Stats =
         {
-            new ItemDef("stat.health", ItemKind.Stat, "Vitality", "+12% maximum health per tier (max 7 tiers). Heals the added amount.", 25, StatTiers, 0, TagGeneric),
-            new ItemDef("stat.damage", ItemKind.Stat, "Firepower", "+8% weapon damage per tier (max 7 tiers).", 30, StatTiers, 0, TagGeneric),
-            new ItemDef("stat.magazine", ItemKind.Stat, "Magazine", "+15% magazine capacity per tier (max 7 tiers), at least +1 round.", 25, StatTiers, 0, TagGeneric),
-            new ItemDef("stat.speed", ItemKind.Stat, "Agility", "+6% movement speed per tier (max 7 tiers).", 25, StatTiers, 0, TagGeneric),
+            new ItemDef("stat.health", ItemKind.Stat, "Vitality", "+{0}% maximum health per tier (max {1} tiers). Heals the added amount.", 25, StatTiers, 0, TagGeneric).With(t => StatArgs(BuildStats.HealthPerTier)),
+            new ItemDef("stat.damage", ItemKind.Stat, "Firepower", "+{0}% weapon damage per tier (max {1} tiers).", 30, StatTiers, 0, TagGeneric).With(t => StatArgs(BuildStats.DamagePerTier)),
+            // the totals are clamped in BuildStats.Compute: with Extended Magazine or Mobility a late tier can add less than its step
+            new ItemDef("stat.magazine", ItemKind.Stat, "Magazine", "+{0}% magazine capacity per tier (max {1} tiers), at least +1 round. Total magazine bonus from all sources is capped at +{2}%.", 25, StatTiers, 0, TagGeneric).With(t => StatArgs(BuildStats.MagazinePerTier, PctOf(BuildStats.MaxTotalMagazineMul))),
+            new ItemDef("stat.speed", ItemKind.Stat, "Agility", "+{0}% movement speed per tier (max {1} tiers). Total speed bonus from all sources is capped at +{2}%.", 25, StatTiers, 0, TagGeneric).With(t => StatArgs(BuildStats.SpeedPerTier, PctOf(BuildStats.MaxTotalSpeedMul))),
         };
 
         public static readonly ItemDef[] Cores =
         {
-            new ItemDef("core.precision", ItemKind.Core, "Precision", "Headshots deal +25% damage and bullets pierce one enemy at 60% damage. Body shots deal -10%.", 60, 3, 1, TagPrecision),
-            new ItemDef("core.assault", ItemKind.Core, "Assault", "+15% damage within 12 m, -10% beyond 30 m. A kill within 12 m grants 2 s of 30% damage reduction and +15% speed.", 60, 3, 1, TagAssault),
-            new ItemDef("core.suppression", ItemKind.Core, "Suppression", "Each trigger hit adds +4% damage, up to +40%. After 2.5 s, lose one stack per 0.5 s. Reload keeps half. +20% magazine, +20% reload time.", 60, 3, 1, TagSuppression),
-            new ItemDef("core.reloadburst", ItemKind.Core, "Reload Burst", "Reloading after firing at least 60% of the magazine grants +35% damage for 3 s.", 60, 3, 1, TagReload),
-            new ItemDef("core.ricochet", ItemKind.Core, "Ricochet", "Bullets bounce once off walls at 80% damage. Ricochet hits deal +30%.", 60, 3, 1, TagRicochet),
-            new ItemDef("core.demolition", ItemKind.Core, "Demolition", "Kills explode: 40% of the killing damage in a " + ExplosionRadius + " m radius. Explosions never chain.", 60, 3, 1, TagDemolition),
-            new ItemDef("core.marker", ItemKind.Core, "Marker", "Your hits mark enemies for 4 s. Marked enemies take +12% damage from everyone. Marked kills by anyone charge your ultimate.", 60, 3, 1, TagMarker),
-            new ItemDef("core.mobility", ItemKind.Core, "Mobility", "+12% speed, revive 40% faster, carry objects at full speed. Dash cooldown x" + TierList("core.mobility", 2) + " by tier. The first shot after a dash or a jump landing deals +20%.", 60, 3, 1, TagMobility),
+            new ItemDef("core.precision", ItemKind.Core, "Precision", "Headshots deal +{0}% damage. Bullets pierce enemies (up to {1}) at {2}% damage. Body shots deal x{3} damage.", 60, 3, 1, TagPrecision)
+                .With(t => new[] { PctOf(V("core.precision", t, 0)), Num(V("core.precision", t, 2)), Pct(TriggerCoefficients.PenetrateSecondTarget), Num(V("core.precision", t, 1)) }),
+            new ItemDef("core.assault", ItemKind.Core, "Assault", "+{0}% damage within {1} m, -{2}% beyond {3} m. A kill within {1} m grants {4} s of {5}% damage reduction and +{6}% speed.", 60, 3, 1, TagAssault)
+                .With(t => new[] { PctOf(V("core.assault", t, 0)), Num(Rules.AssaultCloseRange), PctOf(BuildStats.AssaultFarDamageMul), Num(BuildStats.AssaultFarRange), Num(V("core.assault", t, 2)), Pct(V("core.assault", t, 1)), Pct(BuildStats.AssaultKillSpeedBonus) }),
+            new ItemDef("core.suppression", ItemKind.Core, "Suppression", "Each trigger hit adds +{0}% damage, up to +{1}%. After {2} s, lose one stack per {3} s. Reload keeps half. +{4}% magazine, +{5}% reload time.", 60, 3, 1, TagSuppression)
+                .With(t => new[] { Pct(Rules.SuppressionStep), Pct(V("core.suppression", t, 0)), Num(Rules.SuppressionWindowSeconds), Num(SuppressionTracker.DecayIntervalSeconds), PctOf(V("core.suppression", t, 1)), PctOf(V("core.suppression", t, 2)) }),
+            new ItemDef("core.reloadburst", ItemKind.Core, "Reload Burst", "Reloading after firing at least {0}% of the magazine grants +{1}% damage for {2} s.", 60, 3, 1, TagReload)
+                .With(t => new[] { Pct(V("core.reloadburst", t, 2)), PctOf(V("core.reloadburst", t, 0)), Num(V("core.reloadburst", t, 1)) }),
+            new ItemDef("core.ricochet", ItemKind.Core, "Ricochet", "Bullets bounce off walls (up to {0}) and keep {1}% damage. Ricochet hits deal +{2}% on top.", 60, 3, 1, TagRicochet)
+                .With(t => new[] { Num(V("core.ricochet", t, 0)), Pct(Rules.RicochetDamageMul), PctOf(V("core.ricochet", t, 1)) }),
+            new ItemDef("core.demolition", ItemKind.Core, "Demolition", "Kills explode: {0}% of the killing damage in a {1} m radius. Explosions never chain.", 60, 3, 1, TagDemolition)
+                .With(t => new[] { Pct(V("core.demolition", t, 0)), Num(V("core.demolition", t, 1)) }),
+            new ItemDef("core.marker", ItemKind.Core, "Marker", "Your hits mark enemies for {0} s. Marked enemies take +{1}% damage from everyone. Marked kills by anyone charge your ultimate.", 60, 3, 1, TagMarker)
+                .With(t => new[] { Num(V("core.marker", t, 1)), PctOf(V("core.marker", t, 0)) }),
+            new ItemDef("core.mobility", ItemKind.Core, "Mobility", "+{0}% speed, revive {1}% faster, carry objects at full speed. Dash cooldown x{2}. The first shot within {3} s after a dash or a jump landing deals +{4}%.", 60, 3, 1, TagMobility)
+                .With(t => new[] { PctOf(V("core.mobility", t, 0)), PctOf(V("core.mobility", t, 1)), Num(V("core.mobility", t, 2)), Num(Rules.MomentumShotWindowSeconds), Pct(V("core.mobility", t, 3)) }),
         };
 
         public static readonly ItemDef[] Mods =
         {
-            new ItemDef("mod.long_barrel", ItemKind.Mod, "Long Barrel", "Headshots deal +10% damage.", 30, 3, 0, TagPrecision),
+            new ItemDef("mod.long_barrel", ItemKind.Mod, "Long Barrel", "Headshots deal +{0}% damage.", 30, 3, 0, TagPrecision).With(t => new[] { PctOf(V("mod.long_barrel", t)) }),
             new ItemDef("mod.piercing_rounds", ItemKind.Mod, "Piercing Rounds", "Bullets pierce one more enemy (maximum two).", 35, 1, 1, TagPrecision),
-            new ItemDef("mod.calm_hands", ItemKind.Mod, "Calm Hands", "Weapon spread reduced by 25% while aiming.", 30, 3, 0, TagPrecision),
-            new ItemDef("mod.close_quarters", ItemKind.Mod, "Close Quarters", "+10% damage within 12 m.", 30, 3, 0, TagAssault),
-            new ItemDef("mod.adrenaline", ItemKind.Mod, "Adrenaline", "Kills heal 5% of maximum health (at most 3 heals per second).", 35, 3, 1, TagAssault),
+            new ItemDef("mod.calm_hands", ItemKind.Mod, "Calm Hands", "Weapon spread reduced by {0}% while aiming.", 30, 3, 0, TagPrecision).With(t => new[] { PctOf(V("mod.calm_hands", t)) }),
+            new ItemDef("mod.close_quarters", ItemKind.Mod, "Close Quarters", "+{0}% damage within {1} m.", 30, 3, 0, TagAssault).With(t => new[] { PctOf(V("mod.close_quarters", t)), Num(Rules.AssaultCloseRange) }),
+            new ItemDef("mod.adrenaline", ItemKind.Mod, "Adrenaline", "Kills heal {0}% of maximum health (at most 3 heals per second).", 35, 3, 1, TagAssault).With(t => new[] { Pct(V("mod.adrenaline", t)) }),
             new ItemDef("mod.choke", ItemKind.Mod, "Choke", "Shotguns fire one extra pellet.", 30, 1, 0, TagAssault),
-            new ItemDef("mod.extended_mag", ItemKind.Mod, "Extended Magazine", "+25% magazine capacity.", 30, 3, 0, TagSuppression),
-            new ItemDef("mod.heavy_rounds", ItemKind.Mod, "Heavy Rounds", "+6% damage, -3% movement speed.", 30, 3, 0, TagSuppression),
-            new ItemDef("mod.sustained_fire", ItemKind.Mod, "Sustained Fire", "Suppression stacks up to +60% instead of +40%.", 35, 3, 1, TagSuppression),
-            new ItemDef("mod.fast_hands", ItemKind.Mod, "Fast Hands", "Reload time -25%.", 30, 3, 0, TagReload),
-            new ItemDef("mod.tactical_reload", ItemKind.Mod, "Tactical Reload", "Every reload returns 2 rounds to the reserve.", 30, 3, 0, TagReload),
-            new ItemDef("mod.burst_extender", ItemKind.Mod, "Burst Extender", "Reload Burst lasts 5 s instead of 3 s.", 35, 3, 1, TagReload),
+            new ItemDef("mod.extended_mag", ItemKind.Mod, "Extended Magazine", "+{0}% magazine capacity.", 30, 3, 0, TagSuppression).With(t => new[] { PctOf(V("mod.extended_mag", t)) }),
+            new ItemDef("mod.heavy_rounds", ItemKind.Mod, "Heavy Rounds", "+{0}% damage, -{1}% movement speed.", 30, 3, 0, TagSuppression).With(t => new[] { PctOf(V("mod.heavy_rounds", t, 0)), PctOf(V("mod.heavy_rounds", t, 1)) }),
+            // added to the Suppression core's own cap (BuildStats.Compute), so it is worth its slot at every core tier
+            new ItemDef("mod.sustained_fire", ItemKind.Mod, "Sustained Fire", "Raises the Suppression damage cap by +{0}%.", 35, 3, 1, TagSuppression).With(t => new[] { Pct(V("mod.sustained_fire", t)) }),
+            new ItemDef("mod.fast_hands", ItemKind.Mod, "Fast Hands", "Reload time -{0}%.", 30, 3, 0, TagReload).With(t => new[] { PctOf(V("mod.fast_hands", t)) }),
+            new ItemDef("mod.tactical_reload", ItemKind.Mod, "Tactical Reload", "Every reload returns {0} rounds to the reserve.", 30, 3, 0, TagReload).With(t => new[] { Num(V("mod.tactical_reload", t)) }),
+            new ItemDef("mod.burst_extender", ItemKind.Mod, "Burst Extender", "Reload Burst lasts {0} s longer.", 35, 3, 1, TagReload).With(t => new[] { Num(V("mod.burst_extender", t)) }),
             new ItemDef("mod.rubber_rounds", ItemKind.Mod, "Rubber Rounds", "Ricochets keep 100% damage.", 30, 1, 0, TagRicochet),
             new ItemDef("mod.double_bounce", ItemKind.Mod, "Double Bounce", "Bullets bounce one more time (maximum two).", 35, 1, 1, TagRicochet),
-            new ItemDef("mod.angle_finder", ItemKind.Mod, "Angle Finder", "Ricochet hits mark the enemy for 4 s.", 30, 1, 0, TagRicochet, TagMarker),
-            new ItemDef("mod.bigger_boom", ItemKind.Mod, "Bigger Boom", "Explosion radius +50%.", 35, 3, 1, TagDemolition),
-            new ItemDef("mod.frag_grenades", ItemKind.Mod, "Frag Grenades", "Grenade damage +30%.", 30, 3, 0, TagDemolition),
-            new ItemDef("mod.shockwave", ItemKind.Mod, "Shockwave", "Explosions slow enemies by 40% for 2 s.", 30, 3, 0, TagDemolition),
-            new ItemDef("mod.spotter", ItemKind.Mod, "Spotter", "Marks last 3 s longer.", 30, 3, 0, TagMarker),
-            new ItemDef("mod.bounty_hunter", ItemKind.Mod, "Bounty Hunter", "Marked kills pay +10% bounty to the whole squad (bounded per stage).", 35, 3, 1, TagMarker),
+            new ItemDef("mod.angle_finder", ItemKind.Mod, "Angle Finder", "Ricochet hits mark the enemy for {0} s.", 30, 1, 0, TagRicochet, TagMarker).With(t => new[] { Num(V("mod.angle_finder", t)) }),
+            // radius and slow apply to the Demolition core's kill explosions only (RogueHooks.Combat), not to grenades or launchers
+            new ItemDef("mod.bigger_boom", ItemKind.Mod, "Bigger Boom", "Kill explosions (Demolition): radius +{0}%.", 35, 3, 1, TagDemolition).With(t => new[] { PctOf(V("mod.bigger_boom", t)) }),
+            new ItemDef("mod.frag_grenades", ItemKind.Mod, "Frag Grenades", "Grenade damage +{0}%.", 30, 3, 0, TagDemolition).With(t => new[] { PctOf(V("mod.frag_grenades", t)) }),
+            new ItemDef("mod.shockwave", ItemKind.Mod, "Shockwave", "Kill explosions (Demolition) slow enemies by {0}% for {1} s.", 30, 3, 0, TagDemolition).With(t => new[] { Pct(BuildStats.ShockwaveSlow), Num(V("mod.shockwave", t)) }),
+            new ItemDef("mod.spotter", ItemKind.Mod, "Spotter", "Marks last {0} s longer.", 30, 3, 0, TagMarker).With(t => new[] { Num(V("mod.spotter", t)) }),
+            new ItemDef("mod.bounty_hunter", ItemKind.Mod, "Bounty Hunter", "Marked kills pay +{0}% bounty to the whole squad (bounded per stage).", 35, 3, 1, TagMarker).With(t => new[] { Pct(V("mod.bounty_hunter", t)) }),
             new ItemDef("mod.team_radio", ItemKind.Mod, "Team Radio", "A teammate hitting your marked enemy charges your ultimate.", 30, 1, 0, TagMarker),
             new ItemDef("mod.double_dash", ItemKind.Mod, "Double Dash", "Dash has two charges.", 35, 1, 1, TagMobility),
-            new ItemDef("mod.spring_legs", ItemKind.Mod, "Spring Legs", "Jump 30% higher.", 30, 3, 0, TagMobility),
-            new ItemDef("mod.quick_revive", ItemKind.Mod, "Quick Revive", "Revive teammates 40% faster.", 30, 3, 0, TagMobility, TagGeneric),
-            new ItemDef("mod.ammo_belt", ItemKind.Mod, "Ammo Belt", "+30% reserve ammunition.", 30, 3, 0, TagGeneric),
-            new ItemDef("mod.thick_skin", ItemKind.Mod, "Thick Skin", "Damage taken -8%.", 35, 3, 1, TagGeneric),
+            new ItemDef("mod.spring_legs", ItemKind.Mod, "Spring Legs", "Jump {0}% higher.", 30, 3, 0, TagMobility).With(t => new[] { PctOf(V("mod.spring_legs", t)) }),
+            new ItemDef("mod.quick_revive", ItemKind.Mod, "Quick Revive", "Revive teammates {0}% faster. Total revive speed is capped at x{1}.", 30, 3, 0, TagMobility, TagGeneric).With(t => new[] { PctOf(V("mod.quick_revive", t)), Num(BuildStats.MaxReviveSpeedMul) }),
+            new ItemDef("mod.ammo_belt", ItemKind.Mod, "Ammo Belt", "+{0}% reserve ammunition.", 30, 3, 0, TagGeneric).With(t => new[] { PctOf(V("mod.ammo_belt", t)) }),
+            new ItemDef("mod.thick_skin", ItemKind.Mod, "Thick Skin", "Damage taken -{0}%.", 35, 3, 1, TagGeneric).With(t => new[] { PctOf(V("mod.thick_skin", t)) }),
         };
 
         public static readonly ItemDef[] Tacticals =
@@ -175,9 +225,9 @@ namespace Flats.Core.Roguelike
         public static readonly ItemDef[] Ultimates =
         {
             new ItemDef("ult.infinite_fire", ItemKind.Ultimate, "Infinite Fire", UltimateDurationSeconds + " s of unlimited ammunition with no reloads. Fire rate unchanged.", 80, 1, 2, TagSuppression, TagReload),
-            new ItemDef("ult.lethal_shot", ItemKind.Ultimate, "Lethal Shot", ShortUltimateDurationSeconds + " s: direct hits kill regular enemies outright. Finale targets take +200% instead.", 80, 1, 2, TagPrecision),
+            new ItemDef("ult.lethal_shot", ItemKind.Ultimate, "Lethal Shot", ShortUltimateDurationSeconds + " s: any damage you deal kills non-boss enemies outright (elites included). Finale targets take +200% instead.", 80, 1, 2, TagPrecision),
             new ItemDef("ult.invincible", ItemKind.Ultimate, "Invincible", ShortUltimateDurationSeconds + " s of immunity to combat and gas damage. Only you.", 80, 1, 2, TagAssault),
-            new ItemDef("ult.emergency_revive", ItemKind.Ultimate, "Emergency Revive", "Once per run: instantly revive downed or dead teammates with their build. Solo: survive one lethal hit.", 80, 1, 2, TagMarker, TagMobility),
+            new ItemDef("ult.emergency_revive", ItemKind.Ultimate, "Emergency Revive", "Once per run, at full charge: instantly revive downed or dead teammates with their build. Solo: at full charge a lethal hit is survived automatically at 50% health.", 80, 1, 2, TagMarker, TagMobility),
             new ItemDef("ult.enemy_sight", ItemKind.Ultimate, "Enemy Sight", UltimateDurationSeconds + " s: outlines of every spawned enemy within " + EnemySightRange + " m.", 80, 1, 2, TagMarker),
             new ItemDef("ult.chain_bullets", ItemKind.Ultimate, "Chain Bullets", ChainDurationSeconds + " s: hits arc to up to " + ChainMaxTargets + " enemies within " + ChainRange + " m at " + (EffectChainRules.ChainDamageFraction * 100) + "% damage. Chains do not count as headshots.", 80, 1, 2, TagRicochet, TagDemolition),
             new ItemDef("ult.homing_bullets", ItemKind.Ultimate, "Homing Bullets", UltimateDurationSeconds + " s: bullets steer toward the most aligned visible enemy within " + HomingRange + " m and " + HomingAngleDegrees + " degrees.", 80, 1, 2, TagPrecision, TagMobility),
@@ -194,13 +244,6 @@ namespace Flats.Core.Roguelike
             new EnemyRoleDef("role.jammer", "Jammer", "Settings5", 150, 1.1, 0.9, 0.7, 0.0, 30, 4, "Stops ultimate charge within 30 m. Take it out first or leave its range.", 0.08, 0.45, 0.9, 12, 13),
         };
         public const int EliteWeightMultiplier = 2, FinaleWeightMultiplier = 6;
-
-        /// <summary>"0.7/0.6/0.5": one tier parameter for T1/T2/T3, culture-invariant so the English text and its translation key never vary by locale.</summary>
-        static string TierList(string id, int parameter)
-        {
-            var c = System.Globalization.CultureInfo.InvariantCulture;
-            return RogueTiers.Value(id, 1, parameter).ToString(c) + "/" + RogueTiers.Value(id, 2, parameter).ToString(c) + "/" + RogueTiers.Value(id, 3, parameter).ToString(c);
-        }
 
         public static readonly EncounterDef[] Objectives =
         {
@@ -240,20 +283,21 @@ namespace Flats.Core.Roguelike
 
         public static readonly MapDef[] Maps =
         {
-            new MapDef("map.flatcity", "FlatCity", 2, "outdoor", "urban"),
-            new MapDef("map.urbanpark", "UrbanPark", 3, "outdoor", "open"),
-            new MapDef("map.beachside", "BeachsideTown", 4, "outdoor", "water"),
-            new MapDef("map.departmentstore", "DepartmentStore", 5, "indoor", "vertical"),
-            new MapDef("map.warehouse", "Warehouse", 6, "indoor", "droplinks"),
-            new MapDef("map.nightland", "NightLand", 7, "outdoor", "droplinks", "dark"),
-            new MapDef("map.troy", "Troy", 8, "outdoor", "open", "water"),
+            new MapDef("map.flatcity", "FlatCity", "Flat City", 2, "outdoor", "urban"),
+            new MapDef("map.urbanpark", "UrbanPark", "Urban Park", 3, "outdoor", "open"),
+            new MapDef("map.beachside", "BeachsideTown", "Beachside Town", 4, "outdoor", "water"),
+            new MapDef("map.departmentstore", "DepartmentStore", "Department Store", 5, "indoor", "vertical"),
+            new MapDef("map.warehouse", "Warehouse", "Warehouse", 6, "indoor", "droplinks"),
+            new MapDef("map.nightland", "NightLand", "Night Land", 7, "outdoor", "droplinks", "dark"),
+            new MapDef("map.troy", "Troy", "Troy", 8, "outdoor", "open", "water"),
         };
 
         public static readonly RouteDef[] Routes =
         {
-            new RouteDef("safe", "Quiet Route", "Fewer elites, no emergencies. Bounty -10%.", 0.9, 0.5, 0.0, 0.0),
+            new RouteDef("safe", "Quiet Route", "Fewer elites, no events or emergencies. Bounty -10%.", 0.9, 0.5, 0.0, 0.0),
             new RouteDef("danger", "Hot Route", "More elites and emergencies likely. Bounty +30%.", 1.3, 1.6, 1.5, 0.0),
-            new RouteDef("event", "Strange Route", "Events every stage. Shops offer rarer items.", 1.0, 1.0, 2.0, 0.25),
+            // RogueDirector: event chance 0.45 x 2 = 90%, emergency chance 0.30 x 2; RogueShop: the bonus raises the chance of a core offer
+            new RouteDef("event", "Strange Route", "Events almost every stage (90%), emergencies twice as likely. Shops offer a core more often.", 1.0, 1.0, 2.0, 0.25),
             new RouteDef("rich", "Rich Route", "Bounty +20%, but the shop charges +20%.", 1.2, 1.0, 1.0, 0.0),
         };
 
@@ -372,7 +416,16 @@ namespace Flats.Core.Roguelike
                 if (string.IsNullOrEmpty(i.Name) || string.IsNullOrEmpty(i.Effect)) errors.Add("item without name/effect: " + i.Id);
                 if (i.BasePrice < 0 || i.BasePrice > 100000) errors.Add("item price out of range: " + i.Id);
                 if (i.MaxStacks < 1) errors.Add("item max stacks < 1: " + i.Id);
+                // every tier of a template renders, uses each argument and leaves no placeholder behind
+                for (int tier = 1; tier <= Math.Max(1, MaxTier(i.Id)) && i.Kind != ItemKind.Weapon; tier++)
+                {
+                    string text;
+                    try { text = i.EffectText(tier); } catch (FormatException) { text = null; }
+                    if (text == null || text.IndexOf('{') >= 0) errors.Add("item effect template does not render: " + i.Id);
+                    else for (int a = 0; a < i.EffectArgs(tier).Length; a++) if (i.Effect.IndexOf("{" + a + "}", StringComparison.Ordinal) < 0) errors.Add("item effect argument unused: " + i.Id + " {" + a + "}");
+                }
             }
+            RogueTiers.Validate(errors);
             if (Cores.Length < 8) errors.Add("fewer than 8 cores");
             if (Mods.Length < 24) errors.Add("fewer than 24 mods");
             if (Stats.Length != 4) errors.Add("stats must be 4");

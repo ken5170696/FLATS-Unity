@@ -268,7 +268,7 @@ public partial class RoguelikeController
         var p = state.Player(key);
         if (p == null || !p.connected || p.build == null || !p.build.HasCore("core.marker")) return;   // Angle Finder marks carry no charge promise
         if (RogueEnemyRole.JammedAt(marker.transform.position)) return;   // same rule as kill charge: no charge inside a live jammer field
-        machine.ChargeUltimate(key, MarkerCharge(p, MarkedKillCharge));
+        machine.ChargeUltimateScaled(key, MarkedKillCharge);   // Overcharge applies with its fractional remainder (RunMachine.GainUltimate)
         BroadcastSoon();
     }
 
@@ -287,15 +287,11 @@ public partial class RoguelikeController
         if (p == null || !p.connected || p.build == null || string.IsNullOrEmpty(p.build.ultimate) || p.ultimateCharge >= 100) return;
         if (RogueEnemyRole.JammedAt(marker.transform.position)) return;
         teamRadioNext[key] = Time.time + TeamRadioInterval;
-        machine.ChargeUltimate(key, MarkerCharge(p, TeamRadioCharge));
+        machine.ChargeUltimateScaled(key, TeamRadioCharge);
         BroadcastSoon();
     }
 
     /// <summary>Overcharge scales these like kill charge (RogueRun.ChargeUltimates); never below 1.</summary>
-    static int MarkerCharge(RunPlayer p, int amount)
-    {
-        return Math.Max(1, (int)Math.Round(amount * BuildStats.Compute(p.build).UltimateChargeMul));
-    }
 
     /// <summary>Authority: spawn a scene gun for a purchased weapon and tell the buyer to exchange into it.</summary>
     void OnEquipRequest(string playerKey, int index)

@@ -36,7 +36,13 @@ public partial class Menu
         else
         {
             mySettings.sound_all = value;
+            // Applied at once at the level of the page shown: full while playing, the menu's reduced level while a menu
+            // or the pause menu is open (CloseMenu restores the full level on resume).
             ApplyListenerVolume();
+            // A dragged slider makes no sound of its own, and with the simulation frozen in the pause menu there may be
+            // nothing playing to judge the new level by: one menu tick per step makes the change audible. The Plus and
+            // Minus buttons (save == false) already play their own click.
+            if (save && changed) PlayMenuSound(pressSE);
         }
         var slider = music ? musicVolumeSlider : masterVolumeSlider;
         if (slider != null) slider.SetValueWithoutNotify(value);

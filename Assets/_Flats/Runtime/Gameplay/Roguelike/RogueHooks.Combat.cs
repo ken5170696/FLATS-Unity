@@ -73,14 +73,18 @@ public static partial class RogueHooks
         }
     }
 
-    /// <summary>After an enemy hit: continue the bullet through at 60% when the build pierces. Returns true when a new bullet was spawned.</summary>
+    /// <summary>After an enemy hit: continue the bullet through at 60% when the build or the weapon that fired it pierces. Returns true when a new bullet was spawned.</summary>
     public static bool TryPenetrate(Bullet bullet, Collision col)
     {
         if (!RoguelikeMode.Active || bullet == null || bullet.shooter == null) return false;
         var rp = bullet.shooter.GetComponent<RoguePlayer>();
-        if (rp == null || rp.Stats.PenetrateDepth <= 0) return false;
+        if (rp == null) return false;
+        // the build's depth (Precision, Piercing Rounds) plus the Pierce trait of the weapon that fired this round; every copy
+        // that simulates the bullet reads the same replicated build and the same stamped model (WeaponRules.PenetrateDepth)
+        var meta = RogueMetaRuntime.Of(bullet.shooter);
+        var weapon = meta != null ? meta.WeaponDefForModel(bullet.rogueWeaponModel) : null;
         int nextDepth = bullet.rogueDepth + 1;
-        if (!rp.Chain.CanTrigger(DamageKind.Penetrate, nextDepth)) return false;
+        if (!WeaponRules.CanPenetrate(nextDepth, rp.Stats.PenetrateDepth, weapon)) return false;
         var rb = bullet.GetComponent<Rigidbody>();
         Vector3 dir = rb != null && rb.linearVelocity.sqrMagnitude > 1f ? rb.linearVelocity.normalized : bullet.transform.forward;
         Vector3 origin = col.contacts[0].point + dir * 1.5f;
@@ -115,6 +119,7 @@ public static partial class RogueHooks
         b.shooter = source.shooter;
         b.damage = source.damage * fraction;
         b.rogueKind = (int)kind; b.rogueDepth = depth; b.rogueRootShot = source.rogueRootShot; b.rogueTrigger = source.rogueTrigger;
+        b.rogueWeaponModel = source.rogueWeaponModel;   // a Pierce weapon's round keeps piercing after its first enemy (TryPenetrate)
         rb.gameObject.layer = source.gameObject.layer;
         rb.linearVelocity = dir * 1500f;
         if (ignore != null) foreach (var c in ignore.GetComponentsInChildren<Collider>()) Physics.IgnoreCollision(rb.GetComponent<Collider>(), c);

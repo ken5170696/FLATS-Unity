@@ -1,9 +1,9 @@
 Elites appear more often (+{0}% of enemies on average).	菁英出現比例提高（平均增加 {0}% 的敵人）。
 Elites carry {0} affixes; bosses {1}.	菁英帶 {0} 個詞綴；首領 {1} 個。
-When an ally dies within {2} m: +{0}% speed and +{1}% damage for {3} s.	{2} 公尺內有同伴陣亡時：移速 +{0}%、傷害 +{1}%，持續 {3} 秒。
+When an ally dies within {2} m: +{0}% speed and +{1}% damage for {3} s.	{2} m 內有同伴陣亡時：移速 +{0}%、傷害 +{1}%，持續 {3} 秒。
 Its hits slow you by {0}% for {1} s.	命中你時使你減速 {0}%，持續 {1} 秒。
 +{0}% damage against a player at full health.	對滿血玩家傷害 +{0}%。
-Other enemies within {1} m take -{0}% damage.	{1} 公尺內的其他敵人受到傷害 -{0}%。
+Other enemies within {1} m take -{0}% damage.	{1} m 內的其他敵人受到傷害 -{0}%。
 Survives its first lethal hit, invulnerable for {0} s.	第一次致命傷存活，並無敵 {0} 秒。
 Berserker	狂戰士
 Suppressor	壓制者
@@ -14,7 +14,7 @@ Last Stand	最後防線
 Run pace limit ({0} min)	本局節奏上限（{0} 分鐘）
 Full run minimum	完整局保底
 Run merit limit	本局功勳上限
-Leaving before stage {0} earns nothing	未達第 {0} 關就離開不給獎勵
+Leaving before clearing {0} stages earns nothing	通過 {0} 關之前就離開不給獎勵
 No kills or revives this run	本局沒有擊殺或救援
 Inactive for the whole run	整局未活動
 Clear at least one stage to earn experience	至少通過一關才能獲得經驗
@@ -31,7 +31,7 @@ IconsOnly	僅圖示
 Starter Kit: {0}	起始套件：{0}
 The first round after a full reload always counts as a headshot (at most x{0} its body damage).	完整換彈後的第一發必定視為爆頭（最多為身體傷害的 {0} 倍）。
 Once per stage a lethal hit leaves you standing, invulnerable for {0} s.	每關一次，致命傷害後保留一口氣並無敵 {0} 秒。
-Every {0} trigger pulls: one extra round for free.	每扣 {0} 次扳機：免費多射一發。
+Every {0} trigger pulls: the first round costs no ammunition.	每扣 {0} 次扳機：第一發不消耗彈藥。
 Every {1} s aimed without firing: next shot +{0}% damage, up to {2} steps.	每瞄準不開火 {1} 秒：下一發傷害 +{0}%，最多 {2} 段。
 Each headshot within {1} s of the last: +{0}% damage, up to {2} stacks.	{1} 秒內連續爆頭：每次傷害 +{0}%，最多 {2} 層。
 Dropping below {2}% health: +{0}% speed for {1} s ({3} s cooldown).	生命低於 {2}% 時：移速 +{0}%，持續 {1} 秒（冷卻 {3} 秒）。
@@ -41,14 +41,14 @@ A teammate going down (solo: you below {2}% health) gives +{0}% damage and speed
 Skill effects	技能效果
 No conditional skill triggered this run; passive bonuses applied all run	本局沒有觸發條件型技能；被動加成全程生效
 Every time you aim: your aim settles faster.	每次開鏡後：準星更快收束至穩定。
-{0}-hit combo; the finisher deals x{1}. Deflects bullets for the first {2} s of a swing.	{0} 段連擊，終結技傷害 ×{1}。揮擊前 {2} 秒可彈開子彈。
-Hold melee to guard: frontal damage -{0}%, but you cannot shoot. Bash pushes {1} m.	按住近戰格擋：正面傷害 -{0}%，但無法開槍。盾擊擊退 {1} 公尺。
+{0}-hit combo; the finisher deals x{1}. Deflects bullets for the whole swing ({2} s).	{0} 段連擊，終結技傷害 ×{1}。揮擊全程（{2} 秒）都能彈開子彈。
+Hold melee to guard: frontal damage -{0}%, but you cannot shoot and move {2}% slower. Bash pushes {1} m.	按住近戰格擋：正面傷害 -{0}%，但無法開槍，且移速 -{2}%。盾擊擊退 {1} m。
 Squad catch-up: +{0}% experience. Enemies scale with average squad power.	小隊追趕：經驗 +{0}%。敵人依隊伍平均強度調整。
 {0}x magnification. Aim settle time x{1}. Spread while moving and aiming x{2}.	{0} 倍放大。開鏡後準星穩定時間 ×{1}。移動瞄準散布 ×{2}。
 Reloading with at least half the magazine left takes {0}% of the time.	彈匣剩餘至少一半時，換彈只需原時間的 {0}%。
 {0}x magnification. Aim-in time x{1}. Spread while moving and aiming x{2}.	倍率 {0} 倍。開鏡時間 ×{1}。移動瞄準散布 ×{2}。
 Every round of sustained fire tightens spread by {0}%, up to {1}%.	連續射擊每發縮小 {0}% 散布，最多 {1}%。
-Hold melee to throw it up to {0} m. Walk over it to pick it up.	按住近戰可投擲至 {0} 公尺；走過武器即可撿回。
+Hold melee to throw it up to {0} m. Walk over it to pick it up.	按住近戰可投擲至 {0} m；走過武器即可撿回。
 Reviving gives you and the teammate a {0}-point shield for {1} s.	救援後，你與隊友獲得 {0} 點護盾，持續 {1} 秒。
 Every round of sustained fire widens spread by {0}%, up to {1}%.	連續射擊每發擴大 {0}% 散布，最多 {1}%。
 After a kill: fire rate +{0}% for the rest of the magazine.	擊殺後，本彈匣剩餘子彈的射速 +{0}%。
@@ -61,12 +61,12 @@ A kill refills {0}% of the magazine from your reserve.	擊殺會從備彈補充�
 Your aim steadies {0}% faster after raising the sight.	開鏡後準星穩定速度提高 {0}%。
 Each hit in a row swings {0}% faster, up to {1} stacks.	連續命中時，揮擊速度每次提升 {0}%，最多 {1} 層。
 A headshot kills a regular enemy below {0}% health.	爆頭會處決生命低於 {0}% 的一般敵人。
-A headshot kill marks enemies within {0} m for {1} s.	爆頭擊殺會標記 {0} 公尺內的敵人，持續 {1} 秒。
+A headshot kill marks enemies within {0} m for {1} s.	爆頭擊殺會標記 {0} m 內的敵人，持續 {1} 秒。
 After a headshot the next shot cycles {0}% faster.	爆頭後，下次射擊的循環速度提升 {0}%。
 A headshot puts {0} round back into the magazine.	爆頭會補回 {0} 發子彈至彈匣。
-Aim steadies {0}% faster after raising the sight.	開鏡後準星穩定速度提高 {0}%。
+Aim steadies in {0}% less time after raising the sight.	開鏡後準星穩定所需時間減少 {0}%。
 The last round in the magazine deals x{0} damage.	彈匣末發子彈造成 ×{0} 傷害。
-Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s.	震擊地面：命中 {0} 公尺內所有敵人，將其擊退 {1} 公尺並震懾 {2} 秒。
+Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s (elites and bosses {3} s).	震擊地面：命中 {0} m 內所有敵人，將其擊退 {1} m 並震懾 {2} 秒（菁英與首領 {3} 秒）。
 Triggered {0} times · extra damage {1} · absorbed {2}	觸發 {0} 次・額外傷害 {1}・吸收傷害 {2}
 A kill puts {0} rounds back into the magazine.	擊殺會補回 {0} 發子彈至彈匣。
 Stuns for {0} s (elites and bosses {1}% of that).	癱瘓 {0} 秒（菁英與首領僅持續該時間的 {1}%）。
@@ -74,20 +74,20 @@ Stuns for {0} s (elites and bosses {1}% of that).	癱瘓 {0} 秒（菁英與首�
 Elites appear more often (+{0}% of the wave).	菁英出現比例增加波次的 {0}%。
 After {1} s without moving: damage taken -{0}%.	站定 {1} 秒後，受到的傷害 -{0}%。
 Aiming without moving for {1} s: spread -{0}%.	站定瞄準 {1} 秒後，散布 -{0}%。
-Hits within {1} m stagger the enemy for {0} s.	在 {1} 公尺內命中，使敵人踉蹌 {0} 秒。
-Reloading an empty magazine is {0}% faster.	空彈匣換彈加快 {0}%。
+Hits within {1} m stagger the enemy for {0} s.	在 {1} m 內命中，使敵人踉蹌 {0} 秒。
+Reloading an empty magazine takes {0}% less time.	空彈匣換彈時間減少 {0}%。
 Start every run with {0} random common mod.	每局開場自帶 {0} 個隨機普通改件。
 Hip-fire spread x{0}: aim to hit anything.	腰射散布 ×{0}；請開鏡確保命中。
 You get up from a revive with {0}% health.	被救起時恢復 {0}% 生命。
 Every {0} kills refill {1}% of your reserve.	每 {0} 次擊殺補充 {1}% 備彈。
-Hits within {1} m knock enemies back {0} m.	在 {1} 公尺內命中，將敵人擊退 {0} 公尺。
+Hits within {1} m knock enemies back {0} m.	在 {1} m 內命中，將敵人擊退 {0} m。
 Ignores shields. +{0}% damage to elites.	無視護盾。對菁英傷害 +{0}%。
 +{0}% damage to enemies at full health.	對滿血敵人的傷害 +{0}%。
 Headshots stagger the enemy for {0} s.	爆頭使敵人踉蹌 {0} 秒。
 Swapping to or from it is {0}% faster.	切換至此槍或切離此槍時加快 {0}%。
 Your hits slow enemies by {0}% for {1} s.	命中使敵人減速 {0}%，持續 {1} 秒。
 Cost: {0} Merits. Remaining: {1} Merits.	花費 {0} 功勳。購買後剩餘 {1} 功勳。
-Downed players bleed out {0}% faster.	倒地玩家的失血速度加快 {0}%。
+Downed players have {0}% less bleed-out time.	倒地玩家的失血倒數時間減少 {0}%。
 Explosions stagger enemies for {0} s.	爆炸使敵人踉蹌 {0} 秒。
 Strikes from behind deal x{0} damage.	背後攻擊造成 ×{0} 傷害。
 Kill {0} enemies with assault rifles	以突擊步槍擊殺 {0} 名敵人
@@ -108,7 +108,7 @@ Kill {0} enemies with shotguns	以霰彈槍擊殺 {0} 名敵人
 Enemies deal +{0}% damage.	敵人傷害 +{0}%。
 Enemies have +{0}% health.	敵人生命 +{0}%。
 Kill {0} enemies with SMGs	以衝鋒槍擊殺 {0} 名敵人
-Knocks enemies back {0} m.	將敵人擊退 {0} 公尺。
+Knocks enemies back {0} m.	將敵人擊退 {0} m。
 Level {0} · +{1} skill points	等級 {0}・獲得 {1} 技能點
 Revive teammates {0} times	救起隊友 {0} 次
 Clear {0} chapter finales	完成 {0} 場章節終戰
@@ -119,9 +119,9 @@ Swing {0} s, recovery {1} s.	揮擊 {0} 秒，恢復 {1} 秒。
 Magazine capacity +{0}%.	彈匣容量 +{0}%。
 Tactical cooldown -{0}%.	戰術技能冷卻 -{0}%。
 {0} XP to the next level	距離下一級還需 {0} 經驗
-+{0}% damage beyond {1} m.	超過 {1} 公尺時，傷害 +{0}%。
-+{0}% damage within {1} m.	{1} 公尺內的傷害 +{0}%。
--{0}% damage beyond {1} m.	超過 {1} 公尺時，傷害 -{0}%。
++{0}% damage beyond {1} m.	超過 {1} m 時，傷害 +{0}%。
++{0}% damage within {1} m.	{1} m 內的傷害 +{0}%。
+-{0}% damage beyond {1} m.	超過 {1} m 時，傷害 -{0}%。
 Complete {0} objectives	完成 {0} 個目標
 Land {0} headshot kills	完成 {0} 次爆頭擊殺
 Weapon swap time +{0}%.	切槍時間 +{0}%。
@@ -181,10 +181,10 @@ Buying unlocks an item permanently. Equip it to a loadout before starting a run.
 Merits unlock equipment between runs. Gold coins are spent during a run. Each loadout keeps its own weapons and skills.	功勳用於局外解鎖裝備，金幣則在局內消費。每組配置各自保存武器與技能。
 Multipliers are relative to the base value. Conditional parameters apply only when their trigger is met.	倍率以基礎數值為準。條件參數僅在符合觸發條件時生效。
 Enemies scale with average squad power, so friends at different levels can play together.	敵人依隊伍平均局外強度調整，不同等級的朋友也能一起遊玩。
-Three-strike combo with a finishing cut. The first moment of each swing deflects bullets.	三段連擊含終結斬，每次揮擊起始可彈開子彈。
+Three-strike combo with a finishing cut. Every swing deflects bullets.	三段連擊含終結斬，每次揮擊全程都能彈開子彈。
 When a teammate goes down (solo: when you are nearly dead): a surge of damage and speed.	隊友倒地時（單人：自身瀕死）：傷害與移速激增。
 A melee kill refills the magazine of the weapon in your hands from your reserve.	近戰擊殺會從備彈補滿手持武器的彈匣。
-Hold melee to raise it: most frontal damage is blocked, but you cannot shoot.	按住近戰舉盾：阻擋大部分正面傷害，但無法開槍。
+Hold melee to raise it: most frontal damage is blocked, but you cannot shoot and you move slower.	按住近戰舉盾：阻擋大部分正面傷害，但無法開槍，移動也會變慢。
 Slams the ground and hits everything around. Heavy to carry, slow to swing.	震擊地面波及周圍敵人。攜帶沉重，揮擊緩慢。
 Once per stage a killing blow leaves you standing, briefly invulnerable.	每關一次：承受致命傷仍能站立，並短暫無敵。
 Right after a full reload: the first round always counts as a headshot.	完成換彈後：首發子彈必定視為爆頭。
@@ -212,7 +212,7 @@ A drum magazine that feeds itself on kills. Slow to reload.	擊殺會補充彈�
 After raising the sight, the reticle becomes stable sooner.	舉起瞄具後：準星更快收束至穩定。
 Every sixth kill: a chunk of reserve ammunition comes back.	每累積六次擊殺：補充一部分備彈。
 Fast pellets that refund a shell on every kill. Kicks hard.	快速連發，每次擊殺補回霰彈，但後座力強烈。
-Every third trigger pull throws in a free round. It kicks.	每第三次扣下扳機附贈子彈，但後座力較大。
+Every third trigger pull fires its first round for free. It kicks.	每第三次扣下扳機，第一發不消耗彈藥，但後座力較大。
 Point blank hits knock enemies back. Falls apart at range.	貼身命中能擊退敵人，遠距離威力大幅下降。
 When you are revived: you get up with most of your health.	被救起時：恢復大部分生命。
 Hold melee to throw it; walk over it to pick it up again.	按住近戰投擲，走過武器即可撿回。
@@ -273,7 +273,7 @@ Headshot Kill Mark Seconds	爆頭擊殺標記時間（秒）
 Too strong for this weapon	此瞄具倍率超出武器支援範圍
 25 melee kills in one run	單局近戰擊殺 25 名敵人
 Clear a finale at Heat 10	在 Heat 10 完成終戰
-Headshot Kill Mark Radius	爆頭擊殺標記範圍（公尺）
+Headshot Kill Mark Radius	爆頭擊殺標記範圍（m）
 Clear a finale at Heat 3	在 Heat 3 完成終戰
 Clear a finale at Heat 6	在 Heat 6 完成終戰
 Current → after learning	目前 → 學習後
@@ -366,8 +366,8 @@ Machine Pistol	自動手槍
 Marksman Rifle	精準射手步槍
 Next milestone	下一個里程碑
 Primary weapon	主武器
-Reach stage 10	抵達第 10 關
-Reach stage 20	抵達第 20 關
+Reach stage 2-5 (10 stages deep)	抵達第 2-5 關（深度 10 關）
+Reach stage 4-5 (20 stages deep)	抵達第 4-5 關（深度 20 關）
 SecondarySight	副武器瞄具
 Shredder Bonus	撕裂者傷害加成
 Skip animation	略過動畫
@@ -1528,6 +1528,7 @@ Save your changes to {0}?	要儲存 {0} 的變更嗎？
 Restore {0} defaults?	要還原 {0} 的預設值嗎？
 Saved and applied.	已儲存並套用。
 Saved. Applies when the mod is running.	已儲存；模組執行時套用。
+Saved. This mod's packaged data does not use these settings.	已儲存；這個模組的內容由套件資料決定，不會使用這些設定。
 Graphics are managed by {0}.	畫面設定由 {0} 管理。
 Open mod settings	開啟模組設定
 Graphics settings	畫面設定
@@ -1612,8 +1613,8 @@ Evacuate	撤離
 Hard	困難
 Chaos	混亂
 Standard enemies and bounty. Emergencies from stage 3.	標準敵人與賞金。第 3 關起出現緊急事件。
-Tougher enemies, more elites, +10% bounty.	敵人更強、精英更多，賞金 +10%。
-Elite squads early, frequent emergencies, +20% bounty.	精英小隊提早登場、緊急事件頻繁，賞金 +20%。
+Tougher enemies, more elites, +10% bounty.	敵人更強、菁英更多，賞金 +10%。
+Elite squads early, frequent emergencies, +20% bounty.	菁英小隊提早登場、緊急事件頻繁，賞金 +20%。
 Co-op survival for 1-4 players with no final stage.	1～4 人合作生存，沒有最終關。
 Fight through stages, earn bounty for every kill (headshots pay x1.5), buy upgrades between stages and pick a route after each chapter.	一關一關打下去，每次擊殺都有賞金（爆頭 1.5 倍），關與關之間購買升級，每章結束選擇路線。
 Downed players can be revived. A full death returns you at the next safe stage with a money penalty. If everyone falls, the run ends.	倒地的玩家可以被救起。完全死亡會在下一個安全關卡回歸並扣除金錢。全員倒下則本局結束。
@@ -1648,10 +1649,10 @@ Headshot bounty +{0}	爆頭賞金 +{0}
 {0} died.	{0} 死亡。
 Revived: {0}	已救起：{0}
 Emergency revive: {0}	緊急復甦：{0}
-Ultimate used	已使用大招
-Ultimate: {0}	大招：{0}
-Ultimate {0}%	大招 {0}%
-No ultimate equipped	沒有裝備大招
+Ultimate used	已使用絕招
+Ultimate: {0}	絕招：{0}
+Ultimate {0}%	絕招 {0}%
+No ultimate equipped	沒有裝備絕招
 Nobody to revive	沒有人需要復活
 Shield up	護盾展開
 Shield broken	護盾破裂
@@ -1663,7 +1664,7 @@ Emergency revive!	緊急復甦！
 Checkpoint failed: {0}	存檔點寫入失敗：{0}
 Prep: shop open, ready when done	整備：商店開啟，完成後按就緒
 Enemies {0}	敵人 {0}
-Ult {0}%	大招 {0}%
+Ult {0}%	絕招 {0}%
 Cleared	已清除
 Pick a reward	選擇獎勵
 Chapter {0} complete: choose a route	第 {0} 章完成：選擇路線
@@ -1717,105 +1718,101 @@ Earned {0}  Kills {1}  Headshots {2}	收入 {0}　擊殺 {1}　爆頭 {2}
 Ammo Crate	彈藥箱
 Refill the reserve ammunition of both weapons.	補滿兩把武器的備用彈藥。
 Medkit	醫療包
-Restore full health now.	立即回復全部生命。
 Field Repair	野戰修復
 Restore full health and refill ammunition.	回復全部生命並補滿彈藥。
 Vitality	體力
-+12% maximum health per tier (max 7 tiers). Heals the added amount.	每階最大生命 +12%（最多 7 階），並回復增加的量。
++{0}% maximum health per tier (max {1} tiers). Heals the added amount.	每階最大生命 +{0}%（最多 {1} 階），並回復增加的量。
 Firepower	火力
-+8% weapon damage per tier (max 7 tiers).	每階武器傷害 +8%（最多 7 階）。
++{0}% weapon damage per tier (max {1} tiers).	每階武器傷害 +{0}%（最多 {1} 階）。
 Magazine	彈匣
-+15% magazine capacity per tier (max 7 tiers), at least +1 round.	每階彈匣容量 +15%（最多 7 階），至少 +1 發。
++{0}% magazine capacity per tier (max {1} tiers), at least +1 round. Total magazine bonus from all sources is capped at +{2}%.	每階彈匣容量 +{0}%（最多 {1} 階），至少 +1 發。所有來源合計的彈匣加成上限為 +{2}%。
 Agility	敏捷
-+6% movement speed per tier (max 7 tiers).	每階移動速度 +6%（最多 7 階）。
++{0}% movement speed per tier (max {1} tiers). Total speed bonus from all sources is capped at +{2}%.	每階移動速度 +{0}%（最多 {1} 階）。所有來源合計的移速加成上限為 +{2}%。
 Precision	精準
-Headshots deal +25% damage and bullets pierce one enemy at 60% damage. Body shots deal -10%.	爆頭傷害 +25%，子彈可穿透一名敵人（60% 傷害）。身體命中 -10%。
+Headshots deal +{0}% damage. Bullets pierce enemies (up to {1}) at {2}% damage. Body shots deal x{3} damage.	爆頭傷害 +{0}%。子彈可穿透敵人（最多 {1} 名），穿透後傷害為 {2}%。身體命中傷害 x{3}。
 Assault	突擊
-+15% damage within 12 m, -10% beyond 30 m. A kill within 12 m grants 2 s of 30% damage reduction and +15% speed.	12 m 內傷害 +15%，30 m 外 -10%。12 m 內擊殺後 2 秒減傷 30% 並加速 15%。
++{0}% damage within {1} m, -{2}% beyond {3} m. A kill within {1} m grants {4} s of {5}% damage reduction and +{6}% speed.	{1} m 內傷害 +{0}%，{3} m 外 -{2}%。在 {1} m 內擊殺後 {4} 秒內減傷 {5}% 並加速 {6}%。
 Suppression	壓制
-Each hit within 1 s of the last adds +4% damage, up to +40%. +20% magazine, +20% reload time.	1 秒內連續命中每次 +4% 傷害，最高 +40%。彈匣 +20%，換彈時間 +20%。
+Each trigger hit adds +{0}% damage, up to +{1}%. After {2} s, lose one stack per {3} s. Reload keeps half. +{4}% magazine, +{5}% reload time.	每次扣扳機命中 +{0}% 傷害，最高 +{1}%。停火 {2} 秒後每 {3} 秒失去一層；換彈保留一半。彈匣 +{4}%，換彈時間 +{5}%。
 Reload Burst	換彈爆發
-Reloading after firing at least 60% of the magazine grants +35% damage for 3 s.	打掉至少 60% 彈匣後換彈，獲得 3 秒 +35% 傷害。
+Reloading after firing at least {0}% of the magazine grants +{1}% damage for {2} s.	打掉至少 {0}% 彈匣後換彈，獲得 {2} 秒 +{1}% 傷害。
 Ricochet	彈射
-Bullets bounce once off walls at 80% damage. Ricochet hits deal +30%.	子彈碰牆反彈一次（80% 傷害）。反彈命中 +30%。
+Bullets bounce off walls (up to {0}) and keep {1}% damage. Ricochet hits deal +{2}% on top.	子彈碰牆反彈（最多 {0} 次），反彈後保留 {1}% 傷害。反彈命中再 +{2}%。
 Demolition	爆破
-Kills explode: 40% of the killing damage in a 6 m radius and a short knockback. Explosions never chain.	擊殺引發爆炸：6 m 半徑內造成致命傷害的 40% 並短暫擊退。爆炸不會連鎖。
+Kills explode: {0}% of the killing damage in a {1} m radius. Explosions never chain.	擊殺引發爆炸：{1} m 半徑內造成致命傷害的 {0}%。爆炸不會連鎖。
 Marker	標記
-Your hits mark enemies for 4 s. Marked enemies take +12% damage from everyone. Marked kills by anyone charge your ultimate.	你的命中標記敵人 4 秒。被標記的敵人受到所有人 +12% 傷害。任何人擊殺被標記者都為你的大招充能。
+Your hits mark enemies for {0} s. Marked enemies take +{1}% damage from everyone. Marked kills by anyone charge your ultimate.	你的命中標記敵人 {0} 秒。被標記的敵人受到所有人 +{1}% 傷害。任何人擊殺被標記者都為你的絕招充能。
 Mobility	機動
-+12% speed, revive 40% faster, carry objects at full speed. Dash cooldown x0.7/0.6/0.5 by tier. The first shot after a dash or a jump landing deals +20%.	速度 +12%，救援快 40%，搬運物件不減速，衝刺冷卻依階級 ×0.7/0.6/0.5。衝刺或落地後的第一發 +20%。
++{0}% speed, revive {1}% faster, carry objects at full speed. Dash cooldown x{2}. The first shot within {3} s after a dash or a jump landing deals +{4}%.	速度 +{0}%，救援快 {1}%，搬運物件不減速。衝刺冷卻 x{2}。衝刺或落地後 {3} 秒內的第一發 +{4}%。
 Long Barrel	長槍管
-Headshots deal +10% damage.	爆頭傷害 +10%。
+Headshots deal +{0}% damage.	爆頭傷害 +{0}%。
 Piercing Rounds	穿甲彈
 Bullets pierce one more enemy (maximum two).	子彈多穿透一名敵人（最多兩名）。
 Calm Hands	穩定雙手
-Weapon spread reduced by 25% while aiming.	瞄準時武器散布 -25%。
+Weapon spread reduced by {0}% while aiming.	瞄準時武器散布 -{0}%。
 Close Quarters	近身
-+10% damage within 12 m.	12 m 內傷害 +10%。
 Adrenaline	腎上腺素
-Kills heal 5% of maximum health (at most 3 heals per second).	擊殺回復 5% 最大生命（每秒最多 3 次）。
+Kills heal {0}% of maximum health (at most 3 heals per second).	擊殺回復 {0}% 最大生命（每秒最多 3 次）。
 Choke	縮口
 Shotguns fire one extra pellet.	霰彈槍多射出一顆彈丸。
 Extended Magazine	加長彈匣
-+25% magazine capacity.	彈匣容量 +25%。
++{0}% magazine capacity.	彈匣容量 +{0}%。
 Heavy Rounds	重彈
-+6% damage, -3% movement speed.	傷害 +6%，移動速度 -3%。
++{0}% damage, -{1}% movement speed.	傷害 +{0}%，移動速度 -{1}%。
 Sustained Fire	持續射擊
-Suppression stacks up to +60% instead of +40%.	壓制疊加上限由 +40% 提升至 +60%。
+Raises the Suppression damage cap by +{0}%.	壓制的傷害疊加上限再 +{0}%。
 Fast Hands	快手
-Reload time -25%.	換彈時間 -25%。
 Tactical Reload	戰術換彈
-Every reload returns 2 rounds to the reserve.	每次換彈退回 2 發備彈。
+Every reload returns {0} rounds to the reserve.	每次換彈退回 {0} 發備彈。
 Burst Extender	爆發延長
-Reload Burst lasts 5 s instead of 3 s.	換彈爆發持續 5 秒而非 3 秒。
+Reload Burst lasts {0} s longer.	換彈爆發延長 {0} 秒。
 Rubber Rounds	橡膠彈
 Ricochets keep 100% damage.	反彈保留 100% 傷害。
 Double Bounce	二次反彈
 Bullets bounce one more time (maximum two).	子彈多反彈一次（最多兩次）。
 Angle Finder	角度儀
-Ricochet hits mark the enemy for 4 s.	反彈命中標記敵人 4 秒。
+Ricochet hits mark the enemy for {0} s.	反彈命中標記敵人 {0} 秒。
 Bigger Boom	更大爆炸
-Explosion radius +50%.	爆炸半徑 +50%。
+Kill explosions (Demolition): radius +{0}%.	擊殺爆炸（爆破核心）：半徑 +{0}%。
 Frag Grenades	破片手榴彈
-Grenade damage +30%.	手榴彈傷害 +30%。
+Grenade damage +{0}%.	手榴彈傷害 +{0}%。
 Shockwave	震波
-Explosions slow enemies by 40% for 2 s.	爆炸使敵人減速 40%，持續 2 秒。
+Kill explosions (Demolition) slow enemies by {0}% for {1} s.	擊殺爆炸（爆破核心）使敵人減速 {0}%，持續 {1} 秒。
 Spotter	觀測手
-Marks last 3 s longer.	標記多持續 3 秒。
+Marks last {0} s longer.	標記多持續 {0} 秒。
 Bounty Hunter	賞金獵人
-Marked kills pay +10% bounty to the whole squad (bounded per stage).	擊殺被標記者全隊賞金 +10%（每關有上限）。
+Marked kills pay +{0}% bounty to the whole squad (bounded per stage).	擊殺被標記者全隊賞金 +{0}%（每關有上限）。
 Team Radio	隊伍無線電
-A teammate hitting your marked enemy charges your ultimate.	隊友命中你標記的敵人時為你的大招充能。
+A teammate hitting your marked enemy charges your ultimate.	隊友命中你標記的敵人時為你的絕招充能。
 Double Dash	雙重衝刺
 Dash has two charges.	衝刺有兩次充能。
 Spring Legs	彈簧腿
-Jump 30% higher.	跳躍高度 +30%。
+Jump {0}% higher.	跳躍高度 +{0}%。
 Quick Revive	快速救援
-Revive teammates 40% faster.	救援隊友快 40%。
+Revive teammates {0}% faster. Total revive speed is capped at x{1}.	救援隊友快 {0}%。救援速度合計上限為 x{1}。
 Ammo Belt	彈帶
-+30% reserve ammunition.	備用彈藥 +30%。
++{0}% reserve ammunition.	備用彈藥 +{0}%。
 Thick Skin	厚皮
-Damage taken -8%.	受到傷害 -8%。
 Double Jump	二段跳
 Passive: press Jump again in the air for a second jump. Resets on landing.	被動：空中再按跳躍可二段跳。落地重置。
 Dash	衝刺
-Active: dash 8 m forward. 6 s cooldown. Stops at walls and edges.	主動：向前衝刺 8 m。冷卻 6 秒。遇牆與邊緣停止。
+Active: dash 20 m forward at 50 m/s. Charges recharge one at a time in 8 s. Stops at walls and edges.	主動：以每秒 50 m 向前衝刺 20 m。充能一次回復一格，每格 8 秒。遇牆與邊緣停止。
 Shield	護盾
 Active: absorb 400 damage for 6 s. 12 s cooldown. Re-activating replaces the shield, it does not stack.	主動：6 秒內吸收 400 傷害。冷卻 12 秒。重複啟用會取代護盾，不疊加。
 Infinite Fire	無限火力
 12 s of unlimited ammunition with no reloads. Fire rate unchanged.	12 秒無限彈藥、不需換彈。射速不變。
 Lethal Shot	致命射擊
-7 s: direct hits kill regular enemies outright. Finale targets take +200% instead.	7 秒內直接命中即擊殺普通敵人。章末目標改為 +200% 傷害。
+7 s: any damage you deal kills non-boss enemies outright (elites included). Finale targets take +200% instead.	7 秒內你造成的任何傷害都會直接擊殺非首領敵人（包含菁英）。章末目標改為受到 +200% 傷害。
 Invincible	無敵
 7 s of immunity to combat and gas damage. Only you.	7 秒免疫戰鬥與毒霧傷害。僅限自己。
 Emergency Revive	緊急復甦
-Once per run: instantly revive downed or dead teammates with their build. Solo: survive one lethal hit.	每局一次：立即復活倒地或死亡的隊友並保留其 Build。單人：擋下一次致命傷害。
+Once per run, at full charge: instantly revive downed or dead teammates with their build. Solo: at full charge a lethal hit is survived automatically at 50% health.	每局一次，需充能全滿：立即復活倒地或死亡的隊友並保留其 Build。單人：充能全滿時，受到致命傷害會自動存活並回到 50% 生命。
 Enemy Sight	敵人透視
-12 s: outlines of every spawned enemy within 80 m.	12 秒顯示 80 m 內所有已生成敵人的輪廓。
+12 s: outlines of every spawned enemy within 200 m.	12 秒內顯示 200 m 內所有已生成敵人的輪廓。
 Chain Bullets	閃電連鎖子彈
-12 s: hits arc to up to 3 enemies within 10 m at 50% damage. Chains do not count as headshots.	12 秒內命中會連鎖至 10 m 內最多 3 名敵人（50% 傷害）。連鎖不算爆頭。
+12 s: hits arc to up to 3 enemies within 12 m at 50% damage. Chains do not count as headshots.	12 秒內命中會連鎖至 12 m 內最多 3 名敵人（50% 傷害）。連鎖不算爆頭。
 Homing Bullets	子彈追蹤
-12 s: bullets steer toward the nearest visible enemy within 15 degrees.	12 秒內子彈會朝 15 度內最近的可見敵人轉向。
+12 s: bullets steer toward the most aligned visible enemy within 60 m and 15 degrees.	12 秒內子彈會朝 60 m、15 度內最對準的可見敵人轉向。
 Replace your primary weapon. Ammunition is refilled.	更換主武器，並補滿彈藥。
 Rifleman	步槍手
 Rusher	突進者
@@ -1845,8 +1842,8 @@ Repair Device	修復裝置
 An optional device can be repaired while enemies attack it. Reward on completion.	可選修復的裝置，修復時敵人會攻擊它。完成有獎勵。
 Risk Contract	風險合約
 Accept: enemies deal +25% damage this stage, bounty +40%. Decline at no cost.	接受：本關敵人傷害 +25%，賞金 +40%。拒絕無代價。
-Elite Hunt	精英獵殺
-A marked elite roams the map. Killing it pays a large bounty.	一名被標記的精英在地圖遊走。擊殺可得高額賞金。
+Elite Hunt	菁英獵殺
+A marked elite roams the map. Killing it pays a large bounty.	一名被標記的菁英在地圖遊走。擊殺可得高額賞金。
 Lure Crate	誘敵箱
 A beacon crate attracts enemies while carried. Plant it to pull the wave away from an objective.	搬運時信標箱會吸引敵人。放置它把敵人引離目標。
 Gas Leak	毒霧外洩
@@ -1864,11 +1861,11 @@ Three power cells must be charged in order; each charge opens a window to damage
 Convoy	護衛車隊
 An escorted carrier moves along a route. Break the escort and destroy the carrier before it reaches the exit.	受護衛的載具沿路線移動。突破護衛並在它抵達出口前摧毀。
 Quiet Route	安靜路線
-Fewer elites, no emergencies. Bounty -10%.	精英較少、無緊急事件。賞金 -10%。
+Fewer elites, no events or emergencies. Bounty -10%.	菁英較少，沒有事件與緊急事件。賞金 -10%。
 Hot Route	熱區路線
-More elites and emergencies likely. Bounty +30%.	精英與緊急事件更多。賞金 +30%。
+More elites and emergencies likely. Bounty +30%.	菁英與緊急事件更多。賞金 +30%。
 Strange Route	異常路線
-Events every stage. Shops offer rarer items.	每關都有事件。商店提供更稀有的物品。
+Events almost every stage (90%), emergencies twice as likely. Shops offer a core more often.	幾乎每關都有事件（90%），緊急事件機率加倍。商店更常提供核心。
 Rich Route	富饒路線
 Bounty +20%, but the shop charges +20%.	賞金 +20%，但商店價格 +20%。
 Direct Route	直行路線
@@ -1880,7 +1877,7 @@ Effect	效果
 Price	價格
 Rarity	稀有度
 Status	狀態
-Ultimate (Roguelike)	大招（Roguelike）
+Ultimate (Roguelike)	絕招（Roguelike）
 Tactical skill (Roguelike)	戰術技能（Roguelike）
 Pick up / exchange / revive	拾取／交換／救援
 Co-op roguelike for 1-4 players.\nEarn bounty for kills (headshots x1.5),\nbuy upgrades between stages, choose routes.\nThe objective sets the difficulty.	1～4 人合作 Roguelike。\n擊殺獲得賞金（爆頭 1.5 倍），\n關間購買升級，選擇路線。\n目標設定即為難度。
@@ -1930,9 +1927,9 @@ Risk contract active	風險合約生效中
 Risk contract accepted: +25% enemy damage, +40% bounty.	已接受風險合約：敵人傷害 +25%，賞金 +40%。
 Accept	接受
 Decline	拒絕
-Elite Hunt: a marked elite is on the map.	精英獵殺：地圖上有一名被標記的精英。
-Hunt the marked elite	獵殺被標記的精英
-Elite down!	精英已擊倒！
+Elite Hunt: a marked elite is on the map.	菁英獵殺：地圖上有一名被標記的菁英。
+Hunt the marked elite	獵殺被標記的菁英
+Elite down!	菁英已擊倒！
 Lure planted {0} s	誘敵箱已放置 {0} 秒
 Lure carried: press {0} to plant	搬運誘敵箱中：按 {0} 放置
 Lure crate: optional	誘敵箱：可選
@@ -1996,7 +1993,7 @@ Headshot x{0}	爆頭 x{0}
 Health	生命
 Kills {0}   Headshots {1}   Deaths {2}   Rescues {3}	擊殺 {0}　爆頭 {1}　死亡 {2}　救援 {3}
 Lure crate	誘餌箱
-Marked elite	被標記的精英
+Marked elite	被標記的菁英
 Next shop	下次商店
 No core	沒有核心
 No weapon data	沒有武器資料
@@ -2078,11 +2075,11 @@ This run was saved by a different version of the game and cannot be continued.	�
 The saved run is damaged and cannot be continued.	存檔已損壞，無法繼續。
 Start Run sets it aside (the file is kept) and begins a new run.	按「開始新局」會把它移到一旁（檔案保留）並開始新的一局。
 Run started: {0}	本局開始：{0}
-Health +{0}  Damage +{1}  Magazine +{2}  Speed +{3}	生命 +{0}　傷害 +{1}　彈匣 +{2}　速度 +{3}
+Health T{0}  Damage T{1}  Magazine T{2}  Speed T{3}	生命 {0} 階　傷害 {1} 階　彈匣 {2} 階　速度 {3} 階
 You fell	你倒下了
 the chapter target	章節目標
 an enemy	敵人
-Last hit: {0}, {1} m away	最後擊中你的是：{0}（{1} 公尺外）
+Last hit: {0}, {1} m away	最後擊中你的是：{0}（{1} m 外）
 New personal best!	刷新個人最佳紀錄！
 Best: chapter {0} stage {1}	個人最佳：第 {0} 章第 {1} 關
 Keeps up steady fire. Move between cover and do not trade shots at close range.	步槍持續壓制；利用掩體換位，避免近距離對射。
@@ -2090,7 +2087,7 @@ Closes in fast with a shotgun or pistol. Keep your distance and drop it first.	�
 Hits hard and accurately from far away. Break line of sight, then flank it.	遠距離精準高傷射擊；切斷視線後繞側突進。
 Its shield blocks most damage from the front. Get to its side or back.	正面護盾減傷；繞到側後方集中火力。
 Runs around your flank. Watch your sides and cover each other.	高速繞側分散火力；留意側翼並與隊友互相掩護。
-Stops ultimate charge within 30 m. Take it out first or leave its range.	周圍三十公尺阻止絕招充能；優先擊倒或離開干擾範圍。
+Stops ultimate charge within 30 m. Take it out first or leave its range.	周圍 30 m 內阻止絕招充能；優先擊倒或離開干擾範圍。
 Item kind Stat	屬性
 Item kind Core	核心
 Item kind Mod	改件
@@ -2128,7 +2125,7 @@ Waiting for: {0}	等待：{0}
 you	你
 Only the host can continue or evacuate.	只有主機可以決定繼續或撤離。
 Syncing with the host...	正在與主機同步…
-Overshield broken	護盾已擊破
+Overshield broken	超量護盾已擊破
 Removed {0} (refund ${1})	已移除 {0}（退款 ${1}）
 No refund	不退款
 Removing...	移除中…
@@ -2139,10 +2136,8 @@ No refund: it was free.	不退款：這是免費取得的。
 These mods stop working without it: {0}	少了它，這些改件會失效：{0}
 Upgrade to tier {0}/{1}	升級到第 {0}/{1} 階
 Tier {0}/{1}	第 {0}/{1} 階
-Overshield	護盾
-Refill a non-regenerating shield equal to maximum health. Does not stack; remaining shield persists between stages.	補滿等同最大生命的護盾，不會自動恢復。不疊加；剩餘護盾會保留到下一關。
-Each trigger hit adds +4% damage, up to +40%. After 2.5 s, lose one stack per 0.5 s. Reload keeps half. +20% magazine, +20% reload time.	每次扣扳機命中 +4% 傷害，最高 +40%。停火 2.5 秒後每 0.5 秒失去一層；換彈保留一半。彈匣 +20%，換彈時間 +20%。
-Active: dash 20 m forward at 50 m/s. Each charge recharges in 6 s. Stops at walls and edges.	主動：以每秒 50 m 向前衝刺 20 m。每次充能 6 秒恢復。遇牆與邊緣停止。
+Overshield	超量護盾
+Refill a non-regenerating shield equal to maximum health. Does not stack; remaining shield persists between stages.	補滿等同最大生命的超量護盾，不會自動恢復。不疊加；剩餘超量護盾會保留到下一關。
 You are down: {0} s left. Crawl to cover.	你倒地了：剩 {0} 秒。爬到掩體後方。
 {0} can revive you ({1} m).	{0} 可以救你（{1} m）。
 Nobody is up to revive you.	目前沒有隊友能救你。
@@ -2384,7 +2379,7 @@ After {0} s it fails: bounty -{1}%	{0} 秒後失敗：賞金 -{1}%
 Teammates cover the one holding it	隊友掩護正在操作的人
 Carry the bomb to the disposal zone	把炸彈搬到處置區
 Walk it into the green ring	搬進綠色圈
-It explodes after {0} s ({1} m blast)	{0} 秒後爆炸（半徑 {1} 公尺）
+It explodes after {0} s ({1} m blast)	{0} 秒後爆炸（半徑 {1} m）
 The carrier cannot shoot: escort them	搬運者無法射擊：要護送
 Destroy the signal device	摧毀信號裝置
 Find the signal device	找到信號裝置
@@ -2398,8 +2393,8 @@ Stacked	疊加
 Stacked: rapid hits on one enemy add up. Floating: one number per hit. Also shown through scopes.	疊加：連續命中同一敵人時合計成一個數字。浮動：每次命中各顯示一個。開鏡時也會顯示。
 Keyboard and mouse: hold the Sprint key to run, or press it once to start and again to stop.	鍵盤滑鼠：按住奔跑鍵奔跑，或按一下開始、再按一下停止。
 Keyboard and mouse: a mouse wheel notch also switches weapons.	鍵盤滑鼠：滾動滑鼠滾輪一格也會切換武器。
-Close range: x{0} damage within {1} m, easing to x{2} at {3} m.	近距離：{1} 公尺內傷害 x{0}，到 {3} 公尺時逐漸回到 x{2}。
-Long range: damage falls from x{0} at {1} m to x{2} at {3} m and beyond.	遠距離：傷害自 {1} 公尺的 x{0} 開始下降，{3} 公尺及更遠為 x{2}。
+Close range: x{0} damage within {1} m, easing to x{2} at {3} m.	近距離：{1} m 內傷害 x{0}，到 {3} m 時逐漸回到 x{2}。
+Long range: damage falls from x{0} at {1} m to x{2} at {3} m and beyond.	遠距離：傷害自 {1} m 的 x{0} 開始下降，{3} m 及更遠為 x{2}。
 Range	射程
 Next run	下一局
 Back to menu	返回選單
@@ -2463,3 +2458,41 @@ Account merit limit	帳號功績上限
 Legacy play time estimated ({0} min)	舊存檔遊玩時間估算（{0} 分鐘）
 Run experience limit	單局經驗上限
 Run merit safety limit	單局功績安全上限
+After a full reload: the next fired round converts its first direct hit. A miss consumes it; swapping preserves it on that weapon.	完整換彈後：下一發子彈的第一次直接命中會算成爆頭。沒打中就會消耗掉；切換武器時會保留在該武器上。
+Conditional damage skills do not add up: together they give at most the largest active stack bonus (at least +{0}%, never more than +{1}%).	條件式傷害技能不會相加：同時生效時，合計最多等於其中最大的疊層加成（至少 +{0}%，最高 +{1}%）。
+Conditional damage reduction from skills is capped at -{0}% in total.	技能的條件式減傷合計上限為 -{0}%。
+Movement speed -{0}% while in hand.	手持時移速 -{0}%。
+A headshot puts {0} rounds back into the magazine.	爆頭會補回 {0} 發子彈至彈匣。
+A kill puts {0} round back into the magazine.	擊殺會補回 {0} 發子彈至彈匣。
+Tier {0}/{1} (max)	第 {0}/{1} 階（已滿）
+Tier {0}/{1}: {2}	階級 {0}/{1}：{2}
+already at the cap	已達加成上限，再買沒有效果
+shop changed	商店內容已更新，請再試一次
+price changed	價格已變動
+tier changed	階級已變更
+not enough money	金錢不足
+no rerolls left	沒有重抽次數
+already bought	已經買過了
+shop closed	商店已關閉
+different run	不是同一局
+no such offer	找不到這項商品
+core or mod not owned	尚未擁有這個核心或改件
+refund changed	退款金額已變動
+wallet limit	錢包已達上限
+reroll price changed	重抽價格已變動
+invalid price	價格無效
+invalid cumulative payment	累計付款金額無效
+only supplies can be bought outside the offers	只有補給品可以不經商品列直接購買
+cannot remove outside a shop	只能在商店中移除
+ticket transactions require RunMachine	刷新券只能在進行中的對局使用
+missing transaction id	缺少交易編號
+unknown player	找不到玩家
+WrongVersion	商店版本不符
+UnknownItem	未知物品
+PriceMismatch	價格不符
+NotAllowed	不允許的操作
+InsufficientFunds	金錢不足
+AlreadySold	已售出
+WrongPhase	目前階段無法進行
+RerollsExhausted	沒有重抽次數
+NotOwned	尚未擁有

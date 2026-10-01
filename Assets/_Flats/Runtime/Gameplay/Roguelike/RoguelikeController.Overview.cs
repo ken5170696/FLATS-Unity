@@ -126,22 +126,22 @@ public partial class RoguelikeController
             for (int i = 0; i < RogueCatalog.MaxCores; i++)
             {
                 var def = i < me.build.cores.Length ? RogueCatalog.Item(me.build.cores[i]) : null;
-                if (def != null) overview.AddCard(true, RogueIcons.ForItem(def), T(def.Name), T(def.Effect), RogueItemKinds.CoreTint, false);
+                if (def != null) overview.AddCard(true, RogueIcons.ForItem(def), T(def.Name), OwnedEffect(def, me.build), RogueItemKinds.CoreTint, false);
                 else overview.AddCard(true, "Core", T("Empty core slot"), "", TintInk, true);
             }
             for (int i = 0; i < RogueCatalog.MaxMods; i++)
             {
                 var def = i < me.build.mods.Length ? RogueCatalog.Item(me.build.mods[i]) : null;
-                if (def != null) overview.AddCard(false, RogueIcons.ForItem(def), T(def.Name), T(def.Effect), RogueItemKinds.ModTint, false);   // the effect, so owned mods are not just names
+                if (def != null) overview.AddCard(false, RogueIcons.ForItem(def), T(def.Name), OwnedEffect(def, me.build), RogueItemKinds.ModTint, false);   // the effect, so owned mods are not just names
                 else overview.AddCard(false, "Mod", T("Empty"), "", TintInk, true);
             }
         }
         else
         {
             overview.AddStat("Core", T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), "", "", -1, TintInk);
-            foreach (var id in me.build.cores) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueItemKinds.CoreTint); }
+            foreach (var id in me.build.cores) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), OwnedEffect(def, me.build), -1, RogueItemKinds.CoreTint); }
             overview.AddStat("Mod", T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods), "", "", -1, TintInk);
-            foreach (var id in me.build.mods) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), T(def.Effect), -1, RogueItemKinds.ModTint); }
+            foreach (var id in me.build.mods) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), OwnedEffect(def, me.build), -1, RogueItemKinds.ModTint); }
         }
     }
 
@@ -193,7 +193,7 @@ public partial class RoguelikeController
     void FillRunTab(RunPlayer me)
     {
         var map = RogueCatalog.Map(state.mapId); var route = RogueCatalog.Route(state.routeTag);
-        overview.SetHeader("Stage", T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)), (map != null ? T(map.SceneName) : state.mapId) + "   " + T(route.Name) + "   " + T("Difficulty {0}", state.difficulty));
+        overview.SetHeader("Stage", T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)), (map != null ? T(map.Name) : state.mapId) + "   " + T(route.Name) + "   " + T("Difficulty {0}", state.difficulty));
         var enc = state.encounter;
         // QA-43: each encounter's whole guide (goal, steps with the current one marked, what to watch out for, a tip, the reward)
         var main = RogueCatalog.Encounter(enc.IsFinale ? enc.finaleId : enc.objectiveId);
@@ -203,12 +203,18 @@ public partial class RoguelikeController
         overview.AddStat("Coin", T("Stage bounty"), "$" + RogueMoney.Format(state.ledger.budgetMinor), T("Per player budget   Objective ${0}   Bonus cap ${1}   Event cap ${2}", RogueMoney.Format(state.ledger.objectiveMinor), RogueMoney.Format(state.ledger.bonusBudgetMinor), RogueMoney.Format(state.ledger.eventBudgetMinor)), -1, TintGold);
         if (state.stageBountyMul != 1) overview.AddStat("Warning", T("Risk contract"), "x" + Round(state.stageBountyMul), T("Bounties this stage are multiplied."), -1, TintGold);
         overview.AddStat("Timer", T("Stage time"), FormatSeconds(state.stageSeconds), "", -1, TintInk);
-        overview.AddStat("Check", T("Checkpoint"), state.checkpointDepth > 0 ? T("Stage {0}-{1}", RogueDepth.ChapterOf(state.checkpointDepth), RogueDepth.StageInChapter(state.checkpointDepth)) : T("None"), T("Saved at each prep; deepest {0}", state.deepestDepth), -1, TintGreen);
+        overview.AddStat("Check", T("Checkpoint"), state.checkpointDepth > 0 ? T("Stage {0}-{1}", RogueDepth.ChapterOf(state.checkpointDepth), RogueDepth.StageInChapter(state.checkpointDepth)) : T("None"), T("Saved at each prep; deepest {0}", state.deepestDepth > 0 ? T("Stage {0}-{1}", RogueDepth.ChapterOf(state.deepestDepth), RogueDepth.StageInChapter(state.deepestDepth)) : T("None")), -1, TintGreen);
         overview.AddStat("Enemy", T("Enemies"), AliveEnemies.ToString(), T("Waves {0}   Cap {1}   Enemy tier {2}", enc.waves != null ? enc.waves.Length : 0, enc.concurrentCap, enc.enemyStatTier), -1, TintInk);
         overview.AddStat("Squad", T("Bounty rules"), T("Headshot x{0}", RogueCatalog.HeadshotMoneyMultiplier), T("Every player is paid for every kill; the same enemy never pays twice."), -1, TintPink);
     }
 
     // ---------------------------------------------------------------- helpers
+    /// <summary>An owned core or mod on the Player tab: its tier, then the effect with that tier's numbers (not tier 1's).</summary>
+    static string OwnedEffect(ItemDef def, PlayerBuild b)
+    {
+        string tier = TierText(b, def.Id);
+        return (tier == "" ? "" : tier + "   ") + EffectText(def, b.Tier(def.Id));
+    }
     RoguePlayer LocalRoguePlayer() { var go = FindLocalPlayer(); return go != null ? go.GetComponent<RoguePlayer>() : null; }
     string ObjectivePart(int i) { var parts = objectiveText.Split('|'); return i < parts.Length ? Localize(parts[i]) : ""; }
     string PhaseText()

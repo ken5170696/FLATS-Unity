@@ -7,6 +7,9 @@ public sealed class RogueRangedStatus : MonoBehaviour
     public static void Capture(Bullet bullet)
     {
         if (bullet == null || bullet.shooter == null) return;
+        // a hand-thrown grenade was not fired by the gun in hand (no weapon stamp): it must not carry that gun's on-hit trait
+        // (a Viper in hand made thrown grenades slow, a Grenade Launcher made them stun)
+        if (bullet.grenade && bullet.rogueWeaponModel < 0) return;
         if (bullet.GetComponent<RogueRangedStatus>() != null) return;
         var player = bullet.shooter.GetComponent<RoguePlayer>();
         var fc = bullet.shooter.GetComponent<FPSController>();

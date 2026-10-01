@@ -336,17 +336,45 @@ namespace Flats.Core.Roguelike
             {
                 if (!p.connected || string.IsNullOrEmpty(p.build.ultimate)) continue;
                 if (jammedKeys != null && jammedKeys.IndexOf(p.key) >= 0) continue;
-                int gain = p.key == killerKey ? Math.Max(2, weight / 20) : Math.Max(1, weight / 60);
-                gain = Math.Max(1, (int)Math.Round(gain * BuildStats.Compute(p.build).UltimateChargeMul));   // Overcharge skill
-                p.ultimateCharge = Math.Min(100, p.ultimateCharge + gain);
+                GainUltimate(p, p.key == killerKey ? Math.Max(2, weight / 20) : Math.Max(1, weight / 60));
             }
         }
 
+        // Overcharge ("Ultimate charge +15%"): the part of a scaled gain below one whole point, per player. Rounding every gain
+        // on its own meant the usual gains of 1 and 2 never grew (1.15 -> 1, 2.3 -> 2), so the skill did nothing for most kills.
+        // Not part of RunState: it is always below one point, so a save, a host change or a resume (each builds a new
+        // RunMachine) loses less than one point of charge. Deterministic: a pure function of the calls made on this machine.
+        private readonly Dictionary<string, double> ultimateRemainder = new Dictionary<string, double>(StringComparer.Ordinal);
+
+        /// <summary>Adds <paramref name="baseAmount"/> points of ultimate charge scaled by the player's Overcharge multiplier,
+        /// carrying the fraction to the next gain. Every source of charge goes through here: kills, objectives, rescues, marks.</summary>
+        private void GainUltimate(RunPlayer p, double baseAmount)
+        {
+            if (p == null || !(baseAmount > 0)) return;
+            if (p.ultimateCharge >= 100) { ultimateRemainder.Remove(p.key); return; }
+            double carried; ultimateRemainder.TryGetValue(p.key, out carried);
+            double total = carried + baseAmount * BuildStats.Compute(p.build).UltimateChargeMul;
+            int whole = (int)Math.Floor(total + 1e-9);   // 20 x 1.15 must read 23, not 22.999...
+            p.ultimateCharge = Math.Min(100, p.ultimateCharge + whole);
+            if (p.ultimateCharge >= 100) ultimateRemainder.Remove(p.key);
+            else ultimateRemainder[p.key] = Math.Max(0, total - whole);
+        }
+
+        /// <summary>Raw charge change (may be negative), not scaled by Overcharge.</summary>
         public void ChargeUltimate(string key, int amount)
         {
             var p = State.Player(key);
             if (p == null || string.IsNullOrEmpty(p.build.ultimate) || State.phase != RunPhase.Combat) return;
             p.ultimateCharge = Math.Max(0, Math.Min(100, p.ultimateCharge + amount));
+        }
+
+        /// <summary>A charge gain from play (a marked kill, Team Radio): <paramref name="baseAmount"/> before the Overcharge
+        /// multiplier, which is applied here with the fraction carried (callers pass the unscaled amount).</summary>
+        public void ChargeUltimateScaled(string key, double baseAmount)
+        {
+            var p = State.Player(key);
+            if (p == null || string.IsNullOrEmpty(p.build.ultimate) || State.phase != RunPhase.Combat) return;
+            GainUltimate(p, baseAmount);
         }
 
         public bool SpendUltimate(string key)
@@ -359,6 +387,7 @@ namespace Flats.Core.Roguelike
                 p.reviveUsed = true;
             }
             p.ultimateCharge = 0;
+            ultimateRemainder.Remove(p.key);
             return true;
         }
 
@@ -385,7 +414,7 @@ namespace Flats.Core.Roguelike
             if (mission) State.ledger.objectiveMinor += RogueMoney.MulFraction(RogueEconomy.MissionCancellationCompensation(State.ledger), rewardMultiplier);
             var payout = RogueEconomy.PayObjective(State.ledger, State.ValidMembers(), 0);
             Credit(payout);
-            if (State.ledger.objectivePaid) foreach (var p in State.players) if (p.connected) p.ultimateCharge = Math.Min(100, p.ultimateCharge + 15);
+            if (State.ledger.objectivePaid) foreach (var p in State.players) if (p.connected) GainUltimate(p, 15);
             return payout;
         }
 
@@ -432,7 +461,7 @@ namespace Flats.Core.Roguelike
             var list = new List<string>(State.rescuesPaid) { key }; State.rescuesPaid = list.ToArray();
             payout = RogueEconomy.PayRescue(State.ledger, rescuer);
             Credit(payout);
-            if (!string.IsNullOrEmpty(r.build.ultimate)) r.ultimateCharge = Math.Min(100, r.ultimateCharge + 10);
+            if (!string.IsNullOrEmpty(r.build.ultimate)) GainUltimate(r, 10);
             return payout;
         }
 
@@ -555,6 +584,7 @@ namespace Flats.Core.Roguelike
                     // return at the safe node with a death tax and no charge; the build is kept
                     p.walletMinor -= RogueEconomy.DeathTax(p.walletMinor);
                     p.ultimateCharge = 0;
+                    ultimateRemainder.Remove(p.key);
                 }
                 p.life = PlayerLife.Alive;
             }

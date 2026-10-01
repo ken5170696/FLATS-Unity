@@ -142,7 +142,7 @@ namespace Flats.Core.Roguelike
             // Assault rifles
             new RangedWeaponDef { Id = "rw.ar1", Name = "Assault Rifle 1", Class = WeaponClass.AssaultRifle, BaseModel = 4, Starter = true, Flavor = "Accurate and punishing at long range; takes a moment to aim.",
                 Trait = TraitKind.LongRangeBonus, T1 = 0.20, T2 = 30, Drawback = DrawbackKind.SlowAds, D1 = 0.25 },
-            new RangedWeaponDef { Id = "rw.ar2", Name = "Assault Rifle 2", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 240, Flavor = "Every third trigger pull throws in a free round. It kicks.",
+            new RangedWeaponDef { Id = "rw.ar2", Name = "Assault Rifle 2", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 240, Flavor = "Every third trigger pull fires its first round for free. It kicks.",
                 Trait = TraitKind.DoubleTap, T1 = 3, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.08, D2 = 0.60 },
             new RangedWeaponDef { Id = "rw.ar3", Name = "Assault Rifle 3", Class = WeaponClass.AssaultRifle, BaseModel = 6, Price = 300, Flavor = "Rounds punch through the first enemy. Heavy to swap.",
                 Trait = TraitKind.Pierce, T1 = 1, Drawback = DrawbackKind.SlowSwap, D1 = 0.60 },
@@ -163,7 +163,7 @@ namespace Flats.Core.Roguelike
             new RangedWeaponDef { Id = "rw.sg2", Name = "Shotgun 2", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 260, Flavor = "Close hits stun. Heavy.",
                 Trait = TraitKind.StaggerOnHit, T1 = 0.5, T2 = 10, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
             new RangedWeaponDef { Id = "rw.sg_auto", Name = "Auto Shotgun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 440, Flavor = "Fast pellets that refund a shell on every kill. Kicks hard.", Visual = "Armory/BoxMag",
-                RpmMul = 2.2, DamageMul = 0.75, Trait = TraitKind.AmmoOnKill, T1 = 1, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.10, D2 = 0.60 },
+                RpmMul = 2.2, DamageMul = 0.75, Trait = TraitKind.AmmoOnKill, T1 = 3, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.10, D2 = 0.60 },
             new RangedWeaponDef { Id = "rw.sg_breach", Name = "Breacher", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 340, Flavor = "Devastating inside a room. Cannot aim.", Visual = "Armory/Breacher",
                 Trait = TraitKind.CloseRangeBonus, T1 = 0.35, T2 = 8, Drawback = DrawbackKind.NoAds },
             new RangedWeaponDef { Id = "rw.sg_slug", Name = "Slug Gun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 400, Flavor = "One heavy slug that passes through two enemies. Slow to aim.", Visual = "Armory/LongBarrel",
@@ -204,11 +204,11 @@ namespace Flats.Core.Roguelike
                 Damage = 460, Windup = 0.16, Recovery = 0.34, Range = 3.4, Radius = 1.6, Special = MeleeSpecial.Knockback, S1 = 6 },
             new MeleeDef { Id = "mw.sledge", Name = "Sledgehammer", Price = 380, Flavor = "Slams the ground and hits everything around. Heavy to carry, slow to swing.", Model = "Armory/Melee/Sledgehammer",
                 Damage = 950, Windup = 0.45, Recovery = 0.55, Range = 3.6, Radius = 2.0, MoveMul = 0.80, Special = MeleeSpecial.GroundSlam, S1 = 5.5, Drawback = DrawbackKind.MoveSlow, D1 = 0.20 },
-            new MeleeDef { Id = "mw.katana", Name = "Katana", Price = 420, Flavor = "Three-strike combo with a finishing cut. The first moment of each swing deflects bullets.", Model = "Armory/Melee/Katana",
+            new MeleeDef { Id = "mw.katana", Name = "Katana", Price = 420, Flavor = "Three-strike combo with a finishing cut. Every swing deflects bullets.", Model = "Armory/Melee/Katana",
                 Damage = 420, Windup = 0.10, Recovery = 0.26, Range = 5.6, Radius = 1.8, Special = MeleeSpecial.Combo, S1 = 3, S2 = 1.6, S3 = 0.36 },
             new MeleeDef { Id = "mw.axe", Name = "Axe", Price = 300, Flavor = "Hold melee to throw it; walk over it to pick it up again.", Model = "Armory/Melee/Axe",
                 Damage = 620, Windup = 0.22, Recovery = 0.38, Range = 3.2, Radius = 1.4, Special = MeleeSpecial.Throw, S1 = 22 },
-            new MeleeDef { Id = "mw.shield", Name = "Riot Shield", Price = 350, Flavor = "Hold melee to raise it: most frontal damage is blocked, but you cannot shoot.", Model = "Armory/Melee/Shield",
+            new MeleeDef { Id = "mw.shield", Name = "Riot Shield", Price = 350, Flavor = "Hold melee to raise it: most frontal damage is blocked, but you cannot shoot and you move slower.", Model = "Armory/Melee/Shield",
                 Damage = 260, Windup = 0.12, Recovery = 0.30, Range = 3.0, Radius = 1.8, MoveMul = 0.90, Special = MeleeSpecial.Guard, S1 = 0.70, S2 = 3, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
             new MeleeDef { Id = "mw.baton", Name = "Stun Baton", Price = 260, Flavor = "Stuns on hit. Elites shake it off faster.", Model = "Armory/Melee/Baton",
                 Damage = 300, Windup = 0.12, Recovery = 0.30, Range = 3.0, Radius = 1.3, Special = MeleeSpecial.Shock, S1 = 1.5, S2 = 0.5 },
@@ -425,6 +425,7 @@ namespace Flats.Core.Roguelike
         }
 
         public static string Pct(double fraction) { return Math.Round(fraction * 100, MidpointRounding.AwayFromZero).ToString(CultureInfo.InvariantCulture); }
-        public static string Num(double value) { return Math.Round(value, 1, MidpointRounding.AwayFromZero).ToString("0.#", CultureInfo.InvariantCulture); }
+        /// <summary>Two decimals: 1.35, 0.36 and 0.08 must not read as 1.4, 0.4 and 0.1.</summary>
+        public static string Num(double value) { return Math.Round(value, 2, MidpointRounding.AwayFromZero).ToString("0.##", CultureInfo.InvariantCulture); }
     }
 }

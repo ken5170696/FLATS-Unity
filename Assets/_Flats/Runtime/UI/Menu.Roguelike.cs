@@ -317,6 +317,17 @@ public partial class Menu
         buttons[4].sprite = images[18]; buttons[5].sprite = images[41];
     }
 
+    /// <summary>
+    /// FlatsLocalization.Changed (subscribed in InitializeControls). The Difficulty and Continue tiles are formatted from text that is
+    /// already translated, so their labels cannot re-translate on render like the other tiles: the page is filled again in the new
+    /// language. Headquarters over the page refreshes itself and fills this page again when it closes.
+    /// </summary>
+    void RefreshRoguelikeLanguage()
+    {
+        if (gameState != "Main" || current != "Roguelike" || bt == null || bt.Length < 6 || bt[0] == null || stageName == null) return;
+        RefreshRoguelikeTiles();
+    }
+
     IEnumerator RoguelikeMenu(int button)
     {
         if (button == -1 || button == 5)

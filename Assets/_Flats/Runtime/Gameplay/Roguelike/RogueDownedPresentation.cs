@@ -21,7 +21,7 @@ public class RogueDownedPresentation : MonoBehaviour
     Animator animator; AnimatorCullingMode cullingHome;
     FPSController fps;
     CC_Grayscale gray;
-    bool isMine, applied, gunCameraHome, grayHome;
+    bool isMine, applied, gunCameraHome;
     float grayAmountHome, blend;
     // the pose is layered on this frame's animation; when an Animator skips a frame (culled copies), the last base is reused so
     // offsets never accumulate
@@ -68,7 +68,9 @@ public class RogueDownedPresentation : MonoBehaviour
             viewCamera.localRotation = viewSet = viewBase * Quaternion.Euler(0f, 0f, viewRoll * eased);
         }
         if (gunCamera != null) gunCamera.enabled = gunCameraHome && blend < 0.5f;
-        if (gray != null && !Menu.VRmode) { gray.enabled = true; gray.amount = Mathf.Max(grayHome ? grayAmountHome : 0f, grayAmount * eased); }
+        // the floor is the player's saturation-filter setting as it is now, not as it was when the player went down: the setting
+        // can be changed in the pause menu while downed, and the fade back up must end on the value Restore applies
+        if (gray != null && !Menu.VRmode) { gray.enabled = true; gray.amount = Mathf.Max(FPSController.saturationFilter ? grayAmountHome : 0f, grayAmount * eased); }
     }
 
     void Capture()
@@ -81,7 +83,7 @@ public class RogueDownedPresentation : MonoBehaviour
         // stops rewriting the bones, and IKController's per-frame chest pitch (which relies on that rewrite) accumulates: the view
         // orbited up and down with the look pitch (F15). The downed owner keeps animating.
         if (isMine && animator != null) { cullingHome = animator.cullingMode; animator.cullingMode = AnimatorCullingMode.AlwaysAnimate; }
-        if (gray != null) { grayHome = gray.enabled; grayAmountHome = gray.amount; }
+        if (gray != null) grayAmountHome = gray.amount;   // only the authored strength is kept; on/off follows the live setting
         // the whole weapon presentation goes away while down (renderers, the sight's lens canvas and camera) and aiming ends:
         // hiding renderers only left a live scope image in front of the eye
         if (isMine && fps != null) WeaponPresentation.Hide(fps, this);

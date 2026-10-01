@@ -173,6 +173,8 @@ public class RogueMetaRuntime : MonoBehaviour
     // ------------------------------------------------------------------ gun in hand
     public int HandModel { get { return fps != null ? fps.primaryWeaponIndex : -1; } }
     public RangedWeaponDef HandDef { get { RangedWeaponDef d; return appliedDefs.TryGetValue(HandModel, out d) ? d : null; } }
+    /// <summary>The armory weapon applied to a gun model on this copy (null without one): what a stamped bullet's weapon was.</summary>
+    public RangedWeaponDef WeaponDefForModel(int model) { RangedWeaponDef d; return appliedDefs.TryGetValue(model, out d) ? d : null; }
     public SightDef HandSight { get { return Stats != null ? Stats.SightForModel(HandModel) : null; } }
     public bool HandFrenzy { get { var st = HandState; return st != null && st.FrenzyActive; } }
     WeaponTraitState HandState { get { WeaponTraitState s; return traitStates.TryGetValue(HandModel, out s) ? s : null; } }
@@ -464,12 +466,13 @@ public class RogueMetaRuntime : MonoBehaviour
 
     public bool CanAim() { return WeaponRules.CanAim(HandDef); }
 
-    /// <summary>Swap time: the slower of the two weapons involved decides (a Quick Draw handgun still waits for a slow-swap launcher).</summary>
+    /// <summary>Swap time of the two weapons involved (WeaponRules.SwapTimeMul: Quick Draw applies to or from it, a Slow Swap weapon
+    /// still slows the swap, both together multiply) times the skills' multiplier, which BuildStats already clamped.</summary>
     public float SwapTimeMul()
     {
         RangedWeaponDef other = null;
         if (fps != null) appliedDefs.TryGetValue(fps.secondaryWeaponIndex, out other);
-        return (float)(Stats.SwapTimeMul * System.Math.Max(WeaponRules.SwapTimeMul(HandDef), WeaponRules.SwapTimeMul(other)));
+        return (float)(Stats.SwapTimeMul * WeaponRules.SwapTimeMul(HandDef, other));
     }
 
     /// <summary>Multiplier of the reload in progress, fixed when it started (RogueHooks.ReloadTimeMul reads it).</summary>

@@ -22,6 +22,23 @@ public sealed class RogueMeleeVisual : MonoBehaviour
     public Vector3 HitRotation = new Vector3(55, -40, 65);
     public AnimationCurve WindupCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
     public AnimationCurve SwingCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    /// <summary>One cut of a combo weapon: where the blade is drawn back to and where the cut ends (same frame as the poses above).</summary>
+    [System.Serializable]
+    public struct ComboPose
+    {
+        public Vector3 ChargedPosition, ChargedRotation, HitPosition, HitRotation;
+        [Tooltip("Sideways push of the hand at the middle of the cut, so the blade travels on an arc instead of a straight line.")]
+        public Vector3 ArcBulge;
+    }
+    [Header("Combo weapons: one cut per combo step (step 0 first); empty uses the single charged/hit pose above")]
+    public ComboPose[] ComboPoses = new ComboPose[0];
+    [Tooltip("Combo cuts are timed over the whole swing (windup + recovery) so the cut can be seen: the blade is drawn back until CutStart, " +
+        "cuts until CutEnd (the hit lands inside the cut), holds the follow-through until ReturnStart and then comes back to rest.")]
+    [Range(0.02f, 0.5f)] public float CutStart = 0.14f;
+    [Range(0.2f, 0.8f)] public float CutEnd = 0.5f;
+    [Range(0.4f, 0.98f)] public float ReturnStart = 0.76f;
+    [Tooltip("Authored trail on the blade (a child of this prefab); it draws only while a cut is travelling.")]
+    public TrailRenderer SlashTrail;
     public AudioClip HitSound, DeflectSound;
     [Tooltip("Ground slam: colour of the shockwave ring drawn on the floor at the impact point.")] public Color SlamColor = new Color(1f, 0.85f, 0.2f);
     public float HeavyBob = .045f;

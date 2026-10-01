@@ -67,8 +67,39 @@ namespace Flats.Core.Roguelike
         public static List<TextLine> Skill(SkillDef n)
         {
             var list = new List<TextLine>();
-            foreach (var e in n.Effects) list.Add(Effect(e));
+            bool damage = false, reduction = false;
+            foreach (var e in n.Effects)
+            {
+                list.Add(Effect(e));
+                damage |= IsConditionalDamage(e.Kind); reduction |= IsConditionalReduction(e.Kind);
+            }
+            // the envelope of BuildStats.MetaDamageMul / MetaDamageTakenMul: a player who learns two of these must not expect the sum
+            if (damage) list.Add(ConditionalDamageNote());
+            if (reduction) list.Add(ConditionalReductionNote());
             return list;
+        }
+
+        /// <summary>Skills whose damage bonus goes through BuildStats.MetaDamageMul (one shared envelope).</summary>
+        public static bool IsConditionalDamage(SkillEffectKind kind)
+        {
+            return kind == SkillEffectKind.Berserker || kind == SkillEffectKind.HeadshotRhythm || kind == SkillEffectKind.Shredder
+                || kind == SkillEffectKind.OpeningShot || kind == SkillEffectKind.SquadLink;
+        }
+
+        /// <summary>Skills whose damage reduction goes through BuildStats.MetaDamageTakenMul.</summary>
+        public static bool IsConditionalReduction(SkillEffectKind kind) { return kind == SkillEffectKind.Juggernaut || kind == SkillEffectKind.HoldTheLine; }
+
+        /// <summary>Lowest envelope of BuildStats.MetaDamageMul (its `cap` starts here); Tests_TextAudit checks it against the rule.</summary>
+        public const double MetaDamageFloor = 0.15;
+
+        public static TextLine ConditionalDamageNote()
+        {
+            return new TextLine("Conditional damage skills do not add up: together they give at most the largest active stack bonus (at least +{0}%, never more than +{1}%).", P(MetaDamageFloor), P(BuildStats.MaxMetaDamageBonus));
+        }
+
+        public static TextLine ConditionalReductionNote()
+        {
+            return new TextLine("Conditional damage reduction from skills is capped at -{0}% in total.", P(1 - BuildStats.MinMetaDamageTakenMul));
         }
 
         /// <summary>The weapon's positive line: a shotgun's close-range bonus (QA-49) first, then its trait. Arguments keep the trait's first.</summary>
@@ -122,19 +153,19 @@ namespace Flats.Core.Roguelike
             {
                 case TraitKind.KillFrenzy: return new TextLine("After a kill: fire rate +{0}% for the rest of the magazine.", P(w.T1));
                 case TraitKind.SustainedAccuracy: return new TextLine("Every round of sustained fire tightens spread by {0}%, up to {1}%.", P(w.T1), P(w.T2));
-                case TraitKind.HeadshotRefund: return new TextLine("A headshot puts {0} round back into the magazine.", N(w.T1));
+                case TraitKind.HeadshotRefund: return new TextLine(w.T1 < 1.5 ? "A headshot puts {0} round back into the magazine." : "A headshot puts {0} rounds back into the magazine.", N(w.T1));
                 case TraitKind.RunAndGun: return new TextLine("Movement speed +{0}% while in hand.", P(w.T1));
                 case TraitKind.SlowOnHit: return new TextLine("Hits slow enemies by {0}% for {1} s.", P(w.T1), N(w.T2));
-                case TraitKind.AmmoOnKill: return new TextLine("A kill puts {0} rounds back into the magazine.", N(w.T1));
+                case TraitKind.AmmoOnKill: return new TextLine(w.T1 < 1.5 ? "A kill puts {0} round back into the magazine." : "A kill puts {0} rounds back into the magazine.", N(w.T1));   // never "1 rounds"
                 case TraitKind.LongRangeBonus: return new TextLine("+{0}% damage beyond {1} m.", P(w.T1), N(w.T2));
                 case TraitKind.CloseRangeBonus: return new TextLine("+{0}% damage within {1} m.", P(w.T1), N(w.T2));
-                case TraitKind.DoubleTap: return new TextLine("Every {0} trigger pulls: one extra round for free.", N(w.T1));
+                case TraitKind.DoubleTap: return new TextLine("Every {0} trigger pulls: the first round costs no ammunition.", N(w.T1));
                 case TraitKind.Pierce: return w.T1 < 1.5 ? new TextLine("Rounds pass through {0} enemy.", N(w.T1)) : new TextLine("Rounds pass through {0} enemies.", N(w.T1));
                 case TraitKind.ArmorBreaker: return new TextLine("Ignores shields. +{0}% damage to elites.", P(w.T1));
-                case TraitKind.SnapAim: return new TextLine("Aim steadies {0}% faster after raising the sight.", P(w.T1));
+                case TraitKind.SnapAim: return new TextLine("Aim steadies in {0}% less time after raising the sight.", P(w.T1));   // a time reduction, not a speed increase
                 case TraitKind.StaggerOnHeadshot: return new TextLine("Headshots stagger the enemy for {0} s.", N(w.T1));
                 case TraitKind.PatientShot: return new TextLine("Every {1} s aimed without firing: next shot +{0}% damage, up to {2} steps.", P(w.T1), N(w.T2), WeaponTraitState.MaxPatientSteps.ToString());
-                case TraitKind.EmptyReloadFast: return new TextLine("Reloading an empty magazine is {0}% faster.", P(w.T1));
+                case TraitKind.EmptyReloadFast: return new TextLine("Reloading an empty magazine takes {0}% less time.", P(w.T1));
                 case TraitKind.CloseKnockback: return new TextLine("Hits within {1} m knock enemies back {0} m.", N(w.T1), N(w.T2));
                 case TraitKind.StaggerOnHit: return new TextLine("Hits within {1} m stagger the enemy for {0} s.", N(w.T1), N(w.T2));
                 case TraitKind.FollowUp: return new TextLine("After a headshot the next shot cycles {0}% faster.", P(w.T1));
@@ -157,7 +188,7 @@ namespace Flats.Core.Roguelike
                 case DrawbackKind.SlowAds: return new TextLine("Aim takes {0}% longer to steady after raising the sight.", P(d1));
                 case DrawbackKind.HeavyRecoil: return new TextLine("Every round of sustained fire widens spread by {0}%, up to {1}%.", P(d1), P(d2));
                 case DrawbackKind.SlowSwap: return new TextLine("Weapon swap time +{0}%.", P(d1));
-                case DrawbackKind.MoveSlow: return new TextLine("Movement speed -{0}% while carried.", P(d1));
+                case DrawbackKind.MoveSlow: return new TextLine("Movement speed -{0}% while in hand.", P(d1));   // a gun slows only while drawn; melee has its own line (MeleeDrawback)
                 case DrawbackKind.NoHipFire: return new TextLine("Hip-fire spread x{0}: aim to hit anything.", N(d1));
                 case DrawbackKind.NoAds: return new TextLine("Cannot aim down sights.");
                 case DrawbackKind.WeakHeadshot: return new TextLine("Headshot bonus -{0}%.", P(d1));
@@ -180,10 +211,11 @@ namespace Flats.Core.Roguelike
             {
                 case MeleeSpecial.Backstab: return new TextLine("Strikes from behind deal x{0} damage.", N(m.S1));
                 case MeleeSpecial.Knockback: return new TextLine("Knocks enemies back {0} m.", N(m.S1));
-                case MeleeSpecial.GroundSlam: return new TextLine("Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s.", N(m.S1), N(MeleeRules.SlamKnockbackMeters), N(MeleeRules.SlamStunSeconds));
-                case MeleeSpecial.Combo: return new TextLine("{0}-hit combo; the finisher deals x{1}. Deflects bullets for the first {2} s of a swing.", N(m.S1), N(m.S2), N(m.S3));
+                case MeleeSpecial.GroundSlam: return new TextLine("Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s (elites and bosses {3} s).", N(m.S1), N(MeleeRules.SlamKnockbackMeters), N(MeleeRules.SlamStunSeconds), N(MeleeRules.SlamEliteStunSeconds));
+                // the deflect window (S3) is as long as the katana's swing (windup + recovery), so it reads as "the whole swing"
+                case MeleeSpecial.Combo: return new TextLine("{0}-hit combo; the finisher deals x{1}. Deflects bullets for the whole swing ({2} s).", N(m.S1), N(m.S2), N(m.S3));
                 case MeleeSpecial.Throw: return new TextLine("Hold melee to throw it up to {0} m. Walk over it to pick it up.", N(m.S1));
-                case MeleeSpecial.Guard: return new TextLine("Hold melee to guard: frontal damage -{0}%, but you cannot shoot. Bash pushes {1} m.", P(m.S1), N(m.S2));
+                case MeleeSpecial.Guard: return new TextLine("Hold melee to guard: frontal damage -{0}%, but you cannot shoot and move {2}% slower. Bash pushes {1} m.", P(m.S1), N(m.S2), P(1 - MeleeRules.GuardMoveMultiplier));
                 case MeleeSpecial.Shock: return new TextLine("Stuns for {0} s (elites and bosses {1}% of that).", N(m.S1), P(m.S2));
                 case MeleeSpecial.Flurry: return new TextLine("Each hit in a row swings {0}% faster, up to {1} stacks.", P(m.S1), N(m.S2));
             }
@@ -192,6 +224,7 @@ namespace Flats.Core.Roguelike
 
         public static TextLine MeleeDrawback(MeleeDef m)
         {
+            if (m.Drawback == DrawbackKind.MoveSlow) return new TextLine("Movement speed -{0}% while carried.", P(m.D1));   // melee is always carried
             if (m.Drawback != DrawbackKind.None) return Drawback(m.Drawback, m.D1, 0);
             return new TextLine("Swing {0} s, recovery {1} s.", N(m.Windup), N(m.Recovery));
         }

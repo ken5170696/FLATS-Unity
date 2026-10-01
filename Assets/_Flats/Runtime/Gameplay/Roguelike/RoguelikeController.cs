@@ -165,8 +165,27 @@ public partial class RoguelikeController : MonoBehaviour
         else Banner(T("Stage {0}-{1}: {2}\nstart in {3}...", state.Chapter, RogueDepth.StageInChapter(state.depth), StageIntroTitle, second), 1.2f);
     }
 
+    // Language or bindings changed while run UI is up. Rows, hints and prompts are built from already-translated strings (and key
+    // names), so what is open is rebuilt now instead of at the next state broadcast.
+    void OnPresentationSettingsChanged()
+    {
+        if (!runStarted || state == null || leaving) return;
+        if (screen != null)
+        {
+            // only an open screen is rebuilt (never opened as a side effect); keep where the player was reading
+            float scrollAt = screen.scroll != null ? screen.scroll.verticalNormalizedPosition : 1f;
+            RefreshScreens();
+            if (screen != null && screen.scroll != null) { Canvas.ForceUpdateCanvases(); screen.scroll.verticalNormalizedPosition = scrollAt; }
+        }
+        RefreshHud();
+        if (overview != null) FillOverview(true);
+        briefingRefresh = 0f;   // the mission card and toasts re-read on the next HUD frame
+    }
+
     void OnDestroy()
     {
+        FlatsLocalization.Changed -= OnPresentationSettingsChanged;
+        FlatsControls.Changed -= OnPresentationSettingsChanged;
         MetaLeftEarly();
         if (Instance == this) Instance = null;
         CleanupWorld();
@@ -201,6 +220,8 @@ public partial class RoguelikeController : MonoBehaviour
         yield return null;   // let Multiplayer.Awake/Start settle the rule first
         if (!RoguelikeMode.Active) { Destroy(this); yield break; }
         Instance = this;
+        FlatsLocalization.Changed += OnPresentationSettingsChanged;
+        FlatsControls.Changed += OnPresentationSettingsChanged;
         RaiseSendRates();
         RoguelikeMode.RunInProgress = true;
         RoguePlayer.ResetLastHit();
@@ -226,8 +247,8 @@ public partial class RoguelikeController : MonoBehaviour
             scoreText.enabled = false;   // the roguelike HUD replaces the legacy score line
             // the shared centre banner (Message/Text, best fit up to 30) and the top-right log feed (Arial 20) were sized for a HUD with
             // nothing else on screen; next to the roguelike panels they read as oversized, so both step down while this HUD is up
-            phaseText.resizeTextMaxSize = Mathf.Min(phaseText.resizeTextMaxSize, 22);
-            logFontSize = 15;
+            phaseText.resizeTextMaxSize = Mathf.Min(phaseText.resizeTextMaxSize, hudView.bannerMaxFontSize);
+            logFontSize = hudView.logFontSize;
         }
 
         // Wait for the local player: legacy Singleplayer/Multiplayer Start spawns Flatman.
@@ -567,7 +588,8 @@ public partial class RoguelikeController : MonoBehaviour
             case "equip": OnEquipEvent(e); break;
             case "revprog":
                 if (e.playerKey == localKey && hudView != null) hudView.SetRevive((float)e.value, T("{0} is reviving you", e.text));
-                { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.NoteReviveProgress((float)e.value); }   // a downed player being revived stops crawling (QA-33)
+                // every copy of the victim hears it (F17): the owner stops crawling and holds its bleed-out clock (QA-33); other copies mirror "being revived"
+                { var revived = RogueWorld.PlayerByKey(e.playerKey); var rp = revived != null ? revived.GetComponent<RoguePlayer>() : null; if (rp != null) rp.NoteReviveProgress((float)e.value); }
                 break;
             case "inv":
                 if (!IsAuthority)

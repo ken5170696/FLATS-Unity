@@ -17,6 +17,10 @@ namespace Flats.Modules
         // module receives through IModuleContextReceiver. Created for every kind so the
         // host can push saved values uniformly; only managed entry types observe it.
         public ModuleContext Context { get; }
+        // Only a managed entry type can observe Context (IModuleContextReceiver). The data adapters
+        // and crosshair presets below read the package payload or first preset in Enable and never
+        // the declared settings, so a settings change has nothing to re-apply for them.
+        public bool ReadsSettings { get { return package.manifest.kind!="crosshair" && package.manifest.kind!="data"; } }
         public ExternalModule(InstalledPackage p, string directory, SettingValue[] storedSettings=null)
         {
             package=p;path=directory;

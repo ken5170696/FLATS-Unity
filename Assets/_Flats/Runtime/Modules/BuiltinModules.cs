@@ -255,7 +255,10 @@ namespace Flats.Modules
                 entry.version=package.manifest.version;entry.json=JsonUtility.ToJson(new SettingValuesDocument{values=normalized});
                 copy.modules=entries.ToArray();SaveDocument(copy);
                 bool live=!Profiles.RestartRequired && Center.ApplyLiveSettings(id,normalized);
-                Notice=Profiles.RestartRequired?"Saved to selected profile. Restart required.":live?"Saved and applied.":"Saved. Applies when the mod is running.";return true;
+                // "Applied" is only claimed for a running module that reads its settings. A data package is fixed by its
+                // packaged payload: the values are stored, but nothing in this version of the game reads them.
+                bool dataOnly=Center.Running.Any(p=>p.manifest.id==id) && !Center.ReadsSettings(id);
+                Notice=Profiles.RestartRequired?"Saved to selected profile. Restart required.":live?"Saved and applied.":dataOnly?"Saved. This mod's packaged data does not use these settings.":"Saved. Applies when the mod is running.";return true;
             }
             catch(Exception e){Notice="Could not save; previous settings retained. "+e.Message;return false;}
         }

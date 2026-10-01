@@ -177,7 +177,8 @@ public partial class RoguelikeController
             view.ShowDetails(intro > 0f || !CentreBannerShowing);
             if (refresh) view.Refresh(BriefingContent(cardId, cardMode));
             bool full = cardMode == RogueBriefingView.Mode.Full;
-            if (cardElapsed >= (full ? view.fullSeconds : view.compactSeconds) && cardSinceIntro >= (full ? view.fullAfterIntro : view.compactAfterIntro))
+            // firing puts the card away at once (playtest 2026-10-01: it covered the view and could not be closed); the objective card keeps the current step
+            if (BriefingDismissed(cardElapsed) || (cardElapsed >= (full ? view.fullSeconds : view.compactSeconds) && cardSinceIntro >= (full ? view.fullAfterIntro : view.compactAfterIntro)))
             {
                 if (full) MarkBriefingSeen(cardId);
                 cardActive = false;
@@ -195,11 +196,21 @@ public partial class RoguelikeController
         if (toastId == "") return;
         toastElapsed += dt;
         if (refresh) view.Refresh(BriefingContent(toastId, RogueBriefingView.Mode.Toast));
-        if (toastElapsed >= view.toastSeconds)
+        if (toastElapsed >= view.toastSeconds || BriefingDismissed(toastElapsed))
         {
             view.Hide(hudView.EventLineRect(RogueEncounterGuide.KindOf(toastId) == GuideKind.Emergency));
             toastId = "";
         }
+    }
+
+    /// <summary>Seconds a card or toast is up before Fire can dismiss it (a shot already in flight must not skip it unread).</summary>
+    public const float BriefingDismissAfter = 0.6f;
+
+    /// <summary>The player fired while the card or toast was on screen: put it away.</summary>
+    bool BriefingDismissed(float shownFor)
+    {
+        if (shownFor < BriefingDismissAfter || Menu.current != "Playing" || !FlatsCursor.GameplayInput) return false;
+        return FlatsControls.Down("Fire") || FlatsControls.PadState("Fire", 1);
     }
 
     void QueueToast(string id, string rawStatus)
@@ -297,7 +308,7 @@ public partial class RoguelikeController
                 if (raw == "") break;
                 metres = WaypointDistance("Capture zone");
                 if (raw.IndexOf("Go to the zone", StringComparison.Ordinal) >= 0) index = 0;
-                else if (metres > 9f) { line = T("Join the others in the zone"); icon = "Arrow"; }
+                else if (metres > CaptureRunner.Radius) { line = T("Join the others in the zone"); icon = "Arrow"; }
                 else { index = 1; metres = -1f; }
                 break;
             case "obj.carry":
@@ -328,7 +339,7 @@ public partial class RoguelikeController
                 metres = WaypointDistance("Exit");
                 if (raw.StartsWith("Reach the extraction point", StringComparison.Ordinal))
                 {
-                    if (metres >= 0f && metres <= 6f) { line = T("Wait in the exit zone for the others"); icon = "Exit"; metres = -1f; }
+                    if (metres >= 0f && metres <= BreakoutRunner.Radius) { line = T("Wait in the exit zone for the others"); icon = "Exit"; metres = -1f; }
                     index = 0;
                 }
                 else if (raw.StartsWith("Paused, teammate down", StringComparison.Ordinal)) { index = 2; metres = -1f; }

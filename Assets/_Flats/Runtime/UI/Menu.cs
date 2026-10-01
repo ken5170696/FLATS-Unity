@@ -349,6 +349,7 @@ public partial class Menu : MonoBehaviour
 		if (Current == this) Current = null;
         if (captureAction != null) FlatsControls.Capturing = false;
         FlatsLocalization.Changed -= RefreshPersonalRows;
+        FlatsLocalization.Changed -= RefreshRoguelikeLanguage;
         if (localDiscovery != null) localDiscovery.Stop();
         Canvas.preWillRenderCanvases -= BindThemeMaterials;
 		if (runtimeBackgroundMaterial != null) Destroy(runtimeBackgroundMaterial);
@@ -883,6 +884,11 @@ public partial class Menu : MonoBehaviour
 		string eyeDistanceText = ((mySettings.vr_eyeDistance != 0) ? ("+" + (float)mySettings.vr_eyeDistance * 0.5f) : "Default");
 		VRController.offset = (float)mySettings.vr_eyeDistance * 0.5f;
 		SettingValue(3, "EyeDistance").text = eyeDistanceText;
+		// Nothing reads these two values any more (the VR runtimes that used them are gone), so the rows are not offered on
+		// any platform. The saved values stay in the profile. FlatsDesktopSettings.RetiredNames keeps them hidden on desktop
+		// when it switches the page's row sets.
+		SettingValue(3, "Resolution").transform.parent.gameObject.SetActive(false);
+		SettingValue(3, "EyeDistance").transform.parent.gameObject.SetActive(false);
 		headRotationText[0] = "OFF";
 		headRotationText[1] = "ON";
 		SettingValue(3, "HeadRotation").text = headRotationText[mySettings.vr_headRotation];
@@ -934,30 +940,8 @@ public partial class Menu : MonoBehaviour
 				Debug.LogWarning("Ignored an unreadable touch mapping: " + text);
 			}
 		}
-		if (FlatsPreferences.HasKey("controllermapping") && Input.GetJoystickNames().Length > 0)
-		{
-			string text2 = FlatsPreferences.GetString("controllermapping");
-			string[] array2 = text2.Split(new string[1] { "$" }, StringSplitOptions.None);
-			if (array2.Length == 7 && Input.GetJoystickNames()[0] == array2[0])
-			{
-				customControl["ControllerName"] = array2[0];
-				customControl["Jump"] = "joystick 1 " + array2[1];
-				customControl["Pick"] = "joystick 1 " + array2[2];
-				customControl["Reload"] = "joystick 1 " + array2[3];
-				customControl["Change"] = "joystick 1 " + array2[4];
-				customControl["Zoom"] = "joystick 1 " + array2[5];
-				customControl["Fire"] = "joystick 1 " + array2[6];
-				customControlEnabled = true;
-			}
-			else
-			{
-				customControlEnabled = false;
-			}
-		}
-		else
-		{
-			customControlEnabled = false;
-		}
+		connectedPads = PadSignature();
+		LoadControllerMapping();
 		leaderboardScreen.GetChild(0).GetChild(3)
 			.GetComponent<Text>()
 			.text = totalScore;
@@ -983,6 +967,7 @@ public partial class Menu : MonoBehaviour
 		{
 			gameState = "Main";
 			current = "Main";
+			ApplyListenerVolume();   // same reason as the match branch below: the level follows the page shown now
 			returningToMenu = skipTitle;
 			if (!skipTitle)
 			{
@@ -1004,6 +989,9 @@ public partial class Menu : MonoBehaviour
 		else
 		{
 			current = "Playing";
+			// The sliders were initialised above while this still named the menu page the match was started from, which
+			// left the listener at the halved menu level until the first pause and resume.
+			ApplyListenerVolume();
 			anim.SetBool("Fade", false);
 			if (!Application.isMobilePlatform && Input.mousePresent)
 			{
@@ -1251,9 +1239,64 @@ public partial class Menu : MonoBehaviour
 
     }
 
+	// The legacy saved controller mapping belongs to one controller name. It was read once, in Start, and only
+	// when that controller was already connected, so a pad plugged in (or swapped) later kept the wrong state
+	// until the next scene. It is read again whenever the connected controllers change.
+	private string connectedPads = "";
+	private float padCheckTime;
+
+	private static string PadSignature()
+	{
+		return string.Join("|", Input.GetJoystickNames());
+	}
+
+	private static void LoadControllerMapping()
+	{
+		string[] pads = Input.GetJoystickNames();
+		if (FlatsPreferences.HasKey("controllermapping") && pads.Length > 0)
+		{
+			string text2 = FlatsPreferences.GetString("controllermapping");
+			string[] array2 = text2.Split(new string[1] { "$" }, StringSplitOptions.None);
+			if (array2.Length == 7 && pads[0] == array2[0])
+			{
+				customControl["ControllerName"] = array2[0];
+				customControl["Jump"] = "joystick 1 " + array2[1];
+				customControl["Pick"] = "joystick 1 " + array2[2];
+				customControl["Reload"] = "joystick 1 " + array2[3];
+				customControl["Change"] = "joystick 1 " + array2[4];
+				customControl["Zoom"] = "joystick 1 " + array2[5];
+				customControl["Fire"] = "joystick 1 " + array2[6];
+				customControlEnabled = true;
+			}
+			else
+			{
+				customControlEnabled = false;
+			}
+		}
+		else
+		{
+			customControlEnabled = false;
+		}
+	}
+
+	// Twice a second is enough for a hot-plug and keeps Input.GetJoystickNames (it allocates) off the frame path.
+	private void TickControllerMapping()
+	{
+		if (Time.unscaledTime < padCheckTime) return;
+		padCheckTime = Time.unscaledTime + 0.5f;
+		string pads = PadSignature();
+		if (pads == connectedPads) return;
+		connectedPads = pads;
+		LoadControllerMapping();
+		Debug.Log("Controllers changed: legacy mapping " + (customControlEnabled ? "loaded" : "not used"));
+		// The Controller list shows labels that fall back to this mapping; an open capture keeps its own row text.
+		if (bindingsPanel != null && bindingsPanel.activeInHierarchy && !FlatsControls.Capturing) RefreshBindings();
+	}
+
 	private void Update()
 	{
         SyncModalCursor();
+        TickControllerMapping();
         if (TickBindingCapture()) return;
         TickLocalMatch();
         TickRogueRoom();
@@ -1334,7 +1377,8 @@ public partial class Menu : MonoBehaviour
 					SettingValue(1, "SaturationFilter").text = saturationFilterText[mySettings.graphics_saturationFilter];
 				}
 				SaveDataController.Save();
-				changedSettings = true;
+				// Shown on the view camera now, also while the player has no control (downed, cutscene, kill cinematic).
+				ApplyGraphicsNow();
 				ShowConfirm("Extremely low framerate!", "All graphics settings have been disabled.", FramerateAlertIsChecked, "OK", null);
 				framerateAlertIsEnabled = true;
 			}

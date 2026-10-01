@@ -81,6 +81,25 @@ namespace Flats.Core.Roguelike
             return m;
         }
 
+        /// <summary>
+        /// Swap time multiplier of a swap between two carried weapons (the one in hand and the one coming out; either may be null).
+        /// Quick Draw promises "swapping to or from it", so the fastest Quick Draw of the two always applies; a Slow Swap weapon
+        /// slows the swap by the heaviest of the two. When both are involved they multiply (Handgun 1 with Assault Rifle 3:
+        /// 0.4 x 1.6 = 0.64, still faster than a plain swap). Taking the slower of the two, as this used to, meant Quick Draw
+        /// never applied at all: the other weapon's multiplier is always at least 1.
+        /// </summary>
+        public static double SwapTimeMul(RangedWeaponDef a, RangedWeaponDef b)
+        {
+            double quick = 1, slow = 1;
+            foreach (var d in new[] { a, b })
+            {
+                if (d == null) continue;
+                if (d.Trait == TraitKind.QuickDraw) quick = Math.Min(quick, 1 - d.T1);
+                if (d.Drawback == DrawbackKind.SlowSwap) slow = Math.Max(slow, 1 + d.D1);
+            }
+            return quick * slow;
+        }
+
         /// <summary>Reload time multiplier on top of the resolved reload time (SlowReload is already in ReloadMul).</summary>
         public static double ReloadTimeMul(RangedWeaponDef d, bool magazineEmpty)
         {
@@ -112,6 +131,27 @@ namespace Flats.Core.Roguelike
         /// <summary>Extra enemies a round passes through.</summary>
         public static int Pierce(RangedWeaponDef d) { return d != null && d.Trait == TraitKind.Pierce ? (int)d.T1 : 0; }
 
+        /// <summary>The most enemies one round may pass through: the build's two (EffectChainRules) plus the deepest Pierce weapon (2).</summary>
+        public const int MaxPenetrateDepth = 4;
+
+        /// <summary>
+        /// Enemies a round fired from <paramref name="d"/> passes through: the build's depth (Precision core, Piercing Rounds; bounded
+        /// as EffectChainRules bounds it) plus the Pierce trait of the weapon that fired the round. The weapon's share is added on
+        /// top of the build's cap, so the trait is never silently cut by a build that already pierces.
+        /// </summary>
+        public static int PenetrateDepth(int buildDepth, RangedWeaponDef d)
+        {
+            int build = Math.Max(0, Math.Min(EffectChainRules.MaxDepth, buildDepth));
+            return Math.Min(MaxPenetrateDepth, build + Math.Max(0, Pierce(d)));
+        }
+
+        /// <summary>Whether a round may continue as the <paramref name="nextDepth"/>-th derived round (1 = through the first enemy).
+        /// Without a Pierce weapon this is exactly EffectChainRules.CanTrigger(DamageKind.Penetrate, nextDepth).</summary>
+        public static bool CanPenetrate(int nextDepth, int buildDepth, RangedWeaponDef d)
+        {
+            return nextDepth >= 1 && nextDepth <= PenetrateDepth(buildDepth, d);
+        }
+
         // ------------------------------------------------------------------ QA-49: shotgun range profile
         // Roguelike shotguns hit hard up close and are very weak at range. The multiplier applies to every direct pellet at the hit
         // (RogueHooks.MetaHitMul), on top of the headshot multiplier and the weapon's own trait and drawback (OnHit). Derived damage
@@ -119,10 +159,10 @@ namespace Flats.Core.Roguelike
         // Distances are world metres from where the round left the barrel to the hit point (a Flatman is about 2 m wide, 6 m tall).
         // Classic modes never call this.
 
-        /// <summary>Pellet shotguns: x1.5 within 10 m, easing to x1 at 16 m, x1 up to 20 m, falling to x0.1 at 35 m and beyond.</summary>
-        public const double PelletCloseMul = 1.5, PelletCloseEnd = 10, PelletNeutralFrom = 16, PelletFalloffFrom = 20, PelletFarFrom = 35, PelletFarMul = 0.1;
-        /// <summary>Slug Gun (one heavy slug, meant for middle range): a milder profile, x1.2 within 10 m and x0.5 from 50 m.</summary>
-        public const double SlugCloseMul = 1.2, SlugCloseEnd = 10, SlugNeutralFrom = 16, SlugFalloffFrom = 30, SlugFarFrom = 50, SlugFarMul = 0.5;
+        /// <summary>Pellet shotguns: x1.5 within 13 m, easing to x1 at 20 m, x1 up to 25 m, falling to x0.1 at 40 m and beyond (playtest 2026-10-01: the strong band reached a little too short).</summary>
+        public const double PelletCloseMul = 1.5, PelletCloseEnd = 13, PelletNeutralFrom = 20, PelletFalloffFrom = 25, PelletFarFrom = 40, PelletFarMul = 0.1;
+        /// <summary>Slug Gun (one heavy slug, meant for middle range): a milder profile, x1.2 within 13 m and x0.5 from 50 m.</summary>
+        public const double SlugCloseMul = 1.2, SlugCloseEnd = 13, SlugNeutralFrom = 20, SlugFalloffFrom = 30, SlugFarFrom = 50, SlugFarMul = 0.5;
 
         /// <summary>
         /// A damage-by-distance profile: <see cref="CloseMul"/> up to <see cref="CloseEnd"/>, linear to x1 at <see cref="NeutralFrom"/>,

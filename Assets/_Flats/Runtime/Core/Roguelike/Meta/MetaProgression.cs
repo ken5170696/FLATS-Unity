@@ -117,6 +117,9 @@ namespace Flats.Core.Roguelike
         /// Anti-abuse: no reward without a cleared stage and 90 s of play, AFK players get none,
         /// abandoning keeps 40%, a wipe 75%, per-run totals are clamped.
         /// </summary>
+        /// <summary>The rule counts cleared stages (StagesCleared), so the text says so; {0} is MinStagesWhenAbandoned.</summary>
+        public const string AbandonedEarlyReason = "Leaving before clearing {0} stages earns nothing";
+
         /// <summary>Why a finished run earns nothing at all (no experience, merits, mastery, challenges, first times or heat), or "".</summary>
         public static string Ineligible(RunFacts f)
         {
@@ -125,7 +128,7 @@ namespace Flats.Core.Roguelike
             if (f.Kills + f.Rescues <= 0) return "No kills or revives this run";
             if (f.StagesCleared < MinStagesForReward) return "Clear at least one stage to earn experience";
             if (f.Seconds < MinSecondsForReward) return "Play at least {0} seconds to earn experience";
-            if (f.End == RunEnd.Abandoned && f.StagesCleared < MinStagesWhenAbandoned) return "Leaving before stage {0} earns nothing";
+            if (f.End == RunEnd.Abandoned && f.StagesCleared < MinStagesWhenAbandoned) return AbandonedEarlyReason;
             return "";
         }
 
@@ -133,7 +136,7 @@ namespace Flats.Core.Roguelike
         {
             string reason = Ineligible(f);
             string arg = reason == "Play at least {0} seconds to earn experience" ? MinSecondsForReward.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                : reason == "Leaving before stage {0} earns nothing" ? MinStagesWhenAbandoned.ToString() : "";
+                : reason == AbandonedEarlyReason ? MinStagesWhenAbandoned.ToString() : "";
             return new RewardLine { source = reason, arg = arg };
         }
 
@@ -205,7 +208,7 @@ namespace Flats.Core.Roguelike
             new Modifier { Text = "Elites appear more often (+{0}% of enemies on average).", EliteFraction = 0.07 },
             new Modifier { Text = "One fewer shop reroll per visit.", Rerolls = -1 },
             new Modifier { Text = "Enemies have +{0}% health.", EnemyHealth = 0.10 },
-            new Modifier { Text = "Downed players bleed out {0}% faster.", BleedOutMul = 0.70 },
+            new Modifier { Text = "Downed players have {0}% less bleed-out time.", BleedOutMul = 0.70 },   // the time is multiplied by BleedOutMul
             new Modifier { Text = "Enemies deal +{0}% damage.", EnemyDamage = 0.08 },
             new Modifier { Text = "Two more enemies on the field at once.", EnemyCap = 2 },
             new Modifier { Text = "Enemies have +{0}% health.", EnemyHealth = 0.10 },

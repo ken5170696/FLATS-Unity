@@ -109,7 +109,7 @@ namespace Flats.Core.Roguelike
             if (def == null) return "unknown item";
             switch (def.Kind)
             {
-                case ItemKind.Stat: return StatTier(def.Id) >= def.MaxStacks ? "max tier" : null;
+                case ItemKind.Stat: return StatTier(def.Id) >= def.MaxStacks ? "max tier" : !StatTierHasEffect(def.Id) ? "already at the cap" : null;
                 case ItemKind.Core: return HasCore(def.Id) ? (Tier(def.Id) >= RogueCatalog.MaxTier(def.Id) ? "max tier" : null) : cores.Length >= RogueCatalog.MaxCores ? "core slots full" : null;
                 case ItemKind.Mod: return HasMod(def.Id) ? (Tier(def.Id) >= RogueCatalog.MaxTier(def.Id) ? "max tier" : null) : mods.Length >= RogueCatalog.MaxMods ? "mod slots full" : null;
                 case ItemKind.Tactical: return tactical == def.Id ? "already equipped" : null; // replaces
@@ -118,6 +118,25 @@ namespace Flats.Core.Roguelike
                 case ItemKind.Supply: return null;
             }
             return null;
+        }
+
+        /// <summary>
+        /// False when the next tier of a stat would change nothing because the build already sits on the total cap of that stat
+        /// (magazine x2.5 with Extended Magazine, speed x1.6 with Mobility): the shop neither samples nor sells such a tier.
+        /// </summary>
+        public bool StatTierHasEffect(string statId)
+        {
+            if (StatTier(statId) >= RogueCatalog.StatTiers) return false;
+            var next = Clone(); next.SetStatTier(statId, StatTier(statId) + 1);
+            var now = BuildStats.Compute(this); var then = BuildStats.Compute(next);
+            switch (statId)
+            {
+                case "stat.health": return then.HealthMul > now.HealthMul;
+                case "stat.damage": return then.DamageMul > now.DamageMul;
+                case "stat.magazine": return then.MagazineMul > now.MagazineMul;
+                case "stat.speed": return then.SpeedMul > now.SpeedMul;
+            }
+            return true;
         }
 
         /// <summary>Applies an item. Returns the replaced item id (tactical/ultimate/weapon swaps) or null.</summary>
@@ -222,24 +241,27 @@ namespace Flats.Core.Roguelike
         public double AssaultCloseRange = 12, MomentumShotWindowSeconds = 1.5, SuppressionWindowSeconds = 2.5;
         public double DemolitionRadius, ShockwaveSeconds;
         public const double MaxReviveSpeedMul = 2.0;
+        // rule constants the item descriptions print (RogueCatalog), so text and rule cannot drift
+        public const double AssaultFarRange = 30, AssaultFarDamageMul = 0.9, AssaultKillSpeedBonus = 0.15, ShockwaveSlow = 0.4;
 
         // tier envelopes: RogueCatalog.StatTiers steps of the per-tier value (7 x 12%, 7 x 8%, 7 x 15%, 7 x 6%)
+        public const double HealthPerTier = 0.12, DamagePerTier = 0.08, MagazinePerTier = 0.15, SpeedPerTier = 0.06;
         public const double MaxHealthBonus = 0.84, MaxDamageBonus = 0.56, MaxMagazineBonus = 1.05, MaxSpeedBonus = 0.42;
-        public const double MaxTotalDamageMul = 3.0, MaxTotalSpeedMul = 1.6, MaxTotalHealthMul = 2.5, MinDamageTakenMul = 0.5;
+        public const double MaxTotalDamageMul = 3.0, MaxTotalSpeedMul = 1.6, MaxTotalHealthMul = 2.5, MaxTotalMagazineMul = 2.5, MinDamageTakenMul = 0.5;
 
         public static BuildStats Compute(PlayerBuild b)
         {
             var s = new BuildStats();
             if (b == null) return s;
             // additive tiers (clamped by tier count)
-            s.HealthMul = 1 + Math.Min(MaxHealthBonus, 0.12 * b.healthTier);
-            s.DamageMul = 1 + Math.Min(MaxDamageBonus, 0.08 * b.damageTier);
-            s.MagazineMul = 1 + Math.Min(MaxMagazineBonus, 0.15 * b.magazineTier);
-            s.SpeedMul = 1 + Math.Min(MaxSpeedBonus, 0.06 * b.speedTier);
+            s.HealthMul = 1 + Math.Min(MaxHealthBonus, HealthPerTier * b.healthTier);
+            s.DamageMul = 1 + Math.Min(MaxDamageBonus, DamagePerTier * b.damageTier);
+            s.MagazineMul = 1 + Math.Min(MaxMagazineBonus, MagazinePerTier * b.magazineTier);
+            s.SpeedMul = 1 + Math.Min(MaxSpeedBonus, SpeedPerTier * b.speedTier);
 
             // Tier effects are absolute table values, never repeated multiplication by rank.
             if (b.Tier("core.precision") > 0) { s.HeadshotDamageMul *= RogueTiers.Value("core.precision", b.Tier("core.precision"), 0); s.BodyDamageMul *= RogueTiers.Value("core.precision", b.Tier("core.precision"), 1); s.PenetrateDepth = (int)RogueTiers.Value("core.precision", b.Tier("core.precision"), 2); }
-            if (b.Tier("core.assault") > 0) { s.CloseRangeDamageMul *= RogueTiers.Value("core.assault", b.Tier("core.assault"), 0); s.FarRangeDamageMul *= .9; s.AssaultKillReduction = RogueTiers.Value("core.assault", b.Tier("core.assault"), 1); s.AssaultKillSeconds = RogueTiers.Value("core.assault", b.Tier("core.assault"), 2); s.AssaultKillSpeed = .15; }
+            if (b.Tier("core.assault") > 0) { s.CloseRangeDamageMul *= RogueTiers.Value("core.assault", b.Tier("core.assault"), 0); s.FarRangeDamageMul *= AssaultFarDamageMul; s.AssaultKillReduction = RogueTiers.Value("core.assault", b.Tier("core.assault"), 1); s.AssaultKillSeconds = RogueTiers.Value("core.assault", b.Tier("core.assault"), 2); s.AssaultKillSpeed = AssaultKillSpeedBonus; }
             if (b.Tier("core.suppression") > 0) { s.SuppressionStepMax = RogueTiers.Value("core.suppression", b.Tier("core.suppression"), 0); s.MagazineMul *= RogueTiers.Value("core.suppression", b.Tier("core.suppression"), 1); s.ReloadTimeMul *= RogueTiers.Value("core.suppression", b.Tier("core.suppression"), 2); }
             if (b.Tier("core.reloadburst") > 0) { s.ReloadBurstDamageMul = RogueTiers.Value("core.reloadburst", b.Tier("core.reloadburst"), 0); s.ReloadBurstSeconds = RogueTiers.Value("core.reloadburst", b.Tier("core.reloadburst"), 1); s.ReloadBurstMinFraction = RogueTiers.Value("core.reloadburst", b.Tier("core.reloadburst"), 2); }
             if (b.Tier("core.ricochet") > 0) { s.RicochetBounces = (int)RogueTiers.Value("core.ricochet", b.Tier("core.ricochet"), 0); s.RicochetHitBonus = RogueTiers.Value("core.ricochet", b.Tier("core.ricochet"), 1); }
@@ -254,16 +276,18 @@ namespace Flats.Core.Roguelike
             if (b.Tier("mod.choke") > 0) { s.ExtraPellets = 1; }
             if (b.Tier("mod.extended_mag") > 0) { s.MagazineMul *= RogueTiers.Value("mod.extended_mag", b.Tier("mod.extended_mag"), 0); }
             if (b.Tier("mod.heavy_rounds") > 0) { s.DamageMul *= RogueTiers.Value("mod.heavy_rounds", b.Tier("mod.heavy_rounds"), 0); s.SpeedMul *= RogueTiers.Value("mod.heavy_rounds", b.Tier("mod.heavy_rounds"), 1); }
-            if (b.Tier("mod.sustained_fire") > 0) { if (s.SuppressionStepMax > 0) s.SuppressionStepMax = RogueTiers.Value("mod.sustained_fire", b.Tier("mod.sustained_fire"), 0); }
+            // added to the core's own cap (it used to replace it, which made the mod a no-op once the core's tier reached the same number)
+            if (b.Tier("mod.sustained_fire") > 0) { if (s.SuppressionStepMax > 0) s.SuppressionStepMax = Math.Round(s.SuppressionStepMax + RogueTiers.Value("mod.sustained_fire", b.Tier("mod.sustained_fire"), 0), 6); }   // rounded: 0.6 + 0.2 must not become 0.8000000000000002 and add a 21st stack
             if (b.Tier("mod.fast_hands") > 0) { s.ReloadTimeMul *= RogueTiers.Value("mod.fast_hands", b.Tier("mod.fast_hands"), 0); }
             if (b.Tier("mod.tactical_reload") > 0) { s.ReserveReturnOnReload = (int)RogueTiers.Value("mod.tactical_reload", b.Tier("mod.tactical_reload"), 0); }
-            if (b.Tier("mod.burst_extender") > 0) { if (s.ReloadBurstSeconds > 0) s.ReloadBurstSeconds = RogueTiers.Value("mod.burst_extender", b.Tier("mod.burst_extender"), 0); }
+            // seconds added to the core's own duration: 3+2, 3.5+2.5 and 4+3 are the old 5/6/7 s, and it can never shorten a higher core tier
+            if (b.Tier("mod.burst_extender") > 0) { if (s.ReloadBurstSeconds > 0) s.ReloadBurstSeconds += RogueTiers.Value("mod.burst_extender", b.Tier("mod.burst_extender"), 0); }
             if (b.Tier("mod.rubber_rounds") > 0) { s.RicochetDamageMul = 1; }
             if (b.Tier("mod.double_bounce") > 0) { s.RicochetBounces = Math.Min(2, s.RicochetBounces + 1); }
-            if (b.Tier("mod.angle_finder") > 0) { if (s.RicochetBounces > 0 && s.MarkDuration <= 0) { s.MarkDuration = 4; s.MarkDamageMul = RogueTiers.Value("core.marker", 1, 0); } }
+            if (b.Tier("mod.angle_finder") > 0) { if (s.RicochetBounces > 0 && s.MarkDuration <= 0) { s.MarkDuration = RogueTiers.Value("mod.angle_finder", 1, 0); s.MarkDamageMul = RogueTiers.Value("core.marker", 1, 0); } }
             if (b.Tier("mod.bigger_boom") > 0) { s.ExplosionRadiusMul *= RogueTiers.Value("mod.bigger_boom", b.Tier("mod.bigger_boom"), 0); }
             if (b.Tier("mod.frag_grenades") > 0) { s.GrenadeDamageMul *= RogueTiers.Value("mod.frag_grenades", b.Tier("mod.frag_grenades"), 0); }
-            if (b.Tier("mod.shockwave") > 0) { s.ExplosionSlow = .4; s.ShockwaveSeconds = RogueTiers.Value("mod.shockwave", b.Tier("mod.shockwave"), 0); }
+            if (b.Tier("mod.shockwave") > 0) { s.ExplosionSlow = ShockwaveSlow; s.ShockwaveSeconds = RogueTiers.Value("mod.shockwave", b.Tier("mod.shockwave"), 0); }
             if (b.Tier("mod.spotter") > 0) { if (s.MarkDuration > 0) s.MarkDuration += RogueTiers.Value("mod.spotter", b.Tier("mod.spotter"), 0); }
             if (b.Tier("mod.bounty_hunter") > 0) { s.MarkedKillBountyBonus = RogueTiers.Value("mod.bounty_hunter", b.Tier("mod.bounty_hunter"), 0); }
             if (b.Tier("mod.team_radio") > 0) { s.TeamRadio = true; }
@@ -286,7 +310,7 @@ namespace Flats.Core.Roguelike
             s.DamageMul = Math.Min(MaxTotalDamageMul, s.DamageMul);
             s.SpeedMul = Math.Min(MaxTotalSpeedMul, Math.Max(0.5, s.SpeedMul));
             s.HealthMul = Math.Min(MaxTotalHealthMul, s.HealthMul);
-            s.MagazineMul = Math.Min(2.5, s.MagazineMul);
+            s.MagazineMul = Math.Min(MaxTotalMagazineMul, s.MagazineMul);
             s.ReloadTimeMul = Math.Max(0.4, Math.Min(2.0, s.ReloadTimeMul));
             s.DamageTakenMul = Math.Max(MinDamageTakenMul, s.DamageTakenMul);
             s.HeadshotDamageMul = Math.Min(2.0, s.HeadshotDamageMul);
@@ -314,7 +338,7 @@ namespace Flats.Core.Roguelike
         public double DirectDamage(bool headshot, double distance, int suppressionStacks, bool reloadBurstActive, bool momentumShot, bool targetMarked, bool ricochet)
         {
             double m = DamageMul * (headshot ? HeadshotDamageMul : BodyDamageMul);
-            if (distance <= AssaultCloseRange) m *= CloseRangeDamageMul; else if (distance >= 30) m *= FarRangeDamageMul;
+            if (distance <= AssaultCloseRange) m *= CloseRangeDamageMul; else if (distance >= AssaultFarRange) m *= FarRangeDamageMul;
             if (SuppressionStepMax > 0) m *= 1 + Math.Min(SuppressionStepMax, SuppressionStep * Math.Max(0, suppressionStacks));
             if (reloadBurstActive) m *= ReloadBurstDamageMul;
             if (momentumShot) m *= 1 + MomentumShotBonus;

@@ -1288,22 +1288,9 @@ public partial class FPSController : MonoBehaviour
 			else { rogueLift = 0f; rogueFall = 0f; }
 			if (Menu.changedSettings)
 			{
-				if (Menu.VRmode)
-				{
-					am.enabled = false;
-					fp.enabled = false;
-					ed.enabled = false;
-					cg.enabled = false;
-					QualitySettings.antiAliasing = 0;
-				}
-				else
-				{
-					am.enabled = motionBlur;
-					fp.enabled = dof;
-					fxaa.enabled = aa;
-					ed.enabled = edgeRendering;
-					cg.enabled = saturationFilter;
-				}
+				// The catch-up path (spawn, respawn, scene start). The option handlers also call
+				// ApplyCameraEffects directly, so a change shows while this branch is not running.
+				ApplyCameraEffects(am, fp, fxaa, ed, cg);
 				Menu.changedSettings = false;
 			}
 		}
@@ -1314,6 +1301,45 @@ public partial class FPSController : MonoBehaviour
 			ptv.SetSynchronizedValues(zero, 0f);
 			StopSprint(true);
 		}
+	}
+
+	// Applies the graphics toggles (anti-aliasing, depth of field, motion blur, edge rendering, saturation
+	// filter) to the player's view camera now. Update only consumes Menu.changedSettings while the local
+	// player has control, so a change made while downed, in a cutscene or in a kill cinematic used to
+	// wait until control returned. A camera without the effect components (menu, spectator) is left alone.
+	public static void ApplyCameraEffects(Camera cam)
+	{
+		if (cam == null)
+		{
+			return;
+		}
+		ApplyCameraEffects(cam.GetComponent<AmplifyMotionEffect>(), cam.GetComponent<FxPro>(), cam.GetComponent<FXAA>(), cam.GetComponent<EdgeDetectEffectNormals>(), cam.GetComponent<CC_Grayscale>());
+	}
+
+	private static void ApplyCameraEffects(AmplifyMotionEffect motion, FxPro fx, FXAA antiAliasing, EdgeDetectEffectNormals edge, CC_Grayscale gray)
+	{
+		// The kill cinematic turned the view camera's effects off on purpose and draws through its own
+		// camera; it takes the new values there and restores the view camera itself when it ends.
+		if (Supershot.ReapplyEffectSettings())
+		{
+			return;
+		}
+		if (Menu.VRmode)
+		{
+			if (motion != null) motion.enabled = false;
+			if (fx != null) fx.enabled = false;
+			if (edge != null) edge.enabled = false;
+			if (gray != null) gray.enabled = false;
+			if (motion != null || fx != null || edge != null || gray != null) QualitySettings.antiAliasing = 0;
+			return;
+		}
+		if (motion != null) motion.enabled = motionBlur;
+		if (fx != null) fx.enabled = dof;
+		if (antiAliasing != null) antiAliasing.enabled = aa;
+		if (edge != null) edge.enabled = edgeRendering;
+		// A downed Roguelike player keeps the forced grayscale; RogueDownedPresentation reads the
+		// setting every frame and restores it when the player is back up.
+		if (gray != null) gray.enabled = saturationFilter;
 	}
 
 	// ---- Sprint state (rules at the fields above)

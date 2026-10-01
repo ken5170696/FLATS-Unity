@@ -277,14 +277,23 @@ namespace Flats.Modules
         {
             if(p.manifest.id==CrosshairModule.Id && ModRules.IsCrosshairProvider(p.manifest))return owner.Crosshair.Bind(p.manifest);
             var module=new ExternalModule(p,Store.ContentPath(p),owner.ConfiguredSettings(p.manifest.id));
-            contexts[p.manifest.id]=module.Context;return module;
+            contexts[p.manifest.id]=module.Context;
+            if(module.ReadsSettings)settingReaders.Add(p.manifest.id);
+            return module;
         }
+        // Modules whose running code can observe a settings change (managed entry types). Data and
+        // crosshair packages are applied from their immutable payload or first preset when enabled;
+        // nothing in the game reads their declared settings, so saving them changes nothing live.
+        readonly System.Collections.Generic.HashSet<string> settingReaders=new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+        public bool ReadsSettings(string id) { return id!=null && settingReaders.Contains(id); }
+        // True only when the running module was handed the new values. The stored context is kept
+        // current either way, but "applied" is never reported for a module that cannot read it.
         public bool ApplyLiveSettings(string id,SettingValue[] values)
         {
             if(id==null || !contexts.TryGetValue(id,out var context))return false;
             var record=owner.Manager?.Installed.FirstOrDefault(r=>r.Manifest.Id==id);
             if(record==null || !record.Active)return false;
-            context.Update(values);return true;
+            context.Update(values);return settingReaders.Contains(id);
         }
         bool ApplyLiveCrosshair()
         {

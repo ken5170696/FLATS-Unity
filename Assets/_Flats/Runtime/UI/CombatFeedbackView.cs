@@ -27,7 +27,7 @@ public sealed class CombatFeedbackView : MonoBehaviour
     [Header("Hit direction (QA-35)")]
     [Tooltip("Parent of the arcs, centred on the crosshair.")] public RectTransform arcRoot;
     [Tooltip("Authored arc (pointing up = straight ahead); instanced for each direction shown.")] public Image arcTemplate;
-    [Tooltip("Distance from the crosshair to the middle of the arc band (canvas units).")] public float arcRadius = 112f;
+    [Tooltip("Distance from the crosshair to the middle of the arc band (canvas units).")] public float arcRadius = 84f;
     [Tooltip("Radius of the arc band's centre line as a fraction of the arc image's width (authored with the DamageArc sprite).")]
     public float spriteRadiusFraction = 0.42f;
     public Color arcColor = new Color(1f, 0.16f, 0.2f, 0.95f);

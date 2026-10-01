@@ -367,6 +367,9 @@ public partial class FPSController
 	[PunRPC]
 	private IEnumerator Reload()
 	{
+		// The rule first (carrying, downed, a menu), then the gun: this RPC can arrive before a copy has a weapon in hand.
+		if (RogueEntryRefused(RogueAction.Reload)) yield break;
+		if (currentGun == null) yield break;
 		int current = currentGun.currentAmmo;
 		int max = currentGun.maxAmmo;
 		int limit = currentGun.limitAmmo;
@@ -374,7 +377,6 @@ public partial class FPSController
 		{
 			yield break;
 		}
-		if (RogueEntryRefused(RogueAction.Reload)) yield break;
 		// A carry or a down cancels a reload in progress (RogueCancelWeaponConflicts). PUN starts this RPC from an
 		// IEnumerator, which StopCoroutine("Reload") cannot stop, so the coroutine checks its token after every wait.
 		int rogueToken = ++rogueReloadToken;

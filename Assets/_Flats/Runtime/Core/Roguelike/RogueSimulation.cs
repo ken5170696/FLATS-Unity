@@ -122,11 +122,15 @@ namespace Flats.Core.Roguelike
         private static void BuyUpgrades(RunMachine run, RunPlayer p, string strategy, bool reward, ref int tx)
         {
             var offers = reward ? p.rewardOffers : p.offers;
+            string preferredCore = strategy == "precision" ? "core.precision" : strategy == "support" ? "core.marker" : "";
             var indices = Enumerable.Range(0, offers.Length).OrderByDescending(i => Score(RogueCatalog.Item(offers[i].itemId), strategy, p.build)).ThenBy(i => i).ToArray();
             foreach (int i in indices)
             {
                 var offer = offers[i]; var def = RogueCatalog.Item(offer.itemId);
-                if (offer.sold || Score(def, strategy, p.build) < 0 || (!reward && p.walletMinor - offer.priceMinor < RogueMoney.Coins(10))) continue;
+                // a build that still lacks its main core keeps a reroll and that core's price in hand (five tiers made upgrades eat the money first)
+                long reserve = !reward && preferredCore.Length > 0 && !p.build.HasCore(preferredCore) && def.Id != preferredCore
+                    ? RogueShop.RerollPriceMinor(run.State.Chapter) + RogueCatalog.PriceMinor(RogueCatalog.Item(preferredCore), run.State.Chapter, run.State.routeTag, 0) : 0;
+                if (offer.sold || Score(def, strategy, p.build) < 0 || (!reward && p.walletMinor - offer.priceMinor < RogueMoney.Coins(10) + reserve)) continue;
                 var purchase = run.Buy(new ShopTransaction { txId = "sim-" + (++tx), runId = run.State.runId, playerKey = p.key, shopVersion = p.shopVersion, offerIndex = i, expectedPriceMinor = offer.free ? 0 : offer.priceMinor, rewardPick = reward });
                 if (!purchase.Ok) throw new InvalidOperationException("simulation purchase: " + purchase.Reason);
                 if (reward) break;

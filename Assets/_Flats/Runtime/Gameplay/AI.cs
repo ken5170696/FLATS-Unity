@@ -131,6 +131,15 @@ public class AI : MonoBehaviour
 	private Coroutine searchRoutine;
 	private bool attackRunning;
 	private bool searchRunning;
+	private float attackRestartAt;
+
+	// Roguelike target selection (authority only, F13): SelectRogueTarget is the one place that orders the list. rogueSelected is the
+	// target it put first, so Patrol can tell when a rebuild (CreateList) or a removed target invalidated the choice and select again
+	// at once; rogueLure is the lure it last saw, removed from the list when the event lets go of it.
+	private const float RogueSelectInterval = 0.25f;
+	private Transform rogueSelected;
+	private Transform rogueLure;
+	private float rogueNextSelect;
 
 	private void Awake()
 	{
@@ -242,7 +251,18 @@ public class AI : MonoBehaviour
 		startEnemyCount = targets.Count;
 		while (true)
 		{
-			if (Menu.isMaster() && targets.Count > 0)
+			if (Menu.isMaster() && RoguelikeMode.Active)
+			{
+				// A list that stayed non-empty with the same count never took in a revived, respawned or late-joining player (A01): the
+				// enemy kept its one known target and ignored the other. Rescan once a second and select again at once, so a lure or a
+				// flanker's choice survives the rebuild. Classic modes keep the count-change rule below.
+				CreateList();
+				if (targets.Count > 0)
+				{
+					SelectRogueTarget();
+				}
+			}
+			else if (Menu.isMaster() && targets.Count > 0)
 			{
 				if (targets.Count != startEnemyCount)
 				{
@@ -263,18 +283,6 @@ public class AI : MonoBehaviour
 						{
 							closestEnemy = target;
 						}
-					}
-				}
-				if (RoguelikeMode.Active)
-				{
-					// a planted lure pulls attention; a flanker prefers the player that is NOT the closest when there are several
-					var lure = RogueHooks.LureTarget();
-					if (lure != null) { targets.Remove(lure); targets.Insert(0, lure); closestEnemy = null; }
-					else if (roleFlanker && closestEnemy != null && targets.Count > 1)
-					{
-						Transform other = null;
-						foreach (Transform t in targets) if (IsValidTarget(t) && t != closestEnemy && t.tag == "Player" && (other == null || Vector3.Distance(mt.position, t.position) < Vector3.Distance(mt.position, other.position))) other = t;
-						if (other != null) closestEnemy = other;
 					}
 				}
 				if (closestEnemy != null)
@@ -298,17 +306,21 @@ public class AI : MonoBehaviour
 		stats_Attack = receivedData[5];
 		stats_Defense = receivedData[6];
 		if (receivedData.Length >= 10 && RoguelikeMode.Active) RogueHooks.OnEnemySynced(this, receivedData[7], receivedData[8], receivedData[9]);
-		Transform ui = GameObject.Find("UICamera").transform;
+		// The HUD is optional here (N05): a missing UICamera or palette entry used to throw before the weapons, the layer and the
+		// line-of-sight mask were set, which left the enemy unable to patrol or shoot. Without it only the tint and the label are skipped.
+		GameObject uiCamera = GameObject.Find("UICamera");
+		Transform ui = uiCamera != null ? uiCamera.transform : null;
+		Color paletteColor;
 		if (team == 0)
 		{
 			SkinnedMeshRenderer[] componentsInChildren = GetComponentsInChildren<SkinnedMeshRenderer>();
 			SkinnedMeshRenderer[] array = componentsInChildren;
 			foreach (SkinnedMeshRenderer skinnedMeshRenderer in array)
 			{
-				skinnedMeshRenderer.material.color = ui.GetChild(0).GetChild(5).GetChild(1)
-					.GetChild(9)
-					.GetComponent<Image>()
-					.color;
+				if (TryGetPaletteColor(ui, 9, out paletteColor))
+				{
+					skinnedMeshRenderer.material.color = paletteColor;
+				}
 				skinnedMeshRenderer.gameObject.layer = 8;
 			}
 			base.gameObject.layer = 8;
@@ -321,10 +333,10 @@ public class AI : MonoBehaviour
 			SkinnedMeshRenderer[] array2 = componentsInChildren2;
 			foreach (SkinnedMeshRenderer skinnedMeshRenderer2 in array2)
 			{
-				skinnedMeshRenderer2.material.color = ui.GetChild(0).GetChild(5).GetChild(1)
-					.GetChild(7)
-					.GetComponent<Image>()
-					.color;
+				if (TryGetPaletteColor(ui, 7, out paletteColor))
+				{
+					skinnedMeshRenderer2.material.color = paletteColor;
+				}
 				skinnedMeshRenderer2.gameObject.layer = 9;
 			}
 			base.gameObject.layer = 9;
@@ -420,18 +432,14 @@ public class AI : MonoBehaviour
 				{
 					if (num == Menu.myCharacter.color)
 					{
-						Color color = ui.GetChild(0).GetChild(5).GetChild(1)
-							.GetChild(num)
-							.GetComponent<Image>()
-							.color;
-						skinnedMeshRenderer3.material.color = new Color(color.r * 2f / 3f, color.g * 2f / 3f, color.b * 2f / 3f);
+						if (TryGetPaletteColor(ui, num, out paletteColor))
+						{
+							skinnedMeshRenderer3.material.color = new Color(paletteColor.r * 2f / 3f, paletteColor.g * 2f / 3f, paletteColor.b * 2f / 3f);
+						}
 					}
-					else
+					else if (TryGetPaletteColor(ui, num, out paletteColor))
 					{
-						skinnedMeshRenderer3.material.color = ui.GetChild(0).GetChild(5).GetChild(1)
-							.GetChild(num)
-							.GetComponent<Image>()
-							.color;
+						skinnedMeshRenderer3.material.color = paletteColor;
 					}
 				}
 				else
@@ -444,18 +452,18 @@ public class AI : MonoBehaviour
 				}
 				if (Menu.network == 0 && base.gameObject.layer == LayerMask.NameToLayer("RedTeam"))
 				{
-					skinnedMeshRenderer3.material.color = ui.GetChild(0).GetChild(5).GetChild(1)
-						.GetChild(Menu.myCharacter.color)
-						.GetComponent<Image>()
-						.color;
+					if (TryGetPaletteColor(ui, Menu.myCharacter.color, out paletteColor))
+					{
+						skinnedMeshRenderer3.material.color = paletteColor;
+					}
 					head.layer = base.gameObject.layer;
 				}
 				if (vip)
 				{
-					skinnedMeshRenderer3.material.color = ui.GetChild(0).GetChild(5).GetChild(1)
-						.GetChild(11)
-						.GetComponent<Image>()
-						.color;
+					if (TryGetPaletteColor(ui, 11, out paletteColor))
+					{
+						skinnedMeshRenderer3.material.color = paletteColor;
+					}
 				}
 			}
 		}
@@ -475,11 +483,28 @@ public class AI : MonoBehaviour
 		{
 			runAwayDistance = 100f;
 		}
-		Transform pn = (Transform)UnityEngine.Object.Instantiate(myName);
+		// the name label is HUD only: without its prefab or its HUD parent the zombie start-up below must still run
+		Transform pn = (myName != null) ? (Transform)UnityEngine.Object.Instantiate(myName) : null;
 		yield return new WaitForEndOfFrame();
-		pn.GetComponent<InformationUI>().target = mt;
-		pn.SetParent(ui.GetChild(1), false);
-		pn.SetAsLastSibling();
+		if (pn != null)
+		{
+			Transform labels = OptionalChild(ui, 1);
+			if (labels != null)
+			{
+				InformationUI information = pn.GetComponent<InformationUI>();
+				if (information != null)
+				{
+					information.target = mt;
+				}
+				pn.SetParent(labels, false);
+				pn.SetAsLastSibling();
+			}
+			else
+			{
+				// no HUD to show it on: an unparented label would only linger at the scene root
+				UnityEngine.Object.Destroy(pn.gameObject);
+			}
+		}
 		if (zombie)
 		{
 			yield return new WaitForSeconds(3f);
@@ -490,10 +515,40 @@ public class AI : MonoBehaviour
 		}
 	}
 
+	/// <summary>An optional child by sibling index path (HUD lookups): null when the root or any step is missing, never an exception.</summary>
+	private static Transform OptionalChild(Transform root, params int[] path)
+	{
+		Transform current = root;
+		for (int i = 0; i < path.Length; i++)
+		{
+			if (current == null || path[i] < 0 || path[i] >= current.childCount)
+			{
+				return null;
+			}
+			current = current.GetChild(path[i]);
+		}
+		return current;
+	}
+
+	/// <summary>Swatch <paramref name="index"/> of the HUD colour palette (UICamera/0/5/1/index). False when the HUD does not have it.</summary>
+	private static bool TryGetPaletteColor(Transform ui, int index, out Color color)
+	{
+		color = Color.white;
+		Transform swatch = OptionalChild(ui, 0, 5, 1, index);
+		Image image = (swatch != null) ? swatch.GetComponent<Image>() : null;
+		if (image == null)
+		{
+			return false;
+		}
+		color = image.color;
+		return true;
+	}
+
 	[PunRPC]
 	private void SetDestination(Vector3 destination)
 	{
-		if (agent.isActiveAndEnabled && agent != null && isGrounded())
+		// null first, and only an agent that stands on the NavMesh takes a destination (A05); off it the call only logs an error
+		if (agent != null && agent.isActiveAndEnabled && agent.isOnNavMesh && isGrounded())
 		{
 			agent.SetDestination(destination);
 		}
@@ -559,10 +614,22 @@ public class AI : MonoBehaviour
 		while (true)
 		{
             if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) { yield return null; continue; }
+			// SyncTeam has not finished (or failed): without the agent and the gun this loop would throw and end for good (N02)
+			if (agent == null || currentGun == null) { yield return null; continue; }
 			targets.RemoveAll(target => !IsValidTarget(target));
 			if (Menu.isMaster())
 			{
-				if (targets.Count > 0)
+				if (RoguelikeMode.Active)
+				{
+					// Roguelike orders the list in SelectRogueTarget only (A03/A09); the nearest-first sort below used to undo the lure
+					// and the flanker's choice every frame. Select again when the first entry is no longer the one selected (a rebuild or
+					// a removed target) and otherwise a few times a second, so a player stepping into view is noticed promptly.
+					if (targets.Count > 0 && (targets[0] != rogueSelected || Time.time >= rogueNextSelect))
+					{
+						SelectRogueTarget();
+					}
+				}
+				else if (targets.Count > 0)
 				{
 					Transform transform = null;
 					foreach (Transform target in targets)
@@ -768,6 +835,13 @@ public class AI : MonoBehaviour
 						if (ClampAngle(Vector3.Angle(ct.forward, mt.position - targets[0].position)) >= 160f && targets[0].gameObject.activeSelf)
 						{
 							canShoot = true;
+							// attack mode without its loop only happens after the loop ended on an error (A08): start it again, at most
+							// once a second so a persistent error cannot restart it every frame
+							if (!attackRunning && Time.time >= attackRestartAt)
+							{
+								attackRestartAt = Time.time + 1f;
+								BeginAttack();
+							}
 							if (Vector3.Distance(targets[0].position, mt.position) < runAwayDistance)
 							{
 								closest = null;
@@ -842,10 +916,95 @@ public class AI : MonoBehaviour
 
 	// Roguelike: a downed teammate (damage-immune until revived) and a dead player's root (kept five seconds for the ragdoll) are
 	// still tagged Player; an enemy that kept sorting them as its closest target stood shooting a body while the living player walked
-	// past unbothered. Classic modes never reach this check.
+	// past unbothered. The Classic nearest-first sort in Patrol uses this check; Roguelike selects in SelectRogueTarget.
 	private static bool RogueTargetable(Transform target)
 	{
 		return IsValidTarget(target);
+	}
+
+	/// <summary>The sight test a patrolling enemy uses before it attacks: the target is in its front arc and no wall is between them.
+	/// An enemy already in attack mode turns toward its target itself, so only the line of sight counts for it.</summary>
+	private bool RogueSees(Transform target)
+	{
+		if (isPatrol && ClampAngle(Vector3.Angle(mt.forward, mt.position - target.position)) < 85f) return false;
+		return CanSeeTarget(target);
+	}
+
+	/// <summary>
+	/// Roguelike, authority only: the single place that decides targets[0] (A03/A09). Invalid targets go; a valid lure comes first;
+	/// otherwise the nearest target the enemy can see, and only when it sees none the nearest one (which it then searches for). The
+	/// old order took the nearest and tested only that one, so an enemy whose nearest player stood behind a wall ignored another player
+	/// in plain view. A flanker prefers a player other than that choice, but never gives up a visible target for a hidden one.
+	/// </summary>
+	private void SelectRogueTarget()
+	{
+		rogueNextSelect = Time.time + RogueSelectInterval;
+		targets.RemoveAll(target => !IsValidTarget(target));
+		Transform lure = RogueHooks.LureTarget();
+		if (rogueLure != null && rogueLure != lure)
+		{
+			// the event let go of the lure but its object still exists: it is not a target any more
+			targets.Remove(rogueLure);
+		}
+		rogueLure = lure;
+		Transform selected = null;
+		if (IsValidTarget(lure))
+		{
+			selected = lure;
+		}
+		else
+		{
+			Transform nearest = null;
+			Transform visible = null;
+			float nearestDistance = float.PositiveInfinity;
+			float visibleDistance = float.PositiveInfinity;
+			foreach (Transform target in targets)
+			{
+				float distance = (target.position - mt.position).sqrMagnitude;
+				if (distance < nearestDistance)
+				{
+					nearest = target;
+					nearestDistance = distance;
+				}
+				if (distance < visibleDistance && RogueSees(target))
+				{
+					visible = target;
+					visibleDistance = distance;
+				}
+			}
+			selected = (visible != null) ? visible : nearest;
+			if (roleFlanker && selected != null && targets.Count > 1)
+			{
+				Transform other = null;
+				float otherDistance = float.PositiveInfinity;
+				foreach (Transform target in targets)
+				{
+					if (target == selected || target.tag != "Player") continue;
+					float distance = (target.position - mt.position).sqrMagnitude;
+					if (distance >= otherDistance) continue;
+					if (visible != null && !RogueSees(target)) continue;
+					other = target;
+					otherDistance = distance;
+				}
+				if (other != null)
+				{
+					selected = other;
+				}
+			}
+		}
+		if (selected != null)
+		{
+			targets.Remove(selected);
+			targets.Insert(0, selected);
+		}
+		rogueSelected = selected;
+	}
+
+	/// <summary>Roguelike role movement (RogueEnemyTactics, A10): this enemy could hit the target from where it stands, i.e. the target
+	/// is valid, in line of sight and in range. A role that holds its position without this would stand behind a wall doing nothing.</summary>
+	public bool RogueCanFireAt(Transform target)
+	{
+		return mt != null && IsValidTarget(target) && CanSeeTarget(target) && IsInRangeOf(target);
 	}
 
 	private void CreateList()
@@ -943,7 +1102,68 @@ public class AI : MonoBehaviour
 		searchRunning = false;
 	}
 
+	// A08: a loop that ended on an exception used to leave its "running" flag set, so BeginAttack/BeginSearch refused to start a new
+	// one and the enemy never fired or searched again; a burst or a reload that ended that way left enableFire false for good. Each
+	// routine is stepped through a wrapper whose finally block clears its state (C# allows yield inside try/finally, not try/catch).
+	// The wrapper yields exactly what the routine yields, so timing is unchanged. StopCoroutine and StopAllCoroutines do not run a
+	// finally block; those paths clear the handles themselves (StopAttackRoutines, ForgetRoutines).
 	private IEnumerator AttackLoop()
+	{
+		IEnumerator steps = AttackSteps();
+		try
+		{
+			while (steps.MoveNext())
+			{
+				yield return steps.Current;
+			}
+		}
+		finally
+		{
+			attackRoutine = null;
+			attackRunning = false;
+		}
+	}
+
+	private IEnumerator SearchLoop()
+	{
+		IEnumerator steps = SearchSteps();
+		try
+		{
+			while (steps.MoveNext())
+			{
+				yield return steps.Current;
+			}
+		}
+		finally
+		{
+			searchRoutine = null;
+			searchRunning = false;
+		}
+	}
+
+	/// <summary>Steps a burst or a reload; when it ends on an exception, firing is allowed again instead of staying off for good.
+	/// A normal end leaves enableFire as the routine set it (a burst that hands over to a reload keeps it off on purpose).</summary>
+	private IEnumerator RestoreFireOnFault(IEnumerator steps)
+	{
+		bool finished = false;
+		try
+		{
+			while (steps.MoveNext())
+			{
+				yield return steps.Current;
+			}
+			finished = true;
+		}
+		finally
+		{
+			if (!finished)
+			{
+				enableFire = true;
+			}
+		}
+	}
+
+	private IEnumerator AttackSteps()
 	{
 		while (true)
 		{
@@ -980,7 +1200,7 @@ public class AI : MonoBehaviour
 		yield break;
 	}
 
-	private IEnumerator SearchLoop()
+	private IEnumerator SearchSteps()
 	{
 		targets.RemoveAll(target => !IsValidTarget(target));
 		tt = trailTime;
@@ -998,6 +1218,13 @@ public class AI : MonoBehaviour
 				if (targets.Count <= 0 || targets[0] == null || (CanSeeTarget(targets[0]) && IsInRangeOf(targets[0])))
 				{
 					break;
+				}
+				// Roguelike (A04): the destination was set once, on entry, so the enemy walked to where the target had been and waited
+				// there for the timeout. Follow the live target, once per pass (about a second). An enemy on a link is left alone: its
+				// crossing belongs to RogueEnemyLinkTraversal.
+				if (RoguelikeMode.Active && IsValidTarget(targets[0]) && agent.isActiveAndEnabled && agent.isOnNavMesh && !agent.isOnOffMeshLink)
+				{
+					SetDestination(targets[0].position);
 				}
 				agent.speed = defaultSpeed * 1.5f;
 				tt -= 1f;
@@ -1131,6 +1358,13 @@ public class AI : MonoBehaviour
 	[PunRPC]
 	private IEnumerator Shoot()
 	{
+		return RestoreFireOnFault(ShootSteps());
+	}
+
+	private IEnumerator ShootSteps()
+	{
+		// initialisation (SyncTeam) not finished or failed on this copy: no burst, instead of an exception per shot (N02)
+		if (agent == null || currentGun == null || primaryWeapon == null) yield break;
         if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) yield break;
         if (RoguelikeMode.Active && RogueKillPrediction.IsPredictedDead(gameObject)) yield break;   // this client already saw the kill (F07)
 		agent.speed = defaultSpeed;
@@ -1321,6 +1555,13 @@ public class AI : MonoBehaviour
 	[PunRPC]
 	private IEnumerator Reload()
 	{
+		return RestoreFireOnFault(ReloadSteps());
+	}
+
+	private IEnumerator ReloadSteps()
+	{
+		// no gun yet (SyncTeam not finished or failed on this copy): nothing to reload (N02)
+		if (currentGun == null) yield break;
 		int current = currentGun.currentAmmo;
 		int max = currentGun.maxAmmo;
 		int limit = currentGun.limitAmmo;
@@ -1461,11 +1702,9 @@ public class AI : MonoBehaviour
 		// the same rules as every other rebuild: the other team only, never the dead or downed (this list used to take every
 		// player, teammates included, and drop the opposing bots)
 		CreateList();
-		if (GameObject.FindGameObjectsWithTag("Player").Length == 0)
-		{
-			StopAllCoroutines();
-			ForgetRoutines();
-		}
+		// No player object at this instant (everyone between a death and a respawn, or avatars being rebuilt) is not the end of the
+		// match: this used to stop every coroutine for good, and the enemy stood idle after the players were back (A06). Patrol's
+		// empty-list path keeps rescanning until a target exists; the object's destruction ends the loops as before.
 	}
 
 	private void OnDisable()

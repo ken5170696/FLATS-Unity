@@ -138,15 +138,27 @@ public class DamageReceiver : MonoBehaviour
 	private IEnumerator Start()
 	{
 		mt = base.transform;
-		if (died && !userIsPlayer) yield break;   // a Die RPC beat Start on this copy: nothing to initialise
+		if (died) yield break;   // a Die RPC beat Start on this copy (player or enemy): nothing to initialise, Die bound what it needs
 		if (userIsPlayer)
 		{
 			myFPSController = GetComponent<FPSController>();
-			ct = myFPSController.myCamera.transform;
+			if (myFPSController == null)
+			{
+				// a player object without its controller cannot run the owner loop below; report it once instead of throwing every frame
+				Debug.LogError("DamageReceiver: player object '" + base.name + "' has no FPSController", this);
+				yield break;
+			}
+			// the camera only feeds the kill camera; Die falls back to Camera.main when it is missing
+			if (myFPSController.myCamera != null)
+			{
+				ct = myFPSController.myCamera.transform;
+			}
 		}
 		else if (MyView(base.gameObject))
 		{
-			ct = Camera.main.transform.parent;
+			// its own coroutine: a moment without a main camera (the owner died and the view is switching) must not hold back
+			// the health set below
+			StartCoroutine(BindOwnedEnemyCamera());
 		}
 		if (Menu.network != 0)
 		{
@@ -156,14 +168,25 @@ public class DamageReceiver : MonoBehaviour
 		{
 			yield return new WaitForSeconds(0f);
 		}
+		if (died) yield break;
 		if (userIsPlayer && MyView(base.gameObject))
 		{
-			ui = GameObject.Find("UI").transform;
-			damageEffect = ui.Find("DamageEffect").GetComponent<Image>();
-			healthbar = ui.Find("Healthbar").GetComponent<Scrollbar>();
+			// the HUD is optional here: without it the player still gets health, spawn protection and regeneration
+			GameObject uiObject = GameObject.Find("UI");
+			ui = uiObject != null ? uiObject.transform : null;
+			Transform effectNode = ui != null ? ui.Find("DamageEffect") : null;
+			Transform healthNode = ui != null ? ui.Find("Healthbar") : null;
+			damageEffect = effectNode != null ? effectNode.GetComponent<Image>() : null;
+			healthbar = healthNode != null ? healthNode.GetComponent<Scrollbar>() : null;
 			hitPoints = RogueHooks.PlayerMaxHealth(this, 1000f * (1f + (float)Menu.myCharacter.defense * 0.1f));
-			damageEffect.color = new Color(1f, 1f, 1f, 0f);
-			healthbar.size = 1f;
+			if (damageEffect != null)
+			{
+				damageEffect.color = new Color(1f, 1f, 1f, 0f);
+			}
+			if (healthbar != null)
+			{
+				healthbar.size = 1f;
+			}
 			invincibility = true;
 			NoteInvincibility(3f);
 			yield return new WaitForSeconds(3f);
@@ -174,10 +197,19 @@ public class DamageReceiver : MonoBehaviour
 		if (!userIsPlayer)
 		{
 			myAI = GetComponent<AI>();
+			if (myAI == null)
+			{
+				Debug.LogError("DamageReceiver: enemy object '" + base.name + "' has no AI", this);
+				yield break;
+			}
 			hitPoints = RogueHooks.EnemyMaxHealth(this, 1000f * (1f + (float)myAI.stats_Defense * 0.1f) * Flats.Core.EnemyTuning.Health);
 		}
 		while (true)
 		{
+			if (userIsPlayer && died)
+			{
+				break;   // also without a health bar: a dead player neither regenerates nor reads its removed controller
+			}
 			if (userIsPlayer && MyView(base.gameObject))
 			{
 				float num = RogueHooks.PlayerMaxHealth(this, 1000f * (1f + (float)Menu.myCharacter.defense * 0.1f));
@@ -233,7 +265,82 @@ public class DamageReceiver : MonoBehaviour
 			}
 			yield return new WaitForSeconds(0f);
 		}
-		healthbar.size = 0f;
+		if (healthbar != null)
+		{
+			healthbar.size = 0f;
+		}
+	}
+
+	// An owned enemy can spawn while no main camera is enabled (the owner died and the view is switching). The camera only feeds
+	// the kill camera, so this waits for one without holding Start back, and stops when the enemy is dead: Die takes Camera.main itself.
+	private IEnumerator BindOwnedEnemyCamera()
+	{
+		Camera main = Camera.main;
+		while (main == null)
+		{
+			yield return null;
+			if (died)
+			{
+				yield break;
+			}
+			main = Camera.main;
+		}
+		if (ct == null)
+		{
+			ct = main.transform.parent;
+		}
+	}
+
+	// The match controller is bound in Start; a Die RPC can reach a copy before that, and the controller can be gone while a
+	// scene closes. Kill logs and scores are optional: without it they are skipped and the death itself continues.
+	private PhotonView MultiplayerView()
+	{
+		if (multiplayer == null && Menu.network != 0)
+		{
+			multiplayer = GameObject.Find("MultiplayerController");
+		}
+		PhotonView view = multiplayer != null ? multiplayer.GetPhotonView() : null;
+		return view != null ? view : null;
+	}
+
+	private static string OwnerName(GameObject go)
+	{
+		PhotonView view = go != null ? go.GetPhotonView() : null;
+		return view != null && view.owner != null ? view.owner.NickName : "Flatman";
+	}
+
+	// The local player's ragdoll carries the respawn camera as its fifth child. A HUD or a ragdoll without those parts must not
+	// stop Die: the rest of the death (kill log, weapon drop, counters) still has to run.
+	private void ShowRespawnView(GameObject corpse)
+	{
+		if (healthbar != null)
+		{
+			healthbar.size = 0f;
+		}
+		if (corpse.transform.childCount <= 4)
+		{
+			Debug.LogError("DamageReceiver: the dead replacement of '" + base.name + "' has no respawn child", corpse);
+			return;
+		}
+		Transform respawnRoot = corpse.transform.GetChild(4);
+		respawnRoot.gameObject.SetActive(true);
+		Respawn respawn = respawnRoot.GetComponent<Respawn>();
+		if (respawn != null)
+		{
+			respawn.original = base.gameObject;
+		}
+		else
+		{
+			Debug.LogError("DamageReceiver: the respawn child of '" + corpse.name + "' has no Respawn component", corpse);
+		}
+		if (!Menu.VRmode && respawnRoot.childCount > 0)
+		{
+			BlurEffect blur = respawnRoot.GetChild(0).GetComponent<BlurEffect>();
+			if (blur != null)
+			{
+				blur.enabled = true;
+			}
+		}
 	}
 
 	// Destroy(myAI) completes at the end of the frame; adding the sink before then
@@ -263,7 +370,10 @@ public class DamageReceiver : MonoBehaviour
 		}
 		else if (Menu.network != 1)
 		{
-			shooter = PhotonView.Find(receivedData[2]).transform;
+			// the shooter can have left or been destroyed while this report travelled: the accepted damage still counts,
+			// only its attribution is dropped (every use of shooter and killer below allows null)
+			PhotonView shooterView = PhotonView.Find(receivedData[2]);
+			shooter = shooterView != null ? shooterView.transform : null;
 		}
 		if ((userIsPlayer && !MyView(base.gameObject)) || hitPoints <= 0f)
 		{
@@ -558,6 +668,10 @@ public class DamageReceiver : MonoBehaviour
 			catch (Exception e) { Debug.LogException(e, this); }
 		}
 		if (mt == null) mt = base.transform;   // the Die RPC can reach a network copy before Start ran
+		// ... and Start no longer initialises a dead object, so the components it would have bound are bound here: otherwise
+		// Destroy(null) below left a live FPSController / AI on the dead object for five seconds, running on deactivated children
+		if (userIsPlayer && myFPSController == null) myFPSController = GetComponent<FPSController>();
+		if (!userIsPlayer && myAI == null) myAI = GetComponent<AI>();
 		if (RoguelikeMode.Coop && !userIsPlayer && receivedData != 0)
 		{
 			// the announcing copy packed shooter viewID * 2 + headshot flag; the authority pays and attributes from it
@@ -588,14 +702,27 @@ public class DamageReceiver : MonoBehaviour
 			try { RogueHooks.PoseCorpse(this, gameObject); }
 			catch (Exception e) { Debug.LogException(e, this); }
 		}
-		gameObject.GetComponent<AudioSource>().volume = 0.5f;
-		gameObject.GetComponent<AudioSource>().pitch = 0.75f;
-		gameObject.GetComponent<AudioSource>().PlayOneShot(damageSE);
-		SkinnedMeshRenderer[] componentsInChildren = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();
-		SkinnedMeshRenderer[] array = componentsInChildren;
-		foreach (SkinnedMeshRenderer skinnedMeshRenderer in array)
+		// the death sound and the body colour are presentation: a ragdoll or a body without those parts still dies in full
+		AudioSource corpseAudio = gameObject.GetComponent<AudioSource>();
+		if (corpseAudio != null)
 		{
-			skinnedMeshRenderer.material = mt.GetChild(0).GetComponent<Renderer>().material;
+			corpseAudio.volume = 0.5f;
+			corpseAudio.pitch = 0.75f;
+			if (damageSE != null)
+			{
+				corpseAudio.PlayOneShot(damageSE);
+			}
+		}
+		Renderer sourceRenderer = mt.childCount > 0 ? mt.GetChild(0).GetComponent<Renderer>() : null;
+		if (sourceRenderer != null && sourceRenderer.sharedMaterial != null)
+		{
+			Material bodyMaterial = sourceRenderer.material;
+			SkinnedMeshRenderer[] componentsInChildren = gameObject.GetComponentsInChildren<SkinnedMeshRenderer>();
+			SkinnedMeshRenderer[] array = componentsInChildren;
+			foreach (SkinnedMeshRenderer skinnedMeshRenderer in array)
+			{
+				skinnedMeshRenderer.material = bodyMaterial;
+			}
 		}
 		// QA-44: a confirmed enemy death leaves a body that can be carried as a bullet shield (a predicted kill that rolls back never gets here)
 		if (RoguelikeMode.Active && !userIsPlayer)
@@ -606,7 +733,9 @@ public class DamageReceiver : MonoBehaviour
 		if (base.gameObject.tag == "Player")
 		{
 			UnityEngine.Object.Destroy(myFPSController);
-			if (Menu.network != 0 && GetComponent<DeadPlayerRpcSinkInstaller>() == null) gameObject.AddComponent<DeadPlayerRpcSinkInstaller>();
+			// on the player object itself (it keeps the PhotonView and receives the late RPCs); the local "gameObject" here is the ragdoll,
+			// which has no view, so a sink installed there never answered anything
+			if (Menu.network != 0 && GetComponent<DeadPlayerRpcSinkInstaller>() == null) base.gameObject.AddComponent<DeadPlayerRpcSinkInstaller>();
 		}
 		else
 		{
@@ -645,14 +774,14 @@ public class DamageReceiver : MonoBehaviour
 					GameObject.Find("SingleplayerController").GetComponent<Singleplayer>().Log("Achieved new headshot record.");
 				}
 			}
-			if (!RoguelikeMode.Active && MyView(killer.gameObject))   // no kill-cam interruptions in the roguelike waves; the HUD already reports the bounty
+			if (!RoguelikeMode.Active && killer != null && MyView(killer.gameObject))   // no kill-cam interruptions in the roguelike waves; the HUD already reports the bounty
 			{
 				Supershot.PlayKill(effectCamera, ct, gameObject.transform, true);
 			}
 		}
 		else if (command == "mortal" && ct != null)
 		{
-			if (!RoguelikeMode.Active && MyView(killer.gameObject))
+			if (!RoguelikeMode.Active && killer != null && MyView(killer.gameObject))
 			{
 				Supershot.PlayKill(effectCamera, ct, gameObject.transform, false);
 			}
@@ -672,15 +801,8 @@ public class DamageReceiver : MonoBehaviour
 		{
 			if (Menu.network == 0)
 			{
-				healthbar.size = 0f;
-				gameObject.transform.GetChild(4).gameObject.SetActive(true);
-				gameObject.transform.GetChild(4).gameObject.GetComponent<Respawn>().original = base.gameObject;
+				ShowRespawnView(gameObject);
 				UnityEngine.Object.Destroy(gameObject.GetComponent<Destroy>());
-				if (!Menu.VRmode)
-				{
-					gameObject.transform.GetChild(4).GetChild(0).GetComponent<BlurEffect>()
-						.enabled = true;
-				}
 				if (Singleplayer.rule == 3 || RoguelikeMode.Solo)
 				{
 					Debug.Log(RoguelikeMode.Solo ? "Roguelike solo death: the run controller ends the run." : "Respawn for training...");
@@ -704,16 +826,11 @@ public class DamageReceiver : MonoBehaviour
 			}
 			else if (!userIsPlayer || MyView(base.gameObject))
 			{
+				// the match controller's view: null when the controller is gone (a scene closing), then logs and scores are skipped
+				PhotonView matchView = MultiplayerView();
 				if (userIsPlayer)
 				{
-					healthbar.size = 0f;
-					gameObject.transform.GetChild(4).gameObject.SetActive(true);
-					gameObject.transform.GetChild(4).gameObject.GetComponent<Respawn>().original = base.gameObject;
-					if (!Menu.VRmode)
-					{
-						gameObject.transform.GetChild(4).GetChild(0).GetComponent<BlurEffect>()
-							.enabled = true;
-					}
+					ShowRespawnView(gameObject);
 				}
 				if (killer == mt)
 				{
@@ -726,13 +843,19 @@ public class DamageReceiver : MonoBehaviour
 						}
 						else if (Menu.network != 1)
 						{
-							text = "Suicide:" + base.gameObject.GetPhotonView().owner.NickName;
-							multiplayer.GetPhotonView().RPC("Log", PhotonTargets.All, text);
+							text = "Suicide:" + OwnerName(base.gameObject);
+							if (matchView != null)
+							{
+								matchView.RPC("Log", PhotonTargets.All, text);
+							}
 							// A VIP lost to a fall or their own grenade still starts the next VIP round.
-							if (Multiplayer.rule == 7 && myFPSController.vip && !Multiplayer.end)
+							if (Multiplayer.rule == 7 && myFPSController != null && myFPSController.vip && !Multiplayer.end)
 							{
 								invincibility = true;
-								multiplayer.GetPhotonView().RPC("VIPRound", PhotonTargets.All);
+								if (matchView != null)
+								{
+									matchView.RPC("VIPRound", PhotonTargets.All);
+								}
 							}
 						}
 					}
@@ -748,71 +871,113 @@ public class DamageReceiver : MonoBehaviour
 						PhotonPlayer photonPlayer = PhotonNetwork.player;
 						if (killer == null)
 						{
-							killer = PhotonView.Find(receivedData).transform;
-						}
-						// The local gameObject is the replacement ragdoll, not the registered actor.
-						FlatsOfflineScores.Kill(killer,base.gameObject);
-						if (killer.tag == "Player")
-						{
-							photonPlayer = killer.gameObject.GetPhotonView().owner;
-						}
-						if (killer.tag == "Player" && (base.gameObject.tag == "Player" || PhotonNetwork.offlineMode))
-						{
-							ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
-							int num = (int)photonPlayer.CustomProperties["K"];
-							num++;
-							hashtable["K"] = num;
-							photonPlayer.SetCustomProperties(hashtable);
-							int[] array4 = new int[2] { photonPlayer.ID, 0 };
-							multiplayer.GetPhotonView().RPC("GetScore", PhotonTargets.All, array4);
-						}
-						if (userIsPlayer && (killer.tag == "Player" || PhotonNetwork.offlineMode))
-						{
-							ExitGames.Client.Photon.Hashtable hashtable2 = new ExitGames.Client.Photon.Hashtable();
-							int num2 = (int)PhotonNetwork.player.CustomProperties["D"];
-							num2++;
-							hashtable2["D"] = num2;
-							PhotonNetwork.SetPlayerCustomProperties(hashtable2);
-							Multiplayer.privateDeathCount++;
-						}
-						bool victimVIP = Multiplayer.rule == 7 && (userIsPlayer ? myFPSController.vip : GetComponent<AI>() != null && GetComponent<AI>().vip);
-						if (Multiplayer.rule <= 2 || victimVIP)
-						{
-							int num3 = 2;
-							if (killer.tag == "Player")
+							// the killer's view can be gone (it left or was destroyed while the kill travelled)
+							PhotonView killerView = PhotonView.Find(receivedData);
+							if (killerView != null)
 							{
-								if (photonPlayer.GetTeam() == PunTeams.Team.red)
-								{
-									num3 = 0;
-								}
-								else if (photonPlayer.GetTeam() == PunTeams.Team.blue)
-								{
-									num3 = 1;
-								}
+								killer = killerView.transform;
 							}
-							else if (Multiplayer.rule != 1)
+						}
+						bool victimVIP = Multiplayer.rule == 7 && (userIsPlayer ? myFPSController != null && myFPSController.vip : GetComponent<AI>() != null && GetComponent<AI>().vip);
+						if (killer == null)
+						{
+							// nobody to credit: no kill, team score or kill log, but the victim's death still counts and a lost VIP still
+							// starts the next round (same senders as the credited path below)
+							if (userIsPlayer && PhotonNetwork.offlineMode)
 							{
-								num3 = ((!(LayerMask.LayerToName(killer.gameObject.layer) == "RedTeam")) ? 1 : 0);
-							}
-							if ((userIsPlayer && MyView(base.gameObject)) || (!userIsPlayer && MyView(killer.gameObject)))
-							{
-								int[] array5 = new int[2] { num3, 1 };
-								multiplayer.GetPhotonView().RPC("GetTeamScore", PhotonTargets.All, array5);
+								ExitGames.Client.Photon.Hashtable hashtable3 = new ExitGames.Client.Photon.Hashtable();
+								object deaths = PhotonNetwork.player.CustomProperties["D"];
+								hashtable3["D"] = (deaths is int ? (int)deaths : 0) + 1;
+								PhotonNetwork.SetPlayerCustomProperties(hashtable3);
+								Multiplayer.privateDeathCount++;
 							}
 							if (victimVIP)
 							{
 								invincibility = true;
-								if (!Multiplayer.end)
+								if (!Multiplayer.end && matchView != null)
 								{
-									multiplayer.GetPhotonView().RPC("VIPRound", PhotonTargets.All);
+									matchView.RPC("VIPRound", PhotonTargets.All);
 								}
 							}
 						}
-						if ((userIsPlayer && MyView(base.gameObject)) || (!userIsPlayer && MyView(killer.gameObject)))
+						else
 						{
-							string text2 = "";
-							text2 = ((killer.tag == "Player" && base.gameObject.tag == "Player") ? (photonPlayer.NickName + " killed " + base.gameObject.GetPhotonView().owner.NickName) : ((killer.tag == "Player" && base.gameObject.tag != "Player") ? (photonPlayer.NickName + " killed Flatman(Bot)") : ((!(killer.tag != "Player") || !(base.gameObject.tag == "Player")) ? "Flatman(Bot) killed Flatman(Bot)" : ("Flatman(Bot) killed " + base.gameObject.GetPhotonView().owner.NickName))));
-							multiplayer.GetPhotonView().RPC("Log", PhotonTargets.All, text2);
+							// The local gameObject is the replacement ragdoll, not the registered actor.
+							FlatsOfflineScores.Kill(killer,base.gameObject);
+							if (killer.tag == "Player")
+							{
+								PhotonView killerOwnerView = killer.gameObject.GetPhotonView();
+								if (killerOwnerView != null && killerOwnerView.owner != null)
+								{
+									photonPlayer = killerOwnerView.owner;
+								}
+							}
+							if (killer.tag == "Player" && (base.gameObject.tag == "Player" || PhotonNetwork.offlineMode))
+							{
+								ExitGames.Client.Photon.Hashtable hashtable = new ExitGames.Client.Photon.Hashtable();
+								int num = (int)photonPlayer.CustomProperties["K"];
+								num++;
+								hashtable["K"] = num;
+								photonPlayer.SetCustomProperties(hashtable);
+								int[] array4 = new int[2] { photonPlayer.ID, 0 };
+								if (matchView != null)
+								{
+									matchView.RPC("GetScore", PhotonTargets.All, array4);
+								}
+							}
+							if (userIsPlayer && (killer.tag == "Player" || PhotonNetwork.offlineMode))
+							{
+								ExitGames.Client.Photon.Hashtable hashtable2 = new ExitGames.Client.Photon.Hashtable();
+								int num2 = (int)PhotonNetwork.player.CustomProperties["D"];
+								num2++;
+								hashtable2["D"] = num2;
+								PhotonNetwork.SetPlayerCustomProperties(hashtable2);
+								Multiplayer.privateDeathCount++;
+							}
+							if (Multiplayer.rule <= 2 || victimVIP)
+							{
+								int num3 = 2;
+								if (killer.tag == "Player")
+								{
+									if (photonPlayer.GetTeam() == PunTeams.Team.red)
+									{
+										num3 = 0;
+									}
+									else if (photonPlayer.GetTeam() == PunTeams.Team.blue)
+									{
+										num3 = 1;
+									}
+								}
+								else if (Multiplayer.rule != 1)
+								{
+									num3 = ((!(LayerMask.LayerToName(killer.gameObject.layer) == "RedTeam")) ? 1 : 0);
+								}
+								if ((userIsPlayer && MyView(base.gameObject)) || (!userIsPlayer && MyView(killer.gameObject)))
+								{
+									int[] array5 = new int[2] { num3, 1 };
+									if (matchView != null)
+									{
+										matchView.RPC("GetTeamScore", PhotonTargets.All, array5);
+									}
+								}
+								if (victimVIP)
+								{
+									invincibility = true;
+									if (!Multiplayer.end && matchView != null)
+									{
+										matchView.RPC("VIPRound", PhotonTargets.All);
+									}
+								}
+							}
+							if ((userIsPlayer && MyView(base.gameObject)) || (!userIsPlayer && MyView(killer.gameObject)))
+							{
+								string text2 = "";
+								text2 = ((killer.tag == "Player" && base.gameObject.tag == "Player") ? (photonPlayer.NickName + " killed " + OwnerName(base.gameObject)) : ((killer.tag == "Player" && base.gameObject.tag != "Player") ? (photonPlayer.NickName + " killed Flatman(Bot)") : ((!(killer.tag != "Player") || !(base.gameObject.tag == "Player")) ? "Flatman(Bot) killed Flatman(Bot)" : ("Flatman(Bot) killed " + OwnerName(base.gameObject)))));
+								if (matchView != null)
+								{
+									matchView.RPC("Log", PhotonTargets.All, text2);
+								}
+							}
 						}
 					}
 				}
@@ -824,12 +989,17 @@ public class DamageReceiver : MonoBehaviour
 					}
 					else if (Menu.network != 1)
 					{
-						string text3 = "Killed: " + base.gameObject.GetPhotonView().owner.NickName;
-						multiplayer.GetPhotonView().RPC("Log", PhotonTargets.All, text3);
+						// an optional kill log: a player who already left the room, or a match controller that is gone, only skips
+						// the line; the rest of Die (weapon drop, counters) still runs
+						PhotonView deadView = base.gameObject.GetPhotonView();
+						if (deadView != null && deadView.owner != null && matchView != null)
+						{
+							matchView.RPC("Log", PhotonTargets.All, "Killed: " + deadView.owner.NickName);
+						}
 					}
 				}
 			}
-			else if (!MyView(base.gameObject) && Multiplayer.rule == 7 && myFPSController.vip)
+			else if (!MyView(base.gameObject) && Multiplayer.rule == 7 && myFPSController != null && myFPSController.vip)
 			{
 				Supershot.PlayKill(effectCamera, ct, gameObject.transform, false, true, base.gameObject.layer);
 			}
@@ -859,7 +1029,7 @@ public class DamageReceiver : MonoBehaviour
 				DroppedGun component6 = gameObject8.GetComponent<DroppedGun>();
 				component6.sight = myFPSController.secondarySightIndex;
 			}
-			else if (Menu.isMaster() && !myFPSController.zombie)
+			else if (Menu.isMaster() && !myFPSController.zombie && myFPSController.primaryWeapon != null && myFPSController.primaryWeapons != null)   // a player killed before its weapons were bound drops nothing
 			{
 				Gun component7 = myFPSController.primaryWeapon.gameObject.GetComponent<Gun>();
 				Gun component8 = myFPSController.primaryWeapons.GetChild(myFPSController.secondaryWeaponIndex).gameObject.GetComponent<Gun>();

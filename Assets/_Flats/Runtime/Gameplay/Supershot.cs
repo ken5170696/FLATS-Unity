@@ -56,6 +56,45 @@ public class Supershot : MonoBehaviour
 	// The slow-motion effect currently holding Menu.canOpen, if any.
 	private static Supershot activeCinematic;
 
+	// What the cinematic's depth of field focuses on; kept so the effect can be switched on mid-cinematic.
+	private Transform focusTarget;
+
+	// Graphics settings changed (Settings page, automatic low-framerate step-down) while a cinematic owns
+	// the screen: its own camera takes the new values. The view camera's effects stay off, as Awake left
+	// them; EndEffect restores them from the same settings. False when no cinematic is playing.
+	public static bool ReapplyEffectSettings()
+	{
+		if (activeCinematic == null)
+		{
+			return false;
+		}
+		activeCinematic.ApplyOwnEffects();
+		return true;
+	}
+
+	private void ApplyOwnEffects()
+	{
+		FxPro fx = GetComponent<FxPro>();
+		if (fx != null)
+		{
+			fx.enabled = FPSController.dof;
+			if (FPSController.dof && focusTarget != null)
+			{
+				fx.DOFParams.Target = focusTarget;
+			}
+		}
+		EdgeDetectEffectNormals edge = GetComponent<EdgeDetectEffectNormals>();
+		if (edge != null)
+		{
+			edge.enabled = FPSController.edgeRendering;
+		}
+		CC_Grayscale gray = GetComponent<CC_Grayscale>();
+		if (gray != null)
+		{
+			gray.enabled = FPSController.saturationFilter;
+		}
+	}
+
 	// Headshot, mortal-shot and VIP kills honour the player's Kill Cinematic setting.
 	public static void PlayKill(UnityEngine.Object prefab, Transform view, Transform target, bool headshot, bool vip = false, int vipLayer = 0)
 	{
@@ -166,6 +205,7 @@ public class Supershot : MonoBehaviour
 			newTimeScale = Time.timeScale / slowFactor;
 			FPSController.enableCamRotate = false;
 			DamageReceiver.invincibility = true;
+			focusTarget = target;
 			GetComponent<FxPro>().enabled = FPSController.dof;
 			if (FPSController.dof)
 			{

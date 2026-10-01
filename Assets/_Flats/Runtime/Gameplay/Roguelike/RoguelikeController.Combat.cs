@@ -925,7 +925,7 @@ public partial class RoguelikeController
         // changes (purchases there would be lost with the scene). Clients receive this state with the travel RPC instead.
         leaving = true; travelling = true;
         CloseScreens();
-        Notify(new RogueEventMessage { kind = "banner", text = "Travelling to {0}...|" + RogueCatalog.Map(state.mapId).SceneName, value = 3 });
+        Notify(new RogueEventMessage { kind = "banner", text = "Travelling to {0}...|@" + RogueCatalog.Map(state.mapId).Name, value = 3 });
         yield return new WaitForSeconds(1f);
         var map = RogueCatalog.Map(state.mapId);
         // the same in-memory document a disk resume would produce; the next scene's controller picks it up

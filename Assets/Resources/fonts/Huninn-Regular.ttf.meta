@@ -1,20 +1,21 @@
 fileFormatVersion: 2
 guid: cc2490a68c22433988d1757e4df0808e
-timeCreated: 1789812385
-licenseType: Free
 TrueTypeFontImporter:
-  serializedVersion: 2
-  name:
+  externalObjects: {}
+  serializedVersion: 4
   fontSize: 16
   forceTextureCase: -2
-  characterSpacing: 1
-  characterPadding: 0
+  characterSpacing: 0
+  characterPadding: 1
   includeFontData: 1
-  use2xBehaviour: 0
   fontNames:
   - jf-openhuninn-2.1
-  customCharacters:
-  fontRenderingMode: 0
-  output:
-    hasEmptyFontData: 0
-  userData:
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 1
+  ascentCalculationMode: 1
+  useLegacyBoundsCalculation: 0
+  shouldRoundAdvanceValue: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

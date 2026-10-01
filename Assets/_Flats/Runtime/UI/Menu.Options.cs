@@ -25,6 +25,15 @@ public partial class Menu
         throw new System.ArgumentException("Missing settings row " + row);
     }
 
+    // Graphics toggles show on the view camera at once. FPSController only consumes changedSettings while the
+    // local player has control, so a change made while downed, in a cutscene or during a kill cinematic used to
+    // wait; the flag stays as the catch-up for the next spawn.
+    void ApplyGraphicsNow()
+    {
+        changedSettings = true;
+        FPSController.ApplyCameraEffects(Camera.main);
+    }
+
 		public void NameInput(string newName)
 		{
 			newName = newName.Replace("$", "");
@@ -278,7 +287,7 @@ public partial class Menu
 					mySettings.graphics_aa = 0;
 				}
 				FPSController.aa = IntToBool(mySettings.graphics_aa);
-				changedSettings = true;   // the camera re-reads the effect flags this frame instead of when Settings closes
+				ApplyGraphicsNow();
 				parent.GetChild(1).GetComponent<Text>().text = aaText[mySettings.graphics_aa];
 			}
 			else if (parent.name == "DepthOfField")
@@ -292,7 +301,7 @@ public partial class Menu
 					mySettings.graphics_dof = 0;
 				}
 				FPSController.dof = IntToBool(mySettings.graphics_dof);
-				changedSettings = true;
+				ApplyGraphicsNow();
 				parent.GetChild(1).GetComponent<Text>().text = dofText[mySettings.graphics_dof];
 			}
 			else if (parent.name == "MotionBlur")
@@ -306,7 +315,7 @@ public partial class Menu
 					mySettings.graphics_motionBlur = 0;
 				}
 				FPSController.motionBlur = IntToBool(mySettings.graphics_motionBlur);
-				changedSettings = true;
+				ApplyGraphicsNow();
 				parent.GetChild(1).GetComponent<Text>().text = motionBlurText[mySettings.graphics_motionBlur];
 			}
 			else if (parent.name == "EdgeRendering")
@@ -320,7 +329,7 @@ public partial class Menu
 					mySettings.graphics_edgeRendering = 0;
 				}
 				FPSController.edgeRendering = IntToBool(mySettings.graphics_edgeRendering);
-				changedSettings = true;
+				ApplyGraphicsNow();
 				parent.GetChild(1).GetComponent<Text>().text = edgeRenderingText[mySettings.graphics_edgeRendering];
 			}
 			else if (parent.name == "SaturationFilter")
@@ -334,7 +343,7 @@ public partial class Menu
 					mySettings.graphics_saturationFilter = 0;
 				}
 				FPSController.saturationFilter = IntToBool(mySettings.graphics_saturationFilter);
-				changedSettings = true;
+				ApplyGraphicsNow();
 				parent.GetChild(1).GetComponent<Text>().text = saturationFilterText[mySettings.graphics_saturationFilter];
 			}
 			else if (parent.name == "CameraSensitivity")

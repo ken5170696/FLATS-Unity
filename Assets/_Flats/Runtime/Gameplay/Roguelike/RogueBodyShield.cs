@@ -146,7 +146,9 @@ public sealed class RogueBodyShield : MonoBehaviour, IRogueCarryVisual
         if (role == null || role.RoleId == "role.finale" || role.InstanceId <= 0) return null;
         float max = Mathf.Clamp(role.SpawnMaxHealth * ShieldFraction, MinShield, MaxShieldCap);
         var first = corpse.GetComponentInChildren<SkinnedMeshRenderer>();
-        Color c = first != null ? first.sharedMaterial.color : Color.white;
+        // a body without a renderer or a material is still a body: white, instead of an exception that Die would only log while the
+        // ragdoll kept its 4 s timer and never became a shield
+        Color c = first != null && first.sharedMaterial != null ? first.sharedMaterial.color : Color.white;
         return Attach(corpse, BodyId(role.InstanceId), max, c, dead.damageSE);
     }
 
@@ -359,6 +361,7 @@ public sealed class RogueBodyShield : MonoBehaviour, IRogueCarryVisual
         MuteRagdoll(true);
         fullHipsAt = new Vector3(chest.x, hipsY, chest.z) + fwd * Mathf.Min(ahead, HoldForward * s) + right * HoldSide * s;
         drawnHipsAt = at;
+        MoveRootTo(at);
         PoseStraight(at, body);
         Straighten(body * Vector3.up, false);
         Limp();
@@ -378,6 +381,7 @@ public sealed class RogueBodyShield : MonoBehaviour, IRogueCarryVisual
         DisableShieldVolume();
         SetViewScale(1f);
         Vector3 headDir = Quaternion.Euler(0f, yaw - 90f, 0f) * Vector3.forward;
+        MoveRootTo(point);
         PoseStraight(point, Quaternion.LookRotation(Vector3.up, headDir));
         // the rest pose alone leaves the legs bent up (a "V" for a moment until physics or the sink takes over): every limb
         // is laid along the body, then the body is lowered or raised onto the ground so nothing starts inside it
@@ -391,6 +395,20 @@ public sealed class RogueBodyShield : MonoBehaviour, IRogueCarryVisual
     }
 
     // ---------------------------------------------------------------- pose
+    /// <summary>
+    /// F16, why a carried body vanished "after a while": the pose only ever moved the hips, so the ragdoll's root stayed where the
+    /// enemy died. The ragdoll prefab (Flatman_Dead) has an LODGroup on that root, and an LODGroup measures the camera distance
+    /// from its own transform and culls every renderer below its last level (0.6% of the screen height; with the project's LOD bias
+    /// 0.5 that is roughly 100-135 m from the death spot, sooner on the carrier's own smaller drawing). Walking that far with the
+    /// body made it invisible on that client while the carry itself (no fire, carry speed, shield) went on. The root now travels
+    /// with the body: called right before the hips are posed in world space, so the bones end up exactly where they did before.
+    /// The body's AudioSource is on the root too, so the thuds now come from the body instead of the death spot.
+    /// </summary>
+    void MoveRootTo(Vector3 point)
+    {
+        if ((transform.position - point).sqrMagnitude > 1e-6f) transform.position = point;
+    }
+
     void PoseStraight(Vector3 hipsPosition, Quaternion bodyRotation)
     {
         for (int i = 0; i < restBones.Count; i++) if (restBones[i] != null) restBones[i].localRotation = restRotations[i];
@@ -711,11 +729,20 @@ public sealed class RogueBodyShield : MonoBehaviour, IRogueCarryVisual
         string verb = parts[0], key = parts.Length > 1 ? parts[1] : "", hex = parts.Length > 2 ? parts[2] : "";
         var b = Find(e.index);
         if (b == null && verb == "held") b = SpawnSubstitute(e.index, key, hex, e.minor > 0 ? e.minor : MinShield);
-        if (b == null) return;
+        if (b == null)
+        {
+            // the body is already gone on this copy (F16): the release still settles every player's Carrying, so a flag that
+            // outlived its body ends here at the latest
+            if (verb == "drop" || verb == "break") RogueCarryable.RefreshCarryingFlags();
+            return;
+        }
         float fraction = Mathf.Clamp01((float)e.value);
         switch (verb)
         {
             case "held":
+                // a broken body sinks and is destroyed whoever holds it: a "held" that reaches it (out of order, or a resend that
+                // crossed the break) is refused, or its carrier would keep the carry state with nothing in the arms (F16)
+                if (b.Broken) { if (b.Held) b.carry.HolderKey = ""; RogueCarryable.RefreshCarryingFlags(); break; }
                 b.syncedFraction = fraction;
                 if (!b.IsLocalHolder || b.HolderKey != key) b.Shield = fraction * b.MaxShield;   // the owner keeps its own count
                 if (b.HolderKey != key) { b.carry.HolderKey = key; RogueCarryable.RefreshCarryingFlags(); Debug.Log("FLATS_ROGUE_BODY held id=" + b.Id + " holder=" + key + " shield=" + b.Shield.ToString("0", CultureInfo.InvariantCulture) + "/" + b.MaxShield.ToString("0", CultureInfo.InvariantCulture)); }
@@ -738,9 +765,9 @@ public sealed class RogueBodyShield : MonoBehaviour, IRogueCarryVisual
     public static void ReleaseAllLocal()
     {
         scratch.Clear(); scratch.AddRange(byId.Values);
-        bool changed = false;
-        foreach (var b in scratch) if (b != null && b.Held) { b.carry.HolderKey = ""; changed = true; }
-        if (changed) RogueCarryable.RefreshCarryingFlags();
+        foreach (var b in scratch) if (b != null && b.Held) b.carry.HolderKey = "";
+        // always: a flag whose body is no longer in the registry would otherwise survive the phase or host change (F16)
+        RogueCarryable.RefreshCarryingFlags();
     }
 
     /// <summary>A client without its own ragdoll for this enemy (it despawned here, or the client joined late): one from the ragdoll
@@ -753,7 +780,7 @@ public sealed class RogueBodyShield : MonoBehaviour, IRogueCarryVisual
         var corpse = Object.Instantiate(prefab, carrier.transform.position + carrier.transform.forward, carrier.transform.rotation);
         Color c;
         if (!ColorUtility.TryParseHtmlString("#" + hex, out c)) c = Color.white;
-        foreach (var smr in corpse.GetComponentsInChildren<SkinnedMeshRenderer>(true)) smr.material.color = c;
+        foreach (var smr in corpse.GetComponentsInChildren<SkinnedMeshRenderer>(true)) if (smr != null && smr.sharedMaterial != null) smr.material.color = c;
         int bullets = LayerMask.GetMask("RedTeamBullet", "BlueTeamBullet");
         foreach (var col in corpse.GetComponentsInChildren<Collider>(true)) col.excludeLayers |= bullets;
         foreach (var rb in corpse.GetComponentsInChildren<Rigidbody>(true)) rb.excludeLayers |= bullets;

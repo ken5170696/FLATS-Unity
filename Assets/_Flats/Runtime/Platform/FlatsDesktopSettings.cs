@@ -42,7 +42,9 @@ public sealed class FlatsDesktopSettings : MonoBehaviour
     // The crosshair is configured in the Mod center (Custom Crosshair), so the page
     // shows only display rows; older prefabs may still carry the crosshair rows.
     static readonly string[] Names={"DesktopResolution","DesktopWindowMode","DesktopVSync"};
-    static readonly string[] RetiredNames={"DesktopCrosshairColor","DesktopCrosshairSize"};
+    // "Resolution" and "EyeDistance" (VR) are stored but no longer read by anything, so they stay hidden
+    // in VR mode too; Menu.Start hides them where this component does not exist (mobile).
+    static readonly string[] RetiredNames={"DesktopCrosshairColor","DesktopCrosshairSize","Resolution","EyeDistance"};
     void SetValue(int row,string value){var t=page.Find(Names[row]);if(t!=null)t.GetChild(1).GetComponent<Text>().text=value;}
     void AddSize(int width,int height){var size=new Vector2Int(width,height);if(!sizes.Contains(size))sizes.Add(size);}
     public void Change(Transform row,int direction)

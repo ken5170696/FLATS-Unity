@@ -8,7 +8,7 @@ using UnityEngine;
 
 public sealed class CaptureRunner : RogueObjectiveRunner
 {
-    CaptureObjective machine; GameObject ring, beacon; Vector3 center; const float Radius = 13f;   // world units: two body lengths around the beacon
+    CaptureObjective machine; GameObject ring, beacon; Vector3 center; public const float Radius = 13f;   // world units: two body lengths around the beacon
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
         center = c.PlanPoint(0);
@@ -48,7 +48,10 @@ public sealed class CarryRunner : RogueObjectiveRunner
     {
         if (machine == null) return;
         var holder = string.IsNullOrEmpty(machine.Holder) ? null : RogueWorld.PlayerByKey(machine.Holder);
-        if (!string.IsNullOrEmpty(machine.Holder) && (holder == null || !Controller.State.Player(machine.Holder).connected)) { machine.OnLost(); SetHolder(""); }   // carrier left or was destroyed: the crate is free again
+        // the carrier's object can still be there while its roster entry is gone (a state replaced under it): no entry counts as lost,
+        // instead of a null dereference on every tick that the combat loop only logs and repeats
+        var holderState = Controller != null && Controller.State != null && !string.IsNullOrEmpty(machine.Holder) ? Controller.State.Player(machine.Holder) : null;
+        if (!string.IsNullOrEmpty(machine.Holder) && (holder == null || holderState == null || !holderState.connected)) { machine.OnLost(); SetHolder(""); }   // carrier left or was destroyed: the crate is free again
         else if (holder != null)
         {
             var rp = holder.GetComponent<RoguePlayer>();
@@ -148,7 +151,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
 
 public sealed class BreakoutRunner : RogueObjectiveRunner
 {
-    BreakoutObjective machine; GameObject ring, beacon; Vector3 exit; const float Radius = 10f; bool called; readonly HashSet<string> inside = new HashSet<string>();
+    BreakoutObjective machine; GameObject ring, beacon; Vector3 exit; public const float Radius = 10f; bool called; readonly HashSet<string> inside = new HashSet<string>();
     readonly Dictionary<string, PlayerLife> lastLife = new Dictionary<string, PlayerLife>(); readonly Dictionary<string, bool> lastConnected = new Dictionary<string, bool>();
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
