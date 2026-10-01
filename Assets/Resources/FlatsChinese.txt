@@ -2552,3 +2552,4 @@ Full health and ammo	補滿生命與彈藥
 More health	生命更多
 More damage	傷害更高
 Move faster	跑更快
+Acquired	已取得

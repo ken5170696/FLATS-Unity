@@ -21,6 +21,7 @@ public class RogueFitToWidth : MonoBehaviour
     bool captured;
 
     void OnEnable() { Capture(); lastParentWidth = -1; }
+    public void Invalidate() { lastParentWidth = -1; }
 
     void Capture()
     {

@@ -110,7 +110,7 @@ public partial class RoguelikeController
         return abilityPlayer;
     }
 
-    public delegate void OfferSink(string icon, string name, string effect, string price, string rarity, string action, bool interactable, string status, Action onAction);
+    public delegate RogueOfferRowView OfferSink(string icon, string name, string effect, string price, string rarity, string action, bool interactable, string status, Action onAction);
 
     // ---------------------------------------------------------------- HUD
     void RefreshHud()
@@ -332,6 +332,7 @@ public partial class RoguelikeController
     void RefreshScreens()
     {
         if (state == null || leaving) return;
+        if (screen != null && screen.RewardFeedbackPlaying) return;
         var me = LocalPlayer;
         if (me == null) { CloseScreens(); return; }
         string wanted = "";
@@ -373,9 +374,10 @@ public partial class RoguelikeController
             bool staleTier = (def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod) && !offer.sold && offer.tierAtSample != me.build.Tier(def.Id);
             string status = offer.sold ? T("Bought") : staleTier ? T("Tier changed: reroll for a new price") : me.build.RejectReason(def) != null ? T(me.build.RejectReason(def)) : me.walletMinor < offer.priceMinor ? T("Not enough money") : "";
             bool pending = pendingTx.ContainsValue(offer.itemId);
-            add(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build, offer), "$" + RogueMoney.Format(offer.priceMinor), RogueItemKinds.Tag(def, RarityText(def)), offer.sold ? "" : T("Buy"),
+            var row = add(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build, offer), "$" + RogueMoney.Format(offer.priceMinor), RogueItemKinds.Tag(def, RarityText(def)), offer.sold ? "" : T("Buy"),
                 !offer.sold && status == "" && !pending, pending ? T("Buying...") : status,
                 () => Buy(me, index, offer));
+            if (row != null) row.SetPitch(T(RoguePitches.Of(def.Id)));
         }
         // what the player owns: every core and mod can be removed here (F40). The refund is half of what was paid for it (free
         // rewards refund nothing), so buying it back always costs more than the refund.
@@ -387,8 +389,9 @@ public partial class RoguelikeController
             bool pendingRemove = pendingTx.ContainsValue("remove:" + id);
             // the tier goes on the effect line: on the title it pushed long names under the rarity tag (QA-30)
             string tier = TierText(me.build, id);
-            add(RogueIcons.ForItem(def), DisplayName(def), (tier == "" ? "" : tier + "   ") + T("Owned") + (FlatsLocalization.IsChinese ? "：" : ": ") + EffectText(def, me.build.Tier(id)), refund > 0 ? "+$" + RogueMoney.Format(refund) : T("No refund"), RogueItemKinds.Tag(def, RarityText(def)), T("Remove"),
+            var row = add(RogueIcons.ForItem(def), DisplayName(def), (tier == "" ? "" : tier + "   ") + T("Owned") + (FlatsLocalization.IsChinese ? "：" : ": ") + EffectText(def, me.build.Tier(id)), refund > 0 ? "+$" + RogueMoney.Format(refund) : T("No refund"), RogueItemKinds.Tag(def, RarityText(def)), T("Remove"),
                 !pendingRemove, pendingRemove ? T("Removing...") : "", () => ConfirmRemove(me, itemId));
+            if (row != null) row.SetPitch(T(RoguePitches.Of(def.Id)));
         }
         bool rerollPending = pendingTx.ContainsValue(PendingReroll) || pendingTx.ContainsValue(PendingTicket);
         int tickets = RerollTickets(me);
@@ -500,8 +503,13 @@ public partial class RoguelikeController
             Action take = () => TakeReward(index, itemId);
             string tag = RogueItemKinds.Tag(def, RarityText(def));
             // a card stacks what a row prints side by side: the effect, the tier and the pairing each get their own line
-            if (screen.AddCard(RogueIcons.ForItem(def), DisplayName(def), tag, EffectLine(def, me.build).Replace("   ", "\n").Replace("  ", "\n"), T("Take"), canTake, status, take) == null)
-                screen.AddRow(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build), T("Free"), tag, T("Take"), canTake, status, take);
+            var card = screen.AddCard(RogueIcons.ForItem(def), DisplayName(def), tag, EffectLine(def, me.build).Replace("   ", "\n").Replace("  ", "\n"), T("Take"), canTake, status, take);
+            if (card != null) card.SetPitch(T(RoguePitches.Of(def.Id)));
+            else
+            {
+                var row = screen.AddRow(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build), T("Free"), tag, T("Take"), canTake, status, take);
+                if (row != null) row.SetPitch(T(RoguePitches.Of(def.Id)));
+            }
         }
         // QA-24: the alternative to every card is a reroll ticket; the note says what is given up, what is gained and what it does
         int tickets = RerollTickets(me);
@@ -605,6 +613,12 @@ public partial class RoguelikeController
         string request; pendingTx.TryGetValue(txId, out request);
         pendingTx.Remove(txId);
         if (e.flag && !removal) ApplyTransactionEffects(txId, item);
+        // Only a fresh acknowledgement of this client's own request earns a receipt; replays/removals/rerolls do not.
+        if (e.flag && !removal && status != "Duplicate" && request != null && !string.IsNullOrEmpty(item))
+        {
+            var acquired = RogueCatalog.Item(item);
+            if (acquired != null) RogueAcquisitionView.Show(RogueIcons.ForItem(acquired), DisplayName(acquired), T(RoguePitches.Of(item)), RogueItemKinds.Tint(acquired.Kind));
+        }
         if (e.flag) RogueAudio.Play(item == "" ? "ui_click" : e.minor > 0 ? "ui_buy" : "ui_reward", 0.9f); else if (status != "Duplicate") RogueAudio.Play("ui_deny", 0.7f);
         if (e.flag && removal) Log(T("Removed {0} (refund ${1})", ItemName(item), RogueMoney.Format((long)e.value)));
         else if (e.flag && request == PendingSkip) { Log(T("Reward skipped: +1 reroll ticket")); Banner(T("+1 reroll ticket"), 2f); }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -22,6 +23,12 @@ public class RogueScreenView : MonoBehaviour
 
     /// <summary>True while the TAB overview sits on top; the screen then leaves focus handling to it.</summary>
     public static bool Suspended;
+    [Header("Reward take feedback")]
+    [Min(0.01f)] public float rewardPressSeconds = 0.25f;
+    public bool RewardFeedbackPlaying { get; private set; }
+    public RogueFitToWidth paperFit;
+    public float rewardDesignHeight = 660f;
+    float listDesignHeight;
 
     const string ScreenState = "RogueScreen";
     string previousState;
@@ -91,6 +98,12 @@ public class RogueScreenView : MonoBehaviour
     /// <summary>Card layout (reward pick) or the list layout (shop, route).</summary>
     public void UseCards(bool cards)
     {
+        if (paperFit != null)
+        {
+            if (listDesignHeight <= 0) listDesignHeight = paperFit.designHeight;
+            float height = cards ? rewardDesignHeight : listDesignHeight;
+            if (!Mathf.Approximately(paperFit.designHeight, height)) { paperFit.designHeight = height; paperFit.Invalidate(); }
+        }
         if (cardsRoot != null) cardsRoot.SetActive(cards);
         if (scroll != null) scroll.gameObject.SetActive(!cards);
         if (cards && cardTemplate == null) { var p = Resources.Load<GameObject>("UI/Roguelike/RogueRewardCard"); if (p != null) cardTemplate = p.GetComponent<RogueRewardCardView>(); }
@@ -102,8 +115,26 @@ public class RogueScreenView : MonoBehaviour
         var card = Instantiate(cardTemplate, cardsContent, false);
         card.gameObject.SetActive(true);
         card.name = "Card-" + name;
-        card.Bind(iconName, name, rarity, effect, actionText, interactable, status, onAction, PlayPress);
+        card.Bind(iconName, name, rarity, effect, actionText, interactable, status,
+            () => { if (!RewardFeedbackPlaying) StartCoroutine(TakeFeedback(card, onAction)); }, PlayPress);
         return card;
+    }
+
+    IEnumerator TakeFeedback(RogueRewardCardView card, Action onAction)
+    {
+        RewardFeedbackPlaying = true;
+        foreach (var button in GetComponentsInChildren<Selectable>(true)) FlatsUiTheme.SetInteractableNow(button, false);
+        float elapsed = 0;
+        while (elapsed < rewardPressSeconds)
+        {
+            // Show the pressed pose immediately, even when the next frame exceeds the feedback duration.
+            if (card != null) card.PressFeedback(0.5f + 0.5f * elapsed / Mathf.Max(0.01f, rewardPressSeconds));
+            yield return null;
+            elapsed += Time.unscaledDeltaTime;
+        }
+        if (card != null) card.PressFeedback(1);
+        RewardFeedbackPlaying = false;
+        if (onAction != null) onAction();
     }
 
     public void ClearRows()
@@ -295,7 +326,7 @@ public class RogueScreenView : MonoBehaviour
     {
         // Menu.Start re-enables the HUD canvas about a second after a scene loads; the screen stays on top until it closes.
         if (hudCanvas != null && hudCanvas.enabled) hudCanvas.enabled = false;
-        if (Suspended) return;   // the TAB overview owns input and focus while it is open
+        if (Suspended || RewardFeedbackPlaying) return;   // the TAB overview owns input and focus while it is open
         // Escape / pad Cancel steps out of the shop during Prep (reopen with Interact); the pause menu is reachable from there.
         var pad = InControl.InputManager.ActiveDevice;
         if (Input.GetKeyDown(KeyCode.Escape) || (pad != null && pad.Action2.WasPressed))

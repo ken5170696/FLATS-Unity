@@ -10,6 +10,21 @@ public class RogueOfferRowView : MonoBehaviour
     public Button action;
     public Image panel;
     public Image icon, iconBack, priceIcon, rarityBack;
+    [Header("Item pitch")]
+    public Text pitch;
+    public float pitchGap = 4f;
+    public float pitchInlineGap = 12f;
+    Vector2 detailHome;
+    bool detailHomeKnown;
+
+    public void SetPitch(string text)
+    {
+        if (pitch == null || effect == null) return;
+        if (!detailHomeKnown) { detailHome = effect.rectTransform.anchoredPosition; detailHomeKnown = true; }
+        pitch.text = text ?? "";
+        pitch.gameObject.SetActive(!string.IsNullOrEmpty(text));
+        Arrange();
+    }
     [Header("Content-sized layout (QA-36: no Best Fit, no clipped descriptions)")]
     [Tooltip("The row grows with its description; never shorter than this (canvas units). 0 keeps the authored height.")] public float minimumHeight = 76f;
     [Tooltip("Space under the description (canvas units).")] public float bottomPadding = 10f;
@@ -72,6 +87,24 @@ public class RogueOfferRowView : MonoBehaviour
                 coin.anchoredPosition = new Vector2(number.anchoredPosition.x - numberWidth - priceIconGap, coin.anchoredPosition.y);
             }
         }
+        if (pitch != null && title != null && effect != null && detailHomeKnown)
+        {
+            float left = detailHome.x;
+            float width = effect.rectTransform.rect.width;
+            float right = left + width;
+            if (rarityBack != null && rarityBack.gameObject.activeSelf)
+                right = Mathf.Min(right, rarityBack.rectTransform.anchoredPosition.x - rarityBack.rectTransform.rect.width - chipGap);
+            float nameWidth = Mathf.Min(title.preferredWidth, Mathf.Max(1f, right - left));
+            title.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, nameWidth);
+            float pitchLeft = left + nameWidth + pitchInlineGap;
+            bool inline = pitch.gameObject.activeSelf && pitch.preferredWidth <= right - pitchLeft;
+            var p = pitch.rectTransform;
+            p.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, inline ? right - pitchLeft : width);
+            p.anchoredPosition = inline ? new Vector2(pitchLeft, title.rectTransform.anchoredPosition.y) : detailHome;
+            float height = pitch.gameObject.activeSelf ? Mathf.Ceil(pitch.preferredHeight) : 0f;
+            p.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, inline ? title.rectTransform.rect.height : height);
+            effect.rectTransform.anchoredPosition = detailHome - new Vector2(0, !inline && height > 0 ? height + pitchGap : 0);
+        }
         if (effect != null && minimumHeight > 0f)
         {
             var box = effect.rectTransform;
@@ -80,6 +113,12 @@ public class RogueOfferRowView : MonoBehaviour
                 float textHeight = Mathf.Ceil(effect.preferredHeight);
                 if (Mathf.Abs(box.sizeDelta.y - textHeight) > 0.5f) box.sizeDelta = new Vector2(box.sizeDelta.x, textHeight);
                 float height = Mathf.Max(minimumHeight, -box.anchoredPosition.y + textHeight + bottomPadding);
+                if (status != null && !string.IsNullOrEmpty(status.text))
+                {
+                    float statusHeight = Mathf.Ceil(status.preferredHeight);
+                    status.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, statusHeight);
+                    height = Mathf.Max(height, -status.rectTransform.anchoredPosition.y + statusHeight + bottomPadding);
+                }
                 var rect = (RectTransform)transform;
                 if (Mathf.Abs(rect.sizeDelta.y - height) > 0.5f) rect.sizeDelta = new Vector2(rect.sizeDelta.x, height);
                 var layout = GetComponent<LayoutElement>();
