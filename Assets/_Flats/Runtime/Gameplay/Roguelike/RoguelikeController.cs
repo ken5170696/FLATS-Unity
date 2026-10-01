@@ -516,7 +516,7 @@ public partial class RoguelikeController : MonoBehaviour
         switch (phase)
         {
             case RunPhase.Combat: RogueAudio.Play("stage_start"); break;
-            case RunPhase.Cleared: RogueAudio.Play("stage_clear"); break;
+            case RunPhase.Cleared: RogueAudio.Play("stage_clear"); FlatsFeel.StageCleared(); break;
             case RunPhase.Reward: RogueAudio.Play("ui_reward", 0.8f); break;
             case RunPhase.Route: case RunPhase.ChapterEnd: RogueAudio.Play("chapter"); break;
         }
@@ -525,6 +525,7 @@ public partial class RoguelikeController : MonoBehaviour
     void OnStateChanged()
     {
         if (state != null) OnPhaseSound(state.phase);
+        if (state != null && sceneReady) SetupMusic();   // a new chapter or a finale changes the track
         if (state != null && state.phase == RunPhase.Combat) BuildClientWorld();
         else if (state != null && !IsAuthority && state.phase != RunPhase.Combat) DisposeEvents();
         if (state != null && state.phase != RunPhase.Prep) screenDismissed = false;
@@ -688,15 +689,23 @@ public partial class RoguelikeController : MonoBehaviour
         return FlatsLocalization.Translate(args == null || args.Length == 0 ? key : string.Format(key, args));
     }
 
+    int musicPair = -1;
     void SetupMusic()
     {
         var sp = GetComponent<Singleplayer>();
         if (ambient == null || ambient.Length < 2) return;
         if (Menu.network == 0 && sp != null && sp.singleplayerBGM != null && sp.singleplayerBGM.Length >= 2)
         {
-            ambient[0].clip = sp.singleplayerBGM[0]; ambient[1].clip = sp.singleplayerBGM[1];
-            ambient[1].volume = 0f;
-            foreach (var a in ambient) if (a.clip != null && !a.isPlaying) a.Play();
+            // The authored BGM pairs (a base track and its combat layer) rotate by chapter, and a finale plays the next pair, so a
+            // run does not loop one track. Both sources restart together to stay in step.
+            int pairs = sp.singleplayerBGM.Length / 2;
+            int pair = state != null ? (Mathf.Max(1, state.Chapter) - 1 + (state.IsFinaleStage ? 1 : 0)) % pairs : 0;
+            if (pair == musicPair && ambient[0].isPlaying) return;
+            musicPair = pair;
+            float layer = ambient[1].isPlaying ? ambient[1].volume : 0f;
+            ambient[0].clip = sp.singleplayerBGM[pair * 2]; ambient[1].clip = sp.singleplayerBGM[pair * 2 + 1];
+            ambient[1].volume = layer;
+            foreach (var a in ambient) if (a.clip != null) a.Play();
         }
     }
 

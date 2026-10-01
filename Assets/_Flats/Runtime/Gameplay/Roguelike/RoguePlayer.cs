@@ -66,6 +66,7 @@ public class RoguePlayer : MonoBehaviour
         receiver = GetComponent<DamageReceiver>();
         isMine = Menu.network == 0 || (GetComponent<PhotonView>() != null && GetComponent<PhotonView>().isMine);
         localCancelled = false;
+        FlatsFeel.AttachPlayer(controller, isMine);   // footsteps and landings; the local player also gets the low-health heartbeat
     }
 
     IEnumerator Start()

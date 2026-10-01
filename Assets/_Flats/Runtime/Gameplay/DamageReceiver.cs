@@ -82,6 +82,7 @@ public class DamageReceiver : MonoBehaviour
 	{
 		try { CombatFeedbackView.ReportHit(kill, headshot, false); }
 		catch (Exception e) { Debug.LogException(e); }
+		FlatsFeel.LocalHit(kill, headshot);   // Roguelike only (both callers): the headshot ring, the kill sound, the hit-stop
 	}
 
 	// QA-05: a teammate's copy shows the hit on that player's body (every client simulates enemy rounds against every player copy). The
@@ -106,6 +107,7 @@ public class DamageReceiver : MonoBehaviour
 		if (!userIsPlayer || !(damage > 0f) || source == null || source.root == base.transform.root) return;
 		try { DamageDirectionIndicator.Report(source.position, damage); }
 		catch (Exception e) { Debug.LogException(e, this); }
+		if (RoguelikeMode.Active) FlatsFeel.LocalHurt(damage);
 	}
 
 	private string command;
@@ -1099,6 +1101,7 @@ public class DamageReceiver : MonoBehaviour
 			if (RoguelikeMode.Active)
 			{
 				if (LocalPlayerSource(killer)) ReportLocalHit(true, command == "head");   // E4: the local player's kill marker
+				{ Renderer feelBody = mt.childCount > 0 ? mt.GetChild(0).GetComponent<Renderer>() : null; FlatsFeel.EnemyDied(mt, feelBody != null && feelBody.sharedMaterial != null ? feelBody.sharedMaterial.color : Color.white, command == "head"); }
 				try { RogueHooks.OnEnemyDied(this, killer, command == "head"); }
 				catch (Exception e) { Debug.LogException(e, this); }
 			}

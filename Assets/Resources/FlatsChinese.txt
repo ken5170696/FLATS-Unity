@@ -50,7 +50,7 @@ Reloading with at least half the magazine left takes {0}% of the time.	彈匣剩
 Every round of sustained fire tightens spread by {0}%, up to {1}%.	連續射擊每發縮小 {0}% 散布，最多 {1}%。
 Hold melee to throw it up to {0} m. Walk over it to pick it up.	按住近戰可投擲至 {0} m；走過武器即可撿回。
 Reviving gives you and the teammate a {0}-point shield for {1} s.	救援後，你與隊友獲得 {0} 點護盾，持續 {1} 秒。
-Every round of sustained fire widens spread by {0}%, up to {1}%.	連續射擊每發擴大 {0}% 散布，最多 {1}%。
+Every round of sustained fire widens spread and kick by {0}%, up to {1}%.	連續射擊每發擴大 {0}% 散布與後座力，最多 {1}%。
 After a kill: fire rate +{0}% for the rest of the magazine.	擊殺後，本彈匣剩餘子彈的射速 +{0}%。
 Every round of sustained fire adds +{0}% damage, up to +{1}%.	連續射擊每發增加 {0}% 傷害，最多 +{1}%。
 After {1} s of continuous fire: +{0}% damage until you stop.	持續開火 {1} 秒後，傷害 +{0}%，直到停止射擊。

@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6075b2a01c8941bcaec450edba8376a9, type: 3}
+  m_Name: FlatsFeelSettings
+  m_EditorClassIdentifier:
+  recoilScale: 1
+  kickSeconds: 0.05
+  recoverFraction: 0.65
+  recoverSeconds: 0.3
+  firePitchJitter: 0.05
+  variantPitchPerDoubling: 0.12
+  muzzleScaleRange: {x: 0.9, y: 1.7}
+  headshotVolume: 0.75
+  killVolume: 0.8
+  hitStopSeconds: 0.045
+  hitStopScale: 0.05
+  clearSlowSeconds: 0.5
+  clearSlowScale: 0.35
+  deathBurst: {fileID: 147589, guid: b676a7221b38dd94d885b2359058b4ad, type: 3}
+  burstHeight: 3.5
+  burstCount: 22
+  headshotBurstCount: 34
+  burstSpeed: 26
+  burstSize: 0.55
+  burstLifetime: 0.4
+  hurtVolume: 0.7
+  hurtInterval: 0.12
+  heartbeatThreshold: 0.3
+  heartbeatVolume: 0.65
+  stepDistance: 7
+  stepVolume: 0.32
+  landVolume: 0.6
+  landMinAirSeconds: 0.3
+  landDipDegrees: 1.6
+  otherStepVolume: 0.5
+  otherStepRange: 55
+  impactVolume: 0.5
+  impactRange: 80
+  impactInterval: 0.05

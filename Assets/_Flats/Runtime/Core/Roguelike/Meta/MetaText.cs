@@ -186,7 +186,7 @@ namespace Flats.Core.Roguelike
                 case DrawbackKind.SlowReload: return new TextLine("Reload time +{0}%.", P(d1));
                 case DrawbackKind.SmallMagazine: return new TextLine("Small magazine.");
                 case DrawbackKind.SlowAds: return new TextLine("Aim takes {0}% longer to steady after raising the sight.", P(d1));
-                case DrawbackKind.HeavyRecoil: return new TextLine("Every round of sustained fire widens spread by {0}%, up to {1}%.", P(d1), P(d2));
+                case DrawbackKind.HeavyRecoil: return new TextLine("Every round of sustained fire widens spread and kick by {0}%, up to {1}%.", P(d1), P(d2));
                 case DrawbackKind.SlowSwap: return new TextLine("Weapon swap time +{0}%.", P(d1));
                 case DrawbackKind.MoveSlow: return new TextLine("Movement speed -{0}% while in hand.", P(d1));   // a gun slows only while drawn; melee has its own line (MeleeDrawback)
                 case DrawbackKind.NoHipFire: return new TextLine("Hip-fire spread x{0}: aim to hit anything.", N(d1));

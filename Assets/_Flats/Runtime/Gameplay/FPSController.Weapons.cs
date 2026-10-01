@@ -244,7 +244,8 @@ public partial class FPSController
 			{
 				GameObject mf = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
-				base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
+				if (RoguelikeMode.Active) FlatsFeel.Fire(this, base.GetComponent<AudioSource>(), currentGun, mf); else base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
+				float inaccuracy = RoguelikeMode.Active ? (float)Flats.Core.Roguelike.RecoilRules.Inaccuracy(currentGun.accuracy, Aiming) : 100f - currentGun.accuracy;   // Roguelike: never exactly zero, so spread traits act on every weapon
 				int pellets = currentGun.burstCount + (RoguelikeMode.Active ? RogueHooks.ExtraPellets(this, currentGun.id) : 0);
 				float spreadScale = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
 				long rogueRound = RoguelikeMode.Active ? RogueNextRound() : 0;   // one shell: every pellet shares this round (Fresh Magazine, QA-32)
@@ -252,8 +253,9 @@ public partial class FPSController
 				{
 					var rogueShot = RoguelikeMode.Active ? RogueHooks.MetaShot(this, Aiming, i == 0) : Flats.Core.Roguelike.ShotModifiers.Neutral;
 					if (i == 0) rogueInterval = (float)rogueShot.IntervalMul;
-					float x = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * spreadScale * (float)rogueShot.SpreadMul;
-					float y = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * spreadScale * (float)rogueShot.SpreadMul;
+					if (i == 0 && RoguelikeMode.Active && MyView(base.gameObject)) FlatsFeel.Recoil(this, currentGun, Aiming, (float)rogueShot.RecoilMul);
+					float x = UnityEngine.Random.Range(0f - inaccuracy, inaccuracy) * spreadScale * (float)rogueShot.SpreadMul;
+					float y = UnityEngine.Random.Range(0f - inaccuracy, inaccuracy) * spreadScale * (float)rogueShot.SpreadMul;
 					Vector3 velocity = ((currentGun.id != 15) ? ct.TransformDirection(x, y, 1500f) : ct.TransformDirection(x, y, 800f));
 					Rigidbody rigidbody = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 					Bullet component = rigidbody.GetComponent<Bullet>();
@@ -309,10 +311,12 @@ public partial class FPSController
 				if (RoguelikeMode.Active) RogueHooks.MetaNoteInterval(this, 60f / currentGun.rpm * rogueInterval);
 				GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
-				base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
+				if (RoguelikeMode.Active) FlatsFeel.Fire(this, base.GetComponent<AudioSource>(), currentGun, mf2); else base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
+				if (RoguelikeMode.Active && MyView(base.gameObject)) FlatsFeel.Recoil(this, currentGun, Aiming, (float)rogueShot.RecoilMul);
 				float aimSpread = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
-				float ram1 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * aimSpread * (float)rogueShot.SpreadMul;
-				float ram2 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy) * aimSpread * (float)rogueShot.SpreadMul;
+				float inaccuracy = RoguelikeMode.Active ? (float)Flats.Core.Roguelike.RecoilRules.Inaccuracy(currentGun.accuracy, Aiming) : 100f - currentGun.accuracy;   // Roguelike: never exactly zero, so spread traits act on every weapon
+				float ram1 = UnityEngine.Random.Range(0f - inaccuracy, inaccuracy) * aimSpread * (float)rogueShot.SpreadMul;
+				float ram2 = UnityEngine.Random.Range(0f - inaccuracy, inaccuracy) * aimSpread * (float)rogueShot.SpreadMul;
 				Vector3 dir = ct.TransformDirection(ram1, ram2, 1500f);
 				Rigidbody b = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 				Bullet bb = b.GetComponent<Bullet>();

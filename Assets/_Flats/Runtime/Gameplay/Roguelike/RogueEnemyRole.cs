@@ -179,6 +179,7 @@ public class RogueEnemyRole : MonoBehaviour
         var role = go.GetComponent<RogueEnemyRole>();
         if (role == null) role = go.AddComponent<RogueEnemyRole>();
         if (go.GetComponent<RogueHitReaction>() == null) go.AddComponent<RogueHitReaction>();
+        FlatsFeel.AttachEnemy(go);   // footsteps heard when it is close
         role.Configure(roleId, instanceId, elite);
         RogueEliteAffixes.Attach(go, role);   // heat: borrowed player skills on elites
         return role;

@@ -515,6 +515,11 @@ public partial class FPSController : MonoBehaviour
 		EasyTouch.On_LongTapEnd -= On_LongTapEnd;
 	}
 
+	// Feel layer (Roguelike): the pitch pivot recoil nudges, and what footsteps read. The look itself stays owned by ApplyLook.
+	internal Transform FeelLookPivot => mct;
+	internal bool FeelGrounded => cc != null && mt != null && isGrounded();
+	internal bool FeelControllable => enableControl && enableCamRotate;
+
 	private void ApplyLook(Flats.Core.LookInput input, float x, float y)
 	{
 		var look = Flats.Core.LookRotationPolicy.Evaluate(input, x, y, isZoom ? FlatsControls.AimSensitivity(sensitivity) : sensitivity, invertY,

@@ -17,9 +17,10 @@ namespace Flats.Core.Roguelike
     public struct ShotModifiers
     {
         public double DamageMul, SpreadMul, IntervalMul, PreFireDelay;
+        public double RecoilMul;           // camera kick of this round (Heavy Recoil); 1 = the weapon's own kick
         public bool FreeRound;             // DoubleTap: an extra round that costs no ammunition
         public string DamageSource;        // effect id credited with the extra damage ("" = none)
-        public static ShotModifiers Neutral { get { return new ShotModifiers { DamageMul = 1, SpreadMul = 1, IntervalMul = 1, DamageSource = "" }; } }
+        public static ShotModifiers Neutral { get { return new ShotModifiers { DamageMul = 1, SpreadMul = 1, IntervalMul = 1, RecoilMul = 1, DamageSource = "" }; } }
     }
 
     /// <summary>Effects a hit applies to the enemy. Resolved on the shooter's copy, executed by the authority.</summary>
@@ -278,7 +279,7 @@ namespace Flats.Core.Roguelike
                     if (c.Aiming && c.NewTriggerPull) { int steps = Math.Min(MaxPatientSteps, (int)Math.Floor(c.AimedStillSeconds / Math.Max(0.05, Def.T2))); if (steps > 0) { m.DamageMul *= 1 + Def.T1 * steps; m.DamageSource = Def.Id; } }
                     break;
             }
-            if (Def.Drawback == DrawbackKind.HeavyRecoil) m.SpreadMul *= 1 + Math.Min(Def.D2, Def.D1 * consecutive);
+            if (Def.Drawback == DrawbackKind.HeavyRecoil) { double heavy = 1 + Math.Min(Def.D2, Def.D1 * consecutive); m.SpreadMul *= heavy; m.RecoilMul *= heavy; }
             if (Def.Drawback == DrawbackKind.NoHipFire && !c.Aiming) m.SpreadMul *= Def.D1;
             if (c.Aiming && c.Moving) m.SpreadMul *= Sight.AimMoveSpreadMul;
             consecutive++;

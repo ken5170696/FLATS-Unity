@@ -232,6 +232,7 @@ public class Bullet : MonoBehaviour
 				grenadeHit = true;
 			}
 			GameObject gameObject = UnityEngine.Object.Instantiate(hitEffect, contactPoint.point, Quaternion.identity) as GameObject;
+			if (RoguelikeMode.Active && !grenade) FlatsFeel.WorldImpact(contactPoint.point);
 			if (shooter != null)
 			{
 				gameObject.GetComponent<ParticleSystem>().startColor = shooter.GetChild(0).GetComponent<Renderer>().material.color;
