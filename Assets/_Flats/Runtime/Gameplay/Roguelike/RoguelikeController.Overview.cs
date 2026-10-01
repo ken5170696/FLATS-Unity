@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using Flats.Core.Roguelike;
 using UnityEngine;
 
-// The TAB overview (Shop / Player / Squad / Weapons / Run). Presentation only: rows are built from the
-// replicated run state and the local player's runtime; the shop tab issues the same commands as the prep screen.
+// TAB 總覽的兩頁資料綁定；使用複寫的本局狀態與本機玩家資料。
+// 商店入口及拆除沿用既有畫面與確認流程，不在這裡新增規則或交易。
 public partial class RoguelikeController
 {
     RogueOverviewView overview;
@@ -21,32 +21,11 @@ public partial class RoguelikeController
         bool allowed = Menu.current == "Playing" || Menu.current == "RogueScreen";
         if (toggle && allowed && !ConfirmDialogOpen()) { if (overview != null) CloseOverview(); else OpenOverview(); }
         if (overview == null) return;
-        overviewRefresh -= Time.deltaTime;
+        overviewRefresh -= Time.unscaledDeltaTime;
         if (overviewRefresh <= 0) { overviewRefresh = 0.5f; if (!Input.GetMouseButton(0)) FillOverview(); }   // never swap rows under a held click
     }
 
     string overviewSignature = "";
-    /// <summary>Cheap change key per tab: rows are rebuilt only when it changes, so scroll and focus survive idle refreshes.</summary>
-    string OverviewSignature(RunPlayer me)
-    {
-        var rp = LocalRoguePlayer(); var dr = rp != null ? rp.GetComponent<DamageReceiver>() : null;
-        var sb = new System.Text.StringBuilder();
-        sb.Append(overview.Current).Append('|').Append(state.phase).Append('|').Append(state.depth).Append('|').Append(me.walletMinor).Append('|').Append(me.shopVersion).Append('|').Append(pendingTx.Count)
-          .Append('|').Append(me.kills).Append('|').Append(me.ultimateCharge).Append('|').Append(RerollTickets(me)).Append('|').Append(me.build.mods.Length).Append('|').Append(me.build.cores.Length).Append('|').Append(me.build.healthTier + me.build.damageTier + me.build.magazineTier + me.build.speedTier)
-          .Append('|').Append(dr != null ? Mathf.RoundToInt(dr.hitPoints / 25f) : 0).Append('|').Append(AliveEnemies).Append('|').Append((int)(state.stageSeconds / 5));
-        foreach (var p in state.players)
-        {
-            sb.Append('|').Append(p.key).Append(p.life).Append(p.connected ? 1 : 0).Append(p.ready ? 1 : 0).Append(p.walletMinor).Append(p.kills).Append(p.build.cores.Length).Append(p.build.mods.Length).Append(p.build.tactical).Append(p.build.ultimate).Append(p.build.healthTier + p.build.damageTier + p.build.magazineTier + p.build.speedTier);
-            var pgo = RogueWorld.PlayerByKey(p.key); var prp = pgo != null ? pgo.GetComponent<RoguePlayer>() : null;
-            sb.Append(prp != null ? Mathf.RoundToInt(prp.HealthFraction() * 20) : -1).Append(prp != null && prp.Carrying ? 'c' : '-');
-        }
-        if (overview.Current == 3) { var go = FindLocalPlayer(); var fc = go != null ? go.GetComponent<FPSController>() : null; if (fc != null) { sb.Append('|').Append(fc.primaryWeaponIndex).Append('/').Append(fc.secondaryWeaponIndex); var g2 = fc.secondaryWeapon != null ? fc.secondaryWeapon.GetComponent<Gun>() : null; if (g2 != null) sb.Append('|').Append(g2.currentAmmo).Append('/').Append(g2.maxAmmo); } }
-        if (overview.Current == 3) { var go = FindLocalPlayer(); var fc = go != null ? go.GetComponent<FPSController>() : null; var g = fc != null && fc.primaryWeapon != null ? fc.primaryWeapon.GetComponent<Gun>() : null; if (g != null) sb.Append('|').Append(g.currentAmmo).Append('/').Append(g.maxAmmo); }
-        // the Run tab's guide rows carry the live statuses and the current step (QA-43)
-        if (overview.Current == RunTabIndex()) sb.Append('|').Append(trackerIndex).Append('|').Append(objectiveText);
-        return sb.ToString();
-    }
-
     static bool ConfirmDialogOpen() { var v = UnityEngine.Object.FindObjectOfType<ConfirmationDialogView>(); return v != null && v.gameObject.activeInHierarchy; }
 
     public void OpenOverview()
@@ -55,8 +34,10 @@ public partial class RoguelikeController
         overview = RogueOverviewView.Open();
         if (overview == null) return;
         overview.TabChanged += index => FillOverview(true);
-        // while the mission card or a toast is up (it says "Details" with this binding), the overview opens where the details are
-        overview.Select(state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd ? 0 : BriefingWantsDetails ? RunTabIndex() : 1);
+        var opened = overview; opened.Disabled += () => { if (overview == opened) CloseOverview(); };
+        // TAB opens the build; while the stage briefing card is up its "[TAB] details" opens the run page on the objective's guide
+        if (BriefingWantsDetails) FocusObjectiveGuide();
+        overview.Select(BriefingWantsDetails ? RunTabIndex() : 0);
         overviewRefresh = 0.5f;
         if (screen != null) screen.SetCovered(true);
     }
@@ -65,7 +46,66 @@ public partial class RoguelikeController
     {
         if (overview == null) return;
         overview.Close(); overview = null; overviewSignature = "";
-        if (screen != null) { screen.SetCovered(false); RefreshScreens(); }
+        if (screen != null) { screen.SetCovered(false); screen.RebuildNavigation(); }
+    }
+
+    /// <summary>The next fill of the run page focuses the main objective's guide tile.</summary>
+    void FocusObjectiveGuide()
+    {
+        if (overview == null || state == null || state.encounter == null) return;
+        string id = state.encounter.IsFinale ? state.encounter.finaleId : state.encounter.objectiveId;
+        if (!string.IsNullOrEmpty(id)) overview.RequestFocus("guide-" + id);
+    }
+
+    /// <summary>The ready countdown or the stage intro as a subtitle suffix (empty when no clock runs).</summary>
+    string OverviewClock()
+    {
+        var kind = VisibleStageClock;
+        float remaining = kind == StageClockKind.Countdown ? CountdownRemaining : kind == StageClockKind.Intro ? IntroRemaining : 0f;
+        if (kind == StageClockKind.None || remaining <= 0f) return "";
+        return " · " + T(kind == StageClockKind.Countdown ? "Stage starts in" : "Enemies arrive in") + " " + Mathf.CeilToInt(remaining);
+    }
+
+    readonly System.Text.StringBuilder overviewKey = new System.Text.StringBuilder(256);
+    /// <summary>Everything the open page shows that can change while it is open. The half-second sync rebuilds the page's strings
+    /// only when this changes; without it every sync re-translated and re-wrapped the whole page.</summary>
+    string OverviewSignature(RunPlayer me)
+    {
+        var sb = overviewKey; sb.Length = 0;
+        sb.Append(overview.Current).Append('|').Append((int)state.phase).Append('|').Append(state.depth).Append('|').Append(me.walletMinor).Append('|').Append(pendingTx.Count)
+          .Append('|').Append(FlatsLocalization.IsChinese ? 1 : 0).Append((int)RogueInput.Current)
+          .Append('|').Append(OverviewClock());
+        if (overview.Current == 0)
+        {
+            var b = me.build;
+            foreach (var id in b.cores) sb.Append('|').Append(id).Append(b.Tier(id));
+            foreach (var id in b.mods) sb.Append('|').Append(id).Append(b.Tier(id));
+            sb.Append('|').Append(b.tactical).Append('|').Append(b.ultimate).Append('|').Append(b.healthTier).Append(b.damageTier).Append(b.magazineTier).Append(b.speedTier)
+              .Append('|').Append(me.ultimateCharge).Append('|').Append(me.kills).Append(me.headshots).Append(me.deaths).Append(me.rescues);
+            var rp = LocalRoguePlayer(); var dr = rp != null ? rp.GetComponent<DamageReceiver>() : null;
+            sb.Append('|').Append(dr != null ? Mathf.RoundToInt(dr.hitPoints / 25f) : 0);
+            var go = FindLocalPlayer(); var fc = go != null ? go.GetComponent<FPSController>() : null;
+            if (fc != null)
+            {
+                sb.Append('|').Append(fc.primaryWeaponIndex).Append('/').Append(fc.secondaryWeaponIndex);
+                foreach (var weapon in new[] { fc.primaryWeapon, fc.secondaryWeapon })
+                { var gun = weapon != null ? weapon.GetComponent<Gun>() : null; if (gun != null) sb.Append('|').Append(gun.currentAmmo).Append('/').Append(gun.maxAmmo); }
+            }
+        }
+        else
+        {
+            foreach (var p in state.players)
+            {
+                sb.Append('|').Append(p.key).Append((int)p.life).Append(p.connected ? 1 : 0).Append(p.ready ? 1 : 0).Append(p.walletMinor).Append('k').Append(p.kills).Append(p.headshots).Append(p.deaths).Append(p.rescues)
+                  .Append('e').Append(p.earnedMinor).Append(p.spentMinor).Append(p.build.cores.Length).Append(p.build.mods.Length).Append(p.build.tactical).Append(p.build.ultimate)
+                  .Append(p.build.healthTier).Append(p.build.damageTier).Append(p.build.magazineTier).Append(p.build.speedTier);
+                var pgo = RogueWorld.PlayerByKey(p.key); var prp = pgo != null ? pgo.GetComponent<RoguePlayer>() : null;
+                sb.Append(prp != null ? Mathf.RoundToInt(prp.HealthFraction() * 20) : -1).Append(prp != null ? Mathf.RoundToInt(prp.ShieldFraction * 20) : -1);
+            }
+            sb.Append('|').Append(trackerIndex).Append('|').Append(objectiveText).Append('|').Append(AliveEnemies).Append('|').Append((int)(state.stageSeconds / 5))
+              .Append('|').Append(state.teamEarnedMinor).Append('|').Append(RerollTickets(me)).Append('|').Append(state.paidDepth).Append(state.mapId).Append(state.routeTag);
+        }
+        return sb.ToString();
     }
 
     void FillOverview(bool force = false)
@@ -77,140 +117,171 @@ public partial class RoguelikeController
         if (!force && signature == overviewSignature) return;
         overviewSignature = signature;
         overview.ClearRows(true);
-        overview.UseTwoColumns(overview.Current == 1 && overview.body != null);
-        switch (overview.Current)
-        {
-            case 0: FillShopTab(me); break;
-            case 1: FillPlayerTab(me); break;
-            case 2: FillSquadTab(me); break;
-            case 3: FillWeaponsTab(me); break;
-            default: FillRunTab(me); break;
-        }
-        overview.SetFooter(RogueInput.OverviewFooter(RogueMoney.Format(me.walletMinor)));   // the wallet has one fixed place on every tab: the footer (R13)
-        overview.FitBody();   // the two-column body scrolls when its cards and stats are taller than the panel (short or wide screens)
-    }
-
-    // ---------------------------------------------------------------- tabs
-    void FillShopTab(RunPlayer me)
-    {
+        if (overview.Current == 0) FillEquipment(me); else FillSquadAndRun(me);
+        overview.SetHeader("", T(overview.Current == 0 ? "My equipment" : "Squad and run"),
+            T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)) + " · " + PhaseText()
+            // the HUD and the banner are hidden under the overview: the ready countdown must still be readable here
+            + OverviewClock());
+        overview.SetWallet("$" + RogueMoney.Format(me.walletMinor));
         bool open = state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd;
-        overview.SetHeader("Coin", T("Shop"), open ? T("Rerolls {0}", me.rerollsLeft) + (RerollTickets(me) > 0 ? "   " + T("Reroll tickets: {0}", RerollTickets(me)) : "") : T("The shop opens between stages."));
-        if (!open)
-        {
-            overview.AddStat("Coin", T("Wallet"), "$" + RogueMoney.Format(me.walletMinor), T("Earned ${0}   Spent ${1}", RogueMoney.Format(me.earnedMinor), RogueMoney.Format(me.spentMinor)), -1, TintGold);
-            overview.AddStat("Stage", T("Next shop"), T("After this stage"), T("Bounties are paid per kill; headshots pay x{0}.", RogueCatalog.HeadshotMoneyMultiplier), -1, TintPink);
-            if (RerollTickets(me) > 0) overview.AddStat("Reload", T("Reroll tickets: {0}", RerollTickets(me)), "", T("A ticket is one free shop reroll, now or at any later stage of this run."), -1, TintGold);
-            return;
-        }
-        AddShopRows(me, (icon, name, effect, price, rarity, action, interactable, status, onAction) => overview.AddOffer(icon, name, effect, price, rarity, action, interactable, status, onAction));
+        overview.SetShop(open, () => { CloseOverview(); ReopenScreen(); RefreshScreens(); });
+        overview.FitBody();
     }
 
-    void FillPlayerTab(RunPlayer me)
+    void FillEquipment(RunPlayer me)
     {
-        var stats = BuildStats.Compute(me.build);
-        var rp = LocalRoguePlayer();
-        var dr = rp != null ? rp.GetComponent<DamageReceiver>() : null;
-        float max = rp != null ? rp.MaxHealth() : 1000f, hp = dr != null ? Mathf.Max(0, dr.hitPoints) : max;
-        overview.SetHeader("Main0", me.name, T("Kills {0}   Headshots {1}   Deaths {2}   Rescues {3}", me.kills, me.headshots, me.deaths, me.rescues));
-        bool two = overview.body != null && overview.body.activeSelf;
-        System.Func<string, string, string, string, float, Color, RogueStatRowView> stat = two ? (System.Func<string, string, string, string, float, Color, RogueStatRowView>)overview.AddLeftStat : overview.AddStat;
-        stat("Heart", T("Health"), Mathf.RoundToInt(hp) + " / " + Mathf.RoundToInt(max), T("Tier {0}/{1}   {2}", me.build.healthTier, RogueCatalog.StatTiers, Pct(stats.HealthMul)), max > 0 ? hp / max : 0, TintRed);
-        stat("Fire", T("Damage"), Pct(stats.DamageMul), two ? T("Tier {0}/{1}   Head x{2}   Taken {3}", me.build.damageTier, RogueCatalog.StatTiers, Round(stats.HeadshotDamageMul), Pct(stats.DamageTakenMul)) : T("Tier {0}/{1}   Body x{2}   Head x{3}", me.build.damageTier, RogueCatalog.StatTiers, Round(stats.BodyDamageMul), Round(stats.HeadshotDamageMul)), (float)((stats.DamageMul - 1) / BuildStats.MaxTotalDamageMul), TintPink);
-        stat("Ammo", T("Magazine"), Pct(stats.MagazineMul), T("Tier {0}/{1}   Reserve {2}   Reload time x{3}", me.build.magazineTier, RogueCatalog.StatTiers, Pct(stats.ReserveMul), Round(stats.ReloadTimeMul)), (float)((stats.MagazineMul - 1) / BuildStats.MaxMagazineBonus), TintBlue);
-        stat("Jump", T("Speed"), Pct(stats.SpeedMul), T("Tier {0}/{1}   Jump height x{2}", me.build.speedTier, RogueCatalog.StatTiers, Round(stats.JumpHeightMul)), (float)((stats.SpeedMul - 1) / BuildStats.MaxSpeedBonus), TintGreen);
-        if (!two) stat("Shield", T("Damage taken"), Pct(stats.DamageTakenMul), stats.DamageTakenMul < 1 ? T("Reduced by mods and cores") : "", -1, TintInk);
-        stat("Ultimate", T("Ultimate"), string.IsNullOrEmpty(me.build.ultimate) ? T("None") : ItemName(me.build.ultimate), string.IsNullOrEmpty(me.build.ultimate) ? T("Buy one in the shop; it charges from kills.") : (RogueInput.IsTouch ? T("Charge {0}%", me.ultimateCharge) : T("Charge {0}%   Press {1}", me.ultimateCharge, RogueInput.KeyText("Ultimate"))), string.IsNullOrEmpty(me.build.ultimate) ? -1 : me.ultimateCharge / 100f, RogueItemKinds.UltimateTint);
-        stat(string.IsNullOrEmpty(me.build.tactical) ? "Dash" : RogueIcons.ForItem(RogueCatalog.Item(me.build.tactical)), T("Tactical"), string.IsNullOrEmpty(me.build.tactical) ? T("None") : ItemName(me.build.tactical), string.IsNullOrEmpty(me.build.tactical) || RogueInput.IsTouch ? "" : T("Press {0}", RogueInput.KeyText("Tactical")), -1, RogueItemKinds.TacticalTint);
-        if (two)
+        var b = me.build; var stats = BuildStats.Compute(b); var theme = FlatsUiTheme.Rogue;
+        overviewStats = stats;
+        for (int i = 0; i < RogueCatalog.MaxCores; i++)
         {
-            overview.SetGridHeadings(T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods));
-            for (int i = 0; i < RogueCatalog.MaxCores; i++)
-            {
-                var def = i < me.build.cores.Length ? RogueCatalog.Item(me.build.cores[i]) : null;
-                if (def != null) overview.AddCard(true, RogueIcons.ForItem(def), T(def.Name), OwnedEffect(def, me.build), RogueItemKinds.CoreTint, false);
-                else overview.AddCard(true, "Core", T("Empty core slot"), "", TintInk, true);
-            }
-            for (int i = 0; i < RogueCatalog.MaxMods; i++)
-            {
-                var def = i < me.build.mods.Length ? RogueCatalog.Item(me.build.mods[i]) : null;
-                if (def != null) overview.AddCard(false, RogueIcons.ForItem(def), T(def.Name), OwnedEffect(def, me.build), RogueItemKinds.ModTint, false);   // the effect, so owned mods are not just names
-                else overview.AddCard(false, "Mod", T("Empty"), "", TintInk, true);
-            }
+            if (i < b.cores.Length) OverviewItem(me, b.cores[i], true);
+            else overview.AddTile("empty-core-" + i, "Core", T("Core"), "", T("Empty core slot"), "", theme.supply, T("The shop opens between stages."), T("Cores {0}/{1}", b.cores.Length, RogueCatalog.MaxCores), "", true).Empty(theme.core);
         }
-        else
-        {
-            overview.AddStat("Core", T("Cores {0}/{1}", me.build.cores.Length, RogueCatalog.MaxCores), "", "", -1, TintInk);
-            foreach (var id in me.build.cores) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), OwnedEffect(def, me.build), -1, RogueItemKinds.CoreTint); }
-            overview.AddStat("Mod", T("Mods {0}/{1}", me.build.mods.Length, RogueCatalog.MaxMods), "", "", -1, TintInk);
-            foreach (var id in me.build.mods) { var def = RogueCatalog.Item(id); if (def != null) overview.AddStat(RogueIcons.ForItem(def), T(def.Name), RarityText(def), OwnedEffect(def, me.build), -1, RogueItemKinds.ModTint); }
-        }
+        foreach (var id in b.mods) OverviewItem(me, id, false);
+        if (b.mods.Length < RogueCatalog.MaxMods) overview.AddTile("mod-capacity", "Mod", (FlatsLocalization.IsChinese ? T("Item kind Mod") : "Mod"), "", T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods), "", theme.mod, T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods), T("The shop opens between stages."));
+        if (!string.IsNullOrEmpty(b.tactical)) OverviewItem(me, b.tactical, false);
+        else overview.AddTile("empty-tactical", "Dash", T("Tactical"), "", T("Empty tactical slot"), "", theme.supply, T("The shop opens between stages.")).Empty(theme.tactical);
+        if (!string.IsNullOrEmpty(b.ultimate)) OverviewItem(me, b.ultimate, false);
+        else overview.AddTile("empty-ultimate", "Ultimate", T("Ultimate"), "", T("Empty ultimate slot"), "", theme.supply, T("Buy one in the shop; it charges from kills.")).Empty(theme.ultimate);
+        OverviewItem(me, "stat.health", false); OverviewItem(me, "stat.damage", false); OverviewItem(me, "stat.magazine", false); OverviewItem(me, "stat.speed", false);
+        var go = FindLocalPlayer(); var fc = go != null ? go.GetComponent<FPSController>() : null;
+        if (fc == null) overview.AddTile("no-weapon", "Fire", T("Weapons"), "", T("No weapon data"), "", theme.weapon, T("Spawn first."), "", "", true);
+        else { OverviewWeapon(fc.primaryWeaponIndex, fc.primaryWeapon, "primary", T("Primary"), stats); OverviewWeapon(fc.secondaryWeaponIndex, fc.secondaryWeapon, "secondary", T("Secondary"), stats); }
+        var rp = LocalRoguePlayer(); var dr = rp != null ? rp.GetComponent<DamageReceiver>() : null;
+        float max = rp != null ? rp.MaxHealth() : 1000, hp = dr != null ? Mathf.Max(0, dr.hitPoints) : max;
+        var total = overview.AddTile("totals", "List", T("Player"), "", T("Total stats"), "", theme.ink, "", "", "", false);
+        total.Stats = new[] {
+            T("Survivability"), T("Health") + "\t" + Mathf.RoundToInt(hp) + " / " + Mathf.RoundToInt(max), T("Health bonus") + "\t" + Pct(stats.HealthMul), T("Damage taken") + "\t" + Pct(stats.DamageTakenMul),
+            T("Firepower"), T("Damage") + "\t" + Pct(stats.DamageMul), T("Body damage") + "\t×" + Round(stats.BodyDamageMul), T("Headshot") + "\t×" + Round(stats.HeadshotDamageMul), T("Accuracy") + "\t" + Pct(1 / Math.Max(.01, stats.SpreadMul)), T("Spread") + "\t×" + Round(stats.SpreadMul), T("Penetration") + "\t" + stats.PenetrateDepth, T("Ricochet") + "\t" + stats.RicochetBounces, T("Extra pellets") + "\t" + stats.ExtraPellets, T("Explosives") + "\t" + Pct(stats.GrenadeDamageMul), T("Explosion radius") + "\t×" + Round(stats.ExplosionRadiusMul),
+            T("Ammunition"), T("Magazine") + "\t" + Pct(stats.MagazineMul), T("Reserve ammo") + "\t" + Pct(stats.ReserveMul), T("Reload time") + "\t×" + Round(stats.ReloadTimeMul),
+            T("Mobility"), T("Speed") + "\t" + Pct(stats.SpeedMul), T("Jump height") + "\t×" + Round(stats.JumpHeightMul) };
+        total.Extra = T("Kills {0}   Headshots {1}   Deaths {2}   Rescues {3}", me.kills, me.headshots, me.deaths, me.rescues);
     }
 
-    void FillSquadTab(RunPlayer me)
+    BuildStats overviewStats;
+    void OverviewItem(RunPlayer me, string id, bool wide)
     {
-        int connected = 0; foreach (var p in state.players) if (p.connected) connected++;
-        overview.SetHeader("Squad", T("Squad"), connected <= 1 ? T("Solo run") : T("{0} players   Team earned ${1}", connected, RogueMoney.Format(state.teamEarnedMinor)));
+        var def = RogueCatalog.Item(id); if (def == null) return;
+        if (def.Kind == ItemKind.Ultimate) wide = true;
+        int tier = me.build.Owned(id);
+        int max = def.Kind == ItemKind.Stat ? RogueCatalog.StatTiers : RogueCatalog.MaxTier(id);
+        bool tiers = def.Kind == ItemKind.Stat || def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod;
+        string number = tiers ? tier.ToString() : "";
+        string next = tiers ? tier < max ? OverviewChanges(EffectText(def, Math.Max(1, tier), tier + 1)) : T("Max tier") : "";
+        bool removable = def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod;
+        bool open = state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd;
+        long refund = removable ? RogueShop.RefundMinor(me.build, id) : 0;
+        string removal = removable ? open ? T("Remove during prep for ${0}", RogueMoney.Format(refund)) : T("Cannot remove during combat") : T("This item cannot be removed");
+        string headline = HeadlineNumber(def, me.build, Math.Max(1, tier), true);
+        string effect = EffectText(def, Math.Max(1, tier));
+        var tile = overview.AddTile(id, RogueIcons.ForItem(def), (FlatsLocalization.IsChinese ? T("Item kind " + RogueItemKinds.Label(def.Kind)) : RogueItemKinds.Label(def.Kind)), T(def.Name), T(RoguePitches.Of(id)), number,
+            RogueItemKinds.Tint(def.Kind), effect, next, headline, wide,
+            removable ? (Action)(() => ConfirmRemove(me, id)) : null, removable && open ? T("Remove") + " +$" + RogueMoney.Format(refund) : removal, removable && open && !pendingTx.ContainsValue("remove:" + id));
+        tile.Metadata = tile.Kind + (def.Kind != ItemKind.Stat ? " · " + (def.Rarity == 0 ? T("Common") : RarityText(def)) : "") + (tiers ? " · " + T("Tier {0}/{1}", tier, max) : "");
+        tile.Removal = removal;
+        if (def.Kind == ItemKind.Tactical) tile.Extra = T("Press {0}", RogueInput.KeyText("Tactical"));
+        if (def.Kind == ItemKind.Ultimate) tile.Extra = T("Charge {0}%   Press {1}", me.ultimateCharge, RogueInput.KeyText("Ultimate"));
+        if (def.Kind == ItemKind.Stat)
+        {
+            var current = overviewStats ?? BuildStats.Compute(me.build);
+            double now = id == "stat.health" ? current.HealthMul : id == "stat.damage" ? current.DamageMul : id == "stat.magazine" ? current.MagazineMul : current.SpeedMul;
+            tile.Extra = T("Total stats") + " " + Pct(now);
+            // a tier the total cap would swallow cannot be bought (PlayerBuild.Apply throws on it): say so instead of previewing it
+            string blocked = tier < max ? me.build.RejectReason(def) : null;
+            if (tier < max && blocked == null)
+            {
+                var upgraded = me.build.Clone(); upgraded.Apply(def);
+                var after = BuildStats.Compute(upgraded);
+                double later = id == "stat.health" ? after.HealthMul : id == "stat.damage" ? after.DamageMul : id == "stat.magazine" ? after.MagazineMul : after.SpeedMul;
+                tile.Next = Pct(now) + " → " + Pct(later);
+            }
+            else if (blocked != null) tile.Next = T("At the total cap: one more tier adds nothing");
+        }
+    }
+    static string OverviewChanges(string effect)
+    {
+        var changed = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(effect.Replace(" -> ", " → "), @"[+\-×x]?\d+(?:\.\d+)?%?\s*→\s*[+\-×x]?\d+(?:\.\d+)?%?"))
+            changed.Add(match.Value);
+        return string.Join("\n", changed.ToArray());
+    }
+
+    void OverviewWeapon(int index, Transform weapon, string key, string slot, BuildStats stats)
+    {
+        if (index < 0 || index >= Flats.Core.WeaponCatalog.Count) return;
+        var def = RogueHooks.MetaWeaponDisplay(index, Flats.Core.WeaponCatalog.GetDefault(index));
+        var gun = weapon != null ? weapon.GetComponent<Gun>() : null;
+        int magazine = gun != null ? Mathf.Max(1, Mathf.RoundToInt((float)(def.limitAmmo * stats.MagazineMul))) : def.limitAmmo;
+        string ammo = gun != null ? gun.currentAmmo + " / " + gun.maxAmmo : "";
+        string effect = T("Damage {0}   Magazine {1}   RPM {2}   Reload {3}s   Headshot x{4}", Mathf.RoundToInt((float)(def.damage * stats.DamageMul)), magazine, Mathf.RoundToInt(def.rpm), Math.Round((.5f + def.reloadTime) * stats.ReloadTimeMul, 1), Round(def.headshotBonus * stats.HeadshotDamageMul));
+        Sprite sprite = null;
+        foreach (var model in RogueArmory.Ranged) if (model.BaseModel == index) { sprite = Resources.Load<Sprite>("UI/Roguelike/Tiles/Weapons/" + model.Id) ?? RogueMetaUI.Icon(model.Id); break; }
+        overview.AddTile("weapon-" + key, "Fire", slot, "", RogueItemKinds.WeaponDisplayName(def.gunName), ammo, FlatsUiTheme.Rogue.weapon, effect, RogueHooks.MetaWeaponRangeText(index, "\n"), ammo, true, sprite: sprite);
+    }
+
+    void FillSquadAndRun(RunPlayer me)
+    {
         foreach (var p in state.players)
         {
             if (!p.connected) continue;
-            var go = RogueWorld.PlayerByKey(p.key);
-            var rp = go != null ? go.GetComponent<RoguePlayer>() : null;
-            float fraction = rp != null ? rp.HealthFraction() : (p.life == PlayerLife.Alive ? 1f : 0f);
-            var tint = p.life == PlayerLife.Alive ? TintGreen : p.life == PlayerLife.Downed ? TintGold : TintRed;
-            overview.AddStat(RogueIcons.ForLife(p.life), p.name + (p.key == me.key ? "  (" + T("You") + ")" : ""), LifeText(p.life) + (p.ready && (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) ? "  " + T("Ready") : ""),
-                T("Wallet ${0}   Kills {1}   HS {2}   Deaths {3}   Rescues {4}", RogueMoney.Format(p.walletMinor), p.kills, p.headshots, p.deaths, p.rescues), fraction, tint);
-            overview.AddStat("Core", T("Build"), BuildShort(p.build), BuildSummary(p.build), -1, TintInk);
-            MetaSquadRow(p);   // meta level, loadout and the fairness note
+            var go = RogueWorld.PlayerByKey(p.key); var rp = go != null ? go.GetComponent<RoguePlayer>() : null;
+            float fraction = rp != null ? rp.HealthFraction() : p.life == PlayerLife.Alive ? 1 : 0;
+            string life = LifeText(p.life) + (p.ready && (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) ? " · " + T("Ready") : "");
+            string playerName = p.name + (p.key == me.key ? " (" + T("You") + ")" : "");
+            var playerTile = overview.AddTile("player-" + p.key, "", life, playerName, playerName, p.kills.ToString(), p.life == PlayerLife.Alive ? FlatsUiTheme.Rogue.tactical : p.life == PlayerLife.Downed ? FlatsUiTheme.Rogue.ultimate : FlatsUiTheme.Rogue.negative, "", "", "", true);
+            float shield = rp != null ? rp.ShieldFraction : (float)p.overshieldFraction;
+            playerTile.Stats = new[] { T("Health") + "\t" + Mathf.RoundToInt(fraction * 100) + "%", T("Shield") + "\t" + Mathf.RoundToInt(shield * 100) + "%", T("Wallet") + "\t$" + RogueMoney.Format(p.walletMinor), T("Kills") + "\t" + p.kills, T("Headshots") + "\t" + p.headshots, T("Deaths") + "\t" + p.deaths, T("Rescues") + "\t" + p.rescues, T("Earned this run") + "\t$" + RogueMoney.Format(p.earnedMinor), T("Spent") + "\t$" + RogueMoney.Format(p.spentMinor) };
+            playerTile.Health(fraction, shield);
+            var buildNames = new List<string>();
+            foreach (var id in p.build.cores) buildNames.Add(ItemName(id));
+            if (!string.IsNullOrEmpty(p.build.tactical)) buildNames.Add(ItemName(p.build.tactical));
+            if (!string.IsNullOrEmpty(p.build.ultimate)) buildNames.Add(ItemName(p.build.ultimate));
+            playerTile.Extra = (buildNames.Count > 0 ? string.Join(" · ", buildNames.ToArray()) + "\n" : "")
+                + T("Mods {0}/{1} · Health T{2} · Damage T{3}", p.build.mods.Length, RogueCatalog.MaxMods, p.build.healthTier, p.build.damageTier)
+                + "\n" + T("Magazine T{0} · Speed T{1}", p.build.magazineTier, p.build.speedTier);
+            var renderer = go != null ? go.GetComponentInChildren<SkinnedMeshRenderer>() : null;
+            Color playerColor = renderer != null && renderer.sharedMaterial != null ? renderer.sharedMaterial.color : FlatsUiTheme.Rogue.tactical;
+            playerTile.BindSquad(p.build, T("Kills"), playerColor);
+            overview.CollectDetails(playerTile); MetaSquadRow(p); overview.CollectDetails(null);
         }
-    }
-
-    void FillWeaponsTab(RunPlayer me)
-    {
-        var stats = BuildStats.Compute(me.build);
-        var go = FindLocalPlayer(); var fc = go != null ? go.GetComponent<FPSController>() : null;
-        overview.SetHeader("Fire", T("Weapons"), T("Damage x{0}   Magazine x{1}   Reload time x{2}", Round(stats.DamageMul), Round(stats.MagazineMul), Round(stats.ReloadTimeMul)));
-        if (fc == null) { overview.AddStat("Warning", T("No weapon data"), "", T("Spawn first."), -1, TintInk); return; }
-        AddWeaponRows(fc, fc.primaryWeaponIndex, fc.primaryWeapon, T("Primary"), stats);
-        AddWeaponRows(fc, fc.secondaryWeaponIndex, fc.secondaryWeapon, T("Secondary"), stats);
-        overview.AddStat("Sight", T("Accuracy"), Pct(1 / Math.Max(0.01, stats.SpreadMul)), T("Spread x{0}   Penetrate {1}   Ricochet {2}   Extra pellets {3}", Round(stats.SpreadMul), stats.PenetrateDepth, stats.RicochetBounces, stats.ExtraPellets), -1, TintBlue);
-        overview.AddStat("Zoom", T("Explosives"), Pct(stats.GrenadeDamageMul), T("Radius x{0}", Round(stats.ExplosionRadiusMul)), -1, TintGold);
-    }
-
-    void AddWeaponRows(FPSController fc, int index, Transform weapon, string slot, BuildStats stats)
-    {
-        if (index < 0 || index >= Flats.Core.WeaponCatalog.Count) return;
-        var def = RogueHooks.MetaWeaponDisplay(index, Flats.Core.WeaponCatalog.GetDefault(index));   // the armory variant in hand
-        var gun = weapon != null ? weapon.GetComponent<Gun>() : null;
-        string ammo = gun != null ? gun.currentAmmo + " / " + gun.maxAmmo : "";
-        int magazine = gun != null ? Mathf.Max(1, Mathf.RoundToInt((float)(def.limitAmmo * stats.MagazineMul))) : def.limitAmmo;
-        overview.AddStat("Fire", slot + ": " + RogueItemKinds.WeaponDisplayName(def.gunName), ammo,
-            T("Damage {0}   Magazine {1}   RPM {2}   Reload {3}s   Headshot x{4}", Mathf.RoundToInt((float)(def.damage * stats.DamageMul)), magazine, Mathf.RoundToInt(def.rpm), Math.Round((0.5f + def.reloadTime) * stats.ReloadTimeMul, 1)   /* the reload really takes 0.5 s + reloadTime (FPSController.Reload) */, Round(def.headshotBonus * stats.HeadshotDamageMul)),
-            gun != null && gun.currentAmmo + gun.maxAmmo > 0 ? Mathf.Clamp01((float)gun.currentAmmo / Mathf.Max(1, magazine)) : -1, TintPink);
-        // QA-49: a shotgun's range profile, the same lines the armory card shows ("" for other weapons)
-        string rangeText = RogueHooks.MetaWeaponRangeText(index, "   ");
-        if (rangeText.Length > 0) overview.AddStat("Sight", slot + ": " + T("Range"), "", rangeText, -1, TintPink);
-    }
-
-    void FillRunTab(RunPlayer me)
-    {
         var map = RogueCatalog.Map(state.mapId); var route = RogueCatalog.Route(state.routeTag);
-        overview.SetHeader("Stage", T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)), (map != null ? T(map.Name) : state.mapId) + "   " + T(route.Name) + "   " + T("Difficulty {0}", state.difficulty));
-        var enc = state.encounter;
-        // the stage is planned when combat begins: before that its bounty, waves and clock are not known and read as a row of zeros,
-        // and the encounter still held is the previous stage's
-        bool planned = state.paidDepth == state.depth;
-        // QA-43: each encounter's whole guide (goal, steps with the current one marked, what to watch out for, a tip, the reward)
-        var main = RogueCatalog.Encounter(enc.IsFinale ? enc.finaleId : enc.objectiveId);
-        if (planned && main != null) AddGuideRows(main.Id, T(main.Name), state.phase == RunPhase.Combat ? ObjectivePart(0) : PhaseText(), TintPink, true);
-        var ev = RogueCatalog.Encounter(enc.eventId); if (planned && ev != null) AddGuideRows(ev.Id, T("Event: {0}", T(ev.Name)), ObjectivePart(1), TintBlue, false);
-        var em = RogueCatalog.Encounter(enc.emergencyId); if (planned && em != null) AddGuideRows(em.Id, T("Warning: {0}", T(em.Name)), ObjectivePart(2), TintRed, false);
-        if (!planned) overview.AddStat("Stage", T("Stage plan"), T("Not started"), T("Objective, enemies and bounty are set when everyone is ready."), -1, TintPink);
-        if (planned) overview.AddStat("Coin", T("Stage bounty"), "$" + RogueMoney.Format(state.ledger.budgetMinor), T("Per player budget   Objective ${0}   Bonus cap ${1}   Event cap ${2}", RogueMoney.Format(state.ledger.objectiveMinor), RogueMoney.Format(state.ledger.bonusBudgetMinor), RogueMoney.Format(state.ledger.eventBudgetMinor)), -1, TintGold);
-        if (state.stageBountyMul != 1) overview.AddStat("Warning", T("Risk contract"), "x" + Round(state.stageBountyMul), T("Bounties this stage are multiplied."), -1, TintGold);
-        if (planned) overview.AddStat("Timer", T("Stage time"), FormatSeconds(state.stageSeconds), "", -1, TintInk);
-        overview.AddStat("Check", T("Checkpoint"), state.checkpointDepth > 0 ? T("Stage {0}-{1}", RogueDepth.ChapterOf(state.checkpointDepth), RogueDepth.StageInChapter(state.checkpointDepth)) : T("None"), T("Saved at each prep; deepest {0}", state.deepestDepth > 0 ? T("Stage {0}-{1}", RogueDepth.ChapterOf(state.deepestDepth), RogueDepth.StageInChapter(state.deepestDepth)) : T("None")), -1, TintGreen);
-        if (planned) overview.AddStat("Enemy", T("Enemies"), AliveEnemies.ToString(), T("Waves {0}   Cap {1}   Enemy tier {2}", enc.waves != null ? enc.waves.Length : 0, enc.concurrentCap, enc.enemyStatTier), -1, TintInk);
-        overview.AddStat("Squad", T("Bounty rules"), T("Headshot x{0}", RogueCatalog.HeadshotMoneyMultiplier), T("Every player is paid for every kill; the same enemy never pays twice."), -1, TintPink);
+        overview.AddTile("run", "Flag", T("Run"), "", T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)), T("Depth {0}", state.depth), FlatsUiTheme.Rogue.ink,
+            (map != null ? T(map.Name) : state.mapId) + " · " + T(route.Name) + "\n" + T("Difficulty {0}", state.difficulty) + " · " + T("Heat {0}", state.heat), PhaseText(), "", true);
+        var enc = state.encounter; bool planned = state.paidDepth == state.depth;
+        if (planned) { OverviewGuide(enc.IsFinale ? enc.finaleId : enc.objectiveId, ObjectivePart(0), true); OverviewGuide(enc.eventId, ObjectivePart(1), false); OverviewGuide(enc.emergencyId, ObjectivePart(2), false, true); }
+        else
+        {
+            foreach (string kind in new[] { "Objective", "Event", "Emergency" })
+                overview.AddTile("plan-" + kind, "", T(kind), "", T("Not started"), "", FlatsUiTheme.Rogue.supply, T("Objective, enemies and bounty are set when everyone is ready."), "", "", true);
+        }
+        string ledger = T("Team earned ${0}", RogueMoney.Format(state.teamEarnedMinor)) + "\n" + T("Reroll tickets: {0}", RerollTickets(me)) + "\n" + T("Earned ${0}   Spent ${1}", RogueMoney.Format(me.earnedMinor), RogueMoney.Format(me.spentMinor));
+        if (planned) ledger += "\n" + T("Stage bounty") + " $" + RogueMoney.Format(state.ledger.budgetMinor) + "\n" + T("Per player budget   Objective ${0}   Bonus cap ${1}   Event cap ${2}", RogueMoney.Format(state.ledger.objectiveMinor), RogueMoney.Format(state.ledger.bonusBudgetMinor), RogueMoney.Format(state.ledger.eventBudgetMinor)).Replace("   ", "\n").Replace("　", "\n");
+        ledger += "\n" + T("Headshot x{0}", RogueCatalog.HeadshotMoneyMultiplier) + "\n" + T("Every player is paid for every kill; the same enemy never pays twice.");
+        if (state.stageBountyMul != 1) ledger += "\n" + T("Risk contract") + " x" + Round(state.stageBountyMul) + " · " + T("Bounties this stage are multiplied.");
+        overview.AddTile("ledger", "Coin", T("Bounty rules"), "", T("Team income"), "$" + RogueMoney.Format(state.teamEarnedMinor), FlatsUiTheme.Rogue.ultimate, ledger, "", "$" + RogueMoney.Format(state.teamEarnedMinor), true);
+        string progress = T("Checkpoint") + " · " + (state.checkpointDepth > 0 ? T("Stage {0}-{1}", RogueDepth.ChapterOf(state.checkpointDepth), RogueDepth.StageInChapter(state.checkpointDepth)) : T("None")) + "\n" + T("Saved at each prep; deepest {0}", state.deepestDepth > 0 ? T("Stage {0}-{1}", RogueDepth.ChapterOf(state.deepestDepth), RogueDepth.StageInChapter(state.deepestDepth)) : T("None"));
+        if (planned) progress += "\n" + T("Stage time") + " " + FormatSeconds(state.stageSeconds) + "\n" + T("Enemies") + " " + AliveEnemies + "\n" + T("Waves {0}   Cap {1}   Enemy tier {2}", enc.waves != null ? enc.waves.Length : 0, enc.concurrentCap, enc.enemyStatTier);
+        overview.AddTile("progress", "Check", T("Run"), "", T("Checkpoint"), "", FlatsUiTheme.Rogue.weapon, progress, "", "", true);
+    }
+    void OverviewGuide(string id, string status, bool main, bool emergency = false)
+    {
+        var def = RogueCatalog.Encounter(id);
+        if (def == null)
+        {
+            overview.AddTile("guide-empty-" + (main ? "objective" : emergency ? "emergency" : "event"), "", T(main ? "Objective" : emergency ? "Emergency" : "Event"), "", T("None"), "", FlatsUiTheme.Rogue.supply, "", "", "", true);
+            return;
+        }
+        var g = Guide(id); string description = g != null ? GuideText(g.Goal) : T(def.Brief);
+        if (g != null)
+        {
+            for (int i = 0; i < g.Steps.Length; i++) description += "\n" + (i + 1) + ". " + (main && i == trackerIndex ? T("Now") + " · " : "") + GuideText(g.Steps[i]) + " " + ActionHint(g.Steps[i].Action);
+            string watch = GuideText(g.Watch), tip = GuideText(g.Tip), reward = RewardLine(id, g);
+            if (!string.IsNullOrWhiteSpace(watch)) description += "\n" + T("Watch out") + " · " + watch;
+            if (!string.IsNullOrWhiteSpace(tip)) description += "\n" + T("Tip") + " · " + tip;
+            if (!string.IsNullOrWhiteSpace(reward)) description += "\n" + reward;   // the line carries its own "Reward:" label
+            if (g.Optional) description += "\n" + T("Optional: you can skip it");
+        }
+        overview.AddTile("guide-" + id, RogueIcons.ForEncounter(id), T(main ? "Objective" : id == state.encounter.emergencyId ? "Emergency" : "Event"), status, T(def.Name), "", main ? FlatsUiTheme.Rogue.stat : id == state.encounter.emergencyId ? FlatsUiTheme.Rogue.negative : FlatsUiTheme.Rogue.mod, description, status, "", true);
     }
 
     // ---------------------------------------------------------------- helpers
@@ -231,7 +302,7 @@ public partial class RoguelikeController
             case RunPhase.Route: return T("Route");
             case RunPhase.ChapterEnd: return T("Chapter shop");
             case RunPhase.Cleared: return T("Cleared");
-            default: return state.phase.ToString();
+            default: return T(state.phase.ToString());
         }
     }
     static string LifeText(PlayerLife life) { return life == PlayerLife.Alive ? T("Alive") : life == PlayerLife.Downed ? T("Downed") : T("Dead"); }

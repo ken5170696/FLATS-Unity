@@ -50,7 +50,6 @@ public class RogueResultView : MonoBehaviour
     public bool hideUnderlyingUi=true;
     readonly List<Canvas> hiddenCanvases=new List<Canvas>();
     ParticleSystemRenderer hiddenMenuSquares;
-    PointerFocusPolicy hiddenFocusPolicy;
     int burstFrame;
     public void ToggleDetails()
     {
@@ -123,8 +122,7 @@ public class RogueResultView : MonoBehaviour
         hiddenCanvases.Clear();
         if(hiddenMenuSquares!=null)hiddenMenuSquares.enabled=true;
         hiddenMenuSquares=null;
-        if(hiddenFocusPolicy!=null)hiddenFocusPolicy.enabled=true;
-        hiddenFocusPolicy=null;
+        PointerFocusPolicy.Release(this);
         FlatsCursor.Pop(this);
     }
 
@@ -186,8 +184,7 @@ public class RogueResultView : MonoBehaviour
         // while the match is ending (cursor still locked), and restoring that hid the cursor on the result page below (QA-34).
         FlatsCursor.Push(this);
         previousSelection = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
-        var policy=EventSystem.current!=null?EventSystem.current.GetComponent<PointerFocusPolicy>():null;
-        if(policy!=null&&policy.enabled){hiddenFocusPolicy=policy;policy.enabled=false;}
+        PointerFocusPolicy.Hold(this);
         if(hideUnderlyingUi)foreach(var canvas in FindObjectsByType<Canvas>(FindObjectsSortMode.None))
             if(canvas.enabled&&!canvas.transform.IsChildOf(transform)){hiddenCanvases.Add(canvas);canvas.enabled=false;}
         var squares=GameObject.Find("BackgroundParticle");var renderer=squares!=null?squares.GetComponent<ParticleSystemRenderer>():null;

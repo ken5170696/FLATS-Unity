@@ -2579,3 +2579,42 @@ Current equipment	目前配裝
 Low health	低血量
 Charging	充能中
 Reloading	換彈中
+My equipment	我的配裝
+Squad and run	小隊與本局
+Total stats	數值總覽
+Cannot remove	無法拆除
+Shop between stages	清關後開店
+Next tier	下一階
+Remove between stages	準備階段可拆除
+Body x{0}   Head x{1}	身體 ×{0}　爆頭 ×{1}
+Reserve {0}   Reload time x{1}	備彈 {0}　換彈時間 ×{1}
+Jump height x{0}	跳躍高度 ×{0}
+Team income	隊伍收入
+Select a tile	選取色塊查看詳情
+Team earned ${0}	隊伍總收入 ${0}
+Empty tactical slot	空戰術槽
+Empty ultimate slot	空絕招槽
+Remove during prep for ${0}	可在準備階段拆除，退 ${0}
+Cannot remove during combat	戰鬥中不能拆除
+This item cannot be removed	這一項不能拆除
+Max tier	已滿階
+Depth {0}	深度 {0}
+Health bonus	生命加成
+Body damage	身體傷害
+Spread	散布
+Penetration	穿透
+Extra pellets	額外彈丸
+Explosion radius	爆炸半徑
+Ammunition	彈藥
+Reserve ammo	備彈
+Reload time	換彈時間
+Jump height	跳躍高度
+Spent	已花
+Deaths	死亡
+Survivability	生存
+Earned this run	已賺
+Build tiers: health {0}, damage {1}, magazine {2}, speed {3}	屬性階級：生命 {0}、火力 {1}、彈匣 {2}、敏捷 {3}
+Combat	戰鬥
+Mods {0}/{1} · Health T{2} · Damage T{3}	改件 {0}/{1} · 生命 {2} 階 · 傷害 {3} 階
+Magazine T{0} · Speed T{1}	彈匣 {0} 階 · 速度 {1} 階
+At the total cap: one more tier adds nothing	已達加成上限，再升一階也沒有效果

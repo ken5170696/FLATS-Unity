@@ -61,7 +61,10 @@ public class RogueScreenView : MonoBehaviour
     bool walletKnown;
     string acquiredKey; float acquiredUntil;
     Text[] glyphLabels; float glyphWarmUntil; Vector2 glyphScreen;
-    PointerFocusPolicy focusPolicy; bool focusPolicyWasEnabled;
+    bool focusHeld;
+    /// <summary>True once Close ran (the object lives until the end of the frame): nothing may treat it as the screen below.</summary>
+    public bool Closed { get { return closed; } }
+    void HoldFocusPolicy(bool hold) { if (hold == focusHeld) return; focusHeld = hold; if (hold) PointerFocusPolicy.Hold(this); else PointerFocusPolicy.Release(this); }
     static ConfirmationDialogView confirmCache; static float confirmCheckedAt = -1;
 
     public static RogueScreenView Open(RoguelikeController controller)
@@ -75,8 +78,7 @@ public class RogueScreenView : MonoBehaviour
     {
         previousState = Menu.current; previousSelection = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
         previousCamRotate = FPSController.enableCamRotate; if (Menu.current == "Playing") Menu.current = ScreenState;
-        focusPolicy = EventSystem.current != null ? EventSystem.current.GetComponent<PointerFocusPolicy>() : null;
-        if (focusPolicy != null) { focusPolicyWasEnabled = focusPolicy.enabled; focusPolicy.enabled = false; }
+        HoldFocusPolicy(true);
         FPSController.enableCamRotate = false; FlatsCursor.Push(this);
         var hud = GameObject.Find("UI"); hudCanvas = hud != null ? hud.GetComponent<Canvas>() : null;
         if (hudCanvas != null) { hudWasEnabled = hudCanvas.enabled; hudCanvas.enabled = false; }
@@ -108,7 +110,7 @@ public class RogueScreenView : MonoBehaviour
     }
     void OnDestroy()
     {
-        if (focusPolicy != null) focusPolicy.enabled = focusPolicyWasEnabled;
+        HoldFocusPolicy(false);
         FlatsCursor.Pop(this);
         if (!closed) { closed = true; RestoreCanvases(Suspended); }   // destroyed without Close: never leave the canvases off
     }
@@ -269,7 +271,8 @@ public class RogueScreenView : MonoBehaviour
         if (value && !covered && EventSystem.current != null)
         { var selected = EventSystem.current.currentSelectedGameObject; coveredSelection = requestedCoverSelection != null ? requestedCoverSelection : selected != null && selected.transform.IsChildOf(transform) ? selected : lastRunSelection; requestedCoverSelection = null; }
         covered = value; if (paper != null) paper.gameObject.SetActive(!value);
-        if (focusPolicy != null) focusPolicy.enabled = value && focusPolicyWasEnabled;
+        // uncovered (the overview closed): the click or key that closed it must not reach the primary action or a tile underneath
+        if (!value) activateFrom = Mathf.Max(activateFrom, Time.unscaledTime + activationDelay);
         if (!value && EventSystem.current != null && coveredSelection != null && coveredSelection.activeInHierarchy) EventSystem.current.SetSelectedGameObject(coveredSelection);
     }
     public void SetOverview(string label, Action click) { Bind(overview, overviewLabel, string.IsNullOrEmpty(label) ? null : RoguelikeController.T("Overview"), click); }
@@ -355,7 +358,8 @@ public class RogueScreenView : MonoBehaviour
         if (!Suspended && Menu.current == "Playing") { Menu.current = ScreenState; previousState = "Playing"; FPSController.enableCamRotate = false; }
         var canvas = GetComponent<Canvas>();
         if (canvas != null) canvas.enabled = !ConfirmOpen() && Menu.current == ScreenState;
-        if (focusPolicy != null) focusPolicy.enabled = focusPolicyWasEnabled && (covered || canvas != null && !canvas.enabled);
+        // the screen draws its own focus; while the overview covers it or a dialog or the pause menu hides it, the policy is theirs
+        HoldFocusPolicy(!covered && canvas != null && canvas.enabled);
         // the pause menu owns both canvases while it is up; otherwise the HUD and the banner stay hidden under the screen
         if (Menu.current == ScreenState)
         {
@@ -363,12 +367,12 @@ public class RogueScreenView : MonoBehaviour
             if (messageCanvas != null && messageCanvas.enabled) messageCanvas.enabled = false;
         }
         SyncInputGroup();
-        bool accepts = AcceptsInput;
-        if (accepts && !acceptedLast) RebuildNavigation();   // back from the overview, a dialog or the pause menu
+        bool accepts = AcceptsInput, regained = accepts && !acceptedLast;
+        if (regained) RebuildNavigation();   // back from the overview, a dialog or the pause menu
         acceptedLast = accepts;
         if (walletKnown && walletText != null && walletElapsed < walletSeconds)
         { walletElapsed += Time.unscaledDeltaTime; float p = Mathf.Clamp01(walletElapsed / Mathf.Max(.001f, walletSeconds)); walletShown = walletFrom + (long)Math.Round((walletTo - walletFrom) * p); PaintWallet(); walletText.rectTransform.localScale = Vector3.one * (reduceMotion ? 1 : 1 + .12f * Mathf.Sin(p * Mathf.PI)); }
-        if (!AcceptsInput) return;
+        if (!accepts || regained) return;   // the Esc that closed the overview this frame is not also this screen's Esc
         if (EventSystem.current != null) { var selected = EventSystem.current.currentSelectedGameObject; if (selected != null && selected.transform.IsChildOf(transform)) lastRunSelection = selected; }
         var pad = InControl.InputManager.ActiveDevice;
         if (Input.GetKeyDown(KeyCode.Escape) || pad != null && pad.Action2.WasPressed)

@@ -228,7 +228,7 @@ public partial class RoguelikeController
         if (state == null || leaving || ConfirmDialogOpen()) return;
         if (Menu.current != "Playing" && Menu.current != "RogueScreen") return;
         if (overview == null) OpenOverview();
-        if (overview != null) overview.Select(RunTabIndex());
+        if (overview != null) { FocusObjectiveGuide(); overview.Select(RunTabIndex()); }
     }
 
     int RunTabIndex()

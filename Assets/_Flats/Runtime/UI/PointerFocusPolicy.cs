@@ -35,7 +35,22 @@ public sealed class PointerFocusPolicy : MonoBehaviour
     bool restartIgnore;
     RectTransform focusFrame;
 
-    void Awake() { events = GetComponent<EventSystem>(); }
+    // Screens that draw their own focus (the Roguelike tile screens) switch the policy off while they own the input. Each one
+    // used to save and restore `enabled` itself; opened and closed in a different order they restored each other's "off" and the
+    // policy stayed off for the rest of the session. A hold is released by its owner only, and the policy is on whenever no
+    // live owner holds it.
+    static PointerFocusPolicy instance;
+    static readonly System.Collections.Generic.List<Object> holds = new System.Collections.Generic.List<Object>();
+    public static void Hold(Object owner) { if (owner != null && !holds.Contains(owner)) holds.Add(owner); Apply(); }
+    public static void Release(Object owner) { holds.Remove(owner); Apply(); }
+    static void Apply()
+    {
+        holds.RemoveAll(o => o == null);   // an owner destroyed without releasing
+        if (instance != null && instance.enabled != (holds.Count == 0)) instance.enabled = holds.Count == 0;
+    }
+
+    void Awake() { events = GetComponent<EventSystem>(); instance = this; Apply(); }
+    void OnDestroy() { if (instance == this) instance = null; }
     void OnEnable() { lastMouse = Input.mousePosition; restartIgnore = true; }
     void OnApplicationFocus(bool focused) { if (focused) restartIgnore = true; }
     void OnDisable() { PointerActive = false; if (focusCanvas != null) focusCanvas.gameObject.SetActive(false); }

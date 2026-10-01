@@ -1322,7 +1322,7 @@ public partial class Menu : MonoBehaviour
 				return;
 			}
 		}
-		if (current != "Modules" && !fliping && !backWithCancel && !RogueResultView.BlocksMenuInput && (Input.GetKeyUp(KeyCode.Escape) || (activeDevice.CommandWasPressed && !RogueOverviewButtonPressed()) || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
+		if (current != "Modules" && !fliping && !backWithCancel && !RogueResultView.BlocksMenuInput && !RogueOverviewView.BlocksMenuInput && (Input.GetKeyUp(KeyCode.Escape) || (activeDevice.CommandWasPressed && !RogueOverviewButtonPressed()) || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
 		{
 			Fade(-1);
 		}
