@@ -97,12 +97,18 @@ public class Bullet : MonoBehaviour
 		VectorLine.canvas3D.gameObject.layer = LayerMask.NameToLayer("Default");
 		if (shooter.tag == "Player")
 		{
-			trailPath.Add(shooter.GetComponent<FPSController>().primaryWeapon.GetChild(1).position);
+			var fps = shooter.GetComponent<FPSController>();
+			var muzzle = fps != null && fps.primaryWeapon != null && fps.primaryWeapon.childCount > 1 ? fps.primaryWeapon.GetChild(1) : null;
+			trailPath.Add(muzzle != null ? muzzle.position : mt.position);
 			trailOriginPending = !grenade && !hand;
 		}
 		else
 		{
-			trailPath.Add(shooter.GetComponent<AI>().primaryWeapon.GetChild(1).position);
+			// A disarmed or already-dead AI, or a Roguelike device that fires through this prefab, has no gun model: the trail
+			// starts at the round itself (four-client co-op logged NullReferenceException here nine times in one session).
+			var ai = shooter.GetComponent<AI>();
+			var muzzle = ai != null && ai.primaryWeapon != null && ai.primaryWeapon.childCount > 1 ? ai.primaryWeapon.GetChild(1) : null;
+			trailPath.Add(muzzle != null ? muzzle.position : mt.position);
 		}
 		float waitTime = 4f;
 		if (grenade)
