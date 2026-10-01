@@ -2567,3 +2567,12 @@ New best	新紀錄
 Gained {0} skill point	獲得 {0} 技能點
 +{0} s	+{0} 秒
 {0} s	{0} 秒
+Choose one	選一個
+Need ${0} more	還差 ${0}
+Browsing	還在逛
+Ticket	重抽券
+Manage equipment	整理配裝
+Tier	階級
+Routes	下一章路線
+New primary weapon	換把主武器
+Current equipment	目前配裝

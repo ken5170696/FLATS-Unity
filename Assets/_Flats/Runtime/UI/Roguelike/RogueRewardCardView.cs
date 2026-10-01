@@ -6,6 +6,7 @@ using UnityEngine.UI;
 /// <summary>One reward card (authored RogueRewardCard prefab): big icon tile, rarity band, name, effect, take button.</summary>
 public class RogueRewardCardView : MonoBehaviour
 {
+    public FlatsTileOffer tile;
     public Image panel, iconBack, icon, rarityBand;
     public Text title, rarity, effect, status, actionLabel;
     public Button action;
@@ -17,6 +18,7 @@ public class RogueRewardCardView : MonoBehaviour
 
     public void SetPitch(string text)
     {
+        if (tile != null) { tile.SetPitch(text); return; }
         if (pitch == null || effect == null) return;
         pitch.text = text ?? "";
         pitch.gameObject.SetActive(!string.IsNullOrEmpty(text));
@@ -35,6 +37,7 @@ public class RogueRewardCardView : MonoBehaviour
 
     public void PressFeedback(float progress)
     {
+        if (tile != null) { tile.Feedback(progress); return; }
         float pulse = Mathf.Sin(Mathf.Clamp01(progress) * Mathf.PI);
         transform.localScale = Vector3.one * Mathf.Lerp(1f, pressScale, pulse);
         if (rarityBand != null) rarityBand.color = Color.Lerp(iconBack != null ? iconBack.color : panel.color, FlatsUiTheme.Rogue.brandHot, pulse);
@@ -42,6 +45,7 @@ public class RogueRewardCardView : MonoBehaviour
 
     public void Bind(string iconName, string name, string rarityText, string effectText, string actionText, bool interactable, string statusText, Action onAction, Action onPress)
     {
+        if (tile != null) { tile.Bind(iconName, name, rarityText, effectText, "", actionText, interactable, statusText, onAction); return; }
         if (title != null) title.text = name ?? "";
         if (effect != null) effect.text = effectText ?? "";
         Color kindTint; string tagLabel;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Flats.Core.Roguelike;
 using UnityEngine;
@@ -354,6 +354,7 @@ public partial class RoguelikeController
             case "route": ShowRoute(me); break;
             case "chapterend": ShowShop(me, true); break;
         }
+        screen.FinishBinding();
         EnsureLocalPlayerAlive();
     }
 
@@ -377,7 +378,13 @@ public partial class RoguelikeController
             var row = add(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build, offer), "$" + RogueMoney.Format(offer.priceMinor), RogueItemKinds.Tag(def, RarityText(def)), offer.sold ? "" : T("Buy"),
                 !offer.sold && status == "" && !pending, pending ? T("Buying...") : status,
                 () => Buy(me, index, offer));
-            if (row != null) row.SetPitch(T(RoguePitches.Of(def.Id)));
+            if (row != null)
+            {
+                row.SetPitch(T(RoguePitches.Of(def.Id)));
+                BindTileDetails(row.tile, def, me.build, offer);
+                if (row.tile != null && !offer.sold && status == T("Not enough money"))
+                    row.tile.reason.text = T("Need ${0} more", RogueMoney.Format(offer.priceMinor - me.walletMinor));
+            }
         }
         // what the player owns: every core and mod can be removed here (F40). The refund is half of what was paid for it (free
         // rewards refund nothing), so buying it back always costs more than the refund.
@@ -440,10 +447,13 @@ public partial class RoguelikeController
     void ShowShop(RunPlayer me, bool chapterEnd)
     {
         screen.UseCards(false);
-        screen.SetTitle("Coin", chapterEnd ? T("Chapter {0} Shop", state.Chapter) : T("Shop  Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth)),
-            T("Rerolls {0}   {1}", me.rerollsLeft, SlotSummary(me.build)) + (RerollTickets(me) > 0 ? "   " + T("Reroll tickets: {0}", RerollTickets(me)) : ""), "$" + RogueMoney.Format(me.walletMinor));
+        screen.SetTitle("Coin", T("Shop"),
+            (chapterEnd ? T("Chapter {0} complete", state.Chapter) : T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth))) + " · " + SlotSummary(me.build), "$" + RogueMoney.Format(me.walletMinor));
         screen.ClearRows();
         AddShopRows(me, (icon, name, effect, price, rarity, action, interactable, status, onAction) => screen.AddRow(icon, name, effect, price, rarity, action, interactable, status, onAction));
+        var squadLines = new List<string>();
+        foreach (var member in state.players) if (member.connected) squadLines.Add(member.name + "  " + (member.ready ? "✓" : T("Browsing")));
+        screen.SetSquad(squadLines.Count > 1 ? string.Join("   ", squadLines.ToArray()) : "");
         if (chapterEnd)
         {
             // only the host decides where the squad goes (the authority ignores anyone else): other players see who they wait for,
@@ -488,9 +498,10 @@ public partial class RoguelikeController
 
     void ShowReward(RunPlayer me)
     {
-        screen.SetTitle("Check", T("Cleared: {0}", T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth))), T("Pick one. It is free."), "$" + RogueMoney.Format(me.walletMinor));
         screen.UseCards(true);
+        screen.SetTitle("Check", T("Choose one"), T("Cleared: {0}", T("Stage {0}-{1}", state.Chapter, RogueDepth.StageInChapter(state.depth))), null);
         screen.ClearRows();
+        screen.SetBuild(me.build);
         // one answer per reward: once a Take or a Skip is sent, every button waits for the authority (no double pick, no pick after a skip)
         bool decided = RewardDecisionPending;
         for (int i = 0; i < me.rewardOffers.Length; i++)
@@ -504,7 +515,7 @@ public partial class RoguelikeController
             string tag = RogueItemKinds.Tag(def, RarityText(def));
             // a card stacks what a row prints side by side: the effect, the tier and the pairing each get their own line
             var card = screen.AddCard(RogueIcons.ForItem(def), DisplayName(def), tag, EffectLine(def, me.build).Replace("   ", "\n").Replace("  ", "\n"), T("Take"), canTake, status, take);
-            if (card != null) card.SetPitch(T(RoguePitches.Of(def.Id)));
+            if (card != null) { card.SetPitch(T(RoguePitches.Of(def.Id))); BindTileDetails(card.tile, def, me.build); }
             else
             {
                 var row = screen.AddRow(RogueIcons.ForItem(def), DisplayName(def), EffectLine(def, me.build), T("Free"), tag, T("Take"), canTake, status, take);
@@ -561,15 +572,22 @@ public partial class RoguelikeController
     void ShowRoute(RunPlayer me)
     {
         screen.UseCards(false);
-        screen.SetTitle("Stage", T("Chapter {0} complete", state.Chapter), T(IsAuthority ? "Choose the next chapter's route." : "The host chooses the route."), "$" + RogueMoney.Format(me.walletMinor));
+        screen.SetRouteMode();
+        screen.SetTitle("Stage", T("Routes"), T("Chapter {0} complete", state.Chapter) + " · " + T(IsAuthority ? "Choose the next chapter's route." : "The host chooses the route."), null);
         screen.ClearRows();
         for (int i = 0; i < state.routeOptions.Length; i++)
         {
             var parts = state.routeOptions[i].Split('|');
             var map = RogueCatalog.Map(parts[0]); var route = RogueCatalog.Route(parts.Length > 1 ? parts[1] : "");
             int index = i;
-            screen.AddRow(RogueIcons.ForRoute(route.Tag), T(route.Name) + ": " + (map != null ? T(map.Name) : parts[0]), T(route.Brief), RouteRewardText(route), route.Tag == "danger" ? T("Risky") : route.Tag == "safe" ? T("Safer") : "", T("Go"),
+            var routeRow = screen.AddRow(RogueIcons.ForRoute(route.Tag), T(route.Name) + ": " + (map != null ? T(map.Name) : parts[0]), T(route.Brief), RouteRewardText(route), route.Tag == "danger" ? T("Risky") : route.Tag == "safe" ? T("Safer") : "", T("Go"),
                 IsAuthority, IsAuthority ? "" : T("Host decides"), () => Command(new RogueCommandMessage { kind = "route", index = index }));
+            if (routeRow != null && routeRow.tile != null)
+            {
+                string bounty = route.BudgetMul == 1 ? "±0" : (route.BudgetMul > 1 ? "+" : "") + Math.Round((route.BudgetMul - 1) * 100) + "%";
+                routeRow.tile.SetItem(state.routeOptions[i], bounty, "", false, false);
+                routeRow.tile.SetRoute(route.Tag, map != null ? T(map.Name) : parts[0], T(route.Name), bounty);
+            }
         }
         screen.SetFooter(null, null, null, null, "");
         screen.SetOverview(RogueInput.OverviewLabel, () => OpenOverview());
@@ -617,7 +635,7 @@ public partial class RoguelikeController
         if (e.flag && !removal && status != "Duplicate" && request != null && !string.IsNullOrEmpty(item))
         {
             var acquired = RogueCatalog.Item(item);
-            if (acquired != null) RogueAcquisitionView.Show(RogueIcons.ForItem(acquired), DisplayName(acquired), T(RoguePitches.Of(item)), RogueItemKinds.Tint(acquired.Kind));
+            if (acquired != null) { RogueAcquisitionView.Show(RogueIcons.ForItem(acquired), DisplayName(acquired), T(RoguePitches.Of(item)), RogueItemKinds.Tint(acquired.Kind)); if (screen != null) screen.NotifyAcquired(item); }
         }
         if (e.flag) RogueAudio.Play(item == "" ? "ui_click" : e.minor > 0 ? "ui_buy" : "ui_reward", 0.9f); else if (status != "Duplicate") RogueAudio.Play("ui_deny", 0.7f);
         if (e.flag && removal) Log(T("Removed {0} (refund ${1})", ItemName(item), RogueMoney.Format((long)e.value)));
@@ -792,6 +810,46 @@ public partial class RoguelikeController
         string slotLine = SlotLine(def, b);
         if (maxTier > 1) slotLine = T("Tier {0}/{1}", 1, maxTier) + (slotLine == "" ? "" : "   " + slotLine);
         return slotLine == "" ? EffectText(def, 1) : EffectText(def, 1) + "\n" + slotLine;
+    }
+
+    // Presentation only: the same rule values used by EffectLine, exposed separately for the large detail number.
+    static void BindTileDetails(FlatsTileOffer tile, ItemDef def, PlayerBuild build, ShopOffer offer = null)
+    {
+        if (tile == null) return;
+        bool sold = offer != null && offer.sold;
+        int tier = def.Kind == ItemKind.Stat ? build.StatTier(def.Id) : build.Tier(def.Id);
+        int max = def.Kind == ItemKind.Stat ? def.MaxStacks : RogueCatalog.MaxTier(def.Id);
+        bool upgrade = !sold && tier > 0 && tier < max && build.RejectReason(def) == null;
+        int shownTier = sold ? Mathf.Clamp(offer.tierAtSample + 1, 1, Mathf.Max(1, max)) : Mathf.Max(1, upgrade ? tier + 1 : tier);
+        string number = HeadlineNumber(def, build, shownTier, sold);
+        bool hasTiers = def.Kind == ItemKind.Stat || def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod;
+        string next = hasTiers && max > 1 ? T("Tier") + " " + tier + (!sold && tier < max && build.RejectReason(def) == null ? " → " + (tier + 1) : " / " + max) : "";
+        if ((def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod) && build.RejectReason(def) == null) next += "\n" + SlotLine(def, build);
+        tile.SetItem(def.Id, number, next, def.Kind == ItemKind.Core, sold);
+        if (def.Kind == ItemKind.Weapon)
+        {
+            int model = RogueCatalog.WeaponIndexOf(def.Id);
+            foreach (var weapon in RogueArmory.Ranged) if (weapon.BaseModel == model) { tile.SetWeaponIcon(Resources.Load<Sprite>("UI/Roguelike/Tiles/Weapons/" + weapon.Id) ?? RogueMetaUI.Icon(weapon.Id)); break; }
+            tile.SetPitch(T("New primary weapon"));
+        }
+        if (def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod) tile.SetDescription(upgrade ? EffectText(def, tier, tier + 1) : EffectText(def, shownTier));
+        else if (def.Kind == ItemKind.Stat) tile.SetDescription(EffectText(def, 1));
+    }
+
+    // One presentation decision point for the future rule-owned headline table.
+    // Multi-parameter effects deliberately have no headline: a threshold must never masquerade as a benefit.
+    static string HeadlineNumber(ItemDef def, PlayerBuild build, int shownTier, bool sold)
+    {
+        var args = def.EffectArgs(shownTier);
+        if (args.Length != 1) return "";
+        string number = args[0];
+        int marker = def.Effect.IndexOf("{0}", StringComparison.Ordinal);
+        if (marker < 0) return "";
+        string suffix = def.Effect.Substring(marker + 3);
+        if (suffix.StartsWith("%")) number += "%";
+        else if (suffix.StartsWith(" s")) number += " s";
+        else if (suffix.StartsWith(" m")) number += " m";
+        return number;
     }
 
     // ---------------------------------------------------------------- QA-20 / QA-19 stage clock (the authority's replicated clock)

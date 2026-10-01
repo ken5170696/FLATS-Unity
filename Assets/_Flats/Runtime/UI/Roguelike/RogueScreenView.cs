@@ -1,355 +1,330 @@
-using System;
+﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-/// <summary>
-/// The run screen (shop, reward pick, route choice, chapter end). Reference bag for the authored
-/// Prefabs/UI/Roguelike/RogueScreen prefab plus the binding helpers the controller calls.
-/// Opening it takes the player out of "Playing" (no shooting or movement, cursor free), closing restores it.
-/// </summary>
+/// <summary>Authored run screen. Owns presentation and focus; decisions stay in the controller.</summary>
 public class RogueScreenView : MonoBehaviour
 {
-    public Text title, subtitle, footerNote, primaryLabel, secondaryLabel;
-    public RectTransform rowsContent;
-    public ScrollRect scroll;
-    public Button primary, secondary;
-    [Header("Overview")] public Button overview; public Text overviewLabel;   // opens the TAB panel from any run screen (touch has no TAB)
+    public Text title, subtitle, footerNote, primaryLabel, secondaryLabel, overviewLabel, walletText, squadText;
+    public RectTransform rowsContent, cardsContent, ownedContent;
+    public ScrollRect scroll, rewardScroll;
+    public Button primary, secondary, overview, rerollPaid, rerollTicket, manage;
+    public Text rerollPaidLabel, rerollTicketLabel;
     public RogueOfferRowView rowTemplate;
+    public RogueRewardCardView cardTemplate;
     public Image paper, titleIcon, walletIcon, primaryIcon, secondaryIcon;
-    public Text walletText;
-    [Header("Reward cards")] public GameObject cardsRoot; public RectTransform cardsContent; public RogueRewardCardView cardTemplate;
-
-    /// <summary>True while the TAB overview sits on top; the screen then leaves focus handling to it.</summary>
+    public GameObject cardsRoot, inventoryRoot;
+    public CanvasGroup inputGroup;
+    public FlatsDetailPanel detail;
+    public Image detailIcon;
+    public RectTransform buildRoot, buildContent, buildViewport;
+    public Text buildHeading, buildSlots;
+    public FlatsTile buildTemplate;
+    public bool HasSquad { get { return squadText != null && !string.IsNullOrEmpty(squadText.text); } }
+    Canvas messageCanvas; bool messageWasEnabled;
+    GameObject coveredSelection, lastRunSelection, requestedCoverSelection;
+    public FlatsTileBackdrop backdrop;
+    public FlatsTileRunLayout layout;
+    public FlatsActionBar actionBar;
     public static bool Suspended;
-    [Header("Reward take feedback")]
-    [Min(0.01f)] public float rewardPressSeconds = 0.25f;
+    [Min(.01f)] public float rewardPressSeconds = .25f;
+    public bool reduceMotion;
+    public float walletSeconds = .4f;
     public bool RewardFeedbackPlaying { get; private set; }
-    public RogueFitToWidth paperFit;
-    public float rewardDesignHeight = 660f;
-    float listDesignHeight;
-
+    public bool CardsMode { get; private set; }
+    public bool RouteMode { get; private set; }
+    public FlatsTileOffer FocusedTile { get; private set; }
+    public readonly List<FlatsTileOffer> Tiles = new List<FlatsTileOffer>();
+    public bool AcceptsInput { get { return !Suspended && !RewardFeedbackPlaying && !covered && !ConfirmOpen() && (Menu.current == ScreenState || Menu.current == "MainMenu" || Menu.current == ""); } }
     const string ScreenState = "RogueScreen";
-    string previousState;
+    string previousState, focusKey;
     GameObject previousSelection;
-    bool previousCamRotate;
-    Canvas hudCanvas; bool hudWasEnabled;
+    bool previousCamRotate, hudWasEnabled, covered, firstPopulation = true;
+    Canvas hudCanvas;
+    int focusIndex;
+    float walletElapsed;
+    long walletFrom, walletTo, walletShown;
+    bool walletKnown;
+    string acquiredKey; float acquiredUntil;
+    Text[] glyphLabels; float glyphWarmUntil; Vector2 glyphScreen;
+    PointerFocusPolicy focusPolicy; bool focusPolicyWasEnabled;
+    static ConfirmationDialogView confirmCache; static float confirmCheckedAt = -1;
 
     public static RogueScreenView Open(RoguelikeController controller)
     {
-        var prefab = Resources.Load<GameObject>("UI/Roguelike/RogueScreen");
-        if (prefab == null) { Debug.LogWarning("FLATS_ROGUE_UI missing Resources/UI/Roguelike/RogueScreen"); return null; }
-        var menuObject = GameObject.Find("Menu");
-        if (menuObject == null) return null;
-        var go = Instantiate(prefab, menuObject.transform, false);
-        go.name = "RogueScreen";
-        go.transform.SetAsLastSibling();
-        var view = go.GetComponent<RogueScreenView>();
-        if (view == null) { Destroy(go); return null; }
-        view.Enter();
-        return view;
+        var prefab = Resources.Load<RogueScreenView>("UI/Roguelike/RogueScreen");
+        var menu = GameObject.Find("Menu"); if (prefab == null || menu == null) return null;
+        var view = prefab.GetComponent<Canvas>() != null ? Instantiate(prefab) : Instantiate(prefab, menu.transform, false);
+        view.name = "RogueScreen"; view.Enter(); return view;
     }
-
     void Enter()
     {
-        previousState = Menu.current;
-        previousSelection = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
-        previousCamRotate = FPSController.enableCamRotate;
-        if (Menu.current == "Playing") Menu.current = ScreenState;
-        FPSController.enableCamRotate = false;
-        FlatsCursor.Push(this);   // cursor free and gameplay input blocked while the screen is up (one rule for every screen)
-        // the long reward note can run under the Skip button on narrow screens; text must never swallow a button's click
-        if (footerNote != null) footerNote.raycastTarget = false;
-        // the paper keeps its authored Roguelike theme colour (QA-36 G3: no longer tinted by the map, which gave pale pink on pale pink)
-        if (rowTemplate == null)
-        {
-            var rowPrefab = Resources.Load<GameObject>("UI/Roguelike/RogueOfferRow");
-            if (rowPrefab != null) rowTemplate = rowPrefab.GetComponent<RogueOfferRowView>();
-        }
-        // the gameplay HUD steps aside while the run screen is up, as it does for the pause menu
-        var hudObject = GameObject.Find("UI");
-        hudCanvas = hudObject != null ? hudObject.GetComponent<Canvas>() : null;
+        previousState = Menu.current; previousSelection = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
+        previousCamRotate = FPSController.enableCamRotate; if (Menu.current == "Playing") Menu.current = ScreenState;
+        focusPolicy = EventSystem.current != null ? EventSystem.current.GetComponent<PointerFocusPolicy>() : null;
+        if (focusPolicy != null) { focusPolicyWasEnabled = focusPolicy.enabled; focusPolicy.enabled = false; }
+        FPSController.enableCamRotate = false; FlatsCursor.Push(this);
+        var hud = GameObject.Find("UI"); hudCanvas = hud != null ? hud.GetComponent<Canvas>() : null;
         if (hudCanvas != null) { hudWasEnabled = hudCanvas.enabled; hudCanvas.enabled = false; }
+        var message = GameObject.Find("Message"); messageCanvas = message != null ? message.GetComponent<Canvas>() : null;
+        if (messageCanvas != null) { messageWasEnabled = messageCanvas.enabled; messageCanvas.enabled = false; }
+        if (manage != null) manage.onClick.AddListener(() => { if (!AcceptsInput) return; inventoryRoot.SetActive(!inventoryRoot.activeSelf); RebuildNavigation(); });
     }
-
     public void Close()
     {
-        if (Suspended) { Destroy(gameObject); return; }   // the overview on top owns the input state and restores it when it closes
+        if (Suspended) { Destroy(gameObject); return; }
         if (Menu.current == ScreenState) Menu.current = previousState == ScreenState ? "Playing" : previousState;
         FPSController.enableCamRotate = previousCamRotate || Menu.current == "Playing";
-        FlatsCursor.Pop(this);    // after the state is restored: the cursor locks again only when play resumes and nothing else is open
+        FlatsCursor.Pop(this);
         if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(previousSelection);
         if (hudCanvas != null && (hudWasEnabled || Menu.current == "Playing")) hudCanvas.enabled = true;
+        if (messageCanvas != null) messageCanvas.enabled = messageWasEnabled;
         Destroy(gameObject);
     }
-
+    void OnDestroy() { if (focusPolicy != null) focusPolicy.enabled = focusPolicyWasEnabled; FlatsCursor.Pop(this); }
     public void SetTitle(string heading, string sub) { SetTitle("Stage", heading, sub, null); }
-
     public void SetTitle(string iconName, string heading, string sub, string wallet)
     {
-        if (title != null) title.text = heading;
-        if (subtitle != null) subtitle.text = sub;
-        RogueIcons.Apply(titleIcon, iconName);
-        if (walletText != null) { walletText.text = wallet ?? ""; walletText.gameObject.SetActive(!string.IsNullOrEmpty(wallet)); }
-        if (walletIcon != null) { RogueIcons.Apply(walletIcon, "Coin"); walletIcon.gameObject.SetActive(!string.IsNullOrEmpty(wallet)); }
+        title.text = heading; subtitle.text = sub;
+        if (walletText == null) return;
+        walletText.gameObject.SetActive(!string.IsNullOrEmpty(wallet) && !CardsMode);
+        decimal value;
+        if (!string.IsNullOrEmpty(wallet) && decimal.TryParse(wallet.TrimStart('$'), System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out value))
+        {
+            long minor = (long)Math.Round(value * 100);
+            if (!walletKnown) { walletFrom = walletShown = walletTo = minor; walletKnown = true; walletElapsed = walletSeconds; }
+            else if (walletTo != minor) { walletFrom = walletShown; walletTo = minor; walletElapsed = 0; }
+            PaintWallet();
+        }
+        else walletText.text = wallet ?? "";
     }
-
-    /// <summary>Card layout (reward pick) or the list layout (shop, route).</summary>
     public void UseCards(bool cards)
     {
-        if (paperFit != null)
-        {
-            if (listDesignHeight <= 0) listDesignHeight = paperFit.designHeight;
-            float height = cards ? rewardDesignHeight : listDesignHeight;
-            if (!Mathf.Approximately(paperFit.designHeight, height)) { paperFit.designHeight = height; paperFit.Invalidate(); }
-        }
+        if (CardsMode != cards) { firstPopulation = true; focusKey = null; focusIndex = 0; }
+        CardsMode = cards; RouteMode = false;
         if (cardsRoot != null) cardsRoot.SetActive(cards);
         if (scroll != null) scroll.gameObject.SetActive(!cards);
-        if (cards && cardTemplate == null) { var p = Resources.Load<GameObject>("UI/Roguelike/RogueRewardCard"); if (p != null) cardTemplate = p.GetComponent<RogueRewardCardView>(); }
+        if (walletText != null) walletText.gameObject.SetActive(!cards);
     }
-
-    public RogueRewardCardView AddCard(string iconName, string name, string rarity, string effect, string actionText, bool interactable, string status, Action onAction)
+    public void SetRouteMode() { RouteMode = true; }
+    public void SetSquad(string text) { if (squadText != null) squadText.text = text ?? ""; }
+    public void SetBuild(Flats.Core.Roguelike.PlayerBuild build)
     {
-        if (cardTemplate == null || cardsContent == null) return null;
-        var card = Instantiate(cardTemplate, cardsContent, false);
-        card.gameObject.SetActive(true);
-        card.name = "Card-" + name;
-        card.Bind(iconName, name, rarity, effect, actionText, interactable, status,
-            () => { if (!RewardFeedbackPlaying) StartCoroutine(TakeFeedback(card, onAction)); }, PlayPress);
-        return card;
-    }
-
-    IEnumerator TakeFeedback(RogueRewardCardView card, Action onAction)
-    {
-        RewardFeedbackPlaying = true;
-        foreach (var button in GetComponentsInChildren<Selectable>(true)) FlatsUiTheme.SetInteractableNow(button, false);
-        float elapsed = 0;
-        while (elapsed < rewardPressSeconds)
+        if (buildRoot == null || buildContent == null || buildTemplate == null || build == null) return;
+        buildHeading.text = RoguelikeController.T("Current equipment");
+        buildSlots.text = RoguelikeController.T("Cores {0}/{1}", build.cores.Length, Flats.Core.Roguelike.RogueCatalog.MaxCores) + " · " + RoguelikeController.T("Mods {0}/{1}", build.mods.Length, Flats.Core.Roguelike.RogueCatalog.MaxMods);
+        for (int i = buildContent.childCount - 1; i >= 0; i--) { var child = buildContent.GetChild(i).gameObject; child.SetActive(false); Destroy(child); }
+        var ids = new List<string>(build.cores); ids.AddRange(build.mods);
+        if (!string.IsNullOrEmpty(build.tactical)) ids.Add(build.tactical);
+        if (!string.IsNullOrEmpty(build.ultimate)) ids.Add(build.ultimate);
+        foreach (string id in ids)
         {
-            // Show the pressed pose immediately, even when the next frame exceeds the feedback duration.
-            if (card != null) card.PressFeedback(0.5f + 0.5f * elapsed / Mathf.Max(0.01f, rewardPressSeconds));
-            yield return null;
-            elapsed += Time.unscaledDeltaTime;
+            var def = Flats.Core.Roguelike.RogueCatalog.Item(id); if (def == null) continue;
+            var chip = Instantiate(buildTemplate, buildContent, false); chip.gameObject.SetActive(true);
+            var token = def.Kind == Flats.Core.Roguelike.ItemKind.Core ? FlatsUiTheme.Token.Core : def.Kind == Flats.Core.Roguelike.ItemKind.Mod ? FlatsUiTheme.Token.Mod : def.Kind == Flats.Core.Roguelike.ItemKind.Tactical ? FlatsUiTheme.Token.Tactical : FlatsUiTheme.Token.Ultimate;
+            chip.Bind(RoguelikeController.T(def.Name), "", "", build.Tier(id) > 0 ? build.Tier(id).ToString() : "", null, token);
+            chip.navigation = new Navigation { mode = Navigation.Mode.None }; chip.enabled = false;
         }
-        if (card != null) card.PressFeedback(1);
-        RewardFeedbackPlaying = false;
-        if (onAction != null) onAction();
     }
+    public void FocusAction() { foreach (var tile in Tiles) tile.SetFocus(false); }
 
     public void ClearRows()
     {
-        if (cardsContent != null)
-            for (int i = cardsContent.childCount - 1; i >= 0; i--)
-            {
-                var child = cardsContent.GetChild(i).gameObject;
-                if (cardTemplate != null && child == cardTemplate.gameObject) continue;
-                child.SetActive(false); Destroy(child);
-            }
-        if (rowsContent == null) return;
-        for (int i = rowsContent.childCount - 1; i >= 0; i--)
-        {
-            var child = rowsContent.GetChild(i).gameObject;
-            if (rowTemplate != null && child == rowTemplate.gameObject) continue;
-            child.SetActive(false);
-            Destroy(child);
-        }
+        if (FocusedTile != null) { focusKey = FocusedTile.ItemKey; focusIndex = Tiles.IndexOf(FocusedTile); }
+        if (detail != null) { detail.inlineHost = null; detail.Reflow(); }
+        Tiles.Clear(); FocusedTile = null;
+        foreach (var parent in new[] { cardsContent, rowsContent, ownedContent })
+            if (parent != null) for (int i = parent.childCount - 1; i >= 0; i--) { var go = parent.GetChild(i).gameObject; if (buildRoot != null && go == buildRoot.gameObject) continue; go.SetActive(false); Destroy(go); }
+        foreach (var button in new[] { rerollPaid, rerollTicket, manage }) if (button != null) button.gameObject.SetActive(false);
+        if (inventoryRoot != null) inventoryRoot.SetActive(false);
     }
-
-    public RogueOfferRowView AddRow(string name, string effect, string price, string rarity, string actionText, bool interactable, string status, Action onAction)
+    public RogueRewardCardView AddCard(string iconName, string name, string rarity, string effect, string actionText, bool interactable, string status, Action onAction)
     {
-        return AddRow("", name, effect, price, rarity, actionText, interactable, status, onAction);
+        if (cardTemplate == null || cardsContent == null) return null;
+        var card = Instantiate(cardTemplate, cardsContent, false); card.name = "Reward-" + name; card.gameObject.SetActive(true);
+        card.Bind(iconName, name, rarity, effect, actionText, interactable, status, () => { if (AcceptsInput) StartCoroutine(TakeFeedback(card, onAction)); }, null);
+        Register(card.tile); return card;
     }
-
+    IEnumerator TakeFeedback(RogueRewardCardView card, Action onAction)
+    {
+        RewardFeedbackPlaying = true;
+        if (backdrop != null) { backdrop.reduceMotion = reduceMotion; backdrop.Burst(); }
+        float elapsed = 0;
+        while (elapsed < rewardPressSeconds)
+        {
+            if (card != null) card.PressFeedback(elapsed / Mathf.Max(.01f, rewardPressSeconds));
+            yield return null;
+            if (Suspended || covered || ConfirmOpen() || Menu.current != ScreenState && Menu.current != "MainMenu" && Menu.current != "") continue;
+            elapsed += Time.unscaledDeltaTime;
+        }
+        RewardFeedbackPlaying = false;
+        if (onAction != null) onAction();
+    }
+    public RogueOfferRowView AddRow(string name, string effect, string price, string rarity, string actionText, bool interactable, string status, Action onAction)
+    { return AddRow("", name, effect, price, rarity, actionText, interactable, status, onAction); }
     public RogueOfferRowView AddRow(string iconName, string name, string effect, string price, string rarity, string actionText, bool interactable, string status, Action onAction)
     {
-        if (rowTemplate == null || rowsContent == null) return null;
-        var row = Instantiate(rowTemplate, rowsContent, false);
-        row.gameObject.SetActive(true);
-        row.name = "Row-" + name;
-        RogueOfferRowView.Bind(row, iconName, name, effect, price, rarity, actionText, interactable, status, onAction, PlayPress);
+        if (iconName == "Reload" && string.IsNullOrEmpty(rarity))
+        {
+            bool ticket = actionText == RoguelikeController.T("Use ticket");
+            Bind(ticket ? rerollTicket : rerollPaid, ticket ? rerollTicketLabel : rerollPaidLabel,
+                ticket ? RoguelikeController.T("Ticket") + " · " + status : RoguelikeController.T("Reroll") + " " + price + " · " + status, onAction);
+            FlatsUiTheme.SetInteractableNow(ticket ? rerollTicket : rerollPaid, interactable); return null;
+        }
+        bool owned = actionText == RoguelikeController.T("Remove");
+        var parent = owned ? ownedContent : rowsContent;
+        if (rowTemplate == null || parent == null) return null;
+        var row = Instantiate(rowTemplate, parent, false); row.name = "Offer-" + name; row.gameObject.SetActive(true);
+        RogueOfferRowView.Bind(row, iconName, name, effect, price, rarity, actionText, interactable, status, onAction, null);
+        row.tile.owner = this; row.tile.reduceMotion = reduceMotion;
+        if (owned) { manage.gameObject.SetActive(true); row.tile.SetPitch(RoguelikeController.T("Remove")); }
+        else Register(row.tile);
         return row;
     }
-
-    public void SetFooter(string primaryText, Action onPrimary, string secondaryText, Action onSecondary, string note)
+    void Register(FlatsTileOffer tile)
+    { if (tile == null) return; tile.owner = this; tile.reduceMotion = reduceMotion; Tiles.Add(tile); if (firstPopulation) tile.Enter(Tiles.Count - 1); }
+    public void FinishBinding()
     {
-        SetFooter(primaryText, "Check", onPrimary, secondaryText, "Quit", onSecondary, note);
+        if (!CardsMode && !RouteMode) { int core = Tiles.FindIndex(t => t.hero); if (core > 0) { var hero = Tiles[core]; Tiles.RemoveAt(core); Tiles.Insert(0, hero); } }
+        FlatsTileOffer next = !string.IsNullOrEmpty(focusKey) ? Tiles.Find(t => t.ItemKey == focusKey) : null;
+        if (next == null && Tiles.Count > 0) next = Tiles[Mathf.Clamp(focusIndex, 0, Tiles.Count - 1)];
+        if (next != null) Focus(next);
+        if (CardsMode) Bind(primary, primaryLabel, RoguelikeController.T("Take"), () => { if (FocusedTile != null) FocusedTile.Activate(); });
+        if (CardsMode && primary != null) FlatsUiTheme.SetInteractableNow(primary, next != null && next.Available);
+        if (layout != null) layout.Reflow();
+        Canvas.ForceUpdateCanvases(); RebuildNavigation(); firstPopulation = false;
+        glyphLabels = GetComponentsInChildren<Text>(true); glyphWarmUntil = Time.unscaledTime + 1;
+        if (Time.unscaledTime < acquiredUntil) foreach (var tile in Tiles) if (tile.ItemKey == acquiredKey) tile.Acquired();
+        var es = EventSystem.current;
+        if (es != null && AcceptsInput && !RogueInput.IsTouch && (es.currentSelectedGameObject == null || !es.currentSelectedGameObject.activeInHierarchy))
+        { var first = next != null && next.Available ? (Selectable)next : primary != null && primary.gameObject.activeSelf && primary.interactable ? primary : overview; if (first != null) es.SetSelectedGameObject(first.gameObject); }
+        if (es != null && es.currentSelectedGameObject != null && es.currentSelectedGameObject.transform.IsChildOf(layout.footer)) FocusAction();
     }
-
-    public void SetFooter(string primaryText, string primaryIconName, Action onPrimary, string secondaryText, string secondaryIconName, Action onSecondary, string note)
+    public void Focus(FlatsTileOffer tile)
     {
-        Bind(primary, primaryLabel, primaryIcon, primaryText, primaryIconName, onPrimary);
-        Bind(secondary, secondaryLabel, secondaryIcon, secondaryText, secondaryIconName, onSecondary);
-        if (footerNote != null) footerNote.text = note ?? "";
-        LayoutFooter();
-    }
-
-    /// <summary>Another full panel (the TAB overview) is drawn over this screen: its paper is hidden meanwhile, because the papers are
-    /// slightly translucent and this screen's rows showed through the overview as a ghost.</summary>
-    public void SetCovered(bool covered)
-    {
-        if (paper != null && paper.gameObject.activeSelf == covered) paper.gameObject.SetActive(!covered);
-    }
-
-    [Header("Footer layout")]
-    [Tooltip("Left inset of a footer button's label while its icon shows, and without one (canvas units).")] public float labelInsetWithIcon = 36f, labelInset = 10f;
-    [Tooltip("A footer button grows from its authored width up to this to fit its label on one line.")] public float footerButtonMaxWidth = 260f;
-    [Tooltip("Air between the footer buttons, and between the note and the nearest button.")] public float footerGap = 12f;
-    bool footerHomeKnown; Vector2 primaryHome, secondaryHome; float primaryWidth, secondaryWidth, noteLeft;
-
-    /// <summary>The footer row from what is visible: a lone secondary button takes the primary's place at the right edge, each button is
-    /// as wide as its label needs (icon included), and the note ends before the leftmost button instead of running under it.</summary>
-    void LayoutFooter()
-    {
-        var p = primary != null ? primary.transform as RectTransform : null;
-        var s = secondary != null ? secondary.transform as RectTransform : null;
-        if (!footerHomeKnown)
+        if (tile == null) return;
+        glyphWarmUntil = Time.unscaledTime + .5f;
+        FocusedTile = tile;
+        foreach (var other in Tiles) other.SetFocus(other == tile);
+        if (detail != null)
         {
-            footerHomeKnown = true;
-            if (p != null) { primaryHome = p.anchoredPosition; primaryWidth = p.sizeDelta.x; }
-            if (s != null) { secondaryHome = s.anchoredPosition; secondaryWidth = s.sizeDelta.x; }
-            if (footerNote != null) noteLeft = footerNote.rectTransform.offsetMin.x;
+            detail.Bind((RouteMode ? tile.pitch.text + " · " : "") + tile.itemName.text + (string.IsNullOrEmpty(tile.tag.text) ? "" : " · " + tile.tag.text), RouteMode ? "" : tile.DetailNumber ?? "", tile.Description,
+                (tile.DetailNext ?? "").Replace("\n", " · "), Screen.height > Screen.width && !RouteMode ? tile.inlineHost : null);
+            if (detailIcon != null) { detailIcon.sprite = tile.icon.sprite; detailIcon.color = tile.Tint; detailIcon.enabled = string.IsNullOrEmpty(tile.DetailNumber) || RouteMode; }
+            detail.category.color = tile.Tint;
         }
-        bool primaryOn = p != null && p.gameObject.activeSelf, secondaryOn = s != null && s.gameObject.activeSelf;
-        float right = p != null ? -primaryHome.x : 24f;   // distance of the row's right end from the paper's right edge
-        float used = right;
-        if (primaryOn) { float w = FitFooterButton(p, primaryLabel, primaryIcon, primaryWidth); p.anchoredPosition = primaryHome; used += w + footerGap; }
-        if (secondaryOn)
+        if (CardsMode && primary != null) FlatsUiTheme.SetInteractableNow(primary, tile.Available);
+        if (layout != null) layout.Reflow();
+        if (detail != null) detail.category.color = tile.Tint;
+    }
+    public void NotifyAcquired(string id)
+    { acquiredKey = id; acquiredUntil = Time.unscaledTime + .3f; foreach (var tile in Tiles) if (tile.ItemKey == id) tile.Acquired(); if (backdrop != null) { backdrop.reduceMotion = reduceMotion; backdrop.Burst(); } }
+    public void SetFooter(string p, Action a, string s, Action b, string note) { SetFooter(p, "Check", a, s, "Quit", b, note); }
+    public void SetFooter(string p, string pi, Action a, string s, string si, Action b, string note)
+    { Bind(primary, primaryLabel, p, a); Bind(secondary, secondaryLabel, s, b); if (footerNote != null) footerNote.text = CardsMode ? "" : note ?? ""; }
+    public void SetFooterInteractable(bool p, bool s) { FlatsUiTheme.SetInteractableNow(primary, p); FlatsUiTheme.SetInteractableNow(secondary, s); }
+    public void SetPrimaryText(string label, string note) { if (primaryLabel != null) primaryLabel.text = label ?? ""; if (footerNote != null) footerNote.text = note ?? ""; }
+    public void SetPrimaryHighlight(bool on) { /* BrandPrimary remains the action; the original label expresses readiness. */ }
+    public void SetCovered(bool value)
+    {
+        if (value && !covered && EventSystem.current != null)
+        { var selected = EventSystem.current.currentSelectedGameObject; coveredSelection = requestedCoverSelection != null ? requestedCoverSelection : selected != null && selected.transform.IsChildOf(transform) ? selected : lastRunSelection; requestedCoverSelection = null; }
+        covered = value; if (paper != null) paper.gameObject.SetActive(!value);
+        if (focusPolicy != null) focusPolicy.enabled = value && focusPolicyWasEnabled;
+        if (!value && EventSystem.current != null && coveredSelection != null && coveredSelection.activeInHierarchy) EventSystem.current.SetSelectedGameObject(coveredSelection);
+    }
+    public void SetOverview(string label, Action click) { Bind(overview, overviewLabel, string.IsNullOrEmpty(label) ? null : RoguelikeController.T("Overview"), click); }
+    void Bind(Button button, Text label, string text, Action action)
+    {
+        if (button == null) return; button.gameObject.SetActive(!string.IsNullOrEmpty(text)); if (label != null) label.text = text ?? "";
+        button.onClick.RemoveAllListeners(); button.onClick.AddListener(() => { if (!AcceptsInput) return; if (button == overview) requestedCoverSelection = button.gameObject; RogueAudio.Click(); if (action != null) action(); });
+    }
+    public void RebuildNavigation()
+    {
+        var buttons = new List<Selectable>();
+        bool drawer = inventoryRoot != null && inventoryRoot.activeSelf;
+        foreach (var button in GetComponentsInChildren<Button>())
+            if (button.IsActive() && button.IsInteractable() && button.gameObject.activeInHierarchy && (!drawer || button.transform.IsChildOf(inventoryRoot.transform) || button.transform.IsChildOf(layout.footer))) buttons.Add(button);
+        foreach (var button in buttons)
         {
-            float w = FitFooterButton(s, secondaryLabel, secondaryIcon, secondaryWidth);
-            s.anchoredPosition = new Vector2(-used, secondaryHome.y);
-            used += w + footerGap;
+            var n = new Navigation { mode = Navigation.Mode.Explicit };
+            n.selectOnLeft = Neighbour(button, buttons, Vector2.left); n.selectOnRight = Neighbour(button, buttons, Vector2.right);
+            n.selectOnUp = Neighbour(button, buttons, Vector2.up); n.selectOnDown = Neighbour(button, buttons, Vector2.down);
+            button.navigation = n;
         }
-        if (footerNote != null)
+    }
+    Rect NavigationRect(Selectable target)
+    {
+        var rt = (RectTransform)target.transform; var corners = new Vector3[4]; rt.GetWorldCorners(corners);
+        Vector2 min = transform.InverseTransformPoint(corners[0]), max = transform.InverseTransformPoint(corners[2]);
+        // Footer is beyond the last logical row, even when that row must be scrolled into view.
+        if (target.transform.IsChildOf(layout.footer))
         {
-            var note = footerNote.rectTransform;
-            note.offsetMin = new Vector2(noteLeft + overviewGrowth, note.offsetMin.y);
-            note.offsetMax = new Vector2(-used, note.offsetMax.y);
+            float shift = 0;
+            layout.footer.GetWorldCorners(corners); float footerTop = transform.InverseTransformPoint(corners[2]).y;
+            foreach (var tile in Tiles) { Vector2 pos = transform.InverseTransformPoint(tile.transform.position); shift = Mathf.Min(shift, pos.y - ((RectTransform)tile.transform).rect.height - footerTop - 16); }
+            min.y += shift; max.y += shift;
         }
+        return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
     }
-
-    [Tooltip("The Overview button grows from its authored width up to this to keep its label and key cap on one line.")] public float overviewMaxWidth = 210f;
-    float overviewWidth = -1f, overviewGrowth;
-
-    /// <summary>"Overview  [Tab]" is longer in some languages than the authored button: it widens to the label and the note moves along.</summary>
-    void FitOverview()
+    Selectable Neighbour(Selectable origin, List<Selectable> buttons, Vector2 direction)
     {
-        var rt = overview != null ? overview.transform as RectTransform : null;
-        if (rt == null || overviewLabel == null) return;
-        if (overviewWidth < 0) overviewWidth = rt.sizeDelta.x;
-        var label = overviewLabel.rectTransform;
-        float padding = label.anchorMin.x != label.anchorMax.x ? label.offsetMin.x - label.offsetMax.x : 46f;
-        float width = Mathf.Clamp(overviewLabel.preferredWidth + padding + 4f, overviewWidth, Mathf.Max(overviewWidth, overviewMaxWidth));
-        rt.sizeDelta = new Vector2(width, rt.sizeDelta.y);
-        overviewGrowth = width - overviewWidth;
-        if (footerHomeKnown) LayoutFooter();
-    }
-
-    float FitFooterButton(RectTransform button, Text label, Image icon, float authoredWidth)
-    {
-        bool hasIcon = icon != null && icon.gameObject.activeSelf;
-        float inset = hasIcon ? labelInsetWithIcon : labelInset;
-        float width = authoredWidth;
-        if (label != null)
+        var a = NavigationRect(origin); Selectable result = null; float best = float.PositiveInfinity;
+        bool horizontal = direction.x != 0;
+        foreach (var button in buttons)
         {
-            var rt = label.rectTransform;
-            rt.offsetMin = new Vector2(inset, rt.offsetMin.y); rt.offsetMax = new Vector2(-labelInset, rt.offsetMax.y);
-            float needed = label.preferredWidth + inset + labelInset;
-            width = Mathf.Clamp(needed, authoredWidth, Mathf.Max(authoredWidth, footerButtonMaxWidth));
+            if (button == origin) continue; var b = NavigationRect(button);
+            Vector2 delta = b.center - a.center; float forward = Vector2.Dot(delta, direction); if (forward <= 1) continue;
+            float overlap = horizontal ? Mathf.Min(a.yMax, b.yMax) - Mathf.Max(a.yMin, b.yMin) : Mathf.Min(a.xMax, b.xMax) - Mathf.Max(a.xMin, b.xMin);
+            if (overlap <= 1) continue;
+            float separation = horizontal ? (direction.x > 0 ? b.xMin - a.xMax : a.xMin - b.xMax) : (direction.y > 0 ? b.yMin - a.yMax : a.yMin - b.yMax);
+            if (separation < -1) continue;
+            float cross = horizontal ? Mathf.Max(0, Mathf.Max(a.yMin - b.yMax, b.yMin - a.yMax)) : Mathf.Max(0, Mathf.Max(a.xMin - b.xMax, b.xMin - a.xMax));
+            float distance = horizontal ? Mathf.Max(0, direction.x > 0 ? b.xMin - a.xMax : a.xMin - b.xMax) : Mathf.Max(0, direction.y > 0 ? b.yMin - a.yMax : a.yMin - b.yMax);
+            float score = cross * 1000 + distance + Mathf.Abs(horizontal ? delta.y : delta.x) * .05f;
+            if (score < best) { best = score; result = button; }
         }
-        button.sizeDelta = new Vector2(width, button.sizeDelta.y);
-        return width;
+        return result;
     }
-
-    /// <summary>Rewrites the primary button's label and the footer note in place (a countdown ticking once per second), keeping the
-    /// button, its action and the controller focus as they are.</summary>
-    public void SetPrimaryText(string label, string note)
+    static bool ConfirmOpen()
+    { if (confirmCache == null || Time.unscaledTime - confirmCheckedAt > .2f) { confirmCache = FindFirstObjectByType<ConfirmationDialogView>(); confirmCheckedAt = Time.unscaledTime; } return confirmCache != null && confirmCache.gameObject.activeInHierarchy; }
+    void PaintWallet()
     {
-        if (primaryLabel != null && primary != null && primary.gameObject.activeSelf && primaryLabel.text != (label ?? "")) primaryLabel.text = label ?? "";
-        if (footerNote != null && footerNote.text != (note ?? "")) footerNote.text = note ?? "";
-        if (footerHomeKnown) LayoutFooter();
+        glyphWarmUntil = Time.unscaledTime + .5f;
+        string n = Flats.Core.Roguelike.RogueMoney.Format(walletShown); int dot = n.IndexOf('.'); string unit = "<size=" + FlatsUiTheme.Rogue.tileBody.size + ">";
+        walletText.text = unit + "$</size>" + (dot < 0 ? n : n.Substring(0, dot) + unit + n.Substring(dot) + "</size>");
     }
-
-    /// <summary>Footer buttons stay visible but greyed when the local player may not use them (a non-host at the chapter end).</summary>
-    public void SetFooterInteractable(bool primaryOn, bool secondaryOn)
+    void LateUpdate()
     {
-        FlatsUiTheme.SetInteractableNow(primary, primaryOn);
-        FlatsUiTheme.SetInteractableNow(secondary, secondaryOn);
+        var size = new Vector2(Screen.width, Screen.height);
+        if (size != glyphScreen) { glyphScreen = size; glyphWarmUntil = Time.unscaledTime + 1; RebuildNavigation(); }
+        if (Time.unscaledTime > glyphWarmUntil || glyphLabels == null) return;
+        foreach (var label in glyphLabels)
+            if (label != null && label.isActiveAndEnabled && label.font != null && label.font.dynamic)
+                label.font.RequestCharactersInTexture(label.text + "0123456789.$ /+-", Mathf.RoundToInt(label.fontSize * label.pixelsPerUnit), label.fontStyle);
+        foreach (var label in glyphLabels)
+            if (label != null && label.isActiveAndEnabled) { label.cachedTextGenerator.Invalidate(); label.SetVerticesDirty(); }
     }
-
-    Color primaryBaseColor; bool primaryColorKnown;
-    /// <summary>Marks the primary button as a state that is on (the player is ready): the label then says what pressing it undoes.</summary>
-    public void SetPrimaryHighlight(bool on)
-    {
-        var image = primary != null ? primary.targetGraphic as Image : null;
-        if (image == null) return;
-        if (!primaryColorKnown) { primaryBaseColor = image.color; primaryColorKnown = true; }
-        image.color = on ? FlatsUiTheme.WithAlpha(FlatsUiTheme.Rogue.positive, primaryBaseColor.a) : primaryBaseColor;
-    }
-
-    void Bind(Button button, Text label, Image icon, string text, string iconName, Action action)
-    {
-        if (button == null) return;
-        bool show = !string.IsNullOrEmpty(text);
-        button.gameObject.SetActive(show);
-        if (!show) return;
-        if (label != null) label.text = text;
-        if (icon != null) { RogueIcons.Apply(icon, iconName); icon.gameObject.SetActive(icon.sprite != null); }
-        button.onClick.RemoveAllListeners();
-        button.onClick.AddListener(() => { PlayPress(); if (action != null) action(); });
-    }
-
-    // polled every frame by Update: the scene search is repeated at most five times a second
-    static ConfirmationDialogView confirmCache; static float confirmCheckedAt = -1f;
-    static bool confirmOpen()
-    {
-        if (confirmCache == null || Time.unscaledTime - confirmCheckedAt > 0.2f) { confirmCache = FindObjectOfType<ConfirmationDialogView>(); confirmCheckedAt = Time.unscaledTime; }
-        return confirmCache != null && confirmCache.gameObject.activeInHierarchy;
-    }
-
-    static void PlayPress() { RogueAudio.Click(); }
-
-    /// <summary>Binds the Overview button; an empty label hides it.</summary>
-    public void SetOverview(string label, Action onClick)
-    {
-        if (overview == null) return;
-        bool show = !string.IsNullOrEmpty(label);
-        if (overview.gameObject.activeSelf != show) overview.gameObject.SetActive(show);
-        if (!show) return;
-        if (overviewLabel != null) overviewLabel.text = label;
-        FitOverview();
-        overview.onClick.RemoveAllListeners();
-        overview.onClick.AddListener(() => { PlayPress(); if (onClick != null) onClick(); });
-    }
-
     void Update()
     {
-        // Menu.Start re-enables the HUD canvas about a second after a scene loads; the screen stays on top until it closes.
+        var canvas = GetComponent<Canvas>();
+        if (canvas != null) canvas.enabled = !ConfirmOpen() && (Menu.current == ScreenState || Menu.current == "MainMenu" || Menu.current == "Main" || Menu.current == "");
+        if (focusPolicy != null) focusPolicy.enabled = focusPolicyWasEnabled && (covered || canvas != null && !canvas.enabled);
         if (hudCanvas != null && hudCanvas.enabled) hudCanvas.enabled = false;
-        if (Suspended || RewardFeedbackPlaying) return;   // the TAB overview owns input and focus while it is open
-        // Escape / pad Cancel steps out of the shop during Prep (reopen with Interact); the pause menu is reachable from there.
+        if (messageCanvas != null && messageCanvas.enabled) messageCanvas.enabled = false;
+        if (inputGroup != null) { inputGroup.interactable = AcceptsInput; inputGroup.blocksRaycasts = AcceptsInput; }
+        if (walletKnown && walletText != null && walletElapsed < walletSeconds)
+        { walletElapsed += Time.unscaledDeltaTime; float p = Mathf.Clamp01(walletElapsed / Mathf.Max(.001f, walletSeconds)); walletShown = walletFrom + (long)Math.Round((walletTo - walletFrom) * p); PaintWallet(); walletText.rectTransform.localScale = Vector3.one * (reduceMotion ? 1 : 1 + .12f * Mathf.Sin(p * Mathf.PI)); }
+        if (!AcceptsInput) return;
+        if (EventSystem.current != null) { var selected = EventSystem.current.currentSelectedGameObject; if (selected != null && selected.transform.IsChildOf(transform)) lastRunSelection = selected; }
         var pad = InControl.InputManager.ActiveDevice;
-        if (Input.GetKeyDown(KeyCode.Escape) || (pad != null && pad.Action2.WasPressed))
-        {
-            var ctrl = RoguelikeController.Instance;
-            if (ctrl != null && !confirmOpen()) { ctrl.DismissScreen(); return; }
-        }
-        // Keep controller focus inside the screen; a stray click elsewhere must not strand the pad.
-        if (EventSystem.current == null || confirmOpen()) return;
-        var selected = EventSystem.current.currentSelectedGameObject;
-        if (selected != null && selected.transform.IsChildOf(transform)) return;
-        if (primary != null && primary.gameObject.activeInHierarchy && primary.interactable) { EventSystem.current.SetSelectedGameObject(primary.gameObject); return; }
-        if (cardsRoot != null && cardsRoot.activeSelf && cardsContent != null)
-            for (int i = 0; i < cardsContent.childCount; i++)
-            {
-                var card = cardsContent.GetChild(i).GetComponent<RogueRewardCardView>();
-                if (card != null && card.gameObject.activeSelf && card.action != null && card.action.interactable) { EventSystem.current.SetSelectedGameObject(card.action.gameObject); return; }
-            }
-        if (rowsContent != null)
-            for (int i = 0; i < rowsContent.childCount; i++)
-            {
-                var row = rowsContent.GetChild(i).GetComponent<RogueOfferRowView>();
-                if (row != null && row.gameObject.activeSelf && row.action != null && row.action.interactable) { EventSystem.current.SetSelectedGameObject(row.action.gameObject); return; }
-            }
+        if (Input.GetKeyDown(KeyCode.Escape) || pad != null && pad.Action2.WasPressed)
+        { if (inventoryRoot != null && inventoryRoot.activeSelf) { inventoryRoot.SetActive(false); RebuildNavigation(); return; } var ctrl = RoguelikeController.Instance; if (ctrl != null) ctrl.DismissScreen(); }
+        var es = EventSystem.current;
+        if (es != null && (es.currentSelectedGameObject == null || !es.currentSelectedGameObject.activeInHierarchy) && !RogueInput.IsTouch)
+        { foreach (var tile in Tiles) if (tile.Available) { es.SetSelectedGameObject(tile.gameObject); return; } if (overview != null) es.SetSelectedGameObject(overview.gameObject); }
     }
 }

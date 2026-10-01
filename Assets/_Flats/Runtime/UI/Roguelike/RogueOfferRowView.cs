@@ -6,6 +6,8 @@ using UnityEngine.UI;
 /// <summary>One offer/choice row. Reference bag for the authored RogueOfferRow prefab (Resources/UI/Roguelike).</summary>
 public class RogueOfferRowView : MonoBehaviour
 {
+    // Only the new run-screen prefab opts into tiles; the overview keeps its authored legacy row.
+    public FlatsTileOffer tile;
     public Text title, effect, price, rarity, status, actionLabel;
     public Button action;
     public Image panel;
@@ -19,6 +21,7 @@ public class RogueOfferRowView : MonoBehaviour
 
     public void SetPitch(string text)
     {
+        if (tile != null) { tile.SetPitch(text); return; }
         if (pitch == null || effect == null) return;
         if (!detailHomeKnown) { detailHome = effect.rectTransform.anchoredPosition; detailHomeKnown = true; }
         pitch.text = text ?? "";
@@ -36,6 +39,7 @@ public class RogueOfferRowView : MonoBehaviour
     public static void Bind(RogueOfferRowView row, string iconName, string name, string effect, string price, string rarity, string actionText, bool interactable, string status, Action onAction, Action onPress)
     {
         if (row == null) return;
+        if (row.tile != null) { row.tile.Bind(iconName, name, rarity, effect, price, actionText, interactable, status, onAction); return; }
         if (row.title != null) row.title.text = name ?? "";
         if (row.effect != null) row.effect.text = effect ?? "";
         if (row.price != null) row.price.text = price ?? "";

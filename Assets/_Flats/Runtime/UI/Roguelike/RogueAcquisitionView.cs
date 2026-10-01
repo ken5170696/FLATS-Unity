@@ -15,6 +15,7 @@ public sealed class RogueAcquisitionView : MonoBehaviour
     public Vector2 combatAnchor = new Vector2(0.5f, 0f), combatOffset = new Vector2(0f, 104f);
     public float minimumWidth = 180f, maximumWidth = 540f, edgePadding = 12f;
     public float textInset = 48f, textRightPadding = 12f, headingGap = 8f;
+    public bool reduceMotion;
     static RogueAcquisitionView shown;
     float started;
     Vector3 homeScale;
@@ -38,6 +39,9 @@ public sealed class RogueAcquisitionView : MonoBehaviour
 
     public void Bind(string iconName, string name, string pitchText, Color tint)
     {
+        var screen = FindFirstObjectByType<RogueScreenView>();
+        reduceMotion = screen != null && screen.reduceMotion;
+        if (iconBack != null) iconBack.color = tint;
         RogueIcons.Apply(icon, iconName);
         if (heading != null) heading.text = RoguelikeController.T("Acquired");
         if (title != null) title.text = name ?? "";
@@ -81,7 +85,7 @@ public sealed class RogueAcquisitionView : MonoBehaviour
         float enter = Mathf.Clamp01(elapsed / Mathf.Max(0.01f, enterSeconds));
         float scale = enter < 0.7f ? Mathf.Lerp(startScale, peakScale, Mathf.SmoothStep(0, 1, enter / 0.7f))
             : Mathf.Lerp(peakScale, 1, (enter - 0.7f) / 0.3f);
-        if (card != null) card.localScale = homeScale * scale;
+        if (card != null) card.localScale = homeScale * (reduceMotion ? 1 : scale);
         if (group != null) group.alpha = Mathf.Min(enter, Mathf.Clamp01((duration - elapsed) / Mathf.Max(0.01f, fadeSeconds)));
     }
 
