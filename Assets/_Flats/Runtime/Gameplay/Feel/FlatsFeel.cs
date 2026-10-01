@@ -212,19 +212,23 @@ public static class FlatsFeel
         catch (Exception e) { Debug.LogException(e); }
     }
 
-    static Transform listener; static float listenerCheckedAt = -10f;
-    /// <summary>The audio listener's transform (looked up at most twice a second).</summary>
+    static AudioListener listener; static float listenerCheckedAt = -10f;
+    /// <summary>
+    /// The transform of the listener that is really listening (a scene can hold several: the menu camera, the player's camera, a
+    /// spectator camera; only the enabled one hears). Looked up again at most twice a second, so a respawn or a camera change is followed.
+    /// </summary>
     public static Transform Listener
     {
         get
         {
-            if (listener == null && Time.unscaledTime - listenerCheckedAt > 0.5f)
+            if ((listener == null || !listener.isActiveAndEnabled) && Time.unscaledTime - listenerCheckedAt > 0.5f)
             {
                 listenerCheckedAt = Time.unscaledTime;
-                var found = UnityEngine.Object.FindFirstObjectByType<AudioListener>();
-                listener = found != null ? found.transform : null;
+                listener = null;
+                foreach (var candidate in UnityEngine.Object.FindObjectsByType<AudioListener>(FindObjectsSortMode.None))
+                    if (candidate.isActiveAndEnabled) { listener = candidate; break; }
             }
-            return listener;
+            return listener != null && listener.isActiveAndEnabled ? listener.transform : null;
         }
     }
 }
