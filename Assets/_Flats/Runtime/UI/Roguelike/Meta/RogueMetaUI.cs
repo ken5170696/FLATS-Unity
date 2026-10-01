@@ -49,7 +49,8 @@ public static class RogueMetaUI
         s = Resources.Load<Sprite>("UI/Roguelike/Meta/Preview/" + id);
         if (s != null) return s;
         if (RogueArmory.Sight(id) != null) return Resources.Load<Sprite>("UI/Roguelike/Icons/"+id);
-        if (RogueArmory.MeleeWeapon(id) != null) return RogueIcons.Get(id == "mw.shield" ? "Shield" : "Fire");
+        var melee = RogueArmory.MeleeWeapon(id);
+        if (melee != null) return RogueIcons.Get(melee.Special == MeleeSpecial.Guard ? "Shield" : "Fire");   // fallback by mechanic, never by weapon id (adapter wiring gate)
         return null;
     }
     public static Sprite SkillIcon(SkillDef node)
