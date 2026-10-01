@@ -2565,3 +2565,5 @@ Stages cleared	通過關卡
 Gained {0} skill points	獲得 {0} 技能點
 New best	新紀錄
 Gained {0} skill point	獲得 {0} 技能點
++{0} s	+{0} 秒
+{0} s	{0} 秒
