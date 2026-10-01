@@ -319,9 +319,16 @@ public class RogueEnemyRole : MonoBehaviour
     GameObject riotShield;
     /// <summary>The armory's riot shield model (the same black silhouette the player's Riot Shield uses), held in front of the chest.</summary>
     public const string RiotShieldModel = "Armory/Melee/Shield";
-    /// <summary>Shield placement in the enemy root's units (the root is scaled x4): centre height, distance in front of the body, and size.</summary>
+    /// <summary>Shield placement in the enemy root's units (the root is scaled x4) while no arm bone is found: centre height, distance in
+    /// front of the body, and size.</summary>
     public static Vector3 RiotShieldOffset = new Vector3(0f, 0.84f, 0.5f);
-    public static float RiotShieldScale = 0.58f;
+    public static float RiotShieldScale = 0.52f;
+    /// <summary>The shield is strapped to the left forearm and follows it through the animation (root units from the forearm: to the
+    /// enemy's right, up and forward), turned a little outward, so it reads as held rather than floating (playtest 2026-10-01).</summary>
+    public static Vector3 RiotShieldArmOffset = new Vector3(0.04f, -0.1f, 0.1f);
+    public static float RiotShieldArmYaw = -14f;
+    const string LeftForeArmPath = "Armature/mixamorig_Hips/mixamorig_Spine/mixamorig_Spine1/mixamorig_Spine2/mixamorig_LeftShoulder/mixamorig_LeftArm/mixamorig_LeftForeArm";
+    Transform shieldArm;
     /// <summary>A role with a frontal reduction carries a riot shield in front of its chest, so the reduction is readable and the flank
     /// is the obvious answer. Looks only: no collider (hits resolve on the body and the facing angle, ShieldFacing).</summary>
     void BuildRiotShield()
@@ -341,6 +348,18 @@ public class RogueEnemyRole : MonoBehaviour
             r.gameObject.layer = gameObject.layer;
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
         }
+        var animator = GetComponent<Animator>();
+        shieldArm = animator != null && animator.isHuman ? animator.GetBoneTransform(HumanBodyBones.LeftLowerArm) : null;
+        if (shieldArm == null) shieldArm = transform.Find(LeftForeArmPath);
+    }
+
+    // after the Animator: the shield rides the forearm of this frame's pose, upright and facing where the enemy faces
+    void PlaceRiotShield()
+    {
+        if (riotShield == null || shieldArm == null || !riotShield.activeSelf) return;
+        float scale = Mathf.Abs(transform.lossyScale.y);
+        riotShield.transform.position = shieldArm.position + transform.rotation * (RiotShieldArmOffset * scale);
+        riotShield.transform.rotation = transform.rotation * Quaternion.Euler(0f, RiotShieldArmYaw, 0f);
     }
     static void AddQuad(GameObject parent, Material mat, Color color, Vector3 localPos, Vector3 scale, float zRot)
     {
@@ -372,6 +391,7 @@ public class RogueEnemyRole : MonoBehaviour
     void LateUpdate()
     {
         if (outlinesOn) RefreshOutline();
+        PlaceRiotShield();
     }
 
     void RefreshOutline()

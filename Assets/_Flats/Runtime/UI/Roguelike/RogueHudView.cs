@@ -814,12 +814,12 @@ public partial class RogueHudView : MonoBehaviour
             // and out of the top-left chips and squad list: an edge-clamped marker there covered the money chip (playtest 2026-09-30)
             if (chipsRect != null && pos.y > half.y - 130f && pos.x < -half.x + chipsRect.anchoredPosition.x + chipsRect.rect.width + 60f)
                 pos.y = half.y - 130f;
-            if (Mathf.Abs(pos.x) < 200f && pos.y > half.y - 112f) pos.y = half.y - 112f;
             // an edge marker shows the icon and the distance only (the name returns on screen) and keeps out of the HUD panels
             bool compact = !onScreen && compactEdgeMarkers;
             if (m.label != null && m.label.gameObject.activeSelf == compact) m.label.gameObject.SetActive(!compact);
             SetMarkerHalfWidth(i, m, compact, !onScreen, angle);
             if (!onScreen && !KeepOutOfPanels(i, ref pos, half)) { m.gameObject.SetActive(false); continue; }
+            if (onScreen && !enemy && MarkerUnderPanel(i, pos)) { m.gameObject.SetActive(false); continue; }
             if (m.rect != null) m.rect.anchoredPosition = pos;
             if (m.arrow != null) { m.arrow.gameObject.SetActive(!onScreen); if (m.arrowRect != null) m.arrowRect.localRotation = Quaternion.Euler(0, 0, angle); }
             if (m.icon != null && markerIcon[i] != wp.Icon) { markerIcon[i] = wp.Icon; RogueIcons.Apply(m.icon, wp.Icon); }   // remembered by key: Sprite.name allocates every frame

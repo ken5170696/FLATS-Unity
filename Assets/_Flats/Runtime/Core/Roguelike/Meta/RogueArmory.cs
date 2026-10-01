@@ -205,7 +205,7 @@ namespace Flats.Core.Roguelike
             new MeleeDef { Id = "mw.sledge", Name = "Sledgehammer", Price = 380, Flavor = "Slams the ground and hits everything around. Heavy to carry, slow to swing.", Model = "Armory/Melee/Sledgehammer",
                 Damage = 950, Windup = 0.45, Recovery = 0.55, Range = 3.6, Radius = 2.0, MoveMul = 0.80, Special = MeleeSpecial.GroundSlam, S1 = 5.5, Drawback = DrawbackKind.MoveSlow, D1 = 0.20 },
             new MeleeDef { Id = "mw.katana", Name = "Katana", Price = 420, Flavor = "Three-strike combo with a finishing cut. Every swing deflects bullets.", Model = "Armory/Melee/Katana",
-                Damage = 420, Windup = 0.10, Recovery = 0.26, Range = 5.6, Radius = 1.8, Special = MeleeSpecial.Combo, S1 = 3, S2 = 1.6, S3 = 0.36 },
+                Damage = 420, Windup = 0.08, Recovery = 0.20, Range = 5.6, Radius = 1.8, Special = MeleeSpecial.Combo, S1 = 3, S2 = 1.6, S3 = 0.28 },   // a quick blade (playtest 2026-10-01); S3 is the whole swing
             new MeleeDef { Id = "mw.axe", Name = "Axe", Price = 300, Flavor = "Hold melee to throw it; walk over it to pick it up again.", Model = "Armory/Melee/Axe",
                 Damage = 620, Windup = 0.22, Recovery = 0.38, Range = 3.2, Radius = 1.4, Special = MeleeSpecial.Throw, S1 = 22 },
             new MeleeDef { Id = "mw.shield", Name = "Riot Shield", Price = 350, Flavor = "Hold melee to raise it: most frontal damage is blocked, but you cannot shoot and you move slower.", Model = "Armory/Melee/Shield",

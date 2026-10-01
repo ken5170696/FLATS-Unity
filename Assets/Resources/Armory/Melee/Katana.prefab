@@ -914,9 +914,9 @@ MonoBehaviour:
     HitPosition: {x: 0.1, y: 0.55, z: 1.6}
     HitRotation: {x: 215, y: 0, z: 0}
     ArcBulge: {x: 0, y: 0.2, z: 0.45}
-  CutStart: 0.14
-  CutEnd: 0.5
-  ReturnStart: 0.78
+  CutStart: 0.1
+  CutEnd: 0.42
+  ReturnStart: 0.7
   SlashTrail: {fileID: 6239614553982697215}
   HitSound: {fileID: 8300000, guid: 69eca8db0b01f04499b6d5138059e809, type: 3}
   DeflectSound: {fileID: 8300000, guid: 69eca8db0b01f04499b6d5138059e809, type: 3}

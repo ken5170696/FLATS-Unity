@@ -337,9 +337,15 @@ public partial class RogueHudView
             System.Array.Resize(ref boxBottom, n); System.Array.Resize(ref boxTop, n);
         }
         float w = 0f, bottom = float.PositiveInfinity, top = float.NegativeInfinity;
-        Include(m.back != null ? m.back.rectTransform : null, ref w, ref bottom, ref top, -1f);
-        Include(m.distance != null ? m.distance.rectTransform : null, ref w, ref bottom, ref top, m.distance != null ? m.distance.preferredWidth : -1f);
-        if (!compact) Include(m.label != null ? m.label.rectTransform : null, ref w, ref bottom, ref top, m.label != null ? m.label.preferredWidth : -1f);
+        Include(m.rect, m.back != null ? m.back.rectTransform : null, ref w, ref bottom, ref top, -1f);
+        // the name and the distance sit on one plate that its layout sizes to the visible texts: the plate is their box
+        var plate = m.distance != null ? m.distance.transform.parent as RectTransform : null;
+        if (plate != null && plate != m.rect) Include(m.rect, plate, ref w, ref bottom, ref top, -1f);
+        else
+        {
+            Include(m.rect, m.distance != null ? m.distance.rectTransform : null, ref w, ref bottom, ref top, m.distance != null ? m.distance.preferredWidth : -1f);
+            if (!compact) Include(m.rect, m.label != null ? m.label.rectTransform : null, ref w, ref bottom, ref top, m.label != null ? m.label.preferredWidth : -1f);
+        }
         // an edge marker's arrow sticks out past the icon toward the edge (above it on the top edge): it counts too (QA-36 round 6)
         if (edge && m.arrowRect != null && m.arrow != null)
         {
@@ -357,10 +363,11 @@ public partial class RogueHudView
     }
 
     /// <summary>Grows the box by a child of the marker (its rect in the marker's space; a text counts with its preferred width).</summary>
-    static void Include(RectTransform child, ref float width, ref float bottom, ref float top, float textWidth)
+    static void Include(RectTransform marker, RectTransform child, ref float width, ref float bottom, ref float top, float textWidth)
     {
         if (child == null || !child.gameObject.activeSelf) return;
-        var r = child.rect; var s = child.localScale; var p = child.localPosition;
+        // the child's pivot in the marker's space: a child may sit under a layout container, not directly under the marker
+        var r = child.rect; var s = child.localScale; Vector3 p = marker != null ? marker.InverseTransformPoint(child.position) : child.localPosition;
         float yMin = p.y + r.yMin * s.y, yMax = p.y + r.yMax * s.y;
         float cx = p.x + r.center.x * s.x;
         float half = textWidth >= 0f ? textWidth * 0.5f : r.width * 0.5f * Mathf.Abs(s.x);
@@ -410,6 +417,15 @@ public partial class RogueHudView
         var ra = markers[a].rect; var rb = markers[b].rect;
         if (ra == null || rb == null) return false;
         return MarkerBox(a, ra.anchoredPosition).Overlaps(MarkerBox(b, rb.anchoredPosition));
+    }
+
+    /// <summary>An on-screen marker whose box lies on a HUD panel (the objective card at the top, the hint line): it is hidden while there,
+    /// instead of printing its name over the panel's text.</summary>
+    bool MarkerUnderPanel(int i, Vector2 pos)
+    {
+        var box = MarkerBox(i, pos);
+        foreach (var r in panelRects) if (r.Overlaps(box)) return true;
+        return false;
     }
 
     bool MarkerHitsPanel(int i, Vector2 pos, Vector2 half)
