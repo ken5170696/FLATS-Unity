@@ -606,6 +606,7 @@ public class DamageReceiver : MonoBehaviour
 		if (base.gameObject.tag == "Player")
 		{
 			UnityEngine.Object.Destroy(myFPSController);
+			if (Menu.network != 0 && GetComponent<DeadPlayerRpcSinkInstaller>() == null) gameObject.AddComponent<DeadPlayerRpcSinkInstaller>();
 		}
 		else
 		{

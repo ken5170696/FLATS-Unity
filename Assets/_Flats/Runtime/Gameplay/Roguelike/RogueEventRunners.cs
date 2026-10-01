@@ -49,6 +49,8 @@ public abstract class RogueEventRunner
 
     public virtual void Begin() { }
     public virtual void Tick(float dt) { }
+    /// <summary>Non-authority clients: per-frame local effects driven by replicated state (gas damage on the local player).</summary>
+    public virtual void ClientTick(float dt) { }
     public virtual void OnCommand(RogueCommandMessage cmd) { }
     public virtual void OnClientEvent(RogueEventMessage e) { }
     public virtual void OnEnemyKilled(RogueEnemyRole role) { }
@@ -286,7 +288,9 @@ public sealed class LureCrateRunner : RogueEventRunner
     {
         if (machine == null) return;
         var holder = string.IsNullOrEmpty(machine.Holder) ? null : RogueWorld.PlayerByKey(machine.Holder);
-        if (holder != null) { var rp = holder.GetComponent<RoguePlayer>(); if (rp != null && rp.Downed) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); } }
+        // a holder that died or left (its object is gone) frees the crate, exactly like a downed holder; otherwise it stays "held" by nobody
+        if (!string.IsNullOrEmpty(machine.Holder) && holder == null) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); }
+        else if (holder != null) { var rp = holder.GetComponent<RoguePlayer>(); if (rp != null && rp.Downed) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); } }
         Controller.LureTarget = (machine.Carried || machine.Planted) && crate != null ? crate.transform : null;
         machine.Tick(dt);
         StatusText = machine.Planted ? N("Lure planted {0} s", Mathf.CeilToInt((float)machine.Countdown)) : machine.Carried ? N("Lure carried: press {0} to plant", RogueInput.KeyText("Interact")) : N("Lure crate: optional");
@@ -309,19 +313,21 @@ public sealed class LureCrateRunner : RogueEventRunner
 public sealed class GasLeakRunner : RogueEventRunner
 {
     GasLeakEvent machine; readonly GameObject[] switches = new GameObject[3]; readonly GameObject[] zones = new GameObject[3]; Vector3 origin; readonly Dictionary<int, Dictionary<string, float>> held = new Dictionary<int, Dictionary<string, float>>();
-    int shownZones; float damageTick; bool leaked; float sentFraction;
+    int shownZones; float damageTick; bool leaked; float sentFraction, clientFraction;
+    /// <summary>Zone radii in world units (characters are 6.4 tall): the first zone covers a courtyard, the third most of a district.</summary>
+    public static float ZoneRadius(int zone) { return 22f + 14f * zone; }
+    /// <summary>Reach (world units) of a vent switch, the same for the prompt and the authority's check.</summary>
+    public const float VentReach = 5f;
     /// <summary>Held seconds that activate one vent switch (GasLeakEvent's threshold, mirrored for the progress display).</summary>
     public const float VentSeconds = 2.5f;
     public override void Begin()
     {
         origin = Point(0);
-        // guests never run TickEvents (authority only): this drives their gas damage from the replicated zone and fraction
-        RogueGasTicker.Attach(this);
         for (int i = 0; i < 3; i++)
         {
             switches[i] = RogueWorld.Cube("VentSwitch" + i, Point(i), new Vector3(1f, 2.2f, 0.6f), RogueWorld.Green, true);
             RogueWaypoint.Attach(switches[i], "Warning", "Vent {0}|" + (i + 1), RogueWorld.Green, RogueWorld.WaypointHeight(switches[i]), 2).Pulse = true;
-            var it = switches[i].AddComponent<RogueInteractable>(); it.Action = "vent:" + i; it.Prompt = "Vent switch (hold)"; it.Radius = 3.5f; it.HoldSeconds = VentSeconds;
+            var it = switches[i].AddComponent<RogueInteractable>(); it.Action = "vent:" + i; it.Prompt = "Vent switch (hold)"; it.Radius = VentReach; it.HoldSeconds = VentSeconds;
             it.TintWhenCompleted(RogueWorld.White);   // an activated vent turns white on every client (QA-22), from the replicated completion
             RogueWorld.Beacon("VentBeacon" + i, Point(i), RogueWorld.Green).transform.SetParent(switches[i].transform, true);
         }
@@ -373,21 +379,21 @@ public sealed class GasLeakRunner : RogueEventRunner
         for (int i = 0; i < 3; i++)
         {
             bool on = i < count;
-            if (on && zones[i] == null) zones[i] = RogueWorld.GasVolume("GasZone" + i, origin, 10f + 10f * i);
+            if (on && zones[i] == null) zones[i] = RogueWorld.GasVolume("GasZone" + i, origin, ZoneRadius(i));
             else if (!on && zones[i] != null) { RogueWorld.Destroy(zones[i]); zones[i] = null; }
         }
     }
-    float clientFraction;
     void ApplyGasDamage(float dt, float fraction)
     {
+        var local = RoguelikeController.FindLocalPlayer();
+        float radius = shownZones > 0 ? ZoneRadius(shownZones - 1) : 0f;
+        bool inside = local != null && shownZones > 0 && Vector3.Distance(local.transform.position, origin) <= radius;
+        var hud = Controller.Hud; if (hud != null) hud.SetGasOverlay(inside ? 1f : 0f);
+        RogueAudio.Loop("gas_loop", inside, 0.55f);
         damageTick += dt;
         if (damageTick < 0.5f) return;
         float slice = damageTick; damageTick = 0;
-        if (fraction <= 0 || shownZones <= 0) return;
-        var local = RoguelikeController.FindLocalPlayer();
-        if (local == null) return;
-        float radius = 10f + 10f * (shownZones - 1);
-        if (Vector3.Distance(local.transform.position, origin) > radius) return;
+        if (fraction <= 0 || !inside) return;
         var dr = local.GetComponent<DamageReceiver>();
         if (dr != null)
         {
@@ -399,49 +405,29 @@ public sealed class GasLeakRunner : RogueEventRunner
     {
         if (e.kind == "gas") { shownZones = e.index; clientFraction = shownZones > 0 ? Mathf.Max(0f, (float)e.value) : 0f; ShowZones(shownZones); }
     }
-    public void ClientTick(float dt) { if (machine == null) ApplyGasDamage(dt, clientFraction); }
-    public override void Dispose() { foreach (var s in switches) RogueWorld.Destroy(s); foreach (var z in zones) RogueWorld.Destroy(z); RogueGasTicker.Detach(this); }
+    // guests never run Tick (authority only): the controller's run loop calls this, which applies the replicated zone and fraction to the local player
+    public override void ClientTick(float dt) { if (machine == null) ApplyGasDamage(dt, clientFraction); }
+    public override void Dispose() { var hud = Controller.Hud; if (hud != null) hud.SetGasOverlay(0f); RogueAudio.Loop("gas_loop", false); foreach (var s in switches) RogueWorld.Destroy(s); foreach (var z in zones) RogueWorld.Destroy(z); }
     public override void OnCommand(RogueCommandMessage cmd)
     {
         if (machine == null || !cmd.text.StartsWith("vent:")) return;
         int i = cmd.text[5] - '0'; if (i < 0 || i > 2) return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (!RogueInteraction.AuthorityCanAct(p) || !RogueInteraction.AuthorityInReach(p, switches[i].GetComponent<Collider>(), 3.5f)) return;
+        if (!RogueInteraction.AuthorityCanAct(p) || !RogueInteraction.AuthorityInReach(p, switches[i].GetComponent<Collider>(), VentReach)) return;
         Dictionary<string, float> byPlayer; if (!held.TryGetValue(i, out byPlayer)) held[i] = byPlayer = new Dictionary<string, float>();
         byPlayer[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
     }
 }
 
-/// <summary>Per-frame driver for a guest's gas damage: event runners tick only on the authority (TickEvents), so without it a guest
-/// never took gas damage at all. The authority's runner applies its own player's damage in Tick; ClientTick is a no-op there.</summary>
-public sealed class RogueGasTicker : MonoBehaviour
-{
-    GasLeakRunner runner;
-    static GameObject host;
-    public static void Attach(GasLeakRunner r)
-    {
-        if (host == null) host = new GameObject("RogueGasTicker");
-        var t = host.GetComponent<RogueGasTicker>();
-        if (t == null) t = host.AddComponent<RogueGasTicker>();
-        t.runner = r;
-    }
-    public static void Detach(GasLeakRunner r)
-    {
-        if (host == null) return;
-        var t = host.GetComponent<RogueGasTicker>();
-        if (t != null && t.runner == r) { RogueWorld.Destroy(host); host = null; }
-    }
-    void Update() { if (runner != null && RoguelikeMode.Active) runner.ClientTick(Time.deltaTime); }
-}
-
 public sealed class PowerOutageRunner : RogueEventRunner
 {
+    const float GeneratorReach = 5.5f;
     PowerOutageEvent machine; GameObject generator; RogueInteractable it; readonly Dictionary<string, float> held = new Dictionary<string, float>(); Light sun; float sunIntensity; Color ambient; bool dark;
     public override void Begin()
     {
         generator = RogueWorld.Cube("Generator", Point(0), new Vector3(1.6f, 2.2f, 1.6f), RogueWorld.Gold, true);
         RogueWaypoint.Attach(generator, "Warning", "Generator", RogueWorld.Gold, RogueWorld.WaypointHeight(generator), 2).Pulse = true;
-        it = generator.AddComponent<RogueInteractable>(); it.Action = "generator"; it.Prompt = "Restart the generator (hold 8 s)"; it.Radius = 4f; it.HoldSeconds = 8f;
+        it = generator.AddComponent<RogueInteractable>(); it.Action = "generator"; it.Prompt = "Restart the generator (hold 8 s)"; it.Radius = GeneratorReach; it.HoldSeconds = 8f;
         RogueWorld.Beacon("GeneratorBeacon", Point(0), RogueWorld.Gold).transform.SetParent(generator.transform, true);
         SetDark(true);
         if (Authority) machine = new PowerOutageEvent();
@@ -472,7 +458,7 @@ public sealed class PowerOutageRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "generator") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, generator.GetComponent<Collider>(), 4f)) held[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, generator.GetComponent<Collider>(), GeneratorReach)) held[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
     }
     public override void Dispose() { SetDark(false); RogueWorld.Destroy(generator); }
 }
@@ -495,7 +481,8 @@ public sealed class MobileBombRunner : RogueEventRunner
     {
         if (machine == null) return;
         var holder = string.IsNullOrEmpty(machine.Holder) ? null : RogueWorld.PlayerByKey(machine.Holder);
-        if (holder != null)
+        if (!string.IsNullOrEmpty(machine.Holder) && holder == null) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); }   // holder died or left: the bomb is free again
+        else if (holder != null)
         {
             var rp = holder.GetComponent<RoguePlayer>();
             if (rp != null && rp.Downed) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); }

@@ -168,8 +168,8 @@ public partial class RoguelikeController
         bool combat = state.phase == RunPhase.Combat;
         if (!combat) { hudView.SetObjectiveProgress(-1f); hudView.SetObjectiveStep("", ""); trackerIndex = -1; }
         var ev = combat ? RogueCatalog.Encounter(enc.eventId) : null; var em = combat ? RogueCatalog.Encounter(enc.emergencyId) : null;
-        hudView.SetEvent(ev != null ? GuideIcon(ev.Id, "Settings5") : "Settings5", ev != null ? T(ev.Name) + (ObjectivePart(1) != "" ? "  " + ObjectivePart(1) : "") : "", false);
-        hudView.SetEvent(em != null ? GuideIcon(em.Id, "Warning") : "Warning", em != null ? T(em.Name) + (ObjectivePart(2) != "" ? "  " + ObjectivePart(2) : "") : "", true);
+        hudView.SetEvent(ev != null ? GuideIcon(ev.Id, "Settings5") : "Settings5", EncounterLine(ev, ObjectivePart(1)), false);
+        hudView.SetEvent(em != null ? GuideIcon(em.Id, "Warning") : "Warning", EncounterLine(em, ObjectivePart(2)), true);
         // the number in an event's status (a drone's health, a repair's progress) also fills a bar under its line (QA-37)
         hudView.SetEventProgress(false, ev != null ? ProgressFraction(ObjectivePart(1)) : -1f);
         hudView.SetEventProgress(true, em != null ? ProgressFraction(ObjectivePart(2)) : -1f);
@@ -192,6 +192,17 @@ public partial class RoguelikeController
         // the first stages open with enemies already on the way: say so, or a new player sprints for the marker through them
         else if (combat && state.depth <= 2 && combatSince >= 0 && Time.time - combatSince < 12f) hudView.SetHint("Enemy", T("Enemies are coming: deal with them, then head for the objective."));
         else hudView.SetHint("", "");
+    }
+
+    /// <summary>"Name  status", unless the status already opens with the name: an event whose status reads "Alarm cache: optional"
+    /// printed "Alarm Cache  Alarm cache: optional" (the name twice) on the objective panel.</summary>
+    static string EncounterLine(EncounterDef def, string status)
+    {
+        if (def == null) return "";
+        string name = T(def.Name);
+        if (string.IsNullOrEmpty(status)) return name;
+        if (status.StartsWith(name, StringComparison.OrdinalIgnoreCase) || status.StartsWith(def.Name, StringComparison.OrdinalIgnoreCase)) return status;
+        return name + "  " + status;
     }
 
     // Clear Out has no prop to walk to: once the waves are thin, the last few enemies get markers so nobody hunts a hidden straggler.
@@ -250,6 +261,7 @@ public partial class RoguelikeController
         hudView.SetBoss("Enemy", (def != null ? T(def.Name) : T("Target")) + (boss.Invulnerable ? "  " + T("Shielded") : ""), bossMaxHp > 0 ? dr.hitPoints / bossMaxHp : 0);
     }
 
+    bool ultReadyShown;
     void RefreshAbilities(RunPlayer me, bool perFrame = false)
     {
         var rp = perFrame ? CachedLocalRoguePlayer() : LocalRoguePlayer();
@@ -258,6 +270,9 @@ public partial class RoguelikeController
         bool downed = rp.Downed;
         bool hasUlt = !string.IsNullOrEmpty(me.build.ultimate);
         float ultFill = rp.UltimateActive ? rp.UltimateRemaining : me.ultimateCharge / 100f;
+        bool ultReady = hasUlt && !rp.UltimateActive && me.ultimateCharge >= 100;
+        if (ultReady && !ultReadyShown) RogueAudio.Play("ult_ready");   // once per charge: the slot flips to ready
+        ultReadyShown = ultReady;
         if (downed && me.build.ultimate != "ult.emergency_revive") ultFill = Mathf.Min(ultFill, 0.99f);
         // each ultimate and tactical has its own icon (QA-08); the slot follows the equipped id through purchases, respawns,
         // reconnects and the next run because it is read from the replicated build on every refresh
@@ -305,6 +320,7 @@ public partial class RoguelikeController
                 // downed: the bar drains with the bleed-out and the state names the seconds left
                 name = p.name, icon = body && p.life == PlayerLife.Alive ? "Shield" : rp != null && rp.Carrying && p.life == PlayerLife.Alive ? "Crate" : RogueIcons.ForLife(p.life),
                 hp = p.life == PlayerLife.Alive ? (rp != null ? rp.HealthFraction() : 1f) : p.life == PlayerLife.Downed && rp != null && rp.Downed ? rp.BleedOutFraction : 0,
+                shield = p.life == PlayerLife.Alive && rp != null ? rp.ShieldFraction : 0f,
                 state = p.life == PlayerLife.Downed ? (rp != null && rp.Downed ? T("Downed {0} s", Mathf.CeilToInt(rp.BleedOutRemaining)) : T("Downed")) : p.life == PlayerLife.Dead ? T("Dead") : body ? T("Body shield") : rp != null && rp.Carrying ? T("Carrying") : (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) && p.ready ? T("Ready") : "",
                 tint = p.life == PlayerLife.Alive ? new Color(0.3f, 0.75f, 0.4f) : p.life == PlayerLife.Downed ? new Color(1f, 0.7f, 0.1f) : new Color(0.95f, 0.3f, 0.35f)
             });
@@ -588,6 +604,7 @@ public partial class RoguelikeController
         string request; pendingTx.TryGetValue(txId, out request);
         pendingTx.Remove(txId);
         if (e.flag && !removal) ApplyTransactionEffects(txId, item);
+        if (e.flag) RogueAudio.Play(item == "" ? "ui_click" : e.minor > 0 ? "ui_buy" : "ui_reward", 0.9f); else if (status != "Duplicate") RogueAudio.Play("ui_deny", 0.7f);
         if (e.flag && removal) Log(T("Removed {0} (refund ${1})", ItemName(item), RogueMoney.Format((long)e.value)));
         else if (e.flag && request == PendingSkip) { Log(T("Reward skipped: +1 reroll ticket")); Banner(T("+1 reroll ticket"), 2f); }
         else if (e.flag && request == PendingTicket) Log(T("Rerolled with a ticket"));

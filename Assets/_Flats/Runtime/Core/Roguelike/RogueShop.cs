@@ -195,7 +195,7 @@ namespace Flats.Core.Roguelike
             {
                 int tier = build.StatTier(s.Id);
                 if (tier >= s.MaxStacks) continue;
-                candidates.Add(s); weights.Add(1.0 + (RogueCatalog.StatTiers - tier) * 0.5);
+                candidates.Add(s); weights.Add(1.0 + Math.Min(5, RogueCatalog.StatTiers - tier) * 0.5);   // capped at the five-tier weight: more tiers must not crowd cores and mods out of the offers
             }
             int i = rng.WeightedIndex(weights);
             return i < 0 ? null : candidates[i];

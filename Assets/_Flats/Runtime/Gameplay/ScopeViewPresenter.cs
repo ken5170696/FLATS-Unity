@@ -94,12 +94,31 @@ public sealed class ScopeViewPresenter : MonoBehaviour
         instance.name = "Scope overlay";
         overlay = instance.GetComponent<ScopeOverlayView>();
         if (overlay == null) { Destroy(instance); return; }
+        PlaceUnderHud(instance);
         var canvas = mask.GetComponentInParent<Canvas>();
         if (canvas != null)
         {
             worldCanvas = canvas.gameObject; worldCanvasWasActive = worldCanvas.activeSelf;
             worldCanvas.SetActive(false);
         }
+    }
+
+    // The authored prefab is a ScreenSpaceOverlay canvas at order 900. Overlay canvases always draw after every camera-space
+    // canvas, so the scope body, vignette and posts covered the whole HUD (health, ammunition, objective, ability slots). Rendered
+    // through the UI camera at sorting order 0 it still covers the world lens but sits under the HUD canvas (order 1).
+    void PlaceUnderHud(GameObject instance)
+    {
+        var canvas = instance.GetComponent<Canvas>();
+        var hud = GameObject.Find("UI");
+        var hudCanvas = hud != null ? hud.GetComponent<Canvas>() : null;
+        var uiCamera = hudCanvas != null ? hudCanvas.worldCamera : null;
+        if (canvas == null || hudCanvas == null || uiCamera == null) return;
+        canvas.renderMode = RenderMode.ScreenSpaceCamera;
+        canvas.worldCamera = uiCamera;
+        canvas.planeDistance = Mathf.Clamp(hudCanvas.planeDistance + 1f, uiCamera.nearClipPlane + 0.1f, uiCamera.farClipPlane - 0.1f);   // farther than the HUD: drawn first
+        canvas.sortingLayerID = hudCanvas.sortingLayerID;
+        canvas.sortingOrder = hudCanvas.sortingOrder - 1;
+        foreach (var t in instance.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = hud.layer;   // the UI camera culls by layer
     }
 
     void Layout()

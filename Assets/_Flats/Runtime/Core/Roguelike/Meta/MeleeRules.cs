@@ -20,6 +20,8 @@ namespace Flats.Core.Roguelike
         public const double ComboWindow = 0.8, FlurryWindow = 1.2, BackstabAngle = 70, EliteStunFloor = 0.25;
         public const double ThrowHoldSeconds = 0.45, ThrowSpeed = 28, PickupRadius = 2.2;
         public const double GuardMoveMultiplier = 0.65;
+        /// <summary>Ground slam: every enemy in the impact radius is thrown back and staggered, so the slam reads as a slam.</summary>
+        public const double SlamKnockbackMeters = 3.5, SlamStunSeconds = 0.8, SlamEliteStunSeconds = 0.35;
 
         /// <summary>Damage of one hit on one target before build multipliers.</summary>
         public static double HitDamage(MeleeDef d, MeleeSwing swing, bool fromBehind)
@@ -43,7 +45,9 @@ namespace Flats.Core.Roguelike
 
         public static double StunSeconds(MeleeDef d, bool eliteOrFinale)
         {
-            if (d == null || d.Special != MeleeSpecial.Shock) return 0;
+            if (d == null) return 0;
+            if (d.Special == MeleeSpecial.GroundSlam) return eliteOrFinale ? SlamEliteStunSeconds : SlamStunSeconds;
+            if (d.Special != MeleeSpecial.Shock) return 0;
             return eliteOrFinale ? Math.Max(EliteStunFloor, d.S1 * d.S2) : d.S1;
         }
 
@@ -52,7 +56,7 @@ namespace Flats.Core.Roguelike
             if (d == null) return 0;
             if (d.Special == MeleeSpecial.Knockback) return d.S1;
             if (d.Special == MeleeSpecial.Guard) return d.S2;
-            if (d.Special == MeleeSpecial.GroundSlam) return 1.5;
+            if (d.Special == MeleeSpecial.GroundSlam) return SlamKnockbackMeters;
             return 0;
         }
 

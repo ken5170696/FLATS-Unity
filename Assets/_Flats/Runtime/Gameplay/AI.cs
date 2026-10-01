@@ -567,7 +567,7 @@ public class AI : MonoBehaviour
 					Transform transform = null;
 					foreach (Transform target in targets)
 					{
-						if (target != null)
+						if (target != null && RogueTargetable(target))
 						{
 							if (transform == null)
 							{
@@ -838,6 +838,14 @@ public class AI : MonoBehaviour
 			}
 			yield return new WaitForSeconds(0f);
 		}
+	}
+
+	// Roguelike: a downed teammate (damage-immune until revived) and a dead player's root (kept five seconds for the ragdoll) are
+	// still tagged Player; an enemy that kept sorting them as its closest target stood shooting a body while the living player walked
+	// past unbothered. Classic modes never reach this check.
+	private static bool RogueTargetable(Transform target)
+	{
+		return IsValidTarget(target);
 	}
 
 	private void CreateList()

@@ -8,7 +8,7 @@ using UnityEngine;
 
 public sealed class CaptureRunner : RogueObjectiveRunner
 {
-    CaptureObjective machine; GameObject ring, beacon; Vector3 center; const float Radius = 8f;
+    CaptureObjective machine; GameObject ring, beacon; Vector3 center; const float Radius = 13f;   // world units: two body lengths around the beacon
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
         center = c.PlanPoint(0);
@@ -38,7 +38,7 @@ public sealed class CarryRunner : RogueObjectiveRunner
         RogueWaypoint.Attach(crate, "Crate", "Supply crate", RogueWorld.Gold, RogueWorld.WaypointHeight(crate), 3);
         crate.GetComponent<Collider>().isTrigger = true;
         carry = crate.AddComponent<RogueCarryable>(); carry.Action = "carry"; carry.Prompt = "Pick up the crate"; carry.DisplayName = "Supply crate";
-        ring = RogueWorld.Ring("DropZone", dropPoint, 4f, RogueWorld.Gold);
+        ring = RogueWorld.Ring("DropZone", dropPoint, 6f, RogueWorld.Gold);
         beacon = RogueWorld.Beacon("DropBeacon", dropPoint, RogueWorld.Gold);
         RogueWaypoint.Attach(beacon, "Check", "Drop zone", RogueWorld.Gold, 2.5f, 2);
         initial = Mathf.Max(1f, Vector3.Distance(start, dropPoint));
@@ -57,7 +57,7 @@ public sealed class CarryRunner : RogueObjectiveRunner
             {
                 float d = Vector3.Distance(holder.transform.position, dropPoint);
                 machine.OnCarrierDistance(d);
-                if (d <= 4f && machine.OnDelivered()) SetHolder("");
+                if (d <= 6f && machine.OnDelivered()) SetHolder("");
             }
         }
         ProgressText = machine.Status == ObjectiveStatus.Succeeded ? RoguelikeController.F("Delivered") : RoguelikeController.F("Crate {0} m from the drop", Mathf.RoundToInt((float)machine.RemainingDistance));
@@ -106,7 +106,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
         center = c.PlanPoint(0);
         device = RogueWorld.Cube("RepairDevice", center, new Vector3(2f, 2.4f, 2f), RogueWorld.White, true);
         RogueWaypoint.Attach(device, "Shield", "Protect the device", RogueWorld.Blue, RogueWorld.WaypointHeight(device), 3);
-        interact = device.AddComponent<RogueInteractable>(); interact.Action = "repair"; interact.Prompt = "Repair"; interact.Radius = 4f;
+        interact = device.AddComponent<RogueInteractable>(); interact.Action = "repair"; interact.Prompt = "Repair"; interact.Radius = 5.5f;
         beacon = RogueWorld.Beacon("RepairBeacon", center, RogueWorld.White);
         if (c.IsAuthority) machine = new ProtectObjective(1000, 0.02);
     }
@@ -148,7 +148,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
 
 public sealed class BreakoutRunner : RogueObjectiveRunner
 {
-    BreakoutObjective machine; GameObject ring, beacon; Vector3 exit; const float Radius = 6f; bool called; readonly HashSet<string> inside = new HashSet<string>();
+    BreakoutObjective machine; GameObject ring, beacon; Vector3 exit; const float Radius = 10f; bool called; readonly HashSet<string> inside = new HashSet<string>();
     readonly Dictionary<string, PlayerLife> lastLife = new Dictionary<string, PlayerLife>(); readonly Dictionary<string, bool> lastConnected = new Dictionary<string, bool>();
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
@@ -246,7 +246,7 @@ public sealed class CommanderRunner : RogueObjectiveRunner
 public sealed class VaultRunner : RogueObjectiveRunner
 {
     VaultObjective machine; RogueEnemyRole core; bool coreKilled; readonly GameObject[] cells = new GameObject[3]; readonly float[] charge = new float[3];
-    readonly RogueHoldLedger ledger = new RogueHoldLedger(); const float CellRadius = 3.5f, CellSeconds = 4f;
+    readonly RogueHoldLedger ledger = new RogueHoldLedger(); const float CellRadius = 5f, CellSeconds = 4f;
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
         for (int i = 0; i < 3; i++)

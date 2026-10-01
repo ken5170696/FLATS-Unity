@@ -123,7 +123,9 @@ namespace Flats.Core.Roguelike
         public GasPhase Phase { get { return (GasPhase)(int)Data.Number("gasphase"); } }
         public int ZonesLeaking { get { return (int)Data.Number("zones"); } }
         public bool Purified { get { return Phase == GasPhase.Contained; } }
-        public double DamageFractionPerSecond { get { return Status != EventStatus.Cancelled && Phase == GasPhase.Leaking && Data.Number("leakage") >= 3 ? .04 : 0; } }
+        /// <summary>Share of maximum health lost per second inside a leaking zone. 9%: about eleven seconds from full to down, so leaving the gas is urgent.</summary>
+        public const double GasDamageFraction = .09, GraceSeconds = 3;
+        public double DamageFractionPerSecond { get { return Status != EventStatus.Cancelled && Phase == GasPhase.Leaking && Data.Number("leakage") >= GraceSeconds ? GasDamageFraction : 0; } }
         public void Warning(double countdownSeconds) { RogueStateBag.NonNegative(countdownSeconds); if (countdownSeconds < 30) throw new ArgumentOutOfRangeException("countdownSeconds"); if (Data.Number("started") != 0) throw new InvalidOperationException("預警只能設定一次"); Countdown = countdownSeconds; }
         public double SwitchProgress(int index) { ValidateIndex(index); return Data.Number("switch." + index); }
         private static void ValidateIndex(int index) { if (index < 0 || index > 2) throw new ArgumentOutOfRangeException("index"); }

@@ -74,12 +74,12 @@ namespace Flats.Core.Roguelike
     public static class RogueCatalog
     {
         public const string RulesVersion = "1";
-        public const int MaxCores = 2, MaxMods = 6, StatTiers = 5;
+        public const int MaxCores = 2, MaxMods = 8, StatTiers = 7;
         public const double HeadshotMoneyMultiplier = 1.5;
         public const double DashDistance = 20, DashSpeed = 50, DashCooldownSeconds = 8, DashMinIntervalSeconds = .3;
         public const double ChainRange = 12, ExplosionRadius = 6, HomingRange = 60, HomingAngleDegrees = 15, EnemySightRange = 200;
         public const int ChainMaxTargets = 3;
-        public const double ChainDurationSeconds = 9, UltimateDurationSeconds = 8, ShortUltimateDurationSeconds = 5;
+        public const double ChainDurationSeconds = 12, UltimateDurationSeconds = 12, ShortUltimateDurationSeconds = 7;
         public const double ShieldCooldownSeconds = 12;
         public static double UltimateSeconds(string id)
         {
@@ -117,10 +117,10 @@ namespace Flats.Core.Roguelike
 
         public static readonly ItemDef[] Stats =
         {
-            new ItemDef("stat.health", ItemKind.Stat, "Vitality", "+12% maximum health per tier (max 5 tiers). Heals the added amount.", 25, StatTiers, 0, TagGeneric),
-            new ItemDef("stat.damage", ItemKind.Stat, "Firepower", "+8% weapon damage per tier (max 5 tiers).", 30, StatTiers, 0, TagGeneric),
-            new ItemDef("stat.magazine", ItemKind.Stat, "Magazine", "+15% magazine capacity per tier (max 5 tiers), at least +1 round.", 25, StatTiers, 0, TagGeneric),
-            new ItemDef("stat.speed", ItemKind.Stat, "Agility", "+6% movement speed per tier (max 5 tiers).", 25, StatTiers, 0, TagGeneric),
+            new ItemDef("stat.health", ItemKind.Stat, "Vitality", "+12% maximum health per tier (max 7 tiers). Heals the added amount.", 25, StatTiers, 0, TagGeneric),
+            new ItemDef("stat.damage", ItemKind.Stat, "Firepower", "+8% weapon damage per tier (max 7 tiers).", 30, StatTiers, 0, TagGeneric),
+            new ItemDef("stat.magazine", ItemKind.Stat, "Magazine", "+15% magazine capacity per tier (max 7 tiers), at least +1 round.", 25, StatTiers, 0, TagGeneric),
+            new ItemDef("stat.speed", ItemKind.Stat, "Agility", "+6% movement speed per tier (max 7 tiers).", 25, StatTiers, 0, TagGeneric),
         };
 
         public static readonly ItemDef[] Cores =

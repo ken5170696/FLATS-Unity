@@ -223,7 +223,8 @@ namespace Flats.Core.Roguelike
         public double DemolitionRadius, ShockwaveSeconds;
         public const double MaxReviveSpeedMul = 2.0;
 
-        public const double MaxHealthBonus = 0.60, MaxDamageBonus = 0.40, MaxMagazineBonus = 0.75, MaxSpeedBonus = 0.30;
+        // tier envelopes: RogueCatalog.StatTiers steps of the per-tier value (7 x 12%, 7 x 8%, 7 x 15%, 7 x 6%)
+        public const double MaxHealthBonus = 0.84, MaxDamageBonus = 0.56, MaxMagazineBonus = 1.05, MaxSpeedBonus = 0.42;
         public const double MaxTotalDamageMul = 3.0, MaxTotalSpeedMul = 1.6, MaxTotalHealthMul = 2.5, MinDamageTakenMul = 0.5;
 
         public static BuildStats Compute(PlayerBuild b)

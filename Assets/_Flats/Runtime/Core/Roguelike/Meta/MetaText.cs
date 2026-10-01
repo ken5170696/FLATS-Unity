@@ -180,7 +180,7 @@ namespace Flats.Core.Roguelike
             {
                 case MeleeSpecial.Backstab: return new TextLine("Strikes from behind deal x{0} damage.", N(m.S1));
                 case MeleeSpecial.Knockback: return new TextLine("Knocks enemies back {0} m.", N(m.S1));
-                case MeleeSpecial.GroundSlam: return new TextLine("Slams the ground: hits every enemy within {0} m.", N(m.S1));
+                case MeleeSpecial.GroundSlam: return new TextLine("Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s.", N(m.S1), N(MeleeRules.SlamKnockbackMeters), N(MeleeRules.SlamStunSeconds));
                 case MeleeSpecial.Combo: return new TextLine("{0}-hit combo; the finisher deals x{1}. Deflects bullets for the first {2} s of a swing.", N(m.S1), N(m.S2), N(m.S3));
                 case MeleeSpecial.Throw: return new TextLine("Hold melee to throw it up to {0} m. Walk over it to pick it up.", N(m.S1));
                 case MeleeSpecial.Guard: return new TextLine("Hold melee to guard: frontal damage -{0}%, but you cannot shoot. Bash pushes {1} m.", P(m.S1), N(m.S2));

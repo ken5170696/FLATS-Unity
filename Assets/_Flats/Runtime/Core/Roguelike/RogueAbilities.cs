@@ -29,7 +29,7 @@ namespace Flats.Core.Roguelike
         public string Id { get; private set; }
         public double CooldownSeconds { get; private set; }
         public int MaxCharges { get; private set; }
-        public const double ShieldCapacity = 400, ShieldDurationSeconds = 4;
+        public const double ShieldCapacity = 400, ShieldDurationSeconds = 6;
         private readonly List<double> recharge = new List<double>();
         private double shield, shieldUntil, observedNow;
         private bool secondJumpUsed, committing;

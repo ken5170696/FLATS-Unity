@@ -51,6 +51,12 @@ public partial class RoguelikeController
                 try { AuthorityTick(Time.deltaTime); }
                 catch (Exception ex) { Debug.LogException(ex); }   // one bad frame must not stop the run for every player
             }
+            else if (state.phase == RunPhase.Combat)
+            {
+                // clients own the local effects of replicated event state (gas damage on their own player); the authority does it in Tick
+                try { if (eventRunner != null) eventRunner.ClientTick(Time.deltaTime); if (emergencyRunner != null) emergencyRunner.ClientTick(Time.deltaTime); }
+                catch (Exception ex) { Debug.LogException(ex); }
+            }
             yield return null;
         }
     }

@@ -11,17 +11,42 @@ public sealed class RogueRoleMarker : MonoBehaviour
 {
     public const string HeadPath = "Armature/mixamorig_Hips/mixamorig_Spine/mixamorig_Spine1/mixamorig_Spine2/mixamorig_Neck/mixamorig_Head";
     // 世界公尺。圖示列底部離頭頂 HeadGap；角色圖示外框 BorderSize；標記（Sight）在圖示中心上方 SightOffset。
-    public const float HeadGap = 0.3f, BorderSize = 1.45f, SightSize = 0.8f, SightOffset = 1.15f, StatusSize = 0.8f, StatusGap = 0.12f, StackMargin = 0.15f;
+    public const float HeadGap = 0.3f, BorderSize = 1.15f, PlateSize = 0.97f, IconSize = 0.78f, SightSize = 0.64f, SightOffset = 0.92f, StatusSize = 0.66f, StatusGap = 0.1f, StackMargin = 0.15f;
 
     static readonly Dictionary<GameObject, RogueRoleMarker> byEnemy = new Dictionary<GameObject, RogueRoleMarker>();
 
     readonly List<Material> materials = new List<Material>();
     readonly List<Mesh> meshes = new List<Mesh>();
     readonly List<Renderer> renderers = new List<Renderer>();
+    readonly List<Color> baseColors = new List<Color>();
     Transform head, headTop;
     GameObject enemy;
     Collider body;
     bool marked;
+    Vector3 baseScale = Vector3.one;
+    static Material iconTemplate;
+    float lastAlpha = -1f, lastScale = -1f;
+
+    /// <summary>The marker starts fading at FadeStart metres from the camera and is gone at FadeEnd.</summary>
+    public const float FadeStart = 40f, FadeEnd = 48f;
+    /// <summary>Up close the marker shrinks to NearScale (at NearDistance or closer; full size from FullDistance), and over the
+    /// crosshair it thins to CentreAlpha, so it never hides the enemy the player is aiming at.</summary>
+    public const float NearScale = 0.55f, NearDistance = 5f, FullDistance = 16f, CentreAlpha = 0.3f;
+
+    /// <summary>Icon tint per battlefield role (keyed by the role's marker icon): one colour per silhouette, never plain white.</summary>
+    public static Color RoleTint(string icon)
+    {
+        switch (icon)
+        {
+            case "Fire": return new Color(1f, 0.62f, 0.5f);        // rifleman: warm
+            case "Jump": return new Color(1f, 0.55f, 0.2f);        // rusher: orange
+            case "Sight": return new Color(0.8f, 0.55f, 1f);       // marksman: violet
+            case "Shield": return new Color(0.45f, 0.72f, 1f);     // shield bearer: steel blue
+            case "Dash": return new Color(0.5f, 0.95f, 0.5f);      // flanker: green
+            case "Settings5": return new Color(1f, 0.9f, 0.3f);    // jammer: yellow
+        }
+        return new Color(0.95f, 0.95f, 0.95f);
+    }
 
     public void Configure(string icon, bool elite, bool finale, bool marked)
     {
@@ -31,15 +56,18 @@ public sealed class RogueRoleMarker : MonoBehaviour
         this.marked = marked;
         // Flatman_Enemy 根物件為 4 倍縮放；圖示尺寸以世界公尺計。
         Vector3 parentScale = transform.parent.lossyScale;
-        transform.localScale = new Vector3(1f / Mathf.Max(Mathf.Abs(parentScale.x), 0.001f), 1f / Mathf.Max(Mathf.Abs(parentScale.y), 0.001f), 1f / Mathf.Max(Mathf.Abs(parentScale.z), 0.001f));
+        baseScale = new Vector3(1f / Mathf.Max(Mathf.Abs(parentScale.x), 0.001f), 1f / Mathf.Max(Mathf.Abs(parentScale.y), 0.001f), 1f / Mathf.Max(Mathf.Abs(parentScale.z), 0.001f));
+        transform.localScale = baseScale;
         head = transform.parent.Find(HeadPath);
         headTop = head != null ? head.Find("mixamorig_HeadTop_End") : null;
         body = transform.parent.GetComponent<Collider>();
-        Color border = finale ? new Color(1f, 0.2f, 0.6f) : elite ? new Color(1f, 0.8f, 0.15f) : new Color(0.55f, 0.6f, 0.65f);
+        Color tint = RoleTint(icon);
+        Color border = finale ? new Color(1f, 0.2f, 0.6f) : elite ? new Color(1f, 0.8f, 0.15f) : tint * 0.7f;
+        border.a = 1f;
         AddPlane(null, border, BorderSize, new Vector3(0, 0, 0.04f));
-        AddPlane(null, new Color(0.06f, 0.07f, 0.1f), 1.22f, new Vector3(0, 0, 0.02f));
+        AddPlane(null, new Color(0.06f, 0.07f, 0.1f), PlateSize, new Vector3(0, 0, 0.02f));
         var sprite = RogueIcons.Get(icon) ?? RogueIcons.Get("Enemy");
-        if (sprite != null) AddPlane(sprite, Color.white, 1f, Vector3.zero);
+        if (sprite != null) AddPlane(sprite, tint, IconSize, Vector3.zero);
         if (marked)
         {
             var sight = RogueIcons.Get("Sight");
@@ -108,12 +136,13 @@ public sealed class RogueRoleMarker : MonoBehaviour
     {
         // 從既有 Unlit 取得獨立材質，但只替換這個標記的 shader；不動共用世界材質。
         var material = RogueWorld.Unlit(color);
-        var template = Resources.Load<Material>("UI/Roguelike/RogueRoleIcon");
-        if (template == null) { Destroy(material); return; }
-        material.shader = template.shader;
+        if (iconTemplate == null) iconTemplate = Resources.Load<Material>("UI/Roguelike/RogueRoleIcon");
+        if (iconTemplate == null) { Destroy(material); return; }
+        material.shader = iconTemplate.shader;
         material.color = color;
         material.mainTexture = sprite != null ? sprite.texture : Texture2D.whiteTexture;
         materials.Add(material);
+        baseColors.Add(color);
         var mesh = new Mesh { name = "RoleIconPlane" };
         if (sprite == null)
         {
@@ -154,20 +183,32 @@ public sealed class RogueRoleMarker : MonoBehaviour
     void LateUpdate()
     {
         var cam = Camera.main;
-        float alpha = 0;
+        float alpha = 0, scale = 1f;
         if (RoguelikeMode.Active && cam != null && transform.parent != null)
         {
             // 圖示列的中心：頭頂上方 HeadGap，外框底部不碰頭。
             transform.position = HeadTopWorld(true) + Vector3.up * (HeadGap + BorderSize * 0.5f);
             transform.rotation = cam.transform.rotation;
             float distance = Vector3.Distance(cam.transform.position, transform.position);
-            alpha = Mathf.Clamp01((48f - distance) / 8f); // 40m 起淡出，48m 完全隱藏。
+            alpha = Mathf.Clamp01((FadeEnd - distance) / (FadeEnd - FadeStart)); // 40m 起淡出，48m 完全隱藏。
+            // up close the marker would fill the view: it shrinks, and when it sits on the crosshair it thins so the enemy under it stays visible
+            scale = Mathf.Lerp(NearScale, 1f, Mathf.InverseLerp(NearDistance, FullDistance, distance));
+            Vector3 view = cam.WorldToViewportPoint(transform.position);
+            if (view.z > 0f)
+            {
+                float centre = Mathf.Max(Mathf.Abs(view.x - 0.5f) * 2f * cam.aspect, Mathf.Abs(view.y - 0.5f) * 2f);
+                alpha *= Mathf.Lerp(CentreAlpha, 1f, Mathf.InverseLerp(0.08f, 0.45f, centre));
+            }
         }
+        if (Mathf.Abs(scale - lastScale) > 0.005f) { lastScale = scale; transform.localScale = baseScale * scale; }
+        if (Mathf.Abs(alpha - lastAlpha) < 0.004f) return;   // colours and layers are written only when the fade actually moved
+        lastAlpha = alpha;
+        int layer = transform.root.gameObject.layer;
         for (int i = 0; i < materials.Count; i++)
         {
-            Color color = materials[i].color; color.a = alpha; materials[i].color = color;
+            Color color = baseColors[i]; color.a = alpha; materials[i].color = color;
             renderers[i].enabled = alpha > 0;
-            renderers[i].gameObject.layer = transform.root.gameObject.layer;
+            if (renderers[i].gameObject.layer != layer) renderers[i].gameObject.layer = layer;
         }
     }
 

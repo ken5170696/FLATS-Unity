@@ -22,6 +22,8 @@ public partial class RogueHudView : MonoBehaviour
     public GameObject tacticalSlot; public Image tacticalIcon, tacticalFill, tacticalBack; public Text tacticalKey, tacticalValue;
     [Header("Squad")] public GameObject squadRoot; public RogueHudSquadRow squadTemplate;
     [Header("Waypoints")] public RectTransform waypointRoot; public RogueHudWaypoint waypointTemplate; public int maxWaypoints = 6; public float edgeInset = 36f;
+    [Tooltip("Marker scale on screen from near to far (never above 1: the authored tile is the crisp size), at the screen edge, its opacity when it sits over the crosshair, and the distance under which it thins out.")]
+    public float markerScaleNear = 0.82f, markerScaleFar = 0.58f, markerScaleEdge = 0.68f, markerCentreAlpha = 0.3f, markerNearFade = 10f;
     [Header("Hint")] public GameObject hintLine; public Text hintText; public Image hintIcon;
     [Tooltip("Layout element of the hint text: its preferred width is the text's own width up to hintMaxWidth, so a long hint wraps " +
         "onto a second line inside the plate instead of running off a narrow screen.")] public LayoutElement hintTextLayout;
@@ -109,6 +111,9 @@ public partial class RogueHudView : MonoBehaviour
     {
         canvas = GetComponentInParent<Canvas>();
         canvasRect = canvas != null ? canvas.GetComponent<RectTransform>() : null;
+        // the shared HUD canvas scales 800x600 to the screen (a non-integer factor on most displays): without pixel snapping every
+        // 11-15 pt label lands between pixels and reads soft; snapped while this HUD exists, restored with it
+        if (canvas != null) { pixelPerfectWas = canvas.pixelPerfect; canvas.pixelPerfect = true; }
         if (squadTemplate != null) squadTemplate.gameObject.SetActive(false);
         if (waypointTemplate != null) waypointTemplate.gameObject.SetActive(false);
         SetEvent("", "", false); SetEvent("", "", true); SetEventProgress(false, -1f); SetEventProgress(true, -1f); HideBoss(); SetHint("", "");
@@ -133,8 +138,10 @@ public partial class RogueHudView : MonoBehaviour
         if (objectiveTap != null) { objectiveTap.onClick.RemoveAllListeners(); objectiveTap.onClick.AddListener(() => { var c = RoguelikeController.Instance; if (c != null) c.OpenBriefingDetails(); }); }
     }
 
+    bool pixelPerfectWas;
     void OnDestroy()
     {
+        if (canvas != null) canvas.pixelPerfect = pixelPerfectWas;
         HideLegacyVitals(false); FlatsLocalization.Changed -= OnLanguageChanged; RogueMetaFeedback.Triggered -= OnMetaEffect;
         RestoreGuards();   // the shared banner goes back where it was authored
         if (legacyLogs != null) legacyLogs.anchoredPosition = legacyLogsHome;
@@ -640,7 +647,7 @@ public partial class RogueHudView : MonoBehaviour
         cap.sizeDelta = new Vector2(Mathf.Clamp(width, keyCapMinWidth, keyCapMaxWidth), cap.sizeDelta.y);
     }
 
-    public struct SquadEntry { public string name, icon, state; public float hp; public Color tint; }
+    public struct SquadEntry { public string name, icon, state; public float hp, shield; public Color tint; }
     public void SetSquad(List<SquadEntry> entries)
     {
         if (squadRoot == null || squadTemplate == null) return;
@@ -651,7 +658,7 @@ public partial class RogueHudView : MonoBehaviour
         {
             bool used = i < n;
             squadRows[i].gameObject.SetActive(used);
-            if (used) squadRows[i].Bind(entries[i].name, entries[i].icon, entries[i].hp, entries[i].state, entries[i].tint);
+            if (used) squadRows[i].Bind(entries[i].name, entries[i].icon, entries[i].hp, entries[i].shield, entries[i].state, entries[i].tint);
         }
     }
 
@@ -679,7 +686,7 @@ public partial class RogueHudView : MonoBehaviour
     static Vector3 sortEye;
     static readonly System.Comparison<RogueWaypoint> byPriorityThenDistance = (a, b) => a.Priority != b.Priority ? b.Priority.CompareTo(a.Priority) : (a.Position - sortEye).sqrMagnitude.CompareTo((b.Position - sortEye).sqrMagnitude);
     GameObject localPlayer; float localPlayerCheck;
-    readonly List<string> markerLabelKey = new List<string>(); readonly List<int> markerDistance = new List<int>();
+    readonly List<string> markerLabelKey = new List<string>(); readonly List<int> markerDistance = new List<int>(); readonly List<string> markerIcon = new List<string>();
     float markerBottom = float.NaN, markerTop;
 
     // extents of the authored marker around its pivot (icon tile above, label and distance below), read once from the template
@@ -712,6 +719,28 @@ public partial class RogueHudView : MonoBehaviour
 
     void OnDisable() { RogueInput.ResetTouch(); ClearScreenPanels(); }
 
+    // ---------------------------------------------------------------- gas tint (screen-space): the local player stands in a leaking zone
+    Image gasOverlay; float gasTarget, gasShown;
+    [Header("Gas")] public Color gasTint = new Color(0.55f, 0.85f, 0.25f, 0.32f);
+    /// <summary>0..1 how deep in the gas the local player is; the tint eases in and out and never blocks input.</summary>
+    public void SetGasOverlay(float strength) { gasTarget = Mathf.Clamp01(strength); }
+    void TickGasOverlay()
+    {
+        if (gasTarget <= 0f && gasShown <= 0.001f) { if (gasOverlay != null && gasOverlay.enabled) gasOverlay.enabled = false; gasShown = 0f; return; }
+        if (gasOverlay == null)
+        {
+            // built once at runtime under the HUD root (behind every authored panel): a full-screen tint is not an authored element
+            var go = new GameObject("GasOverlay", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+            go.transform.SetParent(transform, false); go.transform.SetAsFirstSibling();
+            var rt = (RectTransform)go.transform; rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.offsetMin = rt.offsetMax = Vector2.zero;
+            gasOverlay = go.GetComponent<Image>(); gasOverlay.raycastTarget = false;
+        }
+        gasShown = Mathf.MoveTowards(gasShown, gasTarget, Time.unscaledDeltaTime * 1.5f);
+        var c = gasTint; c.a *= gasShown * (0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 2.2f));
+        gasOverlay.color = c;
+        if (!gasOverlay.enabled) gasOverlay.enabled = true;
+    }
+
     void LateUpdate()
     {
         TickTouch();
@@ -719,6 +748,7 @@ public partial class RogueHudView : MonoBehaviour
         TickLayout();
         if (layoutBefore != layoutNarrow) FitHint();
         TickBounty();
+        TickGasOverlay();
         if (localPlayer == null || Time.unscaledTime >= localPlayerCheck) { localPlayer = RoguelikeController.FindLocalPlayer(); localPlayerCheck = Time.unscaledTime + 0.5f; }
         TickVitals();
         TickInvincible();
@@ -738,7 +768,7 @@ public partial class RogueHudView : MonoBehaviour
         sortEye = eye;
         scratch.Sort(byPriorityThenDistance);
         int shown = Mathf.Min(scratch.Count, maxWaypoints);
-        while (markers.Count < shown) { var m = Instantiate(waypointTemplate, waypointRoot, false); markers.Add(m); markerLabelKey.Add(null); markerDistance.Add(-1); }
+        while (markers.Count < shown) { var m = Instantiate(waypointTemplate, waypointRoot, false); markers.Add(m); markerLabelKey.Add(null); markerDistance.Add(-1); markerIcon.Add(null); }
         Vector2 half = canvasRect.rect.size * 0.5f;
         Camera uiCam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
         MeasureMarker();
@@ -787,7 +817,7 @@ public partial class RogueHudView : MonoBehaviour
             if (!onScreen && !KeepOutOfPanels(i, ref pos, half)) { m.gameObject.SetActive(false); continue; }
             if (m.rect != null) m.rect.anchoredPosition = pos;
             if (m.arrow != null) { m.arrow.gameObject.SetActive(!onScreen); if (m.arrowRect != null) m.arrowRect.localRotation = Quaternion.Euler(0, 0, angle); }
-            if (m.icon != null && (m.icon.sprite == null || m.icon.sprite.name != wp.Icon)) RogueIcons.Apply(m.icon, wp.Icon);
+            if (m.icon != null && markerIcon[i] != wp.Icon) { markerIcon[i] = wp.Icon; RogueIcons.Apply(m.icon, wp.Icon); }   // remembered by key: Sprite.name allocates every frame
             float dist = Vector3.Distance(eye, wp.transform.position);
             int metres = Mathf.RoundToInt(dist);
             if (m.distance != null && markerDistance[i] != metres) { markerDistance[i] = metres; m.distance.text = metres + " m"; }   // text only when the integer changes
@@ -799,6 +829,13 @@ public partial class RogueHudView : MonoBehaviour
                 float fade = Mathf.Max(Mathf.InverseLerp(enemyFadeDistance.x, enemyFadeDistance.y, dist), Mathf.InverseLerp(enemyFadeRadius.x, enemyFadeRadius.y, anchor.magnitude));
                 alpha *= fade;
                 if (alpha < 0.03f) { m.gameObject.SetActive(false); continue; }
+            }
+            else if (onScreen)
+            {
+                // any other marker thins out over the crosshair and when the player stands at its prop, so it never hides what is under it
+                float centre = Mathf.Max(Mathf.Abs(pos.x) / Mathf.Max(1f, half.x), Mathf.Abs(pos.y) / Mathf.Max(1f, half.y));   // 0 at the crosshair, 1 at the edge
+                alpha *= Mathf.Lerp(markerCentreAlpha, 1f, Mathf.InverseLerp(0.06f, 0.4f, centre));
+                if (dist < markerNearFade) alpha *= Mathf.Lerp(0.45f, 1f, dist / markerNearFade);
             }
             if (m.group != null) m.group.alpha = alpha;
             // only the icon tile scales with distance; the label and distance texts keep their authored size so they stay sharp

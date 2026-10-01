@@ -43,7 +43,7 @@ public class RoguePlayer : MonoBehaviour
     readonly OverShield overshield = new OverShield(); float overshieldReported = -1f, overshieldReportAt;
     float reloadBurstUntil;
 
-    public const float BleedOutSeconds = 30f, ReviveHoldSeconds = 3f, ReviveRange = 3.5f;
+    public const float BleedOutSeconds = 30f, ReviveHoldSeconds = 3f, ReviveRange = 5.5f;
     /// <summary>Revive hold tolerance once a revive has started (QA-33): extra reach and a wider look cone, so a small step or a
     /// glance does not break it; the authority adds the same reach on top of its own tolerance, so it never refuses what the
     /// rescuer's prompt still accepts. A break shorter than ReviveGraceSeconds keeps crediting; a longer one pauses the
@@ -219,7 +219,7 @@ public class RoguePlayer : MonoBehaviour
         {
             float absorbed = Mathf.Min(shieldHp, damage);
             shieldHp -= absorbed; damage -= absorbed;
-            if (shieldHp <= 0) RoguelikeController.Instance?.Log(RoguelikeController.T("Shield broken"));
+            if (shieldHp <= 0) { RoguelikeController.Instance?.Log(RoguelikeController.T("Shield broken")); RogueAudio.Play("shield_break"); }
         }
         if (damage > 0f && overshield.Remaining > 0)
         {
@@ -245,6 +245,7 @@ public class RoguePlayer : MonoBehaviour
             ctrl.Command(new RogueCommandMessage { kind = "ult" });
             receiver.hitPoints = MaxHealth() * 0.5f;
             ctrl.Banner(RoguelikeController.T("Emergency revive!"), 2f);
+            RogueAudio.Play("revive");
             return true;
         }
         Downed = true;
@@ -259,6 +260,7 @@ public class RoguePlayer : MonoBehaviour
         downRequest++;
         ctrl.Command(new RogueCommandMessage { kind = "downed", index = downRequest });
         ctrl.Banner(RoguelikeController.T("You are down! Hold on for a revive."), 3f);
+        RogueAudio.Play("downed");
         StartCoroutine(DownedRoutine());
         return true;
     }
@@ -267,7 +269,7 @@ public class RoguePlayer : MonoBehaviour
     {
         while (Downed && bleedOut > 0)
         {
-            bleedOut -= Time.deltaTime;
+            if (!BeingRevived) bleedOut -= Time.deltaTime;   // a rescue in progress holds the clock; an interrupted hold lets it run again
             // only a revive that the authority ruled AFTER acknowledging this down counts (F01); a refused down means we were already dead
             if (downRefused == downRequest) { break; }
             // the ack event and the state snapshot travel separately; an ack that arrives first still sees the old "Alive" life, which
@@ -666,12 +668,13 @@ public class RoguePlayer : MonoBehaviour
                 if (!DashHasRoom(dir)) { noRoom = true; return false; }
                 // a dash ends aiming (hold-to-aim takes it up again after the dash); the sprint pauses while the dash runs
                 if (controller != null) controller.Zoom(false);
+                RogueAudio.Play("dash");
                 StartCoroutine(DashRoutine(dir));
                 return true;
             });
             if (noRoom) RoguelikeController.Instance?.Banner(RoguelikeController.T("No room to dash"), 0.8f);
         }
-        else if (Stats.Shield && Time.time >= shieldCooldownUntil) { shieldHp = (float)TacticalRuntime.ShieldCapacity; shieldUntil = Time.time + (float)TacticalRuntime.ShieldDurationSeconds; shieldCooldownUntil = Time.time + ShieldCooldown; RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f); }
+        else if (Stats.Shield && Time.time >= shieldCooldownUntil) { shieldHp = (float)TacticalRuntime.ShieldCapacity; shieldUntil = Time.time + (float)TacticalRuntime.ShieldDurationSeconds; shieldCooldownUntil = Time.time + ShieldCooldown; RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f); RogueAudio.Play("shield_up"); }
     }
 
     float ShieldCooldown { get { return Mathf.Max(0.1f, (float)(RogueCatalog.ShieldCooldownSeconds * Stats.ShieldCooldownMul)); } }
