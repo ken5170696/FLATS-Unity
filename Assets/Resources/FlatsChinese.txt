@@ -2576,3 +2576,6 @@ Tier	階級
 Routes	下一章路線
 New primary weapon	換把主武器
 Current equipment	目前配裝
+Low health	低血量
+Charging	充能中
+Reloading	換彈中

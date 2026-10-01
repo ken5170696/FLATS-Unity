@@ -104,6 +104,8 @@ public partial class RogueHudView
         if (rowRect == null || width <= 0f || rowRect.anchorMin != Vector2.zero || rowRect.anchorMax != Vector2.zero) return;
         // the row's column: its authored left edge and its widest chip
         float left = -canvasRect.rect.width * 0.5f + rowRect.anchoredPosition.x;
+        if (tileLayout != null && RectOf(rowRect, out var rowBounds))
+        { left = rowBounds.xMin; width *= rowRect.lossyScale.x / canvasRect.lossyScale.x; }
         var column = Rect.MinMaxRect(left, -canvasRect.rect.height * 0.5f, left + width, canvasRect.rect.height * 0.5f);
         float floor = float.NegativeInfinity;
         bool touch = RogueInput.IsTouch;
@@ -113,7 +115,12 @@ public partial class RogueHudView
             if (RectOf(panel, out r) && OverlapX(r, column)) floor = Mathf.Max(floor, r.yMax + stackGap);
         }
         if (float.IsNegativeInfinity(floor)) return;
-        effectRow.SetFloor(floor + canvasRect.rect.height * 0.5f);
+        if (tileLayout != null && rowRect.parent is RectTransform rowParent)
+        {
+            var point = rowParent.InverseTransformPoint(canvasRect.TransformPoint(new Vector3(0, floor, 0)));
+            effectRow.SetFloor(point.y - rowParent.rect.yMin);
+        }
+        else effectRow.SetFloor(floor + canvasRect.rect.height * 0.5f);
     }
 
     // ---------------------------------------------------------------- touch keys
@@ -317,6 +324,13 @@ public partial class RogueHudView
         if (briefing != null && briefing.Visible && RectOf(briefing.card, out r)) panelRects.Add(Inflate(r));
         if (effectRow != null && effectRow.TryGetContentRect(canvasRect, out r)) panelRects.Add(Inflate(r));
         if (RogueInput.IsTouch && meleeHud != null && RectOf(meleeSlot, out r)) panelRects.Add(Inflate(r));
+        if (tileLayout != null)
+        {
+            if (RectOf(Rt(eventLine), out r)) panelRects.Add(Inflate(r));
+            if (RectOf(Rt(emergencyLine), out r)) panelRects.Add(Inflate(r));
+            if (notificationTiles != null) foreach (var tile in notificationTiles)
+                if (RectOf(Rt(tile), out r)) panelRects.Add(Inflate(r));
+        }
     }
 
     /// <summary>A panel with the stack gap around it: markers and damage numbers keep that much air from it on every side.</summary>

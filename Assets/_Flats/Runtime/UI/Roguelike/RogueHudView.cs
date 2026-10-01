@@ -113,7 +113,8 @@ public partial class RogueHudView : MonoBehaviour
     void Awake()
     {
         canvas = GetComponentInParent<Canvas>();
-        canvasRect = canvas != null ? canvas.GetComponent<RectTransform>() : null;
+        canvasRect = tileLayout != null ? (RectTransform)transform : canvas != null ? canvas.GetComponent<RectTransform>() : null;
+        BindTileTheme();
         if (squadTemplate != null) squadTemplate.gameObject.SetActive(false);
         if (waypointTemplate != null) waypointTemplate.gameObject.SetActive(false);
         SetEvent("", "", false); SetEvent("", "", true); SetEventProgress(false, -1f); SetEventProgress(true, -1f); HideBoss(); SetHint("", "");
@@ -140,6 +141,7 @@ public partial class RogueHudView : MonoBehaviour
     void OnDestroy()
     {
         HideLegacyVitals(false); FlatsLocalization.Changed -= OnLanguageChanged; RogueMetaFeedback.Triggered -= OnMetaEffect;
+        RestoreTileNotifications();
         RestoreGuards();   // the shared banner goes back where it was authored
         if (legacyLogs != null) legacyLogs.anchoredPosition = legacyLogsHome;
         RoguelikeController.HudDrawsStageClock = false;   // the controller's banner fallback shows the clock again
@@ -150,7 +152,7 @@ public partial class RogueHudView : MonoBehaviour
     public bool HudVisible { get { return isActiveAndEnabled && (canvas == null || canvas.enabled); } }
 
     // cached texts are rewritten only when their value changes; a language switch must invalidate them
-    void OnLanguageChanged() { shownGunId = -1; shownBleed = -2; for (int i = 0; i < markerLabelKey.Count; i++) markerLabelKey[i] = null; }
+    void OnLanguageChanged() { shownGunId = -1; shownBleed = -2; lastHealthState = -1; lastPrompt = null; abilityStateT = abilityStateU = -1; if (weaponState != null) weaponState.text = wasReloading ? RoguelikeController.T("Reloading") : ""; for (int i = 0; i < markerLabelKey.Count; i++) markerLabelKey[i] = null; }
 
     // The shared HUD's health slider and "30/500" ammo label sit left of the crosshair; with the vitals and weapon panels up they
     // would say the same thing twice. They stay active (their scripts keep writing) and are only faded out while this HUD exists.
@@ -246,7 +248,7 @@ public partial class RogueHudView : MonoBehaviour
             if (hpFill != null)
             {
                 hpFill.fillAmount = downed ? vitalsPlayer.BleedOutFraction : fill;   // of the owner's own bleed-out length (heat shortens it), not the base 30 s (F17)
-                hpFill.color = downed ? hpDownedColor : fill <= 0.35f ? Color.Lerp(hpLowColor, Color.white, 0.25f * (1f + Mathf.Sin(Time.unscaledTime * 8f))) : hpColor;
+                hpFill.color = tileLayout != null ? hpColor : downed ? hpDownedColor : fill <= 0.35f ? hpLowColor : hpColor;
             }
             // damage "chip": a pale bar that holds the old value briefly, then drains, so a hit reads as a loss
             if (fill < lagFill - 0.001f) { if (Time.unscaledTime >= lagHoldUntil) lagFill = Mathf.MoveTowards(lagFill, fill, Time.unscaledDeltaTime * 0.8f); }
@@ -266,6 +268,7 @@ public partial class RogueHudView : MonoBehaviour
             // (-2 is taken: OnLanguageChanged uses it to force a redraw)
             int bleed = !downed ? -1 : vitalsPlayer.HasBleedOutClock ? Mathf.CeilToInt(vitalsPlayer.BleedOutRemaining) : -3;
             if (vitalsStatus != null && bleed != shownBleed) { shownBleed = bleed; vitalsStatus.text = bleed >= 0 ? RoguelikeController.T("Down {0}s", bleed) : bleed == -3 ? RoguelikeController.T("Down {0}s", "…") : ""; }
+            TileHealth(fill, downed);
         }
         if (weaponPanel != null && vitalsFps != null && vitalsFps.primaryWeapon != null)
         {
@@ -276,6 +279,7 @@ public partial class RogueHudView : MonoBehaviour
             if (shownGun.id != shownGunId && weaponName != null)
             {
                 shownGunId = shownGun.id;
+                TileWeapon(shownGunId);
                 weaponName.text = shownGunId >= 0 && shownGunId < Flats.Core.WeaponCatalog.Count ? RogueItemKinds.WeaponDisplayName(RogueHooks.MetaWeaponDisplay(shownGunId, Flats.Core.WeaponCatalog.GetDefault(shownGunId)).gunName) : "";
             }
             if (magazineText != null && (shownGun.currentAmmo != shownMag || shownGun.maxAmmo != shownReserve))
@@ -361,6 +365,7 @@ public partial class RogueHudView : MonoBehaviour
         if (canvasRect == null) return;
         if (chipsRect == null) chipsRect = transform.Find("Chips") as RectTransform;
         if (!legacyLogsFound && canvas != null) { legacyLogsFound = true; legacyLogs = canvas.transform.Find("Logs") as RectTransform; if (legacyLogs != null) legacyLogsHome = legacyLogs.anchoredPosition; }
+        if (tileLayout != null) { if (tileLayout.Apply()) { layoutNarrow = tileLayout.Mode; hintKnown = touchOverviewKnown = false; FitHint(); } return; }
         // narrow when the chip row would run into the centred objective card (4:3 with every chip up, phones held upright)
         float width = canvasRect.rect.width;
         float chipsRight = chipsRect != null && chipsRect.gameObject.activeInHierarchy ? chipsRect.anchoredPosition.x + chipsRect.rect.width : 0f;
@@ -389,8 +394,12 @@ public partial class RogueHudView : MonoBehaviour
         objectiveWanted = show;
         if (objectivePanel != null) objectivePanel.SetActive(show && !objectiveSuppressed);
         if (!show) return;
-        RogueIcons.Apply(objectiveIcon, iconName);
-        if (objectiveTitle != null) objectiveTitle.text = title;
+        if (tileLayout == null) RogueIcons.Apply(objectiveIcon, iconName);
+        objectiveHeadingIcon = iconName;
+        objectiveHeading = title;
+        if (objectiveTitle != null && tileLayout == null) objectiveTitle.text = title;
+        objectiveProgressLine = progress;
+        RefreshObjectiveLine();
         if (objectiveProgress != null) objectiveProgress.text = progress ?? "";
     }
 
@@ -407,6 +416,8 @@ public partial class RogueHudView : MonoBehaviour
     /// <summary>QA-43 tracker: the current step under the objective title ("Carry the crate to the drop zone - 45 m"); empty hides it.</summary>
     public void SetObjectiveStep(string iconName, string text)
     {
+        // the tile HUD shows the step on the objective's one line; the separate step row stays hidden and is not written
+        if (tileLayout != null) { objectiveStep = text; objectiveStepIconKey = iconName; RefreshObjectiveLine(); if (objectiveStepLine != null && objectiveStepLine.activeSelf) objectiveStepLine.SetActive(false); return; }
         if (objectiveStepLine == null) return;
         bool show = !string.IsNullOrEmpty(text);
         if (objectiveStepLine.activeSelf != show) objectiveStepLine.SetActive(show);
@@ -430,14 +441,16 @@ public partial class RogueHudView : MonoBehaviour
     {
         if (promptRoot == null) return;
         float now = Time.unscaledTime;
-        if (!string.IsNullOrEmpty(prompt)) { promptSeenAt = now; if (promptText != null && promptText.text != prompt) promptText.text = prompt; }
+        if (!string.IsNullOrEmpty(prompt)) { promptSeenAt = now; if (tileLayout == null && promptText != null && promptText.text != prompt) promptText.text = prompt; }
         if (!string.IsNullOrEmpty(refusal)) { refusalSeenAt = now; if (promptRefusal != null && promptRefusal.text != refusal) promptRefusal.text = refusal; }
         bool ring = reviveRoot != null && reviveRoot.activeSelf;
-        bool showPrompt = !ring && now - promptSeenAt <= promptHoldSeconds, showRefusal = now - refusalSeenAt <= refusalHoldSeconds;
+        // the tile HUD's ring panel sits where the prompt does: while the ring is up it carries the reason a hold stopped itself
+        bool showPrompt = !ring && now - promptSeenAt <= promptHoldSeconds, showRefusal = now - refusalSeenAt <= refusalHoldSeconds && !(ring && tileLayout != null);
         if (promptText != null && promptText.gameObject.activeSelf != showPrompt) promptText.gameObject.SetActive(showPrompt);
         if (promptRefusal != null && promptRefusal.gameObject.activeSelf != showRefusal) promptRefusal.gameObject.SetActive(showRefusal);
         bool any = showPrompt || showRefusal;
         if (promptRoot.activeSelf != any) promptRoot.SetActive(any);
+        TilePrompt(prompt);
     }
 
     public void SetEvent(string iconName, string text, bool emergency)
@@ -582,8 +595,9 @@ public partial class RogueHudView : MonoBehaviour
         var fillImage = ultimate ? ultimateFill : tacticalFill;
         if (fillImage != null) fillImage.fillAmount = Mathf.Clamp01(fill);
         var back = ultimate ? ultimateBack : tacticalBack;
-        if (back != null) back.color = active ? slotActiveColor : fill >= 1f ? slotReadyColor : slotChargingColor;
+        if (back != null && tileLayout == null) back.color = active ? slotActiveColor : fill >= 1f ? slotReadyColor : slotChargingColor;
         if (iconImage != null) iconImage.color = active ? slotActiveIconColor : fill >= 1f ? slotReadyIconColor : ChargingTint;
+        TileAbility(ultimate, active, fill);
     }
 
     string shownUltimateIcon, shownTacticalIcon;
@@ -642,7 +656,7 @@ public partial class RogueHudView : MonoBehaviour
         float width = keyText.preferredWidth + keyCapPadding;
         bool tooWide = width > keyCapMaxWidth;
         keyText.resizeTextForBestFit = tooWide;
-        if (tooWide) { keyText.resizeTextMinSize = 7; keyText.resizeTextMaxSize = keyText.fontSize; }
+        if (tooWide) { keyText.resizeTextMinSize = tileLayout != null ? 16 : 7; keyText.resizeTextMaxSize = keyText.fontSize; }
         cap.sizeDelta = new Vector2(Mathf.Clamp(width, keyCapMinWidth, keyCapMaxWidth), cap.sizeDelta.y);
     }
 
@@ -716,7 +730,7 @@ public partial class RogueHudView : MonoBehaviour
         if (touchInteract.activeSelf != prompt) touchInteract.SetActive(prompt);
     }
 
-    void OnDisable() { RogueInput.ResetTouch(); ClearScreenPanels(); }
+    void OnDisable() { RogueInput.ResetTouch(); ClearScreenPanels(); RestoreTileNotifications(); }
 
     // ---------------------------------------------------------------- gas tint (screen-space): the local player stands in a leaking zone
     Image gasOverlay; float gasTarget, gasShown;
@@ -735,7 +749,7 @@ public partial class RogueHudView : MonoBehaviour
             gasOverlay = go.GetComponent<Image>(); gasOverlay.raycastTarget = false;
         }
         gasShown = Mathf.MoveTowards(gasShown, gasTarget, Time.unscaledDeltaTime * 1.5f);
-        var c = gasTint; c.a *= gasShown * (0.85f + 0.15f * Mathf.Sin(Time.unscaledTime * 2.2f));
+        var c = gasTint; c.a *= gasShown;
         gasOverlay.color = c;
         if (!gasOverlay.enabled) gasOverlay.enabled = true;
     }
@@ -750,10 +764,12 @@ public partial class RogueHudView : MonoBehaviour
         TickGasOverlay();
         if (localPlayer == null || Time.unscaledTime >= localPlayerCheck) { localPlayer = RoguelikeController.FindLocalPlayer(); localPlayerCheck = Time.unscaledTime + 0.5f; }
         TickVitals();
+        TileReload();
         TickInvincible();
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null) ctrl.TickHudFrame(this);
-        TickGuards();   // QA-36 round 2: nothing on the HUD prints over another piece (RogueHudView.Layout.cs)
+        TickGuards();
+        TickTileNotifications();   // QA-36 round 2: nothing on the HUD prints over another piece (RogueHudView.Layout.cs)
         if (waypointRoot == null || waypointTemplate == null) return;
         if (canvas != null && !canvas.enabled) { HideMarkers(0); return; }   // hidden HUD (run screen, pause): no projection work
         var cam = Camera.main;

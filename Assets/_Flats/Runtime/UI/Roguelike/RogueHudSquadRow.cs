@@ -7,7 +7,7 @@ public class RogueHudSquadRow : MonoBehaviour
     public Image icon, iconBack, hpFill, hpBack;
     public Text nameText, stateText;
     [Tooltip("Colour of the tactical-shield strip drawn along the top of the health bar.")] public Color shieldColor = new Color(0.45f, 0.75f, 1f);
-    Image shieldFill;
+    public Image shieldFill;
 
     public void Bind(string name, string iconName, float hp, string state, Color tint) { Bind(name, iconName, hp, 0f, state, tint); }
 
