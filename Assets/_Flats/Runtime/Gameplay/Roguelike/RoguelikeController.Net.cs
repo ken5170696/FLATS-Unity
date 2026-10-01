@@ -38,6 +38,14 @@ public partial class RoguelikeController
         var existing = state.Player(key);
         if (existing != null) { machine.SetConnected(key, true); Notify(new RogueEventMessage { kind = "log", text = "{0} rejoined.|" + existing.name }); }
         else if (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) { var p = machine.AddPlayer(key, other.NickName, -1, -1); if (p != null) Notify(new RogueEventMessage { kind = "log", text = "{0} joined the squad.|" + p.name }); }
+        else
+        {
+            // the room stays joinable during the run for returning squad members only; a stranger mid-stage is turned away (they can
+            // come back at the next safe node, where AddPlayer admits newcomers)
+            Debug.Log("FLATS_ROGUE_JOIN_REFUSED actor=" + other.ID + " phase=" + state.phase + " reason=not-in-roster");
+            PhotonNetwork.CloseConnection(other);
+            return;
+        }
         StartCoroutine(SendSnapshotWhenReady(other.ID));
         Broadcast();
         ResendInvulnerable();

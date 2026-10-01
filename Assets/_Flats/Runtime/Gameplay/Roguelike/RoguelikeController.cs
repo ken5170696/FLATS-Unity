@@ -274,12 +274,19 @@ public partial class RoguelikeController : MonoBehaviour
                 while (roster < 60f && PhotonNetwork.room != null && GameObject.FindGameObjectsWithTag("Player").Length < PhotonNetwork.room.PlayerCount) { roster += Time.deltaTime; yield return null; }
             }
             CreateOrResumeRun();
+            if (Menu.network != 0) Menu.SetRunMapProperty(UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);   // the room now says "run in progress on this map"
             Broadcast();
         }
         else
         {
             phaseText.enabled = true; phaseText.text = T("Waiting for the host...");
-            while (state == null) yield return null;
+            // a client that joined after the host's first broadcast (a rejoin, a slow load) asks for the state instead of waiting for the next change
+            float askAt = Time.realtimeSinceStartup + 1.5f;
+            while (state == null)
+            {
+                if (Time.realtimeSinceStartup >= askAt) { askAt = Time.realtimeSinceStartup + 2f; Command(new RogueCommandMessage { kind = "resync" }); }
+                yield return null;
+            }
             metaRunStartedAt = Time.time; MetaSendLocalLoadout(); // client
         }
         runStarted = true;
@@ -493,6 +500,7 @@ public partial class RoguelikeController : MonoBehaviour
                 break;
             case "meta": MetaLoadoutCommand(cmd); break;
             case "overshield": machine.ReportOvershield(cmd.playerKey, cmd.value); break;   // only ever lowers the carried fraction
+            case "resync": if (transport != null && senderId >= 0) transport.SendSnapshot(RogueSaveStore.ToJson(state), senderId); return;   // a (re)joining client wants the current state now
         }
     }
 

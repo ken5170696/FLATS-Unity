@@ -939,7 +939,8 @@ public partial class RoguelikeController
         }
         else
         {
-            // co-op travels through the existing map RPC so every client loads the same scene
+            // co-op travels through the existing map RPC so every client loads the same scene; a rejoin during the travel lands on the new map
+            Menu.SetRunMapProperty(map.BuildIndex);
             GetComponent<PhotonView>().RPC("RogueTravel", PhotonTargets.All, map.BuildIndex, RogueSaveStore.ToJson(state));
         }
     }
@@ -990,6 +991,8 @@ public partial class RoguelikeController
             previousBestDepth = meta.deepestDepth;
             if (RogueSave.RecordRunEnd(meta, state, localKey)) RogueSaveStore.WriteMeta(meta);
             RogueSaveStore.ClearCheckpoint();
+            // nobody rejoins a finished run: the room closes until the squad is back in the lobby (Menu.RogueRoom.ReopenReturnedRoom)
+            if (Menu.network != 0 && PhotonNetwork.inRoom && PhotonNetwork.room != null) { Menu.SetRunMapProperty(0); PhotonNetwork.room.IsOpen = false; }
         }
         MetaRunEnded();
         CloseScreens();

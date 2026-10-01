@@ -2501,3 +2501,4 @@ Stage plan	關卡計畫
 Not started	尚未開始
 Objective, enemies and bounty are set when everyone is ready.	目標、敵人與賞金會在全員就緒後決定。
 SQUAD RUN	小隊出擊
+Rejoining the squad...	正在重新加入小隊…

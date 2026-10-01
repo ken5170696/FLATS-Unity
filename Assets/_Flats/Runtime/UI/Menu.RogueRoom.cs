@@ -43,6 +43,72 @@ public partial class Menu
                PhotonNetwork.room.CustomProperties.TryGetValue("R", out r) && r is int ? (int)r : -1;
     }
 
+    /// <summary>Room property "RM": the build index of the map a Roguelike co-op run is currently on (0 = no run in progress).
+    /// The authority sets it when the run starts and on every chapter travel, and clears it when the run ends or the squad
+    /// returns to the room. A client that joins while it is set is rejoining the run (RejoinRogueRun).</summary>
+    public const string RunMapKey = "RM";
+    static int RunMapProperty()
+    {
+        object v;
+        return PhotonNetwork.room != null && PhotonNetwork.room.CustomProperties != null &&
+               PhotonNetwork.room.CustomProperties.TryGetValue(RunMapKey, out v) && v is int ? (int)v : 0;
+    }
+    /// <summary>Authority only. 0 clears the run marker.</summary>
+    public static void SetRunMapProperty(int buildIndex)
+    {
+        if (!PhotonNetwork.inRoom || PhotonNetwork.offlineMode || !PhotonNetwork.isMasterClient || PhotonNetwork.room == null) return;
+        if (RunMapProperty() == buildIndex) return;
+        PhotonNetwork.room.SetCustomProperties(new PhotonHashtable { { RunMapKey, buildIndex } });
+    }
+
+    /// <summary>True on a client that rejoined a running co-op squad: the lobby's buffered map RPCs must be ignored.</summary>
+    static bool rogueRejoinedRun;
+
+    /// <summary>
+    /// Menu.OnJoinedRoom for a co-op room whose run is in progress. The lobby is skipped: the message queue pauses so the
+    /// room's cached instantiations and buffered RPCs are not applied in the menu scene, the match flags are set the way
+    /// DecideMap would set them, the run's current map loads, and the queue resumes in that scene. From there the ordinary
+    /// co-op bootstrap runs (Multiplayer spawns Flatman, RoguelikeController waits for the authority's snapshot) and the
+    /// authority matches this player to their saved roster entry by nickname (RoguelikeController.Net).
+    /// </summary>
+    IEnumerator RejoinRogueRun(int buildIndex)
+    {
+        Debug.Log("FLATS_ROGUE_REJOIN map=" + buildIndex + " players=" + PhotonNetwork.room.PlayerCount + " actor=" + PhotonNetwork.player.ID);
+        rogueRejoinedRun = true;
+        PhotonNetwork.isMessageQueueRunning = false;
+        readyStarted = true;   // the lobby's buffered Sync/DecideMap are for a start that already happened
+        rule = RoguelikeMode.CoopRule;
+        object o; objective = PhotonNetwork.room.CustomProperties != null && PhotonNetwork.room.CustomProperties.TryGetValue("O", out o) && o is int ? (int)o : objective;
+        playerCount = PhotonNetwork.room.PlayerCount;   // Multiplayer.Start waits for this many Sync RPCs: the players actually in the room now
+        PhotonNetwork.player.SetTeam(PunTeams.Team.none);
+        SetLocalRoomReady(false);
+        pleaseWait.SetActive(true);
+        roomTexts[4].text = RoomText("Rejoining the squad...");
+        waitBackground = false; botCount = 0;
+        Multiplayer.end = false;
+        RoguelikeMode.PendingResume = null;
+        RoguelikeMode.Reset();
+        gameState = "Multiplayer";
+        network = 2;
+        current = "Map";
+        yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(0.5f));
+        if (!PhotonNetwork.inRoom) { PhotonNetwork.isMessageQueueRunning = true; rogueRejoinedRun = false; yield break; }
+        if (!RoguelikeMode.SceneAvailable(buildIndex)) { Debug.LogWarning("FLATS_ROGUE_REJOIN map not in this build: " + buildIndex); PhotonNetwork.isMessageQueueRunning = true; rogueRejoinedRun = false; PhotonNetwork.LeaveRoom(); yield break; }
+        Menu.changedSettings = true;
+        // Menu lives in each scene: this coroutine dies with the menu scene, so the queue resumes from the scene-loaded event
+        // (fired after the map scene's Awake, when its scene PhotonViews exist for the queued instantiations and RPCs)
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= ResumeQueueAfterRejoinSceneLoaded;
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += ResumeQueueAfterRejoinSceneLoaded;
+        LoadOfflineSceneForRun(buildIndex);
+    }
+
+    static void ResumeQueueAfterRejoinSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded -= ResumeQueueAfterRejoinSceneLoaded;
+        PhotonNetwork.isMessageQueueRunning = true;
+        Debug.Log("FLATS_ROGUE_REJOIN scene=" + scene.name + " queue resumed");
+    }
+
     /// <summary>An online Roguelike co-op room (the offline bot room and Classic rules are excluded).</summary>
     static bool RogueRoomActive
     {
@@ -444,6 +510,10 @@ public partial class Menu
     {
         if (!RogueCoopOnline || !PhotonNetwork.isMasterClient || roomReturnStarted) return;
         Debug.Log("FLATS_ROGUE_RETURN_TO_ROOM players=" + PhotonNetwork.room.PlayerCount);
+        // The run is over: close the room again (it stayed joinable for rejoins during the run) and drop the run marker, so
+        // only the players in the room now return and ReopenReturnedRoom finds the room closed, exactly as before.
+        PhotonNetwork.room.IsOpen = false;
+        SetRunMapProperty(0);
         // Not buffered: only the players in the room now return; nobody can join a closed room meanwhile.
         base.gameObject.GetPhotonView().RPC("RogueReturnToRoom", PhotonTargets.All);
     }
@@ -489,6 +559,7 @@ public partial class Menu
         roomReturnPending = false;
         if (!PhotonNetwork.inRoom || !RogueRoomActive) { roomReadyAfterReturn = false; roomFocusStartAfterReturn = false; return; }
         network = 0; waitBackground = false; wasInRoom = true; botCount = 0;
+        rogueRejoinedRun = false;
         startNowPlayer = 0; startNowPressed = false;
         Multiplayer.end = false;
         RoguelikeMode.PendingResume = null;
@@ -512,6 +583,7 @@ public partial class Menu
         // (players, scene enemies, dropped weapons). Nobody can be joining yet: the room is still closed.
         PhotonNetwork.networkingPeer.OpRemoveCompleteCache();
         foreach (var p in PhotonNetwork.playerList) PhotonNetwork.RemoveRPCs(p);
+        SetRunMapProperty(0);
         PhotonNetwork.room.IsOpen = true;
         PhotonNetwork.room.IsVisible = PhotonNetwork.room.Name != null && PhotonNetwork.room.Name.StartsWith("pub-");   // Open Match rooms only
     }
@@ -550,6 +622,7 @@ public partial class Menu
     void ResetRogueRoomState()
     {
         CloseRoomHub();
+        rogueRejoinedRun = false;
         roomStartSent = false;
         roomAllReadySince = -1f;
         roomReturnPending = false;

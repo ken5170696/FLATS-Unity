@@ -94,7 +94,9 @@ public class Bullet : MonoBehaviour
 		}
 		shooterColor = shooter.GetChild(0).GetComponent<Renderer>().material.color;
 		trail = new VectorLine("Trail", new Vector3[0], trailMaterial, 2f, LineType.Continuous, Joins.Fill);
-		VectorLine.canvas3D.gameObject.layer = LayerMask.NameToLayer("Default");
+		// a client that just (re)joined a squad has no camera yet (its own Flatman is still spawning) and Vectrosity cannot build
+		// its 3D canvas without one; LateUpdate draws the trail once a camera exists, so only the shared canvas layer waits
+		if (Camera.main != null) VectorLine.canvas3D.gameObject.layer = LayerMask.NameToLayer("Default");
 		if (shooter.tag == "Player")
 		{
 			var fps = shooter.GetComponent<FPSController>();

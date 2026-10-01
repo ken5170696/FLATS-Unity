@@ -331,7 +331,10 @@ public partial class Menu
             float deadline = Time.realtimeSinceStartup + 60f;
 			MonoBehaviour.print("Start syncing...");
 			roomTexts[4].text = "Syncing... up to a minute.";
-			PhotonNetwork.room.IsOpen = false;
+			// Roguelike co-op keeps the room joinable (but hidden) for the whole run so a player who dropped can come back to
+			// their own roster entry (Menu.RogueRoom.RejoinRogueRun); the authority turns strangers away mid-stage. Every other
+			// mode closes the room here as before.
+			PhotonNetwork.room.IsOpen = RogueRoomActive;   // open only for the co-op run; every other mode closes here
 			PhotonNetwork.room.IsVisible = false;
 			if (waitBackground && current != "Matching")
 			{
@@ -509,6 +512,8 @@ public partial class Menu
 		[PunRPC]
 		private IEnumerator LoadMap(int map)
 		{
+			// a player rejoining a running co-op squad already loaded the run's current map; the lobby's buffered LoadMap must not load the first one again
+			if (rogueRejoinedRun) yield break;
 			StartCoroutine("BackgroundColor", "FadeIn");
 			yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(2f));
 			LoadOfflineScene(map);
@@ -531,6 +536,8 @@ public partial class Menu
 				return;
 			}
 			wasInRoom = true;
+			// a Roguelike co-op room whose run is in progress: this client is coming back to the squad, not to the lobby
+			if (RoomRule() == RoguelikeMode.CoopRule && RunMapProperty() > 0) { StartCoroutine(RejoinRogueRun(RunMapProperty())); return; }
 			pleaseWait.SetActive(false);
 			backButton.SetActive(true);
 			anim.SetBool("Matching", true);
