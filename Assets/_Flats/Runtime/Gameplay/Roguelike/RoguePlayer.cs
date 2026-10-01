@@ -32,9 +32,7 @@ public class RoguePlayer : MonoBehaviour
     bool sawAuthorityDown;   // the authority's state has shown this player downed since the current down request
     PlayerLife authorityLife = PlayerLife.Alive; int lifeEpoch;
     int airJumpsLeft;
-    float shieldHp, shieldUntil, shieldCooldownUntil, dashCooldownUntil;
-    int dashCharges, dashCapacity;
-    float dashNextAllowed;
+    float shieldHp, shieldUntil, shieldCooldownUntil;
     float assaultBuffUntil;
     float lastHealTime;
     // Suppression (F43): stacks per trigger pull (pellets, ricochets and penetrations of one shot share its root id), a 2.5 s window
@@ -46,7 +44,14 @@ public class RoguePlayer : MonoBehaviour
     float reloadBurstUntil;
 
     public const float BleedOutSeconds = 30f, ReviveHoldSeconds = 3f, ReviveRange = 3.5f;
-    float reviveLastHold = -10f;
+    /// <summary>Revive hold tolerance once a revive has started (QA-33): extra reach and a wider look cone, so a small step or a
+    /// glance does not break it; the authority adds the same reach on top of its own tolerance, so it never refuses what the
+    /// rescuer's prompt still accepts. A break shorter than ReviveGraceSeconds keeps crediting; a longer one pauses the
+    /// progress, which is kept for ReviveResetSeconds (rescuer and authority) before it starts over.</summary>
+    public const float ReviveContinueReach = 1.5f, ReviveContinueLookAngle = 75f, ReviveGraceSeconds = 0.3f, ReviveResetSeconds = 1.5f;
+    /// <summary>Seconds after the authority's last revive progress during which the downed owner cannot crawl.</summary>
+    public const float ReviveCrawlLockSeconds = 0.75f;
+    float reviveLastHold = -10f, reviveLastValid = -10f, beingRevivedUntil = -10f;
 
     static bool localCancelled;
     public static void ResetLocalStatics() { localCancelled = true; }
@@ -65,6 +70,7 @@ public class RoguePlayer : MonoBehaviour
 
     IEnumerator Start()
     {
+        if (isMine && Menu.network != 0) PlaceWithSquad();
         // pull the replicated build as soon as the controller has state
         float wait = 0;
         while ((RoguelikeController.Instance == null || !RoguelikeController.Instance.Ready) && wait < 30f) { wait += Time.deltaTime; yield return null; }
@@ -74,6 +80,75 @@ public class RoguePlayer : MonoBehaviour
             var me = run.Player(KeyOfSelf());
             if (me != null) ApplyBuild(me.build);
         }
+    }
+
+    /// <summary>
+    /// Co-op: the squad starts together. Every Flatman spawner in the original game picks its own random spawn point, so teammates
+    /// began a run (or came back after a death) far apart. The owner moves its new player next to a teammate who is already up, or,
+    /// when nobody is, to a spawn point chosen from the room name (the same on every client), each player on its own slot around it.
+    /// </summary>
+    void PlaceWithSquad()
+    {
+        var cc = GetComponent<CharacterController>();
+        Vector3 anchor; bool nearTeammate = false;
+        if (!NearestStandingTeammate(out anchor))
+        {
+            var points = GameObject.Find("SpawnPoints");
+            if (points == null || points.transform.childCount == 0 || PhotonNetwork.room == null) return;
+            int hash = 17; foreach (char c in PhotonNetwork.room.Name) hash = hash * 31 + c;
+            anchor = points.transform.GetChild((hash & 0x7fffffff) % points.transform.childCount).position;
+        }
+        else nearTeammate = true;
+        int slot = 0;
+        if (PhotonNetwork.playerList != null) foreach (var p in PhotonNetwork.playerList) if (p.ID < PhotonNetwork.player.ID) slot++;
+        // characters are about 6 m tall: 5-8 m apart reads as "together" without overlapping
+        float[] radii = nearTeammate ? new[] { 5f, 8f } : new[] { 0f, 5f, 8f };
+        for (int r = 0; r < radii.Length; r++)
+            for (int k = 0; k < 8; k++)
+            {
+                float angle = (slot * 90f + 45f + k * 45f) * Mathf.Deg2Rad;
+                Vector3 spot;
+                if (radii[r] > 0f || slot == 0) { if (SpawnSpot(anchor + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * radii[r], cc, out spot)) { MoveTo(spot, cc); return; } }
+                if (radii[r] == 0f) break;
+            }
+    }
+
+    bool NearestStandingTeammate(out Vector3 position)
+    {
+        position = Vector3.zero; float best = float.MaxValue;
+        foreach (var go in GameObject.FindGameObjectsWithTag("Player"))
+        {
+            if (go == gameObject) continue;
+            var rp = go.GetComponent<RoguePlayer>(); var dr = go.GetComponent<DamageReceiver>();
+            if (rp == null || rp.isMine || rp.Downed || (dr != null && dr.Dead)) continue;
+            float d = Vector3.Distance(go.transform.position, transform.position);
+            if (d < best) { best = d; position = go.transform.position; }
+        }
+        return best < float.MaxValue;
+    }
+
+    static bool SpawnSpot(Vector3 around, CharacterController cc, out Vector3 spot)
+    {
+        spot = around;
+        RaycastHit ground;
+        int mask = Physics.DefaultRaycastLayers & ~(1 << 2);
+        if (!Physics.Raycast(around + Vector3.up * 10f, Vector3.down, out ground, 25f, mask, QueryTriggerInteraction.Ignore)) return false;
+        if (ground.normal.y < 0.7f || ground.collider.GetComponentInParent<CharacterController>() != null) return false;
+        float radius = cc != null ? cc.radius * cc.transform.lossyScale.x : 0.5f;
+        float height = cc != null ? cc.height * cc.transform.lossyScale.y : 2f;
+        Vector3 bottom = ground.point + Vector3.up * (radius + 0.1f), top = ground.point + Vector3.up * Mathf.Max(radius + 0.2f, height - radius);
+        if (Physics.CheckCapsule(bottom, top, radius * 0.9f, mask, QueryTriggerInteraction.Ignore)) return false;
+        spot = ground.point + Vector3.up * 0.1f;
+        return true;
+    }
+
+    void MoveTo(Vector3 spot, CharacterController cc)
+    {
+        // the controller's pivot sits at its feet on the Flatman; keep the same offset from the ground the spawner used
+        bool was = cc != null && cc.enabled;
+        if (cc != null) cc.enabled = false;
+        transform.position = spot;
+        if (cc != null) cc.enabled = was;
     }
 
     string KeyOfSelf()
@@ -96,8 +171,12 @@ public class RoguePlayer : MonoBehaviour
         var fresh = new SuppressionTracker(Stats);
         if (suppression == null || fresh.WindowSeconds != suppressionWindow || fresh.MaxStacks != suppressionCap) { suppression = fresh; suppressionWindow = fresh.WindowSeconds; suppressionCap = fresh.MaxStacks; }
         ApplyToGuns();
-        // a state broadcast re-applies the build many times a stage: only a change in capacity changes the charges held (F47)
-        if (Stats.DashCharges != dashCapacity) { dashCharges = Mathf.Clamp(dashCharges + (Stats.DashCharges - dashCapacity), 0, Stats.DashCharges); dashCapacity = Stats.DashCharges; }
+        // a state broadcast re-applies the build many times a stage: the dash runtime lives on, and only a change of its charges or
+        // cooldown replaces it, carrying the missing charges over (F47, QA-15)
+        SyncDashRuntime();
+        // current health never stays above a lower maximum (a skill that used to add health, a respec, a loaded run); the maximum
+        // itself is always computed from these Stats (MaxHealth), never cached (QA-32)
+        if (isMine && receiver != null && !Downed && receiver.hitPoints > MaxHealth()) receiver.hitPoints = MaxHealth();
     }
 
     void ApplyToGuns()
@@ -171,8 +250,10 @@ public class RoguePlayer : MonoBehaviour
         Downed = true;
         sawAuthorityDown = false;
         overshield.Clear();   // going down spends the shop shield (the authority clears its record too)
+        { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.ClearRescueShield(); }   // and a Rescue Shield (QA-32)
         if (controller != null) RogueActionGate.CancelConflicts(controller, "downed");   // aiming, reloading, a hold: all end when going down
         bleedOut = BleedOutSeconds * (float)MetaRun.BleedOutMul(RogueHooks.Heat());
+        downedAt = Time.time; downedFor = bleedOut;
         receiver.hitPoints = 1f;
         if (controller != null) controller.enableFire = false;
         downRequest++;
@@ -211,6 +292,7 @@ public class RoguePlayer : MonoBehaviour
         { var meta = RogueMetaRuntime.Of(this); if (receiver != null) receiver.hitPoints = MaxHealth() * (meta != null ? meta.ReviveHealthFraction() : 0.3f); }
         if (controller != null) controller.enableFire = true;
         DamageReceiver.invincibility = true;
+        DamageReceiver.NoteInvincibility(2f);   // QA-29: the HUD badge reads the exact time left
         StartCoroutine(SpawnProtection(2f));
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null) ctrl.Banner(RoguelikeController.T("Revived!"), 2f);
@@ -229,6 +311,8 @@ public class RoguePlayer : MonoBehaviour
         if (!isMine)
         {
             if (!Downed && life == PlayerLife.Downed && controller != null) controller.RogueCancelWeaponConflicts();
+            // a teammate's copy starts its own bleed-out clock when the down arrives (the owner's timer never pauses, so it tracks it)
+            if (!Downed && life == PlayerLife.Downed) { downedAt = Time.time; downedFor = BleedOutSeconds * (float)MetaRun.BleedOutMul(RogueHooks.Heat()); }
             Downed = life == PlayerLife.Downed;
             if (controller != null) controller.enableFire = !Downed;
         }
@@ -240,6 +324,7 @@ public class RoguePlayer : MonoBehaviour
         StopAllCoroutines();
         EndUltimate();
         shieldHp = 0; shieldUntil = 0; assaultBuffUntil = 0; reloadBurstUntil = 0; if (suppression != null) suppression.Clear(); overshield.Clear();
+        dashesRunning = 0; dashUntil = -10f; dashQueuedUntil = -10f; beingRevivedUntil = -10f;
         Downed = false; Carrying = false;
         { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.CancelAll(); }
         if (controller != null && isMine) controller.enableFire = true;
@@ -250,6 +335,7 @@ public class RoguePlayer : MonoBehaviour
         Downed = false;
         EndUltimate();
         shieldHp = 0; overshield.Clear();
+        { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.ClearRescueShield(); }
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null && isMine) ctrl.Command(new RogueCommandMessage { kind = "died" });
     }
@@ -289,9 +375,20 @@ public class RoguePlayer : MonoBehaviour
     /// <summary>A downed player crawls (F16): slow enough that it cannot outrun a fight, fast enough to reach cover or a teammate.</summary>
     public const float CrawlSpeedScale = 0.2f;
 
+    /// <summary>A teammate is reviving this downed player right now (the authority's progress arrived recently): no crawling, so
+    /// the rescuer's hold is not broken by the victim's own movement (QA-33).</summary>
+    public bool BeingRevived { get { return Downed && Time.time < beingRevivedUntil; } }
+
+    /// <summary>Owner of a downed player: the authority reported revive progress on it ("revprog" event, 0..1).</summary>
+    public void NoteReviveProgress(float progress)
+    {
+        if (!Downed) return;
+        beingRevivedUntil = progress > 0f && progress < 1f ? Time.time + ReviveCrawlLockSeconds : -10f;
+    }
+
     public float MoveSpeedScale()
     {
-        if (Downed) return CrawlSpeedScale;
+        if (Downed) return BeingRevived ? 0f : CrawlSpeedScale;
         float s = (float)Stats.SpeedMul;
         if (RoguelikeMode.Active) s *= RogueMelee.GuardMoveScale(controller);
         if (Carrying) s *= (float)Stats.CarrySpeedMul;
@@ -334,7 +431,7 @@ public class RoguePlayer : MonoBehaviour
         { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.PrepareReload(magazineBefore, capacity); }
         if (suppression != null) suppression.OnReload(Time.time);   // a reload keeps half the stacks instead of dropping them all
         if (Stats.ReloadBurstSeconds > 0 && capacity > 0 && (capacity - magazineBefore) >= capacity * Stats.ReloadBurstMinFraction)
-            reloadBurstUntil = Time.time + (float)Stats.ReloadBurstSeconds + 1.2f;   // burst window starts after the reload animation
+            reloadBurstUntil = Time.time + (float)Stats.ReloadBurstSeconds + ReloadBurstLead;   // burst window starts after the reload animation
     }
 
     // ---------------------------------------------------------------- abilities (local owner)
@@ -382,16 +479,18 @@ public class RoguePlayer : MonoBehaviour
         if (cc != null && cc.isGrounded) { if (wasAirborne && Time.time - airborneSince >= 0.25f) ArmMomentum(); wasAirborne = false; OnLanded(); }
         else if (cc != null) { if (!wasAirborne) airborneSince = Time.time; wasAirborne = true; }
         var ctrlPrep = RoguelikeController.Instance;
-        if (ctrlPrep != null && ctrlPrep.ScreenDismissed && Menu.current == "Playing")
+        // player input only while it may act: playing, no screen or dialog open or just closed (FlatsCursor, QA-25/34)
+        if (ctrlPrep != null && ctrlPrep.ScreenDismissed && FlatsCursor.GameplayInput)
         {
             ctrlPrep.NoteInteractPrompt();   // the touch Interact button reopens the dismissed shop
             if (RogueInput.ShopDown) { ctrlPrep.ReopenScreen(); return; }   // its own key (F11): Interact stays for revives and crates
         }
-        if (Menu.current != "Playing") return;
+        if (!FlatsCursor.GameplayInput) return;
         // a downed player may still trigger Emergency Revive (F11); everything else waits for a rescue
-        if (Downed) { if (RogueInput.UltimateDown && RogueActionGate.Allows(controller, RogueAction.Ultimate)) TryUltimate(); return; }
-        if (RogueInput.UltimateDown) TryUltimate();
+        if (Downed) { dashQueuedUntil = -10f; if (RogueInput.UltimateDown && RogueActionGate.Allows(controller, RogueAction.Ultimate)) TryUltimate(); return; }
+        if (RogueInput.UltimateDown && RogueActionGate.Allows(controller, RogueAction.Ultimate)) TryUltimate();
         if (RogueInput.TacticalDown) TryTactical();
+        else if (Time.time < dashQueuedUntil && dashRuntime != null && DashClock >= dashRuntime.NextAvailableAt(DashClock)) TryTactical();   // a press just inside the gap between two dashes
         TickReviveInteraction();
     }
 
@@ -413,14 +512,15 @@ public class RoguePlayer : MonoBehaviour
     /// <summary>The authority confirmed the ultimate: run its local effect.</summary>
     public void BeginUltimate(string id)
     {
-        float duration = id == "ult.lethal_shot" || id == "ult.invincible" ? 5f : id == "ult.emergency_revive" ? 0f : 8f;
+        float duration = (float)RogueCatalog.UltimateSeconds(id);   // Core owns every ultimate's duration (QA-11/12)
         if (duration <= 0) return;
         ultimateActive = id;
         ultimateUntil = Time.time + duration; ultimateDuration = duration;
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null && isMine) ctrl.Banner(RoguelikeController.ItemName(id) + "!", 2f);   // every copy runs the effect; only its owner gets the banner
-        // outlines are keyed by this player, so one player's Enemy Sight ending never clears another's
-        if (id == "ult.enemy_sight") RogueEnemyRole.SetOutlines(this, true, transform.position, 80f);
+        // outlines are keyed by this player, so one player's Enemy Sight ending never clears another's. The area follows this player
+        // and every enemy is tested again each frame (RogueEnemyRole.LateUpdate), so enemies that come within range later show too (QA-12).
+        if (id == "ult.enemy_sight") RogueEnemyRole.SetOutlines(this, true, transform.position, (float)RogueCatalog.EnemySightRange);
     }
 
     void EndUltimate()
@@ -430,13 +530,26 @@ public class RoguePlayer : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- HUD readouts
+    /// <summary>Seconds a Reload Burst window opens before its own length: the reload animation (the window starts at the reload).</summary>
+    const float ReloadBurstLead = 1.2f;
+    // QA-51: the HUD effect row reads these on the owner's copy (RogueMetaRuntime.ReportEffects); they never change a rule
+    /// <summary>Seconds left of the Assault core's close-kill rush (damage taken cut, speed up).</summary>
+    public float AssaultBuffRemaining { get { return Mathf.Max(0f, assaultBuffUntil - Time.time); } }
+    /// <summary>Seconds left of the Reload Burst window, which opens at the reload start.</summary>
+    public float ReloadBurstRemaining { get { return Mathf.Max(0f, reloadBurstUntil - Time.time); } }
+    /// <summary>Full length of a Reload Burst window (the ring's 100%).</summary>
+    public float ReloadBurstLength { get { return (float)Stats.ReloadBurstSeconds + ReloadBurstLead; } }
+    /// <summary>Suppression stacks now: the count the next round's damage uses.</summary>
+    public int SuppressionStacks { get { return suppression != null ? suppression.Stacks(Time.time) : 0; } }
+    /// <summary>Seconds in which the next shot is still a Mobility momentum shot (0 once it is spent).</summary>
+    public float MomentumRemaining { get { return Stats.MomentumShotBonus > 0 ? Mathf.Max(0f, momentumUntil - Time.time) : 0f; } }
     /// <summary>0..1 readiness of the equipped tactical (1 = usable now).</summary>
     public float TacticalReadiness
     {
         get
         {
-            if (Stats.Dash) return dashCharges > 0 ? 1f : Mathf.Clamp01(1f - (dashCooldownUntil - Time.time) / Mathf.Max(0.1f, DashCooldownSeconds * (float)Stats.DashCooldownMul));
-            if (Stats.Shield) return Time.time >= shieldCooldownUntil ? 1f : Mathf.Clamp01(1f - (shieldCooldownUntil - Time.time) / (12f * (float)Stats.ShieldCooldownMul));
+            if (Stats.Dash) return TacticalCharges > 0 ? 1f : TacticalRechargeProgress;
+            if (Stats.Shield) return TacticalRechargeProgress;
             if (Stats.DoubleJump) return airJumpsLeft > 0 ? 1f : 0.35f;
             return 0f;
         }
@@ -446,7 +559,7 @@ public class RoguePlayer : MonoBehaviour
     {
         get
         {
-            if (Stats.Dash) return dashCharges + "/" + Stats.DashCharges;
+            if (Stats.Dash) return TacticalCharges + "/" + TacticalMaxCharges;
             if (Stats.Shield) return Time.time < shieldUntil ? Mathf.CeilToInt(shieldUntil - Time.time) + "s" : "";
             return "";
         }
@@ -475,11 +588,14 @@ public class RoguePlayer : MonoBehaviour
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null) ctrl.Command(new RogueCommandMessage { kind = "overshield", value = fraction });
     }
-    public float BleedOutRemaining { get { return Downed ? Mathf.Max(0f, bleedOut) : 0f; } }
+    float downedAt, downedFor;
+    /// <summary>Seconds before a downed player bleeds out: the owner's own timer, or a teammate copy's estimate from when the down arrived.</summary>
+    public float BleedOutRemaining { get { return !Downed ? 0f : isMine ? Mathf.Max(0f, bleedOut) : Mathf.Max(0f, downedFor - (Time.time - downedAt)); } }
+    public float BleedOutFraction { get { float total = isMine ? BleedOutSeconds * (float)MetaRun.BleedOutMul(RogueHooks.Heat()) : downedFor; return total > 0f ? Mathf.Clamp01(BleedOutRemaining / total) : 0f; } }
     /// <summary>Replicated hit points and maximum for a teammate's copy (the owner's own values on the local player); for the spectate bar.</summary>
     public float DisplayHealth { get { return !isMine && hasRemoteVitals ? remoteHp : receiver != null ? Mathf.Max(0f, receiver.hitPoints) : 0f; } }
     public float DisplayMaxHealth { get { return !isMine && hasRemoteVitals ? remoteMax : isMine ? MaxHealth() : Mathf.Max(observedMaxHealth, 1f); } }
-    public bool TacticalActive { get { return (Stats.Shield && Time.time < shieldUntil) || (Stats.Dash && Time.time < dashNextAllowed - 0.3f + DashDistance / DashSpeed); } }
+    public bool TacticalActive { get { return (Stats.Shield && Time.time < shieldUntil) || (Stats.Dash && Dashing); } }
     public bool UltimateActive { get { return ultimateActive != ""; } }
     public float UltimateRemaining { get { return ultimateActive == "" ? 0f : Mathf.Clamp01((ultimateUntil - Time.time) / ultimateDuration); } }
     float ultimateDuration = 8f;
@@ -497,8 +613,10 @@ public class RoguePlayer : MonoBehaviour
     RogueWaypoint downedWaypoint;
     void SyncWaypoint()
     {
-        if (Downed && downedWaypoint == null) { downedWaypoint = RogueWaypoint.Attach(gameObject, "Medkit", "Revive {0}|" + DisplayName(), new Color(1f, 0.35f, 0.45f), 1.6f, 5); downedWaypoint.Pulse = true; }
+        if (Downed && downedWaypoint == null) { downedWaypoint = RogueWaypoint.Attach(gameObject, "Medkit", "", new Color(1f, 0.35f, 0.45f), 1.6f, 5); downedWaypoint.Pulse = true; }
         else if (!Downed && downedWaypoint != null) { RogueWaypoint.Detach(gameObject); downedWaypoint = null; }
+        // the marker counts the bleed-out down so the squad sees who must be reached first
+        if (downedWaypoint != null) downedWaypoint.Label = "Revive {0} · {1} s|" + DisplayName() + "|" + Mathf.CeilToInt(BleedOutRemaining);
     }
     public string DisplayName()
     {
@@ -528,51 +646,194 @@ public class RoguePlayer : MonoBehaviour
 
     void TryTactical()
     {
-        // every charge recharges on its own (Double Dash gives two in a row); a short gap keeps two presses from merging (F47)
-        if (Stats.Dash && dashCharges > 0 && Time.time >= dashNextAllowed && RogueActionGate.Allows(controller, RogueAction.Dash)) { dashCharges--; dashNextAllowed = Time.time + (float)RogueCatalog.DashMinIntervalSeconds; dashCooldownUntil = Time.time + DashCooldownSeconds * (float)Stats.DashCooldownMul; StartCoroutine(DashRoutine()); StartCoroutine(RechargeDash()); }
-        else if (Stats.Shield && Time.time >= shieldCooldownUntil) { shieldHp = 400f; shieldUntil = Time.time + 4f; shieldCooldownUntil = Time.time + 12f * (float)Stats.ShieldCooldownMul; RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f); }
+        dashQueuedUntil = -10f;
+        if (Stats.Dash)
+        {
+            // Order: the action rule, a charge, the 0.3 s gap between two dashes (a press inside it is kept for a moment and dashes when
+            // it ends, QA-15), room ahead; the Core runtime then commits exactly one charge, and only if the dash really starts.
+            if (dashRuntime == null) SyncDashRuntime();
+            if (dashRuntime == null || !RogueActionGate.Allows(controller, RogueAction.Dash)) return;
+            double now = DashClock;
+            if (dashRuntime.Charges(now) <= 0) return;
+            if (now < dashRuntime.NextAvailableAt(now)) { dashQueuedUntil = Time.time + DashQueueSeconds; return; }
+            Vector3 dir = transform.forward; dir.y = 0f;
+            if (dir.sqrMagnitude < 0.0001f) return;
+            dir.Normalize();
+            bool noRoom = false;
+            dashRuntime.TryUse(now, () =>
+            {
+                // a wall right in front or a drop right ahead: no dash, and the charge is kept (it used to be spent for nothing)
+                if (!DashHasRoom(dir)) { noRoom = true; return false; }
+                // a dash ends aiming (hold-to-aim takes it up again after the dash); the sprint pauses while the dash runs
+                if (controller != null) controller.Zoom(false);
+                StartCoroutine(DashRoutine(dir));
+                return true;
+            });
+            if (noRoom) RoguelikeController.Instance?.Banner(RoguelikeController.T("No room to dash"), 0.8f);
+        }
+        else if (Stats.Shield && Time.time >= shieldCooldownUntil) { shieldHp = (float)TacticalRuntime.ShieldCapacity; shieldUntil = Time.time + (float)TacticalRuntime.ShieldDurationSeconds; shieldCooldownUntil = Time.time + ShieldCooldown; RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f); }
     }
 
-    IEnumerator RechargeDash() { yield return new WaitForSeconds(DashCooldownSeconds * (float)Stats.DashCooldownMul); dashCharges = Mathf.Min(Stats.DashCharges, dashCharges + 1); }
+    float ShieldCooldown { get { return Mathf.Max(0.1f, (float)(RogueCatalog.ShieldCooldownSeconds * Stats.ShieldCooldownMul)); } }
 
-    /// <summary>Dash tuning (owner request 2026-09-30: 20 m instead of 8 m, same cooldown).</summary>
-    public const float DashDistance = (float)RogueCatalog.DashDistance, DashSpeed = (float)RogueCatalog.DashSpeed, DashCooldownSeconds = (float)RogueCatalog.DashCooldownSeconds;
+    /// <summary>Dash tuning (owner request 2026-09-30: 20 m at 50 m/s). Charges and cooldown belong to the Core TacticalRuntime.</summary>
+    public const float DashDistance = (float)RogueCatalog.DashDistance, DashSpeed = (float)RogueCatalog.DashSpeed;
 
-    IEnumerator DashRoutine()
+    // ---- Dash charges (QA-15): one long-lived Core TacticalRuntime per player on one monotonic clock (Time.timeAsDouble: the game
+    // clock the old timers used, paused with the time scale and never running backwards). Charges recharge one after another.
+    // Build broadcasts, a cancel or a run-state snapshot never rebuild it (a new runtime would hand out full charges). Only a change of
+    // the charge count or the cooldown (Double Dash, Mobility, Tactician) replaces it; the missing charges carry over, and the one that
+    // was recharging finishes when it would have (as before, a capacity change adds or removes charges, F47).
+    TacticalRuntime dashRuntime;
+    static double DashClock { get { return Time.timeAsDouble; } }
+
+    void SyncDashRuntime()
+    {
+        if (!Stats.Dash) { dashRuntime = null; return; }
+        var fresh = new TacticalRuntime("tactical.dash", Stats);
+        if (dashRuntime != null && fresh.MaxCharges == dashRuntime.MaxCharges && Math.Abs(fresh.CooldownSeconds - dashRuntime.CooldownSeconds) < 1e-6) return;
+        if (dashRuntime != null)
+        {
+            double now = DashClock, gap = RogueCatalog.DashMinIntervalSeconds;
+            int missing = Math.Min(fresh.MaxCharges, dashRuntime.MaxCharges - dashRuntime.Charges(now));
+            if (missing > 0)
+            {
+                // spend the missing charges on the new runtime at earlier moments (never later than now: the runtime's clock may not
+                // run ahead of ours) so the first finishes when the old one would have; the next ones queue behind it
+                double first = Math.Max(0, Math.Min(dashRuntime.NextChargeAt(now) - fresh.CooldownSeconds, now - gap * (missing - 1)));
+                for (int i = 0; i < missing && first + gap * i <= now; i++) fresh.TryUse(first + gap * i);
+            }
+        }
+        dashRuntime = fresh;
+    }
+
+    /// <summary>HUD (QA-15): charges of the equipped tactical usable now. Dash: from the Core runtime; shield: 1 when ready.</summary>
+    public int TacticalCharges { get { if (Stats.Dash) return dashRuntime != null ? dashRuntime.Charges(DashClock) : 0; return Stats.Shield && Time.time >= shieldCooldownUntil ? 1 : 0; } }
+    /// <summary>HUD: the most charges the equipped tactical holds (0 without a tactical that has charges).</summary>
+    public int TacticalMaxCharges { get { if (Stats.Dash) return dashRuntime != null ? dashRuntime.MaxCharges : 0; return Stats.Shield ? 1 : 0; } }
+    /// <summary>HUD: 0-based index of the charge that is recharging (the available ones come first); -1 when all are full.</summary>
+    public int TacticalRechargingIndex { get { if (Stats.Dash) return dashRuntime != null ? dashRuntime.RechargingIndex(DashClock) : -1; return Stats.Shield && Time.time < shieldCooldownUntil ? 0 : -1; } }
+    /// <summary>HUD: progress 0..1 of the charge that is recharging (1 when all are full). One charge recharges at a time.</summary>
+    public float TacticalRechargeProgress
+    {
+        get
+        {
+            if (Stats.Dash) return dashRuntime != null ? Mathf.Clamp01((float)dashRuntime.RechargeProgress(DashClock)) : 1f;
+            if (Stats.Shield) return Time.time >= shieldCooldownUntil ? 1f : Mathf.Clamp01(1f - (shieldCooldownUntil - Time.time) / ShieldCooldown);
+            return 1f;
+        }
+    }
+    /// <summary>HUD: when the tactical can be used next, on the dash clock (DashClockNow); the dash includes the 0.3 s gap.</summary>
+    public double TacticalNextAvailableAt
+    {
+        get
+        {
+            double now = DashClock;
+            if (Stats.Dash) return dashRuntime != null ? dashRuntime.NextAvailableAt(now) : now;
+            return Stats.Shield ? Math.Max(now, now + (shieldCooldownUntil - Time.time)) : now;
+        }
+    }
+    /// <summary>The clock TacticalNextAvailableAt is measured on (seconds, Time.timeAsDouble).</summary>
+    public static double DashClockNow { get { return DashClock; } }
+
+    // ---- Dash movement (QA-15). Distance (20 m) and speed (50 m/s) are unchanged; the charge rules live in Core.
+    // Why a dash used to fail, mostly while sprinting (sprinting reaches stairs, ramps and props at speed):
+    //  - a capsule sweep ahead stopped the dash at anything above the step height: a stair nose, a curb, a terrain bump or a
+    //    ramp's foot counted as a wall, so the dash ended after a few centimetres and the charge was gone;
+    //  - the edge ray started 1 m above the feet: on stairs or a ramp going up the next ground is higher than that, the ray began
+    //    inside it, found nothing below and ended the dash as if at a drop;
+    //  - it moved once per frame: at a low frame rate one step was several metres, so both checks sampled points far apart;
+    //  - a second press inside the 0.3 s gap between two dashes was dropped silently.
+    // Now the character controller moves the dash in short sub-steps and climbs steps and slopes as walking does; the dash stops
+    // only where the controller is really held back (a wall head on), at a drop, or when the player goes down. A dash started on
+    // the ground follows the ground down stairs and slopes; one started in the air keeps its height. Keyboard ghosting (some
+    // keyboards drop a third key held with W and Shift) cannot be seen by the game: the Tactical key can be rebound.
+    const float DashSubstep = 1f, DashBlockedProgress = 0.35f, DashQueueSeconds = 0.25f;
+    float dashQueuedUntil = -10f, dashUntil = -10f;
+    int dashesRunning;
+
+    /// <summary>A dash is moving this player (owner): aiming, taking a ground weapon and the sprint wait for it.</summary>
+    public bool Dashing { get { return dashesRunning > 0 && Time.time < dashUntil; } }
+
+    /// <summary>Room for the start of a dash: ground ahead (unless airborne) and no wall at chest height within the first metres.</summary>
+    bool DashHasRoom(Vector3 dir)
+    {
+        var cc = GetComponent<CharacterController>();
+        if (cc == null || !cc.enabled) return false;
+        float scaleY = Mathf.Abs(transform.lossyScale.y), height = cc.height * scaleY;
+        float radius = cc.radius * Mathf.Max(Mathf.Abs(transform.lossyScale.x), Mathf.Abs(transform.lossyScale.z));
+        int blockers = DashBlockers();
+        bool grounded = Flats.Gameplay.PlayerMovementMotor.IsGrounded(cc, transform);
+        if (grounded && !DashGroundAt(transform.position + dir * DashSubstep, height, scaleY, blockers)) return false;
+        Vector3 chest = transform.position + Vector3.up * height * 0.6f;
+        RaycastHit hit;
+        if (Physics.Raycast(chest, dir, out hit, radius + DashSubstep, blockers, QueryTriggerInteraction.Ignore) && !hit.collider.transform.IsChildOf(transform)) return false;
+        return true;
+    }
+
+    // bullets, corpses and trigger-only volumes are not walls: a dash that meets them must not stop (and waste the charge)
+    static int DashBlockers() { return ~(LayerMask.GetMask("RedTeamBullet", "BlueTeamBullet", "BulletOnly", "Ignore Raycast")); }
+
+    // Ground under a point within the legacy reach (4 body-scale units below a point 1 unit over the feet), looked for from mid-body
+    // height so a rising step or ramp at that point is found from above instead of from inside it. The player's own colliders
+    // (the head target leans forward with a steep downward look) are never ground.
+    static readonly RaycastHit[] dashHits = new RaycastHit[8];
+    bool DashGroundAt(Vector3 feet, float height, float scaleY, int blockers)
+    {
+        float up = height * 0.5f;
+        int n = Physics.RaycastNonAlloc(feet + Vector3.up * up, Vector3.down, dashHits, up + 4f * scaleY - 1f, blockers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < n; i++)
+            if (dashHits[i].collider != null && !dashHits[i].collider.transform.IsChildOf(transform)) return true;
+        return false;
+    }
+
+    IEnumerator DashRoutine(Vector3 dir)
     {
         var cc = GetComponent<CharacterController>();
         if (cc == null) yield break;
-        Vector3 dir = transform.forward; dir.y = 0; dir.Normalize();
         float travelled = 0f, total = DashDistance, speed = DashSpeed;
-        // the controller's capsule in world units (the player root is scaled): the old sweep used the unscaled radius from the feet
-        // and only noticed a wall after the capsule was already touching it
-        float scale = Mathf.Max(transform.lossyScale.x, transform.lossyScale.z), radius = cc.radius * scale * 0.95f, height = cc.height * transform.lossyScale.y;
-        // bullets, corpses and trigger-only volumes are not walls: a dash that meets them must not stop (and waste the charge)
-        int blockers = ~(LayerMask.GetMask("RedTeamBullet", "BlueTeamBullet", "BulletOnly", "Ignore Raycast"));
-        bool startedAirborne = !cc.isGrounded;
+        float scaleY = Mathf.Abs(transform.lossyScale.y), height = cc.height * scaleY, stepUp = cc.stepOffset * scaleY;
+        int blockers = DashBlockers();
+        // CharacterController.isGrounded flickers on stairs and slopes; the movement motor's ground test does not
+        bool startedAirborne = !Flats.Gameplay.PlayerMovementMotor.IsGrounded(cc, transform);
+        dashesRunning++;
+        dashUntil = Mathf.Max(dashUntil, Time.time + total / speed + 0.1f);
         while (travelled < total && cc != null && cc.enabled && !Downed)
         {
-            float step = Mathf.Min(speed * Time.deltaTime, total - travelled);
-            Vector3 center = transform.TransformPoint(cc.center);
-            Vector3 bottom = center + Vector3.up * (-height * 0.5f + radius + cc.stepOffset * transform.lossyScale.y), top = center + Vector3.up * (height * 0.5f - radius);
-            if (top.y < bottom.y) top = bottom;
-            bool blocked = false;
-            foreach (var hit in Physics.CapsuleCastAll(bottom, top, radius, dir, step + 0.1f, blockers, QueryTriggerInteraction.Ignore))
-                if (hit.collider != null && !hit.collider.transform.IsChildOf(transform) && hit.collider != cc && !(hit.distance <= 0f && hit.point == Vector3.zero)) { step = Mathf.Max(0f, hit.distance - 0.05f); blocked = true; break; }
-            // an edge: no dash into the void (ground within reach below the next position)
-            // an edge: no dash into the void (skipped for a dash started in the air, which has no ground to follow)
-            if (!startedAirborne && !Physics.Raycast(transform.position + dir * step + Vector3.up, Vector3.down, 4f * transform.lossyScale.y, blockers, QueryTriggerInteraction.Ignore)) break;
-            if (step > 0f) cc.Move(dir * step);
-            travelled += step;
-            if (blocked) break;
+            // distance by time, in sub-steps, so the dash covers the same ground in the same time at any frame rate
+            float frame = Mathf.Min(speed * Time.deltaTime, total - travelled);
+            bool stop = false;
+            while (frame > 0.0001f && !stop)
+            {
+                float step = Mathf.Min(DashSubstep, frame);
+                frame -= step;
+                Vector3 before = transform.position;
+                // an edge: no dash into the void (skipped for a dash started in the air, which has no ground to follow)
+                if (!startedAirborne && !DashGroundAt(before + dir * step, height, scaleY, blockers)) { stop = true; break; }
+                cc.Move(dir * step);
+                travelled += step;
+                Vector3 moved = transform.position - before; moved.y = 0f;
+                // the controller slides along a wall met at a glancing angle and climbs steps and slopes; head on it is held back
+                if (Vector3.Dot(moved, dir) < step * DashBlockedProgress) { stop = true; break; }
+                // keep a ground dash on the ground down a step or a slope (only when ground is within a step below)
+                RaycastHit ground;
+                if (!startedAirborne && Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out ground, stepUp + 0.1f, blockers, QueryTriggerInteraction.Ignore) && ground.distance > 0.15f)
+                    cc.Move(Vector3.down * (ground.distance - 0.1f));
+            }
+            if (stop) break;
             yield return null;
         }
+        dashesRunning = Mathf.Max(0, dashesRunning - 1);
         ArmMomentum();
     }
 
     // ---------------------------------------------------------------- reviving a downed teammate
     float reviveHeld, reviveSlice; RoguePlayer reviveTarget;
     int reviveEpoch;
+    /// <summary>Seconds this rescuer needs to hold a revive: the base time divided by the build's revive speed (Field Medic +50% makes
+    /// 3 s into 2 s, never "50% less"); Core BuildStats.ReviveSeconds, the same rule as the authority's (QA-32).</summary>
+    public float ReviveSecondsNeeded { get { return Mathf.Max(0.1f, (float)Stats.ReviveSeconds(ReviveHoldSeconds)); } }
+    float ReviveFraction { get { return Mathf.Clamp01(reviveHeld / ReviveSecondsNeeded); } }
     void TickReviveInteraction()
     {
         if (Menu.network == 0) return;
@@ -585,27 +846,38 @@ public class RoguePlayer : MonoBehaviour
         {
             var rp = go.GetComponent<RoguePlayer>();
             if (rp == null || rp == this || !rp.Downed) continue;
-            var c = RogueInteraction.CheckHold(gameObject, go.GetComponent<CharacterController>(), ReviveRange, rp, held, rp == reviveTarget && reviveHeld > 0);
+            // once a revive has started it is judged with more reach and a wider look cone (QA-33)
+            bool ongoing = rp == reviveTarget && reviveHeld > 0;
+            var c = RogueInteraction.CheckHold(gameObject, go.GetComponent<CharacterController>(), ReviveRange, rp, held, ongoing,
+                ongoing ? ReviveContinueReach : 0f, ongoing ? ReviveContinueLookAngle : RogueInteraction.LookAngle);
             if (c.Prompt) { target = rp; check = c; break; }
             if (!string.IsNullOrEmpty(c.Reason)) check = c;
         }
         var ctrl = RoguelikeController.Instance;
+        // A momentary break of an ongoing revive (the view swinging off, something passing between, a step out of reach for a
+        // few frames) keeps crediting for ReviveGraceSeconds, as long as the button stays held and the teammate is still down.
+        bool graced = false;
+        if (target == null && held && reviveTarget != null && reviveTarget.Downed && reviveHeld > 0 && Time.time - reviveLastValid <= ReviveGraceSeconds)
+        {
+            target = reviveTarget; check = new RogueInteraction.HoldCheck { Prompt = true, Valid = true, Reason = "" }; graced = true;
+        }
         if (target == null)
         {
-            if (held && ctrl != null && !string.IsNullOrEmpty(check.Reason)) ctrl.ShowReviveRing(reviveHeld / ReviveHoldSeconds, RoguelikeController.T(check.Reason));
+            if (held && ctrl != null && !string.IsNullOrEmpty(check.Reason)) ctrl.ShowReviveRing(ReviveFraction, RoguelikeController.T(check.Reason));
             reviveSlice = 0;
-            if (Time.time - reviveLastHold > 1f) { reviveHeld = 0; reviveTarget = null; }
+            // the progress is paused, not lost: the authority keeps it for ReviveResetSeconds as well
+            if (Time.time - reviveLastHold > ReviveResetSeconds) { reviveHeld = 0; reviveTarget = null; }
             return;
         }
         bool holding = held && check.Valid;
-        if (holding) { reviveLastHold = Time.time; RogueInteraction.NoteLocalHold(target); }
-        else { reviveSlice = 0; if (Time.time - reviveLastHold > 1f) reviveHeld = 0; }   // the authority forgets an interrupted hold after one second; mirror it
+        if (holding) { reviveLastHold = Time.time; RogueInteraction.NoteLocalHold(target); if (!graced) reviveLastValid = Time.time; }
+        else { reviveSlice = 0; if (Time.time - reviveLastHold > ReviveResetSeconds) reviveHeld = 0; }   // mirror the authority's reset after ReviveResetSeconds
         if (ctrl != null) ctrl.NoteInteractPrompt();
         if (holding)
         {
             if (reviveTarget != target) { reviveTarget = target; reviveHeld = 0; reviveSlice = 0; }
-            reviveHeld += Time.deltaTime * (float)Stats.ReviveSpeedMul; reviveSlice += Time.deltaTime;
-            if (ctrl != null) ctrl.ShowReviveRing(reviveHeld / ReviveHoldSeconds, RoguelikeController.T("Reviving {0}", target.DisplayName()));
+            reviveHeld += Time.deltaTime; reviveSlice += Time.deltaTime;   // held time; the build shortens the time needed (ReviveFraction)
+            if (ctrl != null) ctrl.ShowReviveRing(ReviveFraction, RoguelikeController.T("Reviving {0}", target.DisplayName()));
             if (reviveSlice >= 0.25f)
             {
                 // the authority adds up the slices and revives at three seconds of continuous, in-range holding
@@ -618,7 +890,7 @@ public class RoguePlayer : MonoBehaviour
         {
             string label = held && !string.IsNullOrEmpty(check.Reason) ? RoguelikeController.T(check.Reason)
                 : RoguelikeController.T(RogueInput.InteractIsHold ? "Hold {0} to revive" : "Hold {0} to revive", RogueInput.InteractLabel);
-            ctrl.ShowReviveRing(reviveHeld / ReviveHoldSeconds, label);
+            ctrl.ShowReviveRing(ReviveFraction, label);
         }
     }
 

@@ -124,7 +124,11 @@ public sealed class ScopeViewPresenter : MonoBehaviour
             // Same on-screen diameter the world-space lens would have at this scale.
             OverlayDiameter = baseFraction * height * AppliedScale;
             overlay.Layout(OverlayDiameter, target != null ? target.Target : null);
-            if (overlay.image != null) overlay.image.uvRect = WorldLensUv();
+            if (overlay.image != null)
+            {
+                overlay.image.uvRect = WorldLensUv();
+                if (target != null && target.DisplayMaterial != null) overlay.image.material = target.DisplayMaterial;
+            }
         }
     }
 

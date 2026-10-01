@@ -18,7 +18,8 @@ public partial class Menu : MonoBehaviour
     // Compatibility boundary while legacy modes still write these public fields.
     private sealed class GameplaySession : Flats.Core.IGameSessionContext
     {
-        public bool IsPlaying { get { return current == "Playing"; } }
+        // A dialog opened during play (and the moment after it closes) blocks player input: FlatsCursor (QA-25/QA-34).
+        public bool IsPlaying { get { return current == "Playing" && !FlatsCursor.BlocksGameplay; } }
         public int NetworkMode { get { return network; } }
     }
     private readonly Flats.Core.IGameSessionContext gameplaySession = new GameplaySession();
@@ -1252,6 +1253,7 @@ public partial class Menu : MonoBehaviour
 
 	private void Update()
 	{
+        SyncModalCursor();
         if (TickBindingCapture()) return;
         TickLocalMatch();
         TickRogueRoom();
@@ -1274,7 +1276,7 @@ public partial class Menu : MonoBehaviour
 				return;
 			}
 		}
-		if (current != "Modules" && !fliping && !backWithCancel && !RogueResultView.BlocksMenuInput && (Input.GetKeyUp(KeyCode.Escape) || activeDevice.CommandWasPressed || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
+		if (current != "Modules" && !fliping && !backWithCancel && !RogueResultView.BlocksMenuInput && (Input.GetKeyUp(KeyCode.Escape) || (activeDevice.CommandWasPressed && !RogueOverviewButtonPressed()) || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
 		{
 			Fade(-1);
 		}
@@ -1432,11 +1434,16 @@ public partial class Menu : MonoBehaviour
 
 	private void LateUpdate()
 	{
+        FlatsCursor.Tick();
         RefreshControlTile();
         if (FlatsControls.Capturing || releasePending || Time.frameCount <= suppressControlFrame) return;
         RefreshLanguageButton();
         CheckMultiplayerDeadline();
-		if ((current == "Playing" && !framerateAlertIsEnabled) || VRmode || standaloneModule == null || inControlModule == null)
+		// A dialog open during play (risk contract, low-framerate alert, connection error) is navigated like a menu page:
+		// the pointer and the controller both reach its buttons (QA-25).
+		bool modalInPlay = current == "Playing" && ModalPanelOpen;
+		bool menuPage = current != "Playing" || modalInPlay;
+		if ((current == "Playing" && !framerateAlertIsEnabled && !modalInPlay) || VRmode || standaloneModule == null || inControlModule == null)
 		{
 			return;
 		}
@@ -1444,8 +1451,8 @@ public partial class Menu : MonoBehaviour
 		// Pick the input module from the device in use every frame, not only when focus is
 		// empty: a controller press restores focus first, which used to leave the pointer
 		// module active for controller navigation.
-		bool controllerNavigation = current != "Playing" && Input.GetJoystickNames().Length > 0 && !PointerFocusPolicy.PointerActive;
-		if (current != "Playing" && inControlModule.enabled != controllerNavigation)
+		bool controllerNavigation = menuPage && Input.GetJoystickNames().Length > 0 && !PointerFocusPolicy.PointerActive;
+		if (menuPage && inControlModule.enabled != controllerNavigation)
 		{
 			standaloneModule.submitButton = "Submit";
 			standaloneModule.cancelButton = "Cancel";
@@ -1455,7 +1462,7 @@ public partial class Menu : MonoBehaviour
 		// The pointer module handles the mouse; a resting cursor must not add a second,
 		// hover highlight next to controller focus.
 		inControlModule.allowMouseInput = false;
-		if (current != "Playing" && (EventSystem.current.currentSelectedGameObject == null || !EventSystem.current.currentSelectedGameObject.activeInHierarchy))
+		if (menuPage && (EventSystem.current.currentSelectedGameObject == null || !EventSystem.current.currentSelectedGameObject.activeInHierarchy))
 		{
 			if (controllerNavigation)
 			{
@@ -1514,6 +1521,21 @@ public partial class Menu : MonoBehaviour
 			EventSystem.current.currentSelectedGameObject.GetComponent<Selectable>().Select();
 		}
 	}
+
+    // ---------------------------------------------------------------- cursor ownership of the menu's own dialogs (QA-25/QA-34)
+    /// <summary>The confirmation, error or update panel is showing.</summary>
+    private bool ModalPanelOpen
+    {
+        get { return (confirm != null && confirm.activeSelf) || (errorMessage != null && errorMessage.activeSelf) || (update != null && update.activeSelf); }
+    }
+
+    /// <summary>The menu's dialogs own the cursor while shown, whichever code opened them; FlatsCursor drops a hidden panel by itself.</summary>
+    private void SyncModalCursor()
+    {
+        if (confirm != null && confirm.activeInHierarchy) FlatsCursor.Push(confirm);
+        if (errorMessage != null && errorMessage.activeInHierarchy) FlatsCursor.Push(errorMessage);
+        if (update != null && update.activeInHierarchy) FlatsCursor.Push(update);
+    }
 
     private void ApplyListenerVolume()
     {
@@ -1665,10 +1687,17 @@ public partial class Menu : MonoBehaviour
 		[PunRPC]
 		private void Chat(string t)
 		{
+			if (!PhotonNetwork.isMasterClient) return;   // sent to the master; a host change in flight lands it on a client that cannot instantiate
 			PhotonNetwork.InstantiateSceneObject(data: new object[1] { t }, prefabName: "ChatText", position: Vector3.zero, rotation: Quaternion.identity, group: 0);
-			if (chat.GetChild(4).childCount >= 18)
+			Transform lines = chat.GetChild(4);
+			if (lines.childCount >= 18)
 			{
-				PhotonNetwork.Destroy(chat.GetChild(4).GetChild(0).gameObject);
+				// the oldest line still registered: a line destroyed earlier this frame stays a child until the frame ends
+				for (int i = 0; i < lines.childCount; i++)
+				{
+					PhotonView line = lines.GetChild(i).GetComponent<PhotonView>();
+					if (line != null && line.instantiationId > 0 && PhotonView.Find(line.viewID) == line) { PhotonNetwork.Destroy(line.gameObject); break; }
+				}
 			}
 		}
 
@@ -1942,6 +1971,10 @@ public partial class Menu : MonoBehaviour
         public void ShowConfirm(string title, string message, UnityAction<bool> action, string positiveBtnText, string negativeBtnText)
         {
             Confirmation.ShowConfirm(backControl.GetComponent<Image>().color, title, message, action, positiveBtnText, negativeBtnText);
+            // A dialog can open during play (the risk contract, the low-framerate alert): it owns the cursor and blocks gameplay input
+            // from this frame until it closes (FlatsCursor, QA-25). The presenter lives in the Flats.UI.Presentation assembly, which
+            // cannot see FlatsCursor, so the menu takes ownership here; hiding the panel in any way releases it (FlatsCursor prunes it).
+            FlatsCursor.Push(confirm);
         }
         public void OnClickedConfirm() { Confirmation.OnClickedConfirm(); }
 
@@ -2030,7 +2063,10 @@ public partial class Menu : MonoBehaviour
 			return float.Parse(y.transform.GetChild(2).GetComponent<Text>().text).CompareTo(float.Parse(x.transform.GetChild(2).GetComponent<Text>().text));
 		}
 
-
-
-
+	// InControl counts Back (View/Share) as a command button, and the Roguelike Overview action is bound to it by default: the press
+	// that toggles the overview must not also open the pause menu (QA-41). Start still pauses; a binding capture cannot take it.
+	static bool RogueOverviewButtonPressed()
+	{
+		return RoguelikeMode.Active && current == "Playing" && !FlatsControls.Capturing && FlatsControls.PadState("Overview", 1);
+	}
 	}

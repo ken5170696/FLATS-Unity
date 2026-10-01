@@ -2,7 +2,8 @@ using UnityEngine;
 
 /// <summary>
 /// One place for the Roguelike mode's own inputs across keyboard, gamepad and touch. Keyboard uses the FLATS
-/// bindings (Interact, Shop, Tab), a gamepad uses the pad bindings (hold Change = interact, Shop, Back = overview, bumpers = tabs),
+/// bindings (Interact, Shop, Melee, Overview), a gamepad uses the pad bindings (hold Change = interact, Shop, Melee, Overview; the
+/// bumpers switch tabs),
 /// and a phone uses the two touch buttons the Roguelike HUD shows (RogueTouchButton feeds them here).
 /// </summary>
 public static class RogueInput
@@ -100,9 +101,9 @@ public static class RogueInput
     {
         get
         {
-            if (Input.GetKeyDown(KeyCode.Tab) || Consume(ref touchOverviewPending, ref touchOverviewFrame)) return true;
-            var pad = InControl.InputManager.ActiveDevice;
-            return pad != null && pad.GetControl(InControl.InputControlType.Back).WasPressed;
+            // the rebindable Overview action (QA-41; Tab and the pad's Back/View button by default, as the fixed keys were). Both reads
+            // ignore input while a binding is being captured.
+            return FlatsControls.Down("Overview") || FlatsControls.PadState("Overview", 1) || Consume(ref touchOverviewPending, ref touchOverviewFrame);
         }
     }
 
@@ -110,7 +111,8 @@ public static class RogueInput
     public static string InteractLabel { get { return KeyText("Interact"); } }
 
     // ---- tab switching on the overview and the headquarters. The keys come from the bindings so they never share a key with a
-    // gameplay action (Interact is Q and Change is E by default): the first pair with neither key bound. The pad uses the bumpers.
+    // gameplay action (Interact is Q and Change is E by default) or with the Overview binding itself: the first pair with neither
+    // key bound. The pad uses the bumpers.
     static readonly KeyCode[] tabPairs = { KeyCode.Q, KeyCode.E, KeyCode.Z, KeyCode.X, KeyCode.LeftBracket, KeyCode.RightBracket, KeyCode.PageUp, KeyCode.PageDown };
     static KeyCode tabPrevious = KeyCode.Z, tabNext = KeyCode.X;
     static int tabKeysFrame = -1;
@@ -126,7 +128,7 @@ public static class RogueInput
 
     static bool KeyInUse(KeyCode key)
     {
-        if (key == KeyCode.V || key == KeyCode.Tab) return true;   // fixed Roguelike keys: melee and the overview
+        // every gameplay action, including the Roguelike Melee and Overview bindings
         foreach (string action in FlatsControls.KeyboardActions) if (FlatsControls.Keyboard(action) == key) return true;
         return false;
     }
@@ -157,8 +159,8 @@ public static class RogueInput
     public static string TabPreviousKey { get { ResolveTabKeys(); return KeyName(tabPrevious, true); } }
     public static string TabNextKey { get { ResolveTabKeys(); return KeyName(tabNext, true); } }
 
-    // ---- key names for prompts. Actions: the FLATS keyboard actions (Interact, Shop, Ultimate, Tactical...) plus "Overview".
-    // A gamepad interacts by holding its Change button (the pad has no Interact binding) and opens the overview with Back.
+    // ---- key names for prompts. Actions: the FLATS keyboard and pad actions (Interact, Shop, Ultimate, Tactical, Melee, Overview...).
+    // A gamepad interacts by holding its Change button (the pad has no Interact binding).
 
     /// <summary>The binding for a key cap on the HUD: "E", "M4", "Shift", "RB". Empty on touch, where the slot itself is tapped.</summary>
     public static string KeyCap(string action) { return Current == Scheme.Touch ? "" : Binding(action, true); }
@@ -178,14 +180,14 @@ public static class RogueInput
         if (Current == Scheme.Gamepad)
         {
             string padAction = action == "Interact" ? "Change" : action;
-            if (action != "Overview" && System.Array.IndexOf(FlatsControls.PadActions, padAction) < 0) return "";   // FlatsControls.Pad throws for unknown actions
-            string label = action == "Overview" ? "Back" : FlatsControls.Label(padAction, true);
+            if (System.Array.IndexOf(FlatsControls.PadActions, padAction) < 0) return "";   // FlatsControls.Pad throws for unknown actions
+            string label = FlatsControls.Label(padAction, true);
             // "LB / L1" when the pad's family is unknown: a key cap keeps the first name only
             if (cap && label != null && label.Contains(" / ")) label = label.Substring(0, label.IndexOf(" / "));
             return label;
         }
-        if (action != "Overview" && System.Array.IndexOf(FlatsControls.KeyboardActions, action) < 0) return "";
-        return KeyName(action == "Overview" ? KeyCode.Tab : FlatsControls.Keyboard(action), cap);
+        if (System.Array.IndexOf(FlatsControls.KeyboardActions, action) < 0) return "";
+        return KeyName(FlatsControls.Keyboard(action), cap);
     }
 
     /// <summary>Readable key name. Mouse side buttons (Mouse3..Mouse6 in Unity) are "Mouse button 4".."7", the numbering games and
@@ -252,9 +254,16 @@ public static class RogueInput
     {
         switch (Current)
         {
-            case Scheme.Gamepad: return RoguelikeController.T("Back or B closes   LB or RB switches tabs   Wallet ${0}", wallet);
+            // the Overview binding and the tab keys follow the player's bindings; B / Circle and Esc always close (fixed cancel)
+            case Scheme.Gamepad:
+            {
+                var style = FlatsGamepad.DeviceStyle(InControl.InputManager.ActiveDevice);
+                return RoguelikeController.T("{0} or {1} closes   {2} or {3} switches tabs   Wallet ${4}", KeyCap("Overview"),
+                    FlatsGamepad.Glyph(InControl.InputControlType.Action2, style), FlatsGamepad.Glyph(InControl.InputControlType.LeftBumper, style),
+                    FlatsGamepad.Glyph(InControl.InputControlType.RightBumper, style), wallet);
+            }
             case Scheme.Touch: return RoguelikeController.T("Tap a tab to switch   Close with the button   Wallet ${0}", wallet);
-            default: return RoguelikeController.T("{0} or Esc closes   {1} / {2} switches tabs   Wallet ${3}", "Tab", TabPreviousKey, TabNextKey, wallet);
+            default: return RoguelikeController.T("{0} or Esc closes   {1} / {2} switches tabs   Wallet ${3}", KeyCap("Overview"), TabPreviousKey, TabNextKey, wallet);
         }
     }
 }

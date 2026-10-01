@@ -21,9 +21,15 @@ public class RogueOverviewView : MonoBehaviour
     public RogueStatRowView statTemplate;
     public RogueOfferRowView offerTemplate;
     [Header("Two columns")] public GameObject body; public RectTransform leftContent, coresGrid, modsGrid; public RogueCardView cardTemplate; public RogueStatRowView compactTemplate; public Text coresHeading, modsHeading;
+    [Tooltip("Scroll view of the two-column body (the Body object is its viewport): on short or very wide screens the stats and cards scroll instead of spilling out of the panel.")]
+    public ScrollRect bodyScroll;
+    [Tooltip("Content of the body scroll view; its height is set to the taller of the stats column and the card grids.")] public RectTransform bodyContent;
+    [Tooltip("Space kept under the last row of the scrolled body (canvas units).")] public float bodyBottomPadding = 8f;
+    [Tooltip("Canvas units per second the pad's right stick scrolls a list or the body.")] public float padScrollSpeed = 600f;
     public Color tabActive = new Color(0.8f, 0.098f, 0.4f, 1f), tabIdle = new Color(1f, 1f, 1f, 0.8f), tabTextActive = Color.white, tabTextIdle = new Color(0.2f, 0.2f, 0.2f, 1f);
 
     public int Current { get; private set; }
+    int bodyTab = -1;
     public event Action<int> TabChanged;
     const string ScreenState = "RogueScreen";
     string previousState; bool previousCamRotate; GameObject previousSelection;
@@ -50,10 +56,9 @@ public class RogueOverviewView : MonoBehaviour
         previousCamRotate = FPSController.enableCamRotate;
         if (Menu.current == "Playing") Menu.current = ScreenState;
         FPSController.enableCamRotate = false;
-        UnityEngine.Cursor.lockState = CursorLockMode.None; UnityEngine.Cursor.visible = true;
+        FlatsCursor.Push(this);   // cursor free and gameplay input blocked while the panel is up
         RogueScreenView.Suspended = true;
-        var menu = Menu.Current;
-        if (paper != null && menu != null) { var tint = menu.RogueThemeTint(); var light = Color.Lerp(new Color(tint.r, tint.g, tint.b), Color.white, 0.55f); paper.color = new Color(light.r, light.g, light.b, 1f); }
+        // the paper keeps its authored Roguelike theme colour (QA-36 G3: no longer tinted by the map)
         if (statTemplate == null) { var p = Resources.Load<GameObject>("UI/Roguelike/RogueStatRow"); if (p != null) statTemplate = p.GetComponent<RogueStatRowView>(); }
         if (offerTemplate == null) { var p = Resources.Load<GameObject>("UI/Roguelike/RogueOfferRow"); if (p != null) offerTemplate = p.GetComponent<RogueOfferRowView>(); }
         var hudObject = GameObject.Find("UI");
@@ -79,7 +84,7 @@ public class RogueOverviewView : MonoBehaviour
         bool screenBelow = under != null && under.gameObject.activeInHierarchy;
         if (Menu.current == ScreenState && !screenBelow) Menu.current = previousState == ScreenState ? "Playing" : previousState;
         FPSController.enableCamRotate = !screenBelow && (previousCamRotate || Menu.current == "Playing");
-        if (Menu.current == "Playing" && !screenBelow) { UnityEngine.Cursor.lockState = CursorLockMode.Locked; UnityEngine.Cursor.visible = false; }
+        FlatsCursor.Pop(this);    // a run screen below still owns the cursor; otherwise it locks only when play resumes
         if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(screenBelow ? null : previousSelection);
         if (hudCanvas != null && !screenBelow && (hudWasEnabled || Menu.current == "Playing")) hudCanvas.enabled = true;
         closed = true;
@@ -130,6 +135,8 @@ public class RogueOverviewView : MonoBehaviour
         if (body != null) body.SetActive(two);
         if (scroll != null) scroll.gameObject.SetActive(!two);
         if (two && cardTemplate == null) { var p = Resources.Load<GameObject>("UI/Roguelike/RogueCard"); if (p != null) cardTemplate = p.GetComponent<RogueCardView>(); }
+        if (two && bodyScroll != null && Current != bodyTab) { bodyTab = Current; bodyScroll.verticalNormalizedPosition = 1f; }
+        if (!two) bodyTab = -1;
         if (two && compactTemplate == null) { var p = Resources.Load<GameObject>("UI/Roguelike/RogueStatRowCompact"); if (p != null) compactTemplate = p.GetComponent<RogueStatRowView>(); }
     }
 
@@ -153,6 +160,23 @@ public class RogueOverviewView : MonoBehaviour
         card.name = "Card-" + title;
         card.Bind(iconName, title, sub, tint, empty);
         return card;
+    }
+
+    /// <summary>Sizes the scrolled body to what it holds, after the rows and cards of the Player tab are placed.</summary>
+    public void FitBody()
+    {
+        if (bodyContent == null || body == null || !body.activeSelf) return;
+        float height = 0f;
+        if (leftContent != null) { LayoutRebuilder.ForceRebuildLayoutImmediate(leftContent); height = LayoutUtility.GetPreferredHeight(leftContent); }
+        foreach (var grid in new[] { coresGrid, modsGrid })
+        {
+            if (grid == null) continue;
+            LayoutRebuilder.ForceRebuildLayoutImmediate(grid);
+            // grids hang from the top of the right column at authored offsets; the lowest card decides the column's height
+            height = Mathf.Max(height, -grid.anchoredPosition.y + Mathf.Max(grid.rect.height, LayoutUtility.GetPreferredHeight(grid)));
+        }
+        var viewport = bodyScroll != null && bodyScroll.viewport != null ? bodyScroll.viewport : (RectTransform)body.transform;
+        bodyContent.sizeDelta = new Vector2(bodyContent.sizeDelta.x, Mathf.Max(viewport.rect.height, height + bodyBottomPadding));
     }
 
     public void SetGridHeadings(string cores, string mods)
@@ -244,6 +268,13 @@ public class RogueOverviewView : MonoBehaviour
             var ctrl = RoguelikeController.Instance;
             if (ctrl != null) ctrl.CloseOverview(); else Close();
             return;
+        }
+        // the pad's right stick scrolls whichever list is showing (the body's stats and cards have nothing to select)
+        var list = body != null && body.activeSelf ? bodyScroll : scroll;
+        if (pad != null && list != null && list.content != null && list.viewport != null && Mathf.Abs(pad.RightStickY.Value) > 0.15f)
+        {
+            float range = list.content.rect.height - list.viewport.rect.height;
+            if (range > 1f) list.verticalNormalizedPosition = Mathf.Clamp01(list.verticalNormalizedPosition + pad.RightStickY.Value * padScrollSpeed * Time.unscaledDeltaTime / range);
         }
         if (EventSystem.current == null) return;
         var selected = EventSystem.current.currentSelectedGameObject;

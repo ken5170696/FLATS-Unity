@@ -49,13 +49,52 @@ public class RogueIcons : MonoBehaviour
     {
         if (image == null) return;
         var s = Get(name);
+        // an empty name hides the image on purpose; a name the set does not have is a wrong reference and says so once
+        if (s == null && !string.IsNullOrEmpty(name)) WarnOnce("FLATS_ROGUE_ICON missing sprite '" + name + "' in Resources/UI/Roguelike/RogueIconSet");
         image.sprite = s; image.enabled = s != null; image.preserveAspect = true;
     }
 
-    /// <summary>Icon for a catalog item or a tag. Falls back through kind and the first core tag.</summary>
-    public static string ForItem(Flats.Core.Roguelike.ItemDef def)
+    static readonly HashSet<string> warned = new HashSet<string>();
+    static void WarnOnce(string message) { if (warned.Add(message)) Debug.LogWarning(message); }
+
+    /// <summary>
+    /// Every tactical and ultimate has its own icon (QA-08): the ability slots, the shop and reward cards, the TAB overview and
+    /// the records all read this one table, so a slot never falls back to a shared picture. The ultimate's generic "Ultimate"
+    /// bolt is only the fallback for an id this table does not know yet, and that fallback is logged once.
+    /// </summary>
+    static readonly Dictionary<string, string> abilityIcons = new Dictionary<string, string>
     {
-        if (def == null) return "";
+        { "tactical.doublejump", "Wings" },       // a second jump in the air
+        { "tactical.dash", "Dash" },              // chevrons: a burst forward
+        { "tactical.shield", "Shield" },
+        { "ult.infinite_fire", "Infinity" },      // unlimited ammunition
+        { "ult.lethal_shot", "Skull" },           // hits kill outright
+        { "ult.invincible", "Star" },             // the same star as the HUD's invulnerability badge
+        { "ult.emergency_revive", "Plus" },       // medical cross: bring teammates back
+        { "ult.enemy_sight", "Eye" },             // see enemies through walls
+        { "ult.chain_bullets", "Link" },          // hits chain to nearby enemies
+        { "ult.homing_bullets", "Target" },       // bullets seek a target
+    };
+
+    /// <summary>Icon for an equipped tactical or ultimate id (the HUD slots); "" for none.</summary>
+    public static string ForAbility(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return "";
+        return ForItem(Flats.Core.Roguelike.RogueCatalog.Item(id), id);
+    }
+
+    /// <summary>Icon for a catalog item or a tag. Falls back through kind and the first core tag.</summary>
+    public static string ForItem(Flats.Core.Roguelike.ItemDef def) { return ForItem(def, null); }
+
+    static string ForItem(Flats.Core.Roguelike.ItemDef def, string requestedId)
+    {
+        if (def == null)
+        {
+            if (!string.IsNullOrEmpty(requestedId)) WarnOnce("FLATS_ROGUE_ICON unknown item id '" + requestedId + "'");
+            return "";
+        }
+        string icon;
+        if (abilityIcons.TryGetValue(def.Id, out icon)) return icon;
         switch (def.Id)
         {
             case "supply.ammo": return "Ammo";
@@ -65,15 +104,25 @@ public class RogueIcons : MonoBehaviour
             case "stat.damage": return "Fire";
             case "stat.magazine": return "Ammo";
             case "stat.speed": return "Jump";
-            case "tactical.doublejump": return "Jump";
-            case "tactical.dash": return "Dash";
-            case "tactical.shield": return "Shield";
         }
-        if (def.Kind == Flats.Core.Roguelike.ItemKind.Ultimate) return "Ultimate";
+        if (def.Kind == Flats.Core.Roguelike.ItemKind.Ultimate) { WarnOnce("FLATS_ROGUE_ICON no icon mapped for ultimate '" + def.Id + "'; using the generic Ultimate icon"); return "Ultimate"; }
+        if (def.Kind == Flats.Core.Roguelike.ItemKind.Tactical) { WarnOnce("FLATS_ROGUE_ICON no icon mapped for tactical '" + def.Id + "'; using the generic Dash icon"); return "Dash"; }
         if (def.Kind == Flats.Core.Roguelike.ItemKind.Weapon) return "Fire";
         if (def.Kind == Flats.Core.Roguelike.ItemKind.Core) return "Core";
         if (def.Tags.Length > 0) return ForTag(def.Tags[0]);
         return def.Kind == Flats.Core.Roguelike.ItemKind.Mod ? "Mod" : "Square";
+    }
+
+    /// <summary>Icon for a hold interaction from its action (RogueInteractable.Action): what the ring around the crosshair shows.</summary>
+    public static string ForInteraction(string action)
+    {
+        if (string.IsNullOrEmpty(action)) return "Tap";
+        if (action.StartsWith("vent")) return "Wind";
+        if (action.StartsWith("breaker")) return "Bolt";
+        if (action.StartsWith("cell")) return "Battery";
+        if (action.StartsWith("cache")) return "Crate";
+        if (action.StartsWith("repair") || action.StartsWith("sidedevice") || action.StartsWith("generator")) return "Settings5";
+        return "Tap";
     }
 
     public static string ForTag(string tag)

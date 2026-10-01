@@ -212,14 +212,22 @@ public partial class FPSController
 				yield break;
 			}
 			enableFire = false; firing = true;
-			if (anim.GetBool("Run"))
+			// A carry start or going down cancels the rest of a burst on every copy (RogueCancelWeaponConflicts).
+			int rogueShotAtStart = rogueShotToken;
+			// The sprint-out wait is the owner's (SprintOutReady raises the weapon before the shot is sent). Only a shot that no
+			// send site raised (touch tap fire) still waits here; other copies never read a pose or a speed for it (QA-21).
+			if (MyView(base.gameObject) && sprinting)
 			{
-				yield return new WaitForSeconds(0.2f);
+				StopSprint(false);
+				yield return new WaitForSeconds(SprintOutSeconds);
 			}
 			InputDevice inputDevice = InputManager.ActiveDevice;
 			int currentBurstCount = currentGun.burstCount;
 			if (currentGun.currentAmmo <= 0)
 			{
+				// The weapon is free before the reload is asked for: a refused reload (carrying, down, a menu) used to leave
+				// enableFire off and firing on for good, which locked fire, reload, switching and every hold interaction (QA-14).
+				enableFire = true; firing = false;
 				if (Menu.network == 0)
 				{
 					StartCoroutine("Reload");
@@ -239,6 +247,7 @@ public partial class FPSController
 				base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
 				int pellets = currentGun.burstCount + (RoguelikeMode.Active ? RogueHooks.ExtraPellets(this, currentGun.id) : 0);
 				float spreadScale = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
+				long rogueRound = RoguelikeMode.Active ? RogueNextRound() : 0;   // one shell: every pellet shares this round (Fresh Magazine, QA-32)
 				for (int i = 0; i < pellets; i++)
 				{
 					var rogueShot = RoguelikeMode.Active ? RogueHooks.MetaShot(this, Aiming, i == 0) : Flats.Core.Roguelike.ShotModifiers.Neutral;
@@ -262,7 +271,7 @@ public partial class FPSController
 					}
 					rigidbody.gameObject.layer = base.gameObject.layer + 2;
 					rigidbody.linearVelocity = velocity;
-					if (RoguelikeMode.Active) RogueHooks.MetaStampBullet(this, component);
+					if (RoguelikeMode.Active) RogueStampBullet(component, rogueRound);
 					if (i >= currentGun.burstCount) continue;   // Choke's extra pellet rides on the same shell
 					if (!(RoguelikeMode.Active && (RogueHooks.InfiniteAmmo(this) || rogueShot.FreeRound))) currentGun.currentAmmo--;
 					if (currentGun.currentAmmo == 0)
@@ -321,7 +330,7 @@ public partial class FPSController
 				}
 				b.gameObject.layer = base.gameObject.layer + 2;
 				b.linearVelocity = dir;
-				if (RoguelikeMode.Active) RogueHooks.MetaStampBullet(this, bb);
+				if (RoguelikeMode.Active) RogueStampBullet(bb, RogueNextRound());   // each round of a burst is its own round
 				if (MyView(base.gameObject))
 				{
 					FlatsGamepad.Vibrate(inputDevice, 0.1f);
@@ -330,12 +339,13 @@ public partial class FPSController
 				currentBurstCount--;
 				if (!(RoguelikeMode.Active && (RogueHooks.InfiniteAmmo(this) || rogueShot.FreeRound))) currentGun.currentAmmo--;
 				yield return new WaitForSeconds(0.1f * Mathf.Min(1f, rogueInterval));
-				if (currentBurstCount == 0 || currentGun.currentAmmo == 0)
+				if (currentBurstCount == 0 || currentGun.currentAmmo == 0 || (RoguelikeMode.Active && rogueShotAtStart != rogueShotToken))
 				{
 					break;
 				}
 				{ float rogueGap = Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)); if (rogueGap > 0f || !RoguelikeMode.Active) yield return new WaitForSeconds(rogueGap); }
 				if (!RoguelikeMode.Active) yield return new WaitForSeconds(0f);
+				if (RoguelikeMode.Active && rogueShotAtStart != rogueShotToken) break;
 			}
 			anim.SetInteger("Burst", 0);
 			yield return new WaitForSeconds(Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)));
@@ -548,7 +558,10 @@ public partial class FPSController
 		yield return new WaitForSeconds(0.1f);
 		ikc.leftIK = false;
 		yield return new WaitForSeconds(0.4f);
-		float Z = ((!(mct.localEulerAngles.x > 300f)) ? (60f - mct.localEulerAngles.x) : (370f - mct.localEulerAngles.x));
+		// Throw speed from the look pitch, as before within the old +-50 degree look. With the full +-89 degree look (QA-07), the
+		// old 300 degree split read a steep upward look as looking down and threw backwards: split at 180 and keep the old range.
+		float pitchX = mct.localEulerAngles.x;
+		float Z = ((!(pitchX > 180f)) ? Mathf.Max(-20f, 60f - pitchX) : Mathf.Min(60f, 370f - pitchX));
 		Vector3 dir = ct.TransformDirection(0f, 0f, Z + 30f);
 		Rigidbody b = UnityEngine.Object.Instantiate(grenade, ct.position + ct.forward + ct.right * -0.5f + ct.up, Quaternion.identity) as Rigidbody;
 		b.GetComponent<Bullet>().shooter = mt;
@@ -593,10 +606,48 @@ public partial class FPSController
 	/// <summary>A shot, reload, weapon change or grenade is under way: a hold interaction stops (F42).</summary>
 	public bool RogueWeaponBusy => firing || Time.time < rogueReloadingUntil || (anim != null && (anim.GetBool("Change") || anim.GetBool("Grenade")));
 
-	/// <summary>Carry start or going down: end aiming (owner) and a reload in progress (every copy; its rounds are never committed).</summary>
+	private int rogueShotToken;
+
+	// ---- Fresh Magazine (QA-32): a round number per round actually fired, and a weapon identity per weapon instance. Every copy
+	// counts the same Shoot and ExchangeWeapons calls, so their numbers agree; only the owner's hits deal Roguelike damage.
+	private readonly System.Collections.Generic.Dictionary<int, int> rogueWeaponTaken = new System.Collections.Generic.Dictionary<int, int>();
+
+	/// <summary>A stable id of the weapon of a model this player holds: the model plus how many times a weapon of that model was
+	/// taken from the ground or bought. Switching between the two carried weapons keeps both ids.</summary>
+	public string RogueWeaponIdentity(int model)
+	{
+		int taken;
+		rogueWeaponTaken.TryGetValue(model, out taken);
+		return model + "#" + taken;
+	}
+
+	private void RogueNoteWeaponTaken(int model)
+	{
+		int taken;
+		rogueWeaponTaken.TryGetValue(model, out taken);
+		rogueWeaponTaken[model] = taken + 1;
+	}
+
+	private long RogueNextRound()
+	{
+		var meta = RogueMetaRuntime.Of(this);
+		return meta != null ? meta.NextRound() : 0;
+	}
+
+	private void RogueStampBullet(Bullet bullet, long round)
+	{
+		var meta = RogueMetaRuntime.Of(this);
+		if (meta != null) meta.StampBullet(bullet, round);
+	}
+
+	/// <summary>Carry start or going down: end aiming and the sprint (owner), the rest of a burst and a reload in progress (every
+	/// copy; the reload's rounds are never committed). A weapon change or a grenade already sent completes on every copy (its
+	/// weapon stays hidden while carrying): stopping it half way on some copies would leave them holding different weapons.</summary>
 	public void RogueCancelWeaponConflicts()
 	{
 		if (MyView(base.gameObject) && Aiming) Zoom(false);
+		if (MyView(base.gameObject)) StopSprint(true);
+		rogueShotToken++;
 		if (Time.time >= rogueReloadingUntil) return;
 		rogueReloadToken++;
 		rogueReloadingUntil = 0f;

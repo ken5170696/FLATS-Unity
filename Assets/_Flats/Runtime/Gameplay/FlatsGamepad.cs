@@ -23,16 +23,17 @@ public static class FlatsGamepad
     const int DefaultVibration = 4;
     const int DefaultCurve = 1;
 
-    // Button per PadActions entry: Jump, Sprint, Fire, Aim, Reload, Change, Grenade, Scope, Ultimate, Tactical, Shop.
+    // Button per PadActions entry: Jump, Sprint, Fire, Aim, Reload, Change, Grenade, Scope, Ultimate, Tactical, Shop, Melee, Overview
+    // (Melee: D-pad left, QA-39; Overview: Back/View, QA-41 - the buttons they were fixed to before they could be rebound).
     public static readonly string[] PresetNames = { "Default", "Tactical", "Bumper Jumper" };
     static readonly InputControlType[][] presets =
     {
         // Common console FPS layout: grenade on the right bumper.
-        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton, InputControlType.LeftBumper, InputControlType.DPadDown, InputControlType.DPadRight },
+        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton, InputControlType.LeftBumper, InputControlType.DPadDown, InputControlType.DPadRight, InputControlType.DPadLeft, InputControlType.Back },
         // Grenade on B, as in the earlier FLATS layout; the bumpers stay free.
-        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.Action2, InputControlType.RightStickButton, InputControlType.LeftBumper, InputControlType.DPadDown, InputControlType.DPadRight },
+        new[] { InputControlType.Action1, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.Action2, InputControlType.RightStickButton, InputControlType.LeftBumper, InputControlType.DPadDown, InputControlType.DPadRight, InputControlType.DPadLeft, InputControlType.Back },
         // Jump on the left bumper lets players jump without leaving the look stick.
-        new[] { InputControlType.LeftBumper, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton, InputControlType.DPadUp, InputControlType.DPadDown, InputControlType.DPadRight },
+        new[] { InputControlType.LeftBumper, InputControlType.LeftStickButton, InputControlType.RightTrigger, InputControlType.LeftTrigger, InputControlType.Action3, InputControlType.Action4, InputControlType.RightBumper, InputControlType.RightStickButton, InputControlType.DPadUp, InputControlType.DPadDown, InputControlType.DPadRight, InputControlType.DPadLeft, InputControlType.Back },
     };
     public static InputControlType DefaultButton(int action) => presets[0][action];
 
@@ -210,6 +211,7 @@ public static class FlatsGamepad
             case InputControlType.DPadDown: xbox = ps = "D-pad Down"; break;
             case InputControlType.DPadLeft: xbox = ps = "D-pad Left"; break;
             case InputControlType.DPadRight: xbox = ps = "D-pad Right"; break;
+            case InputControlType.Back: xbox = "View"; ps = "Share"; break;
             default: return button.ToString();
         }
         return style == Style.Xbox ? xbox : style == Style.PlayStation ? ps : xbox == ps ? xbox : xbox + " / " + ps;

@@ -119,33 +119,8 @@ public partial class FPSController
 		}
 		else
 		{
-			if (!(droppedGun != null) || !enableFire)
-			{
-				return;
-			}
-			DroppedGun component = droppedGun.GetComponent<DroppedGun>();
-			if (component.ready)
-			{
-				if (Menu.network == 0)
-				{
-					int[] receivedData3 = new int[5] { component.weaponIndex, component.currentAmmo, component.maxAmmo, component.sight, 0 };
-					StartCoroutine(ExchangeWeapons(receivedData3));
-					UnityEngine.Object.Destroy(droppedGun.gameObject);
-				}
-				else if (Menu.network != 1 && base.gameObject.GetPhotonView().isMine)
-				{
-					int[] array4 = new int[5]
-					{
-						component.weaponIndex,
-						component.currentAmmo,
-						component.maxAmmo,
-						component.sight,
-						droppedGun.gameObject.GetPhotonView().viewID
-					};
-					base.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.All, array4);
-				}
-				droppedGun = null;
-			}
+			// the one exchange path (action rule, server-ordered request, the owner's own ammo count; QA-14, QA-26)
+			TryExchangeGroundWeapon();
 		}
 	}
 }

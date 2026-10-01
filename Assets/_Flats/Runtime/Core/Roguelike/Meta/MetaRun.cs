@@ -114,6 +114,41 @@ namespace Flats.Core.Roguelike
             return ShopVariant(b, model) != null;
         }
 
+        /// <summary>Initialize additive schema-2 fields once; history remains a bounded director recency buffer.</summary>
+        public static void EnsureProgressTotals(RunState run)
+        {
+            if (run == null || run.progressTotalsInitialized) return;
+            int stages = 0, lastDepth = 0, objectives = 0, events = 0, finales = 0;
+            foreach (var h in run.history ?? new EncounterHistory[0])
+            {
+                stages++; lastDepth = Math.Max(lastDepth, h.depth);
+                if (!string.IsNullOrEmpty(h.objectiveId)) objectives++;
+                if (!string.IsNullOrEmpty(h.eventId)) events++;
+                if (!string.IsNullOrEmpty(h.finaleId)) finales++;
+            }
+            // A full recency buffer may have dropped early stages. Sparse hand-authored histories retain their count.
+            if (stages >= 12) stages = Math.Max(stages, lastDepth);
+            run.progressLastDepth = Math.Max(run.progressLastDepth, lastDepth);
+            run.totalStagesCleared = Math.Max(run.totalStagesCleared, stages);
+            run.totalObjectives = Math.Max(run.totalObjectives, objectives);
+            run.totalEvents = Math.Max(run.totalEvents, events);
+            run.totalFinales = Math.Max(run.totalFinales, Math.Max(finales, stages / RogueDepth.StagesPerChapter));
+            run.progressTotalsInitialized = true;
+        }
+
+        /// <summary>Legacy time cannot be recovered exactly. Estimate 120 s per cleared stage only on migration;
+        /// new authority snapshots persist RecordElapsed values. Never use the last-12 history length.</summary>
+        public static void MigrateProgress(RunState run)
+        {
+            if (run == null) return;
+            EnsureProgressTotals(run);
+            if (run.elapsedSeconds == 0 && run.totalStagesCleared > 0)
+            {
+                run.elapsedSeconds = run.totalStagesCleared * 120.0;
+                run.elapsedEstimated = true;
+            }
+        }
+
         /// <summary>Facts for one player of an ended run. Kills and rescues are the authority's counters; the rest is the owner's tally.</summary>
         public static RunFacts Facts(RunState run, string key, double seconds, int meleeKills, string[] weaponKills, int heat)
         {
@@ -121,19 +156,24 @@ namespace Flats.Core.Roguelike
             if (run == null) return f;
             var me = run.Player(key);
             f.RunId = run.runId; f.End = run.end; f.Difficulty = run.difficulty; f.Heat = heat;
-            f.DeepestDepth = run.deepestDepth; f.Seconds = seconds;
-            f.StagesCleared = run.history != null ? run.history.Length : 0;
+            EnsureProgressTotals(run);
+            f.DeepestDepth = run.deepestDepth; f.Seconds = Math.Max(run.elapsedSeconds, seconds);
+            f.SecondsEstimated = run.elapsedEstimated;
+            f.StagesCleared = run.totalStagesCleared;
             foreach (var h in run.history ?? new EncounterHistory[0])
             {
                 if (!string.IsNullOrEmpty(h.objectiveId)) f.Objectives++;
                 if (!string.IsNullOrEmpty(h.eventId)) f.Events++;
                 if (!string.IsNullOrEmpty(h.finaleId)) f.FinalesCleared++;
             }
+            f.Objectives = Math.Max(f.Objectives, run.totalObjectives);
+            f.Events = Math.Max(f.Events, run.totalEvents);
+            f.FinalesCleared = Math.Max(f.FinalesCleared, run.totalFinales);
             int players = 0; foreach (var p in run.players) if (p.connected) players++;
             f.Players = Math.Max(1, players);
             if (me != null)
             {
-                f.Kills = me.kills; f.Headshots = me.headshots; f.Rescues = me.rescues; f.Afk = me.afk;
+                f.Kills = me.kills; f.Headshots = me.headshots; f.Rescues = me.rescues; f.Afk = me.afk && me.kills + me.rescues <= 0; // current AFK status cannot erase earlier contribution
                 f.Level = me.build != null && me.build.meta != null ? me.build.meta.level : 1;
                 f.Primary = me.build != null && me.build.meta != null ? me.build.meta.primary : "";
                 f.Secondary = me.build != null && me.build.meta != null ? me.build.meta.secondary : "";

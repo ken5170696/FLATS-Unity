@@ -76,7 +76,9 @@ public partial class FPSController : MonoBehaviour
 	// True only during Shoot's cooldown. Aiming may start or stop while the fire
 	// button is held; reload, weapon change, grenades and melee still block it.
 	private bool firing;
-	private bool CanStartAim => (enableFire || firing) && !anim.GetBool("Run");
+	// Sprinting is an explicit state (UpdateSprint), never read back from speed: speed skills make walking faster than the
+	// old 20 u/s "running" threshold without sprinting (QA-21). Aiming wins over sprinting (QA-04); a dash or a menu refuses it.
+	private bool CanStartAim => enableFire || firing;
 
 	private Vector3 aimEyeLocalPosition;
 
@@ -145,13 +147,59 @@ public partial class FPSController : MonoBehaviour
 
 	public static float holdTime = 0.2f;
 
-	private bool padSprint;
+	// ---- Sprint (QA-21, QA-04, QA-02). Rules, owner only:
+	//  - Keyboard and mouse follow FlatsControls.ToggleSprint: Hold (default, the original behaviour) sprints while the key is
+	//    held; Toggle starts with a press and stops with the next press. A controller keeps its own rule: a click toggles and
+	//    holding also sprints. Touch sprints while Jump is held.
+	//  - Sprint needs forward input (little strafe) and ground contact; stopping forward input ends a toggled sprint.
+	//  - Aiming wins: starting to aim ends the sprint at once (normal aimed movement, no fire delay). Held sprint resumes when
+	//    the aim ends while the key is still held; a toggled sprint stays off until pressed again. A sprint press ends a
+	//    toggled aim (never an aim that is being held).
+	//  - Firing ends the sprint: the weapon comes up for SprintOutSeconds before that first shot is sent (the owner waits, so
+	//    every copy fires together). Held sprint resumes SprintAfterShotSeconds after the trigger is let go; toggled stays off.
+	//  - A reload keeps the sprint speed (the run pose waits for the weapon). A Roguelike dash suspends it (toggled: ends).
+	//  - Hard stops (carry start, going down, a pause, menu or modal, a suspended control) end it; a held key must be released
+	//    and pressed again. Death, respawn and a scene change create a new controller, so nothing carries over.
+	private bool sprinting;
+
+	private bool sprintLatched;
+
+	private bool sprintHeldLast;
+
+	private bool sprintNeedsRelease;
+
+	private float sprintBlockedUntil = -1f;
+
+	private float sprintOutUntil = -1f;
+
+	private int sprintOutShot;
+
+	private const float SprintOutSeconds = 0.2f;
+
+	private const float SprintAfterShotSeconds = 0.35f;
+
+	/// <summary>The owner's movement uses the sprint speed this frame.</summary>
+	public bool Sprinting => sprinting;
 
 	private float rogueLift;
 
 	private float rogueFall;
 
 	private float rogueJumpPrevY;
+
+	// Roguelike owns the local player's vertical speed: a ballistic jump and fall instead of a constant push fighting the controller's
+	// accumulated gravity (a jump cut at a mis-read apex, and a double jump cancelled by the fall speed it started in).
+	private float rogueVy;
+
+	private bool rogueJumpStart;
+
+	private const float RogueGravity = 30f;
+
+	private const float RogueJumpHeight = 5f;
+
+	private const float RogueTerminalFall = 55f;
+
+	private bool RogueVertical => RoguelikeMode.Active && mt != null && mt.parent == null;
 
 	public static int sensitivity = 5;
 
@@ -388,6 +436,8 @@ public partial class FPSController : MonoBehaviour
 			reticle.SetVisible(true);
 			sight.SetActive(false);
 			SetBodyRenderLayer(13);
+			// QA-01: the local body sits on layer 13, which world lights exclude; a shadows-only proxy on the default layer casts its shadow
+			PlayerShadowProxy.Attach(gameObject);
 			savedFOV = 0f;
 			enableCamRotate = true;
 			enableControl = true;
@@ -550,30 +600,57 @@ public partial class FPSController : MonoBehaviour
 		}
 		else if (droppedGun != null && enableFire)
 		{
-			DroppedGun component2 = droppedGun.GetComponent<DroppedGun>();
-			if (component2.ready)
-			{
-				if (SessionNetworkMode == 0)
-				{
-					int[] receivedData6 = new int[5] { component2.weaponIndex, component2.currentAmmo, component2.maxAmmo, component2.sight, 0 };
-					StartCoroutine(ExchangeWeapons(receivedData6));
-					UnityEngine.Object.Destroy(droppedGun.gameObject);
-				}
-				else if (SessionNetworkMode != 1 && base.gameObject.GetPhotonView().isMine)
-				{
-					int[] array8 = new int[5]
-					{
-						component2.weaponIndex,
-						component2.currentAmmo,
-						component2.maxAmmo,
-						component2.sight,
-						droppedGun.gameObject.GetPhotonView().viewID
-					};
-					base.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.All, array8);
-				}
-				droppedGun = null;
-			}
+			TryExchangeGroundWeapon();
 		}
+	}
+
+	/// <summary>Roguelike action rule for taking a ground weapon (always true in Classic modes); DroppedGun asks it before offering.</summary>
+	public bool MayPickUpWeapon => !RoguelikeMode.Active || RogueActionGate.Allows(this, RogueAction.PickupWeapon);
+
+	// Exchange the weapon in hand for the ground weapon the local player stands at: desktop Interact, the touch Interact button
+	// and the controller's held Change all come here. The Roguelike rule is asked first (QA-14): carrying, down, a menu, a melee
+	// swing, a dash or an Interact that belongs to a Roguelike target refuse it. The request carries the owner's own count of the
+	// weapon it puts down (entries 5 and 6), and travels through the server so every copy orders competing requests the same way
+	// (QA-26; ExchangeWeapons lets only the first taker have the weapon).
+	private bool TryExchangeGroundWeapon()
+	{
+		if (droppedGun == null || !enableFire)
+		{
+			return false;
+		}
+		DroppedGun ground = droppedGun.GetComponent<DroppedGun>();
+		if (ground == null || !ground.ready || !MayPickUpWeapon)
+		{
+			return false;
+		}
+		if (SessionNetworkMode == 0)
+		{
+			int[] receivedData = new int[5] { ground.weaponIndex, ground.currentAmmo, ground.maxAmmo, ground.sight, 0 };
+			StartCoroutine(ExchangeWeapons(receivedData));
+			UnityEngine.Object.Destroy(droppedGun.gameObject);
+		}
+		else if (SessionNetworkMode != 1 && base.gameObject.GetPhotonView().isMine)
+		{
+			PhotonView groundView = droppedGun.gameObject.GetPhotonView();
+			if (groundView == null)
+			{
+				return false;
+			}
+			int[] request = new int[7]
+			{
+				ground.weaponIndex,
+				ground.currentAmmo,
+				ground.maxAmmo,
+				ground.sight,
+				groundView.viewID,
+				currentGun != null ? currentGun.currentAmmo : -1,
+				currentGun != null ? currentGun.maxAmmo : -1
+			};
+			base.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.AllViaServer, request);
+			ground.NoteRequested();
+		}
+		droppedGun = null;
+		return true;
 	}
 
 	private void Update()
@@ -660,6 +737,11 @@ public partial class FPSController : MonoBehaviour
 			}
 			float num;
 			float num2;
+			// This frame's sprint, fire and held-aim inputs, resolved by UpdateSprint after the device branch (mode: 0 hold,
+			// 1 toggle, 2 controller click-toggle that also sprints while held).
+			bool sprintHeld = false, sprintPressed = false, fireHeld = false, aimHeld = false;
+			int sprintMode = 0;
+			FlushSprintOutShot();
 			bool canInteract = touchControl && !overrideInputDevice && GameplayActive && CanInteract;
 			ShowInteractButton(canInteract);
 			if (canInteract && interactLabel != null)
@@ -675,6 +757,9 @@ public partial class FPSController : MonoBehaviour
                 num = num2 = 0f;
                 jumpPressTime = reloadPressTime = zoomPressTime = pickPressTime = 0f;
                 picking = false;
+                // Only whether a sprint button is still held, so a sprint key let go in a menu may start a sprint at once afterwards.
+                sprintHeld = desktopSample.Sprint || (!touchControl && FlatsControls.PadState("Sprint"));
+                sprintHeldLast = desktopSample.Sprint;
             }
             else if (touchControl && !overrideInputDevice)
             {
@@ -683,11 +768,8 @@ public partial class FPSController : MonoBehaviour
 				if (ETCInput.GetButton("Jump"))
 				{
 					jumpPressTime += 1f * Time.deltaTime;
-					if (num > 0f && Mathf.Abs(num2) < 0.5f && jumpPressTime > holdTime && isGrounded() && !RogueJumpBlocked && RogueAllows(RogueAction.Sprint))
-					{
-						num *= 1.5f;
-						num2 /= 2f;
-					}
+					// Holding Jump sprints; UpdateSprint applies it with the shared sprint rules.
+					sprintHeld = jumpPressTime > holdTime;
 				}
 				else if (ETCInput.GetButtonUp("Jump"))
 				{
@@ -775,6 +857,7 @@ public partial class FPSController : MonoBehaviour
 				}
 				if (ETCInput.GetButton("Fire"))
 				{
+					fireHeld = true;
 					RaycastHit hitInfo = default(RaycastHit);
 					if (!RoguelikeMode.Active && Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo, 3f, mask))
 					{
@@ -801,7 +884,7 @@ public partial class FPSController : MonoBehaviour
 							base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
 						}
 					}
-					else if (enableFire && RogueAllows(RogueAction.Fire))
+					else if (enableFire && RogueAllows(RogueAction.Fire) && SprintOutReady(1))
 					{
 						if (Menu.network == 0)
 						{
@@ -837,27 +920,19 @@ public partial class FPSController : MonoBehaviour
 					if (SessionPlaying)
 					{
 						// Controller jump fires on press. Sprint toggles with a click (holding also
-						// works) and ends when forward input stops or the player aims.
+						// works) and ends when forward input stops, the player aims or fires (UpdateSprint).
 						if (FlatsControls.PadState("Jump", 1) && !jumping && isGrounded() && !RogueJumpBlocked && !Physics.Raycast(mct.position, Vector2.up, 2f))
 						{
 							Y = mt.position.y;
 							jumping = true;
 						}
-						if (FlatsControls.PadState("Sprint", 1))
-						{
-							padSprint = !padSprint;
-						}
-						if (num <= 0.2f || isZoom)
-						{
-							padSprint = false;
-						}
-						if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && !RogueJumpBlocked && RogueAllows(RogueAction.Sprint) && (padSprint || FlatsControls.PadState("Sprint")))
-						{
-							num *= 1.5f;
-							num2 /= 2f;
-						}
+						sprintMode = 2;
+						sprintHeld = FlatsControls.PadState("Sprint");
+						sprintPressed = FlatsControls.PadState("Sprint", 1);
+						aimHeld = FlatsControls.PadState("Aim", 0);
 						if (FlatsControls.PadState("Fire", 0))
 						{
+							fireHeld = true;
 							RaycastHit hitInfo2 = default(RaycastHit);
 							if (!RoguelikeMode.Active && Physics.SphereCast(ct.position, 2f, ct.forward, out hitInfo2, 3f, mask))
 							{
@@ -884,7 +959,7 @@ public partial class FPSController : MonoBehaviour
 									base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
 								}
 							}
-							else if (enableFire && RogueAllows(RogueAction.Fire))
+							else if (enableFire && RogueAllows(RogueAction.Fire) && SprintOutReady(1))
 							{
 								if (Menu.network == 0)
 								{
@@ -933,29 +1008,7 @@ public partial class FPSController : MonoBehaviour
 								}
 								else if (droppedGun != null && enableFire)
 								{
-									DroppedGun component = droppedGun.GetComponent<DroppedGun>();
-									if (component.ready)
-									{
-										if (Menu.network == 0)
-										{
-											int[] receivedData2 = new int[5] { component.weaponIndex, component.currentAmmo, component.maxAmmo, component.sight, 0 };
-											StartCoroutine(ExchangeWeapons(receivedData2));
-											UnityEngine.Object.Destroy(droppedGun.gameObject);
-										}
-										else if (Menu.network != 1 && base.gameObject.GetPhotonView().isMine)
-										{
-											int[] array3 = new int[5]
-											{
-												component.weaponIndex,
-												component.currentAmmo,
-												component.maxAmmo,
-												component.sight,
-												droppedGun.gameObject.GetPhotonView().viewID
-											};
-											base.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.All, array3);
-										}
-										droppedGun = null;
-									}
+									TryExchangeGroundWeapon();
 								}
 								else if (grabbing && grabbedObject != null)
 								{
@@ -1036,11 +1089,12 @@ public partial class FPSController : MonoBehaviour
                     var input = desktopSample;
 					num = input.Forward;
 					num2 = input.Right;
-					if (num > 0f && Mathf.Abs(num2) < 0.5f && isGrounded() && !RogueJumpBlocked && RogueAllows(RogueAction.Sprint) && input.Sprint)
-					{
-						num *= 1.5f;
-						num2 /= 2f;
-					}
+					sprintMode = FlatsControls.ToggleSprint ? 1 : 0;
+					sprintHeld = input.Sprint;
+					sprintPressed = input.Sprint && !sprintHeldLast;
+					sprintHeldLast = input.Sprint;
+					fireHeld = input.Fire;
+					aimHeld = FlatsControls.HoldToAim && input.AimHeld;
 					if (enableCamRotate)
 					{
 						ApplyLook(Flats.Core.LookInput.Mouse, input.LookX, input.LookY);
@@ -1059,7 +1113,7 @@ public partial class FPSController : MonoBehaviour
 						{
 							actions.Dispatch(Flats.Core.PlayerAction.Smash);
 						}
-						else if (enableFire && !(RoguelikeMode.Active && RogueHooks.CarryingBlocksFire(this)) && RogueAllows(RogueAction.Fire))
+						else if (enableFire && !(RoguelikeMode.Active && RogueHooks.CarryingBlocksFire(this)) && RogueAllows(RogueAction.Fire) && SprintOutReady(2))
 						{
 							actions.Dispatch(Flats.Core.PlayerAction.Shoot);
 						}
@@ -1076,10 +1130,13 @@ public partial class FPSController : MonoBehaviour
 					{
 						actions.Dispatch(Flats.Core.PlayerAction.ThrowGrenade);
 					}
-					if (input.Jump && !jumping && !RogueJumpBlocked && (isGrounded() || (RoguelikeMode.Active && RogueHooks.AllowAirJump(this))) && !Physics.Raycast(mct.position, Vector2.up, 2f))
+					if (input.Jump && !RogueJumpBlocked && !Physics.Raycast(mct.position, Vector2.up, 2f)
+						&& ((!jumping && isGrounded()) || (RogueVertical && !cc.isGrounded && RogueHooks.AllowAirJump(this))))
 					{
+						// the air jump (Double Jump) is taken while rising or falling; it restarts the ballistic rise from where the player is
 						Y = mt.position.y;
 						jumping = true;
+						rogueJumpStart = true;
 					}
 					if (input.Interact)
 					{
@@ -1087,7 +1144,7 @@ public partial class FPSController : MonoBehaviour
 					}
 					if (FlatsControls.HoldToAim)
 					{
-						// Holding re-enters aim once a reload, sprint or weapon change ends.
+						// Holding re-enters aim once a reload, weapon change or dash ends; it also wins over a sprint.
 						if (input.AimHeld && !Aiming && CanStartAim)
 						{
 							Zoom(true);
@@ -1110,6 +1167,7 @@ public partial class FPSController : MonoBehaviour
 					}
 				}
 			}
+			UpdateSprint(ref num, ref num2, sprintHeld, sprintPressed, sprintMode, fireHeld, aimHeld);
 			if (!GameplayActive)
 			{
 				num = 0f;
@@ -1117,7 +1175,11 @@ public partial class FPSController : MonoBehaviour
 			}
 			ferrisWheelFollower.BeforeMove(cc, mt);
 			movedWithGravity = Flats.Gameplay.PlayerMovementMotor.Move(cc, mt, jumping, zombie, num, num2, Time.deltaTime, RoguelikeMode.Active ? RogueHooks.MoveSpeedScale(this) : 1f);
-			if (jumping)
+			if (RogueVertical)
+			{
+				RogueVerticalMove();
+			}
+			else if (jumping)
 			{
 				if (mt.parent == null)
 				{
@@ -1190,21 +1252,9 @@ public partial class FPSController : MonoBehaviour
 						camAnim.SetFloat("Speed", Mathf.Abs(num) + Mathf.Abs(num2));
 					}
 					anim.SetBool("Jump", false);
-					if (speed.z > 20f && enableFire)
-					{
-						if (!isZoom && enableCamRotate)
-						{
-							anim.SetBool("Run", true);
-						}
-						if (Aiming)
-						{
-							Zoom(false);
-						}
-					}
-					else
-					{
-						anim.SetBool("Run", false);
-					}
+					// The run pose follows the sprint state, never the speed (QA-21): speed skills and a dash move faster
+					// than the old 20 u/s threshold without sprinting, and aiming or a shot never waits for the run pose.
+					anim.SetBool("Run", sprinting && enableFire && !Aiming && enableCamRotate && speed.z > 1f);
 				}
 				else
 				{
@@ -1217,7 +1267,11 @@ public partial class FPSController : MonoBehaviour
 			{
 				camAnim = ct.GetComponent<Animator>();
 			}
-			if (!jumping && !movedWithGravity)
+			if (RogueVertical)
+			{
+				rogueLift = 0f; rogueFall = 0f;
+			}
+			else if (!jumping && !movedWithGravity)
 			{
 				cc.Move(Vector3.down * Time.deltaTime * 9.81f);
 				// The fall itself comes from the controller gravity applied in OnAnimatorMove (SimpleMove accumulates it); this constant
@@ -1258,6 +1312,133 @@ public partial class FPSController : MonoBehaviour
 			Vector3 zero = Vector3.zero;
 			cc.Move(zero);
 			ptv.SetSynchronizedValues(zero, 0f);
+			StopSprint(true);
+		}
+	}
+
+	// ---- Sprint state (rules at the fields above)
+	private RoguePlayer roguePlayer;
+
+	private bool RogueDashing
+	{
+		get
+		{
+			if (roguePlayer == null)
+			{
+				roguePlayer = GetComponent<RoguePlayer>();
+			}
+			return roguePlayer != null && roguePlayer.Dashing;
+		}
+	}
+
+	/// <summary>Ends the owner's sprint now. hard: carry start, going down, menus; a held sprint key must be released and pressed again.</summary>
+	public void StopSprint(bool hard)
+	{
+		sprinting = false;
+		sprintLatched = false;
+		if (hard)
+		{
+			sprintNeedsRelease = true;
+			sprintOutShot = 0;
+			if (anim != null)
+			{
+				anim.SetBool("Run", false);
+			}
+		}
+	}
+
+	private void UpdateSprint(ref float forward, ref float right, bool held, bool pressed, int mode, bool fireHeld, bool aimHeld)
+	{
+		if (!held)
+		{
+			sprintNeedsRelease = false;
+		}
+		if (!GameplayActive || RogueJumpBlocked || !RogueAllows(RogueAction.Sprint))
+		{
+			// A hard stop: a key still held has to be let go first; one let go meanwhile starts a sprint as soon as it is pressed.
+			StopSprint(true);
+			sprintNeedsRelease = held;
+			return;
+		}
+		if (pressed && (mode != 0 || !sprintNeedsRelease))
+		{
+			if (mode != 0)
+			{
+				sprintLatched = !sprintLatched;
+			}
+			// The newest press wins over a toggled aim; an aim button that is being held keeps priority.
+			if ((mode == 0 || sprintLatched) && Aiming && !aimHeld && !fireHeld)
+			{
+				Zoom(false);
+			}
+		}
+		// A held trigger (on a weapon that is ready or firing) keeps the sprint off, and so does the moment after it is let go;
+		// a long cooldown (a sniper rifle's bolt) alone does not.
+		if (fireHeld && (enableFire || firing) && !grabbing && RogueAllows(RogueAction.Fire))
+		{
+			sprintBlockedUntil = Time.time + SprintAfterShotSeconds;
+		}
+		bool shooting = sprintOutShot != 0 || Time.time < sprintBlockedUntil;
+		bool suppressed = Aiming || shooting || (RoguelikeMode.Active && RogueDashing);
+		// A toggled sprint ends when forward input stops (the controller keeps its old 0.2 dead band) or when it is suppressed;
+		// a held one only pauses.
+		if (forward <= (mode == 2 ? 0.2f : 0f) || (suppressed && mode != 0))
+		{
+			sprintLatched = false;
+		}
+		bool wants = sprintLatched || (mode != 1 && held && !sprintNeedsRelease);
+		sprinting = wants && !suppressed && forward > 0f && Mathf.Abs(right) < 0.5f && isGrounded();
+		if (sprinting)
+		{
+			forward *= 1.5f;
+			right /= 2f;
+		}
+	}
+
+	// A shot from a sprint (QA-04): the sprint ends at once and the weapon comes up for SprintOutSeconds, then that one shot is
+	// sent by FlushSprintOutShot even if the button was only tapped. The owner waits before sending, so every copy fires at the
+	// same moment. source: 1 the legacy send (StartCoroutine or the Shoot RPC), 2 the gameplay action dispatcher (desktop).
+	// True when the shot may be sent now.
+	private bool SprintOutReady(int source)
+	{
+		if (zombie)
+		{
+			return true;
+		}
+		if (sprinting)
+		{
+			StopSprint(false);
+			sprintOutUntil = Time.time + SprintOutSeconds;
+			sprintOutShot = source;
+			return false;
+		}
+		return sprintOutShot == 0;
+	}
+
+	private void FlushSprintOutShot()
+	{
+		if (sprintOutShot == 0 || Time.time < sprintOutUntil)
+		{
+			return;
+		}
+		int source = sprintOutShot;
+		sprintOutShot = 0;
+		sprintBlockedUntil = Time.time + SprintAfterShotSeconds;
+		if (!GameplayActive || !enableFire || grabbing || zombie || !RogueAllows(RogueAction.Fire))
+		{
+			return;
+		}
+		if (source == 2 && actions != null)
+		{
+			actions.Dispatch(Flats.Core.PlayerAction.Shoot);
+		}
+		else if (Menu.network == 0)
+		{
+			StartCoroutine("Shoot");
+		}
+		else if (Menu.network != 1)
+		{
+			base.gameObject.GetPhotonView().RPC("Shoot", PhotonTargets.All);
 		}
 	}
 
@@ -1267,7 +1448,7 @@ public partial class FPSController : MonoBehaviour
 		// root translation as well introduces frame-dependent reverse impulses.
 		// Animator's built-in controller integration also supplied gravity. Keep
 		// that controller gravity without importing the clips' planar impulses.
-		if (anim != null && cc != null && MyView(base.gameObject) && !movedWithGravity)
+		if (anim != null && cc != null && MyView(base.gameObject) && !movedWithGravity && !RogueVertical)
 			cc.SimpleMove(Vector3.zero);
 		if (cc != null && mt != null && MyView(base.gameObject)) ferrisWheelFollower.AfterMove(cc, mt);
 	}
@@ -1282,6 +1463,35 @@ public partial class FPSController : MonoBehaviour
 
 	// Roguelike: a downed player stays on the ground until revived (no jump, no sprint; it crawls).
 	private bool RogueJumpBlocked => RoguelikeMode.Active && RogueHooks.JumpBlocked(this);
+
+	/// <summary>Roguelike vertical motion for the local player: jump speed from the target height, one gravity for the rise and the
+	/// fall (scaled by low-gravity zones), a terminal speed, and a landing that clears the jump. The motor's ground snap owns grounded frames.</summary>
+	private void RogueVerticalMove()
+	{
+		float dt = Time.deltaTime;
+		float g = RogueGravity * RogueHooks.GravityScale(this);
+		if (rogueJumpStart || (jumping && !isJump))   // the keyboard/pad/touch jump paths all set jumping from the ground
+		{
+			rogueJumpStart = false;
+			rogueVy = Mathf.Sqrt(2f * RogueGravity * RogueJumpHeight * RogueHooks.JumpHeightMul(this));
+			isJump = true;
+		}
+		else if (movedWithGravity)
+		{
+			// standing or walking on ground: the motor already pressed the player onto it
+			rogueVy = 0f; jumping = false; isJump = false;
+			return;
+		}
+		rogueVy = Mathf.Max(rogueVy - g * dt, -RogueTerminalFall);
+		if (rogueVy > 0f && (cc.collisionFlags & CollisionFlags.Above) != 0) rogueVy = 0f;   // head hit a ceiling
+		cc.Move(Vector3.up * (rogueVy * dt));
+		if (cc.isGrounded && rogueVy <= 0f)
+		{
+			rogueVy = -2f;   // keeps contact on slopes and steps until the motor's snap takes over
+			jumping = false; isJump = false;
+		}
+		else jumping = rogueVy > 0f;   // the motor skips its ground snap only while rising
+	}
 
 	private bool isGrounded()
 	{

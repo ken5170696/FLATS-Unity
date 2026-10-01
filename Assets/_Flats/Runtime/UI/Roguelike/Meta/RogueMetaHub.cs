@@ -38,7 +38,13 @@ public class RogueMetaHub : MonoBehaviour
     public ScrollRect modalScroll;
     [Min(0)] public float modalScrollSpeed;
     public Color selectedTab, idleTab;
+    [Tooltip("Label and icon colour on a selected / idle tab, preset, category and branch button (alpha 0 keeps the authored colours). " +
+             "The Roguelike theme's selected tab is the accent, which carries ink text.")]
+    public Color selectedTabContent, idleTabContent;
     public Sprite medal;
+    [Tooltip("Next-run settings and the primary Start Run button; hidden until the opener calls ConfigurePlay.")]
+    public RogueMetaPlayBar playBar;
+    [Min(.05f)] public float playRefreshSeconds = .25f;
     public int CurrentPage { get; private set; }
     public MetaProfile Profile { get; private set; }
     public string LastError { get; private set; }
@@ -51,11 +57,26 @@ public class RogueMetaHub : MonoBehaviour
     MetaProfiles.Slot slot = MetaProfiles.Slot.Primary;
     string previousMenu;
     bool previousRotate;
-    CursorLockMode previousCursorLock;
-    bool previousCursorVisible;
+    PlaySetup playSetup;
+    float nextPlayRefresh;
+    bool closed;
 
     /// <summary>The run's "how to play" text, supplied by the menu (it knows the player's bindings).</summary>
     public static Func<string> RunHowToPlay;
+
+    /// <summary>
+    /// What the play bar shows and does, supplied by the screen that opened the hub (the menu owns the run settings and the
+    /// launch path; the hub only binds). The functions return display text, already translated, and are read again on every
+    /// refresh; closeLabel is a translation key. A null difficulty or map hides that button; a null play hides the Start button.
+    /// </summary>
+    public sealed class PlaySetup
+    {
+        public Func<string> title, detail, playLabel, difficulty, map;
+        public Action play, cycleDifficulty, cycleMap;
+        public Func<bool> playEnabled;   // null: always enabled
+        public Func<bool> closeOnPlay;   // null: the hub closes itself before play runs
+        public string closeLabel = "Close";
+    }
 
     public static RogueMetaHub Open(Transform parent, MetaProfile profile, Func<MetaProfile, bool> save, Action onClose)
     {
@@ -71,10 +92,9 @@ public class RogueMetaHub : MonoBehaviour
         Profile = RogueMetaUI.Clone(profile); MetaProfiles.EnsureShape(Profile);
         save = persist; onClose = closed;
         previousMenu = Menu.current; previousRotate = FPSController.enableCamRotate;
-        previousCursorLock = UnityEngine.Cursor.lockState; previousCursorVisible = UnityEngine.Cursor.visible;
         Menu.current = "RogueMetaHub"; FPSController.enableCamRotate = false;
         oldSelection = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;
-        UnityEngine.Cursor.lockState = CursorLockMode.None; UnityEngine.Cursor.visible = true;
+        FlatsCursor.Push(this);   // cursor free while the hub is open; closing restores the state of the page below (QA-34)
         for (int i = 0; i < tabs.Length; i++) { int page = i; RogueMetaUI.Bind(tabs[i].button, tabs[i].key, () => SelectPage(page)); }
         for (int i = 0; i < presets.Length; i++) { int p = i; RogueMetaUI.Bind(presets[i], "", () => Transact(x => MetaUiRules.SelectPreset(x, p))); }
         for (int i = 0; i < categories.Length; i++) { int c = i; categories[i].onClick.AddListener(() => { category = c; RefreshArmory(); }); }
@@ -89,10 +109,24 @@ public class RogueMetaHub : MonoBehaviour
             var node = Instantiate(nodeTemplate, branches[(int)n.Branch], false); node.gameObject.SetActive(true);
             node.name = n.Id; nodes.Add(n.Id, node);
         }
+        if (playBar != null) playBar.gameObject.SetActive(false);   // shown by ConfigurePlay
         HideModal();
         if (Profile.challengeDay != Challenges.DayKey(DateTime.UtcNow) || Profile.challengeWeek != Challenges.WeekKey(DateTime.UtcNow)) Transact(p => MetaUiRules.RollChallenges(p, DateTime.UtcNow));
-        SelectPage(0); Refresh(); MaybeTutorial();
+        SelectPage(0); PaintBranchButtons(); Refresh(); MaybeTutorial();
+        FlatsLocalization.Changed += OnLanguageChanged;
     }
+    /// <summary>Opens the current dialog again (its texts are composed from translated parts): set by every dialog opener.</summary>
+    Action reopenModal;
+    /// <summary>A language switch while the hub is open: cards, play bar and an open dialog are rebuilt in the new language
+    /// (QA-36 round 3: the first-visit welcome stayed in the old language; only its Back button followed).</summary>
+    void OnLanguageChanged()
+    {
+        if (closed || Profile == null) return;
+        Refresh();
+        if (CurrentPage == 1 && selectedSkill != null) SkillDetails(selectedSkill);
+        if (modal != null && modal.activeSelf && reopenModal != null) reopenModal();
+    }
+    void OnDestroy() { FlatsLocalization.Changed -= OnLanguageChanged; }
     public bool Transact(Func<MetaProfile, MetaResult> command)
     {
         var candidate = RogueMetaUI.Clone(Profile);
@@ -114,7 +148,7 @@ public class RogueMetaHub : MonoBehaviour
     public void SelectPage(int index)
     {
         CurrentPage = (index + pages.Length) % pages.Length;
-        for (int i = 0; i < pages.Length; i++) { pages[i].SetActive(i == CurrentPage); tabs[i].stripe.color = i == CurrentPage ? selectedTab : idleTab; }
+        for (int i = 0; i < pages.Length; i++) { pages[i].SetActive(i == CurrentPage); tabs[i].stripe.color = i == CurrentPage ? selectedTab : idleTab; PaintTabContent(tabs[i].button, i == CurrentPage); }
         Refresh(); Focus(tabs[CurrentPage].button.gameObject);
     }
     public void Refresh()
@@ -127,6 +161,7 @@ public class RogueMetaHub : MonoBehaviour
         {
             presets[i].GetComponentInChildren<Text>().text = RogueMetaUI.PresetName(Profile.presets[i].name);
             presets[i].GetComponent<Image>().color = i == Profile.activePreset ? selectedTab : idleTab;
+            PaintTabContent(presets[i], i == Profile.activePreset);
         }
         if (!presetName.isFocused) presetName.SetTextWithoutNotify(RogueMetaUI.PresetName(Profile.Active.name));
         switch (CurrentPage)
@@ -147,6 +182,71 @@ public class RogueMetaHub : MonoBehaviour
             case 5: RefreshRecords(); break;
             case 6: RefreshHelp(); break;
         }
+        RefreshPlay();   // a Heat selection or a new loadout changes the next run's summary
+    }
+    /// <summary>Shows the play bar with the opener's settings. focusPlay: controller focus starts on Start Run (after a run);
+    /// a tutorial that is already open keeps the focus and hands it to Start Run when it closes.</summary>
+    public void ConfigurePlay(PlaySetup setup, bool focusPlay)
+    {
+        playSetup = setup;
+        if (setup != null) RogueMetaUI.Bind(close, string.IsNullOrEmpty(setup.closeLabel) ? "Close" : setup.closeLabel, Close);
+        if (playBar == null) return;   // a prefab without the bar still opens and closes normally
+        playBar.gameObject.SetActive(setup != null);
+        if (setup == null) return;
+        BindPlayButton(playBar.play, Play);
+        BindPlayButton(playBar.difficulty, () => { if (playSetup != null && playSetup.cycleDifficulty != null) playSetup.cycleDifficulty(); RefreshPlay(); });
+        BindPlayButton(playBar.map, () => { if (playSetup != null && playSetup.cycleMap != null) playSetup.cycleMap(); RefreshPlay(); });
+        RefreshPlay();
+        if (!focusPlay || playBar.play == null || !playBar.play.gameObject.activeInHierarchy) return;
+        if (modal.activeSelf) beforeModal = playBar.play.gameObject; else Focus(playBar.play.gameObject);
+    }
+    static void BindPlayButton(Button button, Action action)
+    {
+        if (button == null) return;
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(() => { RogueMetaUI.Sound(); action(); });
+    }
+    /// <summary>Re-reads the opener's texts (settings, ready state, host changes). Labels are only written when they change.</summary>
+    public void RefreshPlay()
+    {
+        var s = playSetup;
+        if (s == null || playBar == null || closed) return;
+        nextPlayRefresh = Time.unscaledTime + playRefreshSeconds;
+        RogueMetaPlayBar.Put(playBar.title, s.title != null ? s.title() : "");
+        RogueMetaPlayBar.Put(playBar.detail, s.detail != null ? s.detail() : "");
+        SetOption(playBar.difficulty, playBar.difficultyCaption, playBar.difficultyValue, "Difficulty", s.difficulty, s.cycleDifficulty);
+        SetOption(playBar.map, playBar.mapCaption, playBar.mapValue, "Map", s.map, s.cycleMap);
+        if (playBar.play != null)
+        {
+            bool show = s.play != null;
+            if (playBar.play.gameObject.activeSelf != show) playBar.play.gameObject.SetActive(show);
+            bool enabled = show && (s.playEnabled == null || s.playEnabled());
+            if (playBar.play.interactable != enabled) playBar.play.interactable = enabled;
+            RogueMetaPlayBar.Put(playBar.playLabel, s.playLabel != null ? s.playLabel() : RogueMetaUI.T("Start Run"));
+        }
+    }
+    static void SetOption(Button button, Text caption, Text value, string captionKey, Func<string> text, Action cycle)
+    {
+        if (button == null) return;
+        bool show = text != null;
+        if (button.gameObject.activeSelf != show) button.gameObject.SetActive(show);
+        if (!show) return;
+        button.interactable = cycle != null;
+        RogueMetaPlayBar.Put(caption, RogueMetaUI.T(captionKey));
+        RogueMetaPlayBar.Put(value, text());
+    }
+    /// <summary>The primary button. Unless the opener keeps the hub open (a co-op ready toggle), the hub closes first and gives the
+    /// screen below back to the menu, then the opener's action runs (the menu's launch path, the room start or the squad return).</summary>
+    public void Play()
+    {
+        var s = playSetup;
+        if (closed || s == null || s.play == null || modal.activeSelf) return;
+        if (s.playEnabled != null && !s.playEnabled()) return;
+        bool closeFirst = s.closeOnPlay == null || s.closeOnPlay();
+        var action = s.play;
+        if (closeFirst) CloseInternal(null);
+        action();
+        if (!closeFirst) RefreshPlay();
     }
     List<RogueMetaCard> Begin(int page) { List<RogueMetaCard> list; if (!pools.TryGetValue(page, out list)) { list = new List<RogueMetaCard>(); pools.Add(page, list); } foreach (var c in list) c.gameObject.SetActive(false); return list; }
     RogueMetaCard Card(int page, int index)
@@ -193,10 +293,37 @@ public class RogueMetaHub : MonoBehaviour
     void SelectBranch(int index)
     {
         treeLayout.SelectBranch(index);
+        PaintBranchButtons();
         SkillDetails(SkillTree.Nodes.First(n=>(int)n.Branch==treeLayout.SelectedBranch));
+    }
+    /// <summary>The portrait branch sub-tabs show which branch is open (QA-36 M8), in the same colours as the main tabs.</summary>
+    void PaintBranchButtons()
+    {
+        if (branchButtons == null || treeLayout == null) return;
+        for (int i = 0; i < branchButtons.Length; i++)
+        {
+            if (branchButtons[i] == null) continue;
+            var image = branchButtons[i].GetComponent<Image>();
+            if (image != null) image.color = i == treeLayout.SelectedBranch ? selectedTab : idleTab;
+            PaintTabContent(branchButtons[i], i == treeLayout.SelectedBranch);
+        }
+    }
+    /// <summary>Label and icon of a selectable tab-like button follow its state; the focus frame is left alone.</summary>
+    void PaintTabContent(Button button, bool on)
+    {
+        var c = on ? selectedTabContent : idleTabContent;
+        if (button == null || c.a <= 0f) return;
+        foreach (var g in button.GetComponentsInChildren<Graphic>(true))
+        {
+            if (g.gameObject == button.gameObject) continue;
+            if (!(g is Text) && g.name != "TabIcon" && g.name != "Icon") continue;
+            var next = new Color(c.r, c.g, c.b, g.color.a);
+            if (g.color != next) g.color = next;
+        }
     }
     public void ConfirmReset()
     {
+        reopenModal = ConfirmReset;
         string body = RogueMetaUI.L(MetaText.Refund(Profile.Active)) + "\n\n" + string.Join("\n", Profile.Active.skills.SelectMany(id => MetaText.Skill(SkillTree.Node(id))).Select(RogueMetaUI.L).ToArray());
         ShowModal("Reset skills for free", body, RogueIcons.Get("Reload"), "Confirm reset", () => { if (Transact(p => MetaProfiles.Respec(p, p.activePreset))) HideModal(); }, Profile.Active.skills.Length > 0);
     }
@@ -220,7 +347,7 @@ public class RogueMetaHub : MonoBehaviour
     {
         Begin(2); int index = 0;
         IEnumerable<string> ids = category == 6 ? RogueArmory.Melee.Select(x => x.Id) : category == 7 ? RogueArmory.Sights.Select(x => x.Id) : RogueArmory.Ranged.Where(x => category == 5 ? x.Class == WeaponClass.LMG || x.Class == WeaponClass.Launcher : (int)x.Class == category).Select(x => x.Id);
-        for (int i = 0; i < categories.Length; i++) categories[i].GetComponent<Image>().color = category == i ? selectedTab : idleTab;
+        for (int i = 0; i < categories.Length; i++) { categories[i].GetComponent<Image>().color = category == i ? selectedTab : idleTab; PaintTabContent(categories[i], category == i); }
         foreach (var id in ids)
         {
             string pick = id; var w = RogueArmory.Weapon(id); var m = RogueArmory.MeleeWeapon(id);
@@ -236,6 +363,7 @@ public class RogueMetaHub : MonoBehaviour
     }
     public void ArmoryDetails(string id)
     {
+        reopenModal = () => ArmoryDetails(id);
         if (!Profile.Owns(id))
         {
             ShowModal("Unlock weapon", RogueMetaUI.T(MetaProfiles.ArmoryName(id)) + "\n\n" + ArmoryEffects(id) + "\n\n" + RogueMetaUI.L(MetaText.Purchase(Profile, id)), RogueMetaUI.Icon(id), "Confirm purchase", () =>
@@ -249,6 +377,7 @@ public class RogueMetaHub : MonoBehaviour
     void Acquisition(string id) { EquipDetails(id, true); }
     void EquipDetails(string id, bool unlocked)
     {
+        reopenModal = () => EquipDetails(id, unlocked);
         bool melee = RogueArmory.MeleeWeapon(id) != null, sight = RogueArmory.Sight(id) != null;
         var target = melee ? MetaProfiles.Slot.Melee : sight ? (slot == MetaProfiles.Slot.SecondarySight || slot == MetaProfiles.Slot.Secondary ? MetaProfiles.Slot.SecondarySight : MetaProfiles.Slot.PrimarySight) : slot == MetaProfiles.Slot.Secondary ? MetaProfiles.Slot.Secondary : MetaProfiles.Slot.Primary;
         string reason = sight ? MetaProfiles.SightAllowed(Profile, target == MetaProfiles.Slot.PrimarySight ? Profile.Active.primary : Profile.Active.secondary, id) : null;
@@ -293,11 +422,17 @@ public class RogueMetaHub : MonoBehaviour
         for (int h = 0; h <= RogueHeat.MaxHeat; h++)
         {
             int heat = h; bool unlocked = h <= Profile.heatUnlocked;
-            var lines = new List<string>(); for (int n = 1; n <= h; n++) lines.Add(RogueMetaUI.L(MetaText.Heat(n)));
             string latest = h == 0 ? "Base difficulty" : RogueMetaUI.L(MetaText.Heat(h));
             var c = Card(4, h);
-            c.Bind("heat." + h, RogueMetaUI.L(MetaText.Value("Heat {0}", h)), latest, RogueMetaUI.L(MetaText.HeatReward(h)), "", h == Profile.lastHeat ? "Selected" : unlocked ? "Unlocked" : "Heat not unlocked", "", RogueIcons.Get("Warning"), () => ShowModal(RogueMetaUI.L(MetaText.Value("Heat {0}", heat)), string.Join("\n\n", lines.ToArray()) + "\n\n" + RogueMetaUI.L(MetaText.HeatReward(heat)), RogueIcons.Get("Warning"), "Select Heat", () => { if (Transact(p => MetaUiRules.SelectHeat(p, heat))) HideModal(); }, unlocked), h == Profile.lastHeat ? 3 : unlocked ? 1 : 0);
+            c.Bind("heat." + h, RogueMetaUI.L(MetaText.Value("Heat {0}", h)), latest, RogueMetaUI.L(MetaText.HeatReward(h)), "", h == Profile.lastHeat ? "Selected" : unlocked ? "Unlocked" : "Heat not unlocked", "", RogueIcons.Get("Warning"), () => ShowHeat(heat), h == Profile.lastHeat ? 3 : unlocked ? 1 : 0);
         }
+    }
+    void ShowHeat(int heat)
+    {
+        reopenModal = () => ShowHeat(heat);
+        var lines = new List<string>(); for (int n = 1; n <= heat; n++) lines.Add(RogueMetaUI.L(MetaText.Heat(n)));
+        bool unlocked = heat <= Profile.heatUnlocked;
+        ShowModal(RogueMetaUI.L(MetaText.Value("Heat {0}", heat)), string.Join("\n\n", lines.ToArray()) + "\n\n" + RogueMetaUI.L(MetaText.HeatReward(heat)), RogueIcons.Get("Warning"), "Select Heat", () => { if (Transact(p => MetaUiRules.SelectHeat(p, heat))) HideModal(); }, unlocked);
     }
     void RefreshRecords()
     {
@@ -344,6 +479,7 @@ public class RogueMetaHub : MonoBehaviour
     public void Tutorial(string key, bool replay = false)
     {
         int index = Array.IndexOf(tutorialKeys, key); if (index < 0 || (!replay && MetaProfiles.SeenTutorial(Profile, key))) return;
+        reopenModal = () => Tutorial(key, replay);
         Action dismiss = () => { if (replay || Transact(p => MetaUiRules.DismissTutorial(p, key))) { HideModal(); if (!replay) MaybeTutorial(); } };
         ShowModal(tutorialTitles[index], tutorialBodies[index], RogueIcons.Get("Core"), "Got it", dismiss);
         modalDismiss = dismiss;
@@ -357,16 +493,22 @@ public class RogueMetaHub : MonoBehaviour
         modalScroll.verticalNormalizedPosition = 1; Focus(enabled ? modalPrimary.gameObject : modalBack.gameObject);
     }
     public void DismissModal() { if (modalDismiss != null) { var callback = modalDismiss; modalDismiss = null; callback(); } else HideModal(); }
-    void HideModal() { modal.SetActive(false); mainGroup.interactable = true; mainGroup.blocksRaycasts = true; modalDismiss = null; Focus(beforeModal != null && beforeModal.activeInHierarchy ? beforeModal : close.gameObject); }
+    void HideModal() { reopenModal = null; modal.SetActive(false); mainGroup.interactable = true; mainGroup.blocksRaycasts = true; modalDismiss = null; Focus(beforeModal != null && beforeModal.activeInHierarchy ? beforeModal : close.gameObject); }
     static void Focus(GameObject go) { if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(go); }
-    public void Close()
+    public void Close() { CloseInternal(onClose); }
+    /// <summary>Once only (a click and Esc in the same frame, or the menu closing the hub while it closes itself).</summary>
+    void CloseInternal(Action after)
     {
+        if (closed) return;
+        closed = true;
         Menu.current = previousMenu; FPSController.enableCamRotate = previousRotate;
-        UnityEngine.Cursor.lockState = previousCursorLock; UnityEngine.Cursor.visible = previousCursorVisible;
-        Focus(oldSelection); if (onClose != null) onClose(); Destroy(gameObject);
+        FlatsCursor.Pop(this);
+        Focus(oldSelection); if (after != null) after(); Destroy(gameObject);
     }
     void Update()
     {
+        if (closed) return;
+        if (playSetup != null && Time.unscaledTime >= nextPlayRefresh) RefreshPlay();
         var pad = InControl.InputManager.ActiveDevice;
         if(!modal.activeSelf&&CurrentPage==1&&pad!=null&&skillScroll.content.rect.height>skillScroll.viewport.rect.height)
             skillScroll.verticalNormalizedPosition=Mathf.Clamp01(skillScroll.verticalNormalizedPosition+pad.RightStickY.Value*modalScrollSpeed*Time.unscaledDeltaTime);

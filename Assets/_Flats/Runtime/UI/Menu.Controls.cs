@@ -41,6 +41,7 @@ public partial class Menu
     void InitializeControls()
     {
         if (bindingsPanel != null) return;
+        WireAuthoredSettingRows();
         var control = settingsScreen.GetChild(2);
         // All layout, fonts, materials and animation are authored in SettingsScreen.prefab.
         // General-setting rows are the Control children with Plus/Minus buttons.
@@ -68,6 +69,18 @@ public partial class Menu
         // Language can also change outside this page, for example by importing a save.
         FlatsLocalization.Changed += RefreshPersonalRows;
     }
+    // Rows added to SettingsScreen.prefab later (SprintMode, WheelSwitch, DamageNumbers) have no scene override pointing their Plus/Minus
+    // at this Menu, so their persistent PlusMinus call has no target. Wire any Plus/Minus button without a live persistent target once.
+    void WireAuthoredSettingRows()
+    {
+        foreach (var button in settingsScreen.GetComponentsInChildren<Button>(true))
+        {
+            if (button.name != "Plus" && button.name != "Minus") continue;
+            bool live = false;
+            for (int i = 0; i < button.onClick.GetPersistentEventCount(); i++) if (button.onClick.GetPersistentTarget(i) != null) live = true;
+            if (!live) button.onClick.AddListener(PlusMinus);
+        }
+    }
     // Authored settings rows (Index/Count/Plus/Minus) whose Plus and Minus call PlusMinus.
     // They are looked up by name so they can be placed on any Settings page.
     Transform SettingsRow(string name)
@@ -87,12 +100,16 @@ public partial class Menu
         }
         var aim = SettingsRow("AimMode");
         if (aim != null) aim.GetChild(1).GetComponent<Text>().text = FlatsControls.HoldToAim ? "Hold" : "Toggle";
+        // Authored in SettingsScreen as a copy of the AimMode row; builds without the row skip it.
+        SetRowValue("SprintMode", FlatsControls.ToggleSprint ? "Toggle" : "Hold");
+        // Authored in SettingsScreen as a copy of the AimMode row; builds without the row skip it.
+        SetRowValue("WheelSwitch", FlatsControls.WheelSwitch ? "ON" : "OFF");
         var aimSensitivity = SettingsRow("AimSensitivity");
         if (aimSensitivity != null) aimSensitivity.GetChild(1).GetComponent<Text>().text = FlatsControls.AimSensitivityNames[FlatsControls.AimSensitivityIndex];
         var killCinematic = SettingsRow("KillCinematic");
         if (killCinematic != null) killCinematic.GetChild(1).GetComponent<Text>().text = FlatsControls.KillCinematic ? "ON" : "OFF";
         // Authored in SettingsScreen → ExtraSettings as a copy of the KillCinematic row; builds without the row skip it.
-        SetRowValue("DamageNumbers", FlatsControls.DamageNumbers ? "ON" : "OFF");
+        SetRowValue("DamageNumbers", FlatsControls.DamageNumberStyleNames[(int)FlatsControls.DamageNumberStyle]);   // OFF / Floating / Stacked (QA-48)
         SetRowValue("PadPreset", FlatsGamepad.CurrentPreset() < 0 ? "Custom" : FlatsGamepad.PresetNames[FlatsGamepad.CurrentPreset()]);
         SetRowValue("PadLookH", FlatsGamepad.SpeedLabel(FlatsGamepad.LookHIndex));
         SetRowValue("PadLookV", FlatsGamepad.SpeedLabel(FlatsGamepad.LookVIndex));
@@ -120,9 +137,19 @@ public partial class Menu
             RefreshLanguageButton();
         }
         else if (row.name == "AimMode") FlatsControls.HoldToAim = !FlatsControls.HoldToAim;
+        else if (row.name == "SprintMode")
+        {
+            FlatsControls.ToggleSprint = !FlatsControls.ToggleSprint;
+            if (bindingsPanel != null && bindingsPanel.activeSelf) RefreshBindings();
+        }
+        else if (row.name == "WheelSwitch")
+        {
+            FlatsControls.WheelSwitch = !FlatsControls.WheelSwitch;
+            if (bindingsPanel != null && bindingsPanel.activeSelf) RefreshBindings();
+        }
         else if (row.name == "AimSensitivity") FlatsControls.AimSensitivityIndex += direction;
         else if (row.name == "KillCinematic") FlatsControls.KillCinematic = !FlatsControls.KillCinematic;
-        else if (row.name == "DamageNumbers") FlatsControls.DamageNumbers = !FlatsControls.DamageNumbers;
+        else if (row.name == "DamageNumbers") FlatsControls.DamageNumberStyle = Flats.Core.Roguelike.DamageNumberRules.Cycle(FlatsControls.DamageNumberStyle, direction);
         else if (row.name == "PadPreset")
         {
             int count = FlatsGamepad.PresetNames.Length, current = FlatsGamepad.CurrentPreset();
@@ -210,6 +237,8 @@ public partial class Menu
         if (action == "Ultimate") return "Ultimate (Roguelike)";
         if (action == "Tactical") return "Tactical skill (Roguelike)";
         if (action == "Shop") return "Open shop (Roguelike)";
+        if (action == "Melee") return "Melee (Roguelike)";
+        if (action == "Overview") return "Overview (Roguelike)";
         if (action == "Left") return "Move left";
         if (action == "Right") return "Move right";
         return action;
@@ -224,7 +253,10 @@ public partial class Menu
             bindingRows[i].transform.Find("Label").GetComponent<Text>().text = FlatsControls.Label(action, bindingPad);
             bindingLabels[i].text = ActionName(action, false);
             bindingDetails[i].text = bindingPad && action == "Sprint" ? "Click to toggle" : bindingPad && action == "Change" ? "Hold to pick up or interact" :
-                !bindingPad && action == "Aim" ? (FlatsControls.HoldToAim ? "Hold to aim" : "Press to toggle") : "";
+                !bindingPad && action == "Aim" ? (FlatsControls.HoldToAim ? "Hold to aim" : "Press to toggle") :
+                !bindingPad && action == "Sprint" ? (FlatsControls.ToggleSprint ? "Press to toggle" : "Hold to sprint") :
+                !bindingPad && action == "Change" && FlatsControls.WheelSwitch ? "Mouse wheel also switches" :
+                action == "Melee" ? "Tap to swing, hold to guard or throw" : "";
             // The action name fills the row height: centred alone, at the top above a hint line.
             bindingLabels[i].alignment = bindingDetails[i].text.Length > 0 ? TextAnchor.UpperLeft : TextAnchor.MiddleLeft;
         }
@@ -300,7 +332,7 @@ public partial class Menu
         // second controller connected (or one whose sticks drift), the active device can
         // be another pad, and presses and Start on the pad in hand were never seen.
         var pads = InputManager.Devices;
-        if (!bindingsPanel.activeInHierarchy || (bindingPad && captureDevice != InputDevice.Null && !captureDevice.IsAttached) || !Application.isFocused || Input.GetKeyDown(KeyCode.Escape) || pads.Any(pad => pad.CommandWasPressed) || Time.unscaledTime - captureStarted > 10)
+        if (!bindingsPanel.activeInHierarchy || (bindingPad && captureDevice != InputDevice.Null && !captureDevice.IsAttached) || !Application.isFocused || Input.GetKeyDown(KeyCode.Escape) || pads.Any(pad => pad.CommandWasPressed && !pad.GetControl(InputControlType.Back).WasPressed) || Time.unscaledTime - captureStarted > 10)
         { FinishBinding("Binding cancelled. Previous binding kept."); return true; }
         if (!captureReady)
         {

@@ -13,7 +13,7 @@ public sealed class RogueMeleeHUD : MonoBehaviour, IPointerDownHandler, IPointer
     {
         if(melee==null||!melee.Equipped){Destroy(gameObject);return;}
         TouchButton.SetActive(RogueInput.IsTouch);
-        Prompt.text=melee.AxeThrown?"斧頭已投出 · 走近拾回":melee.Guarding?"舉盾中 · 放開近戰鍵解除":"";
+        Prompt.text=melee.AxeThrown?RoguelikeController.T("Axe thrown · walk over it to pick it up"):melee.Guarding?RoguelikeController.T("Guarding · release {0} to stop",RogueInput.KeyText("Melee")):"";   // translated; the key follows the Melee binding
     }
     public void OnPointerDown(PointerEventData data)
     {

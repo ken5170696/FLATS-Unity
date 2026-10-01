@@ -10,7 +10,9 @@ using PhotonHashtable = ExitGames.Client.Photon.Hashtable;
 //  - Ready: every player owns PhotonPlayer.CustomProperties["RDY"] (bool). The master starts the run when everyone in the
 //    room is ready (after a short grace so a late cancel still counts) or when the host forces the start. No auto-start on a
 //    full room and no master hand-off.
-//  - Loadout & Armory: the meta hub opens from the room (and from the co-op result screen) without leaving the room.
+//  - Loadout & Armory: the meta hub opens from the room (and from the co-op result screen) without leaving the room. After a run
+//    the result statistics open it by themselves; its play bar is the squad's next step (RoomPlaySetup): the host's Play again
+//    returns the squad, a client readies up for the next run. Only the master ever starts a run or returns the squad.
 //  - Return to room: on the co-op result screen the host sends RogueReturnToRoom; every client loads the menu scene while
 //    staying in the Photon room and lands on the room screen. The master clears the room cache (buffered Sync, DecideMap,
 //    LoadMap, VoteMap, StartNow and the run's cached instantiations) before it reopens the room.
@@ -21,6 +23,9 @@ public partial class Menu
 
     // Set on the result screen right before the menu scene loads; the next Menu.Start consumes it.
     static bool roomReturnPending;
+    // Headquarters after a co-op run (QA-46): a client's "ready for the next run", applied when the squad is back in the room; the
+    // host's Play again focuses the room's Start button on arrival. Both are consumed by the return and cleared on leaving.
+    static bool roomReadyAfterReturn, roomFocusStartAfterReturn;
 
     RogueMetaHub roomHub;
     RogueRoomPanel roomPanel;
@@ -95,6 +100,7 @@ public partial class Menu
         if (panel != null && panel.gameObject.activeSelf != active) panel.gameObject.SetActive(active);
         RefreshRoomCards();
         if (!active) { roomAllReadySince = -1f; return; }
+        EnsureRogueSkin(true);   // QA-53: the co-op room of the mode wears the mode's look while it is open
         int total, ready = RoomReadyCount(out total);
         bool mine = IsRoomReady(PhotonNetwork.player), host = PhotonNetwork.isMasterClient;
         bool everyone = total > 0 && ready == total;
@@ -261,7 +267,66 @@ public partial class Menu
                 if (this == null) return;
                 StartCoroutine(ReleaseMenuInput(() => { RefreshRogueRoom(); RefreshRogueCoopResult(); FocusRogueScreen(); }));
             });
+        roomHub.ConfigurePlay(RoomPlaySetup(fromRoom), fromResult);
         RefreshRogueRoom();
+    }
+
+    /// <summary>
+    /// The hub's play bar in a co-op room. Only the master ever starts or returns the squad; a client readies up.
+    ///  - From the room: the host's Start now (the room's own confirmation when not everyone is ready), a client's Ready.
+    ///  - After a run (over the result page): the host's Play again returns the squad to the room, where Start is focused (the room
+    ///    never starts on its own from here: the host's ready is cleared on arrival, as before). A client's toggle marks it ready for
+    ///    the next run, applied on arrival; the hub stays open.
+    /// The host is re-checked on every refresh and press, so a host change while the hub is open is handled.
+    /// </summary>
+    RogueMetaHub.PlaySetup RoomPlaySetup(bool fromRoom)
+    {
+        return new RogueMetaHub.PlaySetup
+        {
+            title = () => RoomText(fromRoom ? "Squad room" : "Next run"),
+            detail = () => RoomText(fromRoom
+                ? (PhotonNetwork.isMasterClient ? "You are the host: start now, or wait until everyone is ready." : "The host can start before everyone is ready.")
+                : PhotonNetwork.isMasterClient ? "Takes the squad back to the room. Start the next run there."
+                : roomReadyAfterReturn ? "You will be ready as soon as the squad is back in the room." : "The host takes the squad back to the room."),
+            playLabel = () =>
+            {
+                if (fromRoom)
+                {
+                    int total, ready = RoomReadyCount(out total);
+                    return PhotonNetwork.isMasterClient ? RoomText(string.Format("Start now ({0}/{1} ready)", ready, total)) : RoomText("Ready");
+                }
+                return RoomText(PhotonNetwork.isMasterClient ? "Play again" : roomReadyAfterReturn ? "Ready · press to cancel" : "Ready for the next run");
+            },
+            playEnabled = () => fromRoom ? RogueRoomActive && current == "RogueMetaHub" && !readyStarted && !roomStartSent
+                                         : RogueCoopOnline && !roomReturnStarted,
+            closeOnPlay = () => fromRoom || PhotonNetwork.isMasterClient,
+            play = () => RoomHubPlay(fromRoom),
+            closeLabel = "Back",
+        };
+    }
+
+    /// <summary>The play bar's action. The hub has already closed itself unless this is a client's ready toggle after a run.</summary>
+    void RoomHubPlay(bool fromRoom)
+    {
+        bool host = PhotonNetwork.isMasterClient;
+        if (!fromRoom && !host) { roomReadyAfterReturn = !roomReadyAfterReturn; return; }   // the hub stays open
+        roomHub = null;
+        if (this == null) return;
+        StartCoroutine(ReleaseMenuInput(() =>
+        {
+            if (fromRoom)
+            {
+                RefreshRogueRoom(); FocusRogueScreen();
+                if (!RogueRoomActive || current != "Matching" || readyStarted) return;
+                if (PhotonNetwork.isMasterClient) ConfirmHostStart();
+                else { SetLocalRoomReady(true); RefreshRogueRoom(); }
+                return;
+            }
+            RefreshRogueCoopResult(); FocusRogueScreen();
+            if (!PhotonNetwork.isMasterClient) return;   // the host changed meanwhile: only the master returns the squad
+            roomFocusStartAfterReturn = true;
+            ReturnSquadToRoom();
+        }));
     }
 
     /// <summary>Closes a hub opened from the room or the result screen (a run start, a return or a disconnect).</summary>
@@ -294,7 +359,11 @@ public partial class Menu
         if (current == "Matching")
         {
             var panel = RoomPanel();
-            target = panel != null && panel.armory != null && panel.armory.gameObject.activeInHierarchy ? panel.armory.gameObject : startNow != null ? startNow.gameObject : null;
+            // the host who chose Play again in headquarters lands on Start
+            if (roomFocusStartAfterReturn && PhotonNetwork.isMasterClient && panel != null && panel.hostStart != null && panel.hostStart.gameObject.activeInHierarchy && panel.hostStart.interactable)
+                target = panel.hostStart.gameObject;
+            else
+                target = panel != null && panel.armory != null && panel.armory.gameObject.activeInHierarchy ? panel.armory.gameObject : startNow != null ? startNow.gameObject : null;
         }
         else if (current == "Result")
         {
@@ -367,6 +436,7 @@ public partial class Menu
     {
         if (roomReturnStarted || current != "Result" || fliping) return;
         CloseRoomHub();
+        roomReadyAfterReturn = false; roomFocusStartAfterReturn = false;
         StartCoroutine(ResultBackToMenu());
     }
 
@@ -414,9 +484,10 @@ public partial class Menu
     /// <summary>Menu.Start, menu scene, still in the room after a co-op run: reset the pre-match state and show the room.</summary>
     void ConsumeRoomReturn()
     {
-        if (!roomReturnPending) return;
+        ConsumeRogueHeadquartersReturn();   // solo: headquarters after the run statistics (Menu.Roguelike)
+        if (!roomReturnPending) { roomReadyAfterReturn = false; roomFocusStartAfterReturn = false; return; }
         roomReturnPending = false;
-        if (!PhotonNetwork.inRoom || !RogueRoomActive) return;
+        if (!PhotonNetwork.inRoom || !RogueRoomActive) { roomReadyAfterReturn = false; roomFocusStartAfterReturn = false; return; }
         network = 0; waitBackground = false; wasInRoom = true; botCount = 0;
         startNowPlayer = 0; startNowPressed = false;
         Multiplayer.end = false;
@@ -424,7 +495,10 @@ public partial class Menu
         RoguelikeMode.Reset();
         Time.timeScale = 1f; canOpen = true;
         playerCount = PhotonNetwork.room.MaxPlayers;
-        SetLocalRoomReady(false);
+        // not ready, unless this client chose "ready for the next run" in headquarters; the host is never readied here, so the room
+        // cannot start by itself while a slower client is still loading with the ready flag left over from the last run
+        SetLocalRoomReady(roomReadyAfterReturn && !PhotonNetwork.isMasterClient);
+        roomReadyAfterReturn = false;
         if (PhotonNetwork.isMasterClient) ReopenReturnedRoom();
         Debug.Log("FLATS_ROGUE_ROOM_RETURNED master=" + PhotonNetwork.isMasterClient + " players=" + PhotonNetwork.room.PlayerCount);
         StartCoroutine(EnterReturnedRoom());
@@ -469,6 +543,7 @@ public partial class Menu
         if (PhotonNetwork.isMasterClient && !PhotonNetwork.room.IsOpen) ReopenReturnedRoom();
         RefreshRogueRoom();
         FocusRogueScreen();
+        roomFocusStartAfterReturn = false;
     }
 
     /// <summary>Leaving the room or losing the connection: nothing of the co-op room state survives.</summary>
@@ -478,6 +553,8 @@ public partial class Menu
         roomStartSent = false;
         roomAllReadySince = -1f;
         roomReturnPending = false;
+        roomReadyAfterReturn = false;
+        roomFocusStartAfterReturn = false;
         var panel = RoomPanel();
         if (panel != null) panel.gameObject.SetActive(false);
     }

@@ -26,7 +26,9 @@ public class PunTeams : MonoBehaviour
 
 	public void OnDisable()
 	{
-		PlayersPerTeam = new Dictionary<Team, List<PhotonPlayer>>();
+		// Keep one empty list per team: a player-properties callback can still arrive while this component is disabled during a scene
+		// change, and an empty dictionary made UpdateTeams throw KeyNotFoundException for Team.none (QA co-op ready toggle).
+		Start();
 	}
 
 	public void OnJoinedRoom()
@@ -56,6 +58,7 @@ public class PunTeams : MonoBehaviour
 
 	public void UpdateTeams()
 	{
+		if (PlayersPerTeam == null || PlayersPerTeam.Count == 0) Start();
 		Array values = Enum.GetValues(typeof(Team));
 		foreach (object item in values)
 		{

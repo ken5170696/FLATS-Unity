@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 6377129491322147635}
   - component: {fileID: 2358370104108264292}
   - component: {fileID: 645624353568118987}
+  - component: {fileID: 6851461230760444776}
   m_Layer: 0
   m_Name: IconBack
   m_TagString: Untagged
@@ -59,7 +60,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.8, g: 0.098, b: 0.4, a: 1}
+  m_Color: {r: 0.8, g: 0.09803922, b: 0.39215687, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -76,6 +77,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &6851461230760444776
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1004765538913267392}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 1
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}
 --- !u!1 &2911930348333236330
 GameObject:
   m_ObjectHideFlags: 0
@@ -87,6 +104,8 @@ GameObject:
   - component: {fileID: 4319783701780169391}
   - component: {fileID: 6459283898849997173}
   - component: {fileID: 1884503767531931552}
+  - component: {fileID: 3261180256405650113}
+  - component: {fileID: 6831556859474892150}
   m_Layer: 0
   m_Name: Label
   m_TagString: Untagged
@@ -134,7 +153,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
-  m_Color: {r: 0.16, g: 0.16, b: 0.16, a: 1}
+  m_Color: {r: 0.12156863, g: 0.12941177, b: 0.16078432, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -156,6 +175,36 @@ MonoBehaviour:
     m_LineSpacing: 1
   m_Text: Label
   translate: 1
+--- !u!114 &3261180256405650113
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2911930348333236330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 20
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}
+--- !u!114 &6831556859474892150
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2911930348333236330}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77f39d5a9100418da43269aefb6bf951, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RogueCjkWeight
+  latinStyle: 1
+  chineseStyle: 0
 --- !u!1 &4099091755589101384
 GameObject:
   m_ObjectHideFlags: 0
@@ -242,6 +291,7 @@ GameObject:
   - component: {fileID: 8727459339037741843}
   - component: {fileID: 5806631777237583281}
   - component: {fileID: 3421501325562223012}
+  - component: {fileID: 471095892184185874}
   m_Layer: 0
   m_Name: BarFill
   m_TagString: Untagged
@@ -289,7 +339,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.8, g: 0.098, b: 0.4, a: 1}
+  m_Color: {r: 0.8, g: 0.09803922, b: 0.39215687, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -306,6 +356,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &471095892184185874
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6321651353713808553}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 1
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}
 --- !u!1 &8045160437866881875
 GameObject:
   m_ObjectHideFlags: 0
@@ -317,6 +383,8 @@ GameObject:
   - component: {fileID: 3332811550686071133}
   - component: {fileID: 6573205238031702297}
   - component: {fileID: 6504519951335797978}
+  - component: {fileID: 165520457674079232}
+  - component: {fileID: 1791256325468941739}
   m_Layer: 0
   m_Name: Value
   m_TagString: Untagged
@@ -364,7 +432,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
-  m_Color: {r: 0.16, g: 0.16, b: 0.16, a: 1}
+  m_Color: {r: 0.12156863, g: 0.12941177, b: 0.16078432, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -381,11 +449,41 @@ MonoBehaviour:
     m_Alignment: 2
     m_AlignByGeometry: 0
     m_RichText: 1
-    m_HorizontalOverflow: 1
-    m_VerticalOverflow: 1
+    m_HorizontalOverflow: 0
+    m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Value
   translate: 1
+--- !u!114 &165520457674079232
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8045160437866881875}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 20
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}
+--- !u!114 &1791256325468941739
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8045160437866881875}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77f39d5a9100418da43269aefb6bf951, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RogueCjkWeight
+  latinStyle: 1
+  chineseStyle: 0
 --- !u!1 &8310034332527392336
 GameObject:
   m_ObjectHideFlags: 0
@@ -397,6 +495,7 @@ GameObject:
   - component: {fileID: 1346697574203617703}
   - component: {fileID: 7499055645662195396}
   - component: {fileID: 6288962761263904073}
+  - component: {fileID: 6291145143897345272}
   m_Layer: 0
   m_Name: Sub
   m_TagString: Untagged
@@ -421,7 +520,7 @@ RectTransform:
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
   m_AnchoredPosition: {x: 40, y: 3}
-  m_SizeDelta: {x: 200, y: 13}
+  m_SizeDelta: {x: 190, y: 13}
   m_Pivot: {x: 0, y: 0}
 --- !u!222 &7499055645662195396
 CanvasRenderer:
@@ -444,7 +543,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
-  m_Color: {r: 0.4, g: 0.4, b: 0.4, a: 1}
+  m_Color: {r: 0.36862746, g: 0.3764706, b: 0.4392157, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -461,11 +560,27 @@ MonoBehaviour:
     m_Alignment: 6
     m_AlignByGeometry: 0
     m_RichText: 1
-    m_HorizontalOverflow: 1
+    m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Sub
   translate: 1
+--- !u!114 &6291145143897345272
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8310034332527392336}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 21
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}
 --- !u!1 &8774827432613679613
 GameObject:
   m_ObjectHideFlags: 0
@@ -477,6 +592,7 @@ GameObject:
   - component: {fileID: 8574393962370572106}
   - component: {fileID: 8741007649573306248}
   - component: {fileID: 4601759927505999035}
+  - component: {fileID: 7665207502916297550}
   m_Layer: 0
   m_Name: BarBack
   m_TagString: Untagged
@@ -525,7 +641,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0, g: 0, b: 0, a: 0.1}
+  m_Color: {r: 0.8862745, g: 0.8627451, b: 0.8745098, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -542,6 +658,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &7665207502916297550
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8774827432613679613}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 15
+  alpha: 1
+  live: 0
+  theme: {fileID: 0}
 --- !u!1 &9126236503346489021
 GameObject:
   m_ObjectHideFlags: 0
@@ -555,6 +687,7 @@ GameObject:
   - component: {fileID: 5211628022570135306}
   - component: {fileID: 1577071219967156281}
   - component: {fileID: 7512752546694230366}
+  - component: {fileID: 7737924206905834097}
   m_Layer: 0
   m_Name: RogueStatRowCompact
   m_TagString: Untagged
@@ -607,7 +740,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 0.93, b: 0.96, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -664,3 +797,19 @@ MonoBehaviour:
   label: {fileID: 1884503767531931552}
   value: {fileID: 6504519951335797978}
   sub: {fileID: 6288962761263904073}
+--- !u!114 &7737924206905834097
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9126236503346489021}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 13
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}

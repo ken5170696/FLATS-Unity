@@ -35,7 +35,7 @@ namespace Flats.Core.Roguelike
         public int StagesCleared, DeepestDepth, Difficulty, Heat, Players;
         public int Kills, Headshots, Rescues, Objectives, Events, FinalesCleared, MeleeKills;
         public double Seconds;
-        public bool Afk;
+        public bool Afk, SecondsEstimated;
         public int SquadAverageLevel, SquadHighestLevel, Level;
         public string[] WeaponKills = new string[0];   // "weaponId|kills"
         public string Primary = "", Secondary = "", Melee = "";
@@ -61,9 +61,12 @@ namespace Flats.Core.Roguelike
         public const int MinStagesWhenAbandoned = 2;
         /// <summary>A full run (not abandoned, 2+ stages, 15+ minutes) pays at least this many merits and at most MeritCeiling from its base lines.</summary>
         public const long MeritFloor = 165, MeritCeiling = 200; public const double FloorSeconds = 900;
-        /// <summary>Base experience (before difficulty, heat and catch-up bonuses) is limited to this many per minute of the run,
-        /// so racing chapter 1 over and over is never faster than playing on; a strong normal run stays below it (~42/min).</summary>
-        public const double BaseXpPerMinute = 50;
+        /// <summary>Base experience (before difficulty, heat and catch-up bonuses) is limited to this many per minute of the run. It is
+        /// a safety net against abnormal clear speeds only: ordinary play earns about 60-110 base experience a minute (a stage pays
+        /// 45 plus its objective, event, kills and headshots, about 200, and takes 2-3 minutes with prep and shop), and a fast, clean
+        /// run about 130. The old limit of 50 a minute sat below ordinary play and removed 40-60% of a normal run's base experience
+        /// (playtest report 2026-09-30).</summary>
+        public const double BaseXpPerMinute = 150;
 
         /// <summary>Experience from level L to L+1. Level 2 arrives after one ordinary first run.</summary>
         public static long XpToNext(int level)
@@ -117,19 +120,30 @@ namespace Flats.Core.Roguelike
         /// <summary>Why a finished run earns nothing at all (no experience, merits, mastery, challenges, first times or heat), or "".</summary>
         public static string Ineligible(RunFacts f)
         {
+            if (f == null || f.End == RunEnd.None || double.IsNaN(f.Seconds) || double.IsInfinity(f.Seconds) || f.Seconds < 0) return "Invalid or unfinished run";
             if (f.Afk) return "Inactive for the whole run";
             if (f.Kills + f.Rescues <= 0) return "No kills or revives this run";
-            if (f.StagesCleared < MinStagesForReward || f.Seconds < MinSecondsForReward) return "Clear at least one stage to earn experience";
+            if (f.StagesCleared < MinStagesForReward) return "Clear at least one stage to earn experience";
+            if (f.Seconds < MinSecondsForReward) return "Play at least {0} seconds to earn experience";
             if (f.End == RunEnd.Abandoned && f.StagesCleared < MinStagesWhenAbandoned) return "Leaving before stage {0} earns nothing";
             return "";
         }
 
+        public static RewardLine IneligibleLine(RunFacts f)
+        {
+            string reason = Ineligible(f);
+            string arg = reason == "Play at least {0} seconds to earn experience" ? MinSecondsForReward.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                : reason == "Leaving before stage {0} earns nothing" ? MinStagesWhenAbandoned.ToString() : "";
+            return new RewardLine { source = reason, arg = arg };
+        }
+
         public static RunReward RunReward(RunFacts f)
         {
-            var r = new RunReward { runId = f.RunId ?? "" };
+            var r = new RunReward { runId = f == null ? "" : f.RunId ?? "" };
             var lines = new List<RewardLine>();
             r.abuse = Ineligible(f);
-            if (r.abuse != "") { r.lines = lines.ToArray(); return r; }
+            if (r.abuse != "") { r.lines = new[] { IneligibleLine(f) }; return r; }
+            if (f.SecondsEstimated) lines.Add(new RewardLine { source = "Legacy play time estimated ({0} min)", arg = ((int)(f.Seconds / 60)).ToString() });
 
             Action<string, string, long, long> add = (src, arg, xp, merits) => { if (xp != 0 || merits != 0) lines.Add(new RewardLine { source = src, arg = arg, xp = xp, merits = merits }); };
             add("Stages cleared x{0}", f.StagesCleared.ToString(), 45L * f.StagesCleared, 6L * f.StagesCleared);
@@ -163,17 +177,20 @@ namespace Flats.Core.Roguelike
                 if (target != meritBase) add(target > meritBase ? "Full run minimum" : "Run merit limit", "", 0, target - meritBase);
             }
             else if (meritBase > MeritCeiling) add("Run merit limit", "", 0, MeritCeiling - meritBase);
+            long rawXp = 0, rawMerits = 0;
+            foreach (var l in lines) { rawXp += l.xp; rawMerits += l.merits; }
+            r.xp = Math.Max(0, Math.Min(rawXp, 60000));
+            r.merits = Math.Max(0, Math.Min(rawMerits, 3000));
+            add("Run experience limit", "", r.xp - rawXp, 0);
+            add("Run merit safety limit", "", 0, r.merits - rawMerits);
             r.lines = lines.ToArray();
-            foreach (var l in r.lines) { r.xp += l.xp; r.merits += l.merits; }
-            r.xp = Math.Max(0, Math.Min(r.xp, 60000));
-            r.merits = Math.Max(0, Math.Min(r.merits, 3000));
             return r;
         }
     }
 
     /// <summary>
     /// Heat: stacked difficulty levels unlocked by finishing a chapter at the previous heat.
-    /// Each level adds one named modifier and +12% rewards. Every modifier is read from this table
+    /// Each level adds one named modifier and +8% rewards. Every modifier is read from this table
     /// by the director and the adapter; the menu lists them from the same table.
     /// </summary>
     public static class RogueHeat

@@ -11,6 +11,8 @@ using UnityEngine;
 ///  - look: the camera looks at it (within 40 degrees of its closest point or centre, or the view ray hits it);
 ///  - line of sight: nothing solid lies between the eye and the target (triggers and characters never block).
 /// The authority re-checks reach only, with a tolerance, on its own copies (look direction is not replicated).
+/// A revive in progress is judged more loosely (CheckHold with continueReach / continueLookAngle, QA-33), and its
+/// authority check adds the same reach.
 /// </summary>
 public static class RogueInteraction
 {
@@ -91,23 +93,23 @@ public static class RogueInteraction
         return horizontal <= reach && point.y >= lo - BandMargin - tolerance && point.y <= hi + BandMargin + tolerance;
     }
 
-    static bool Looking(Body b, Collider target, out float score)
+    static bool Looking(Body b, Collider target, float lookCos, out float score)
     {
         Vector3 near = ClosestPoint(target, b.Eye), centre = Centre(target);
         Vector3 toNear = near - b.Eye, toCentre = centre - b.Eye;
         if (toNear.sqrMagnitude < 0.0001f) { score = 1f; return true; }   // the eye is inside the target
         score = Mathf.Max(Vector3.Dot(b.Forward, toNear.normalized), toCentre.sqrMagnitude > 0.0001f ? Vector3.Dot(b.Forward, toCentre.normalized) : 1f);
-        if (score >= LookCos) return true;
+        if (score >= lookCos) return true;
         // a large object close up: the view ray itself lands on it although neither point is within the cone
         RaycastHit hit;
-        if (target.enabled && target.Raycast(new Ray(b.Eye, b.Forward), out hit, toNear.magnitude + target.bounds.extents.magnitude * 2f + 1f)) { score = LookCos; return true; }
+        if (target.enabled && target.Raycast(new Ray(b.Eye, b.Forward), out hit, toNear.magnitude + target.bounds.extents.magnitude * 2f + 1f)) { score = lookCos; return true; }
         // The eye is ~6 m up: a crate at the feet sits 60+ degrees below a level view (F35). Facing a target that is
         // below the eye counts as looking at it unless the player looks up; it ranks below a direct look.
         Vector3 flatForward = new Vector3(b.Forward.x, 0f, b.Forward.z), flatTo = new Vector3(toNear.x, 0f, toNear.z);
         if (target.bounds.max.y < b.Eye.y && b.Forward.y < 0.17f && flatForward.sqrMagnitude > 0.0001f)
         {
             float facing = flatTo.sqrMagnitude < 0.0001f ? 1f : Vector3.Dot(flatForward.normalized, flatTo.normalized);
-            if (facing >= LookCos) { score = Mathf.Max(score, facing * 0.9f); return true; }
+            if (facing >= lookCos) { score = Mathf.Max(score, facing * 0.9f); return true; }
         }
         return false;
     }
@@ -139,12 +141,17 @@ public static class RogueInteraction
     /// <summary>Full client rule for a player and a target collider. score (higher = more directly looked at) ranks competing targets.</summary>
     public static Result Evaluate(GameObject player, Collider target, float radius, out float score)
     {
+        return Evaluate(player, target, radius, 0f, LookCos, out score);
+    }
+
+    static Result Evaluate(GameObject player, Collider target, float radius, float extraReach, float lookCos, out float score)
+    {
         score = 0f;
         if (player == null || target == null) return Result.OutOfReach;
         var b = BodyOf(player);
         Vector3 point;
-        if (!InReach(b, target, radius, 0f, out point)) return Result.OutOfReach;
-        if (!Looking(b, target, out score)) return Result.NotLooking;
+        if (!InReach(b, target, radius, extraReach, out point)) return Result.OutOfReach;
+        if (!Looking(b, target, lookCos, out score)) return Result.NotLooking;
         if (!Clear(b, player, target)) return Result.Blocked;
         score -= 0.01f * Vector3.Distance(b.Eye, point);   // equally centred: the nearer one wins
         return Result.Ok;
@@ -156,9 +163,16 @@ public static class RogueInteraction
     /// <summary>Authority: reach with tolerance on its own copies (they lag the owner by the network delay).</summary>
     public static bool AuthorityInReach(GameObject player, Collider target, float radius)
     {
+        return AuthorityInReach(player, target, radius, 0f);
+    }
+
+    /// <summary>Authority reach with extra room on top of the tolerance: an ongoing hold that its client judges with extra reach
+    /// (CheckHold's continueReach) is checked here with the same extra, so the authority is never stricter than the prompt.</summary>
+    public static bool AuthorityInReach(GameObject player, Collider target, float radius, float extraReach)
+    {
         if (player == null || target == null) return false;
         Vector3 point;
-        return InReach(BodyOf(player), target, radius, AuthorityTolerance, out point);
+        return InReach(BodyOf(player), target, radius, AuthorityTolerance + Mathf.Max(0f, extraReach), out point);
     }
 
     /// <summary>Authority: the player may interact at all (present, alive, not downed, hands free).</summary>
@@ -223,10 +237,22 @@ public static class RogueInteraction
     /// </summary>
     public static HoldCheck CheckHold(GameObject player, Collider target, float radius, object who, bool held, bool wasHolding)
     {
+        return CheckHold(player, target, radius, who, held, wasHolding, 0f, LookAngle);
+    }
+
+    /// <summary>
+    /// CheckHold for a hold that may be judged more loosely once started (revive, QA-33): while wasHolding, the reach grows by
+    /// continueReach and the look cone widens to continueLookAngle degrees. The authority must accept continueReach as well
+    /// (AuthorityInReach with the same extra). Other hold interactions keep the plain rule.
+    /// </summary>
+    public static HoldCheck CheckHold(GameObject player, Collider target, float radius, object who, bool held, bool wasHolding, float continueReach, float continueLookAngle)
+    {
         var check = new HoldCheck { Reason = "" };
         if (player == null || target == null) return check;
         float score;
-        var result = Evaluate(player, target, radius, out score);
+        float extraReach = wasHolding ? Mathf.Max(0f, continueReach) : 0f;
+        float lookCos = wasHolding && continueLookAngle > LookAngle ? Mathf.Cos(Mathf.Min(continueLookAngle, 89f) * Mathf.Deg2Rad) : LookCos;
+        var result = Evaluate(player, target, radius, extraReach, lookCos, out score);
         if (result == Result.OutOfReach) return check;
         if (result != Result.Ok)
         {

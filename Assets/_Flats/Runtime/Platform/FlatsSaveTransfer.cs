@@ -168,6 +168,8 @@ public static class FlatsSaveTransfer
         foreach (string action in FlatsControls.KeyboardActions) yield return "controls.v1.key." + action;
         foreach (string action in FlatsControls.PadActions) yield return "controls.v1.pad." + action;
         yield return FlatsControls.AimModeKey;
+        yield return FlatsControls.SprintModeKey;
+        yield return FlatsControls.WheelSwitchKey;
         yield return FlatsControls.AimSensitivityKey;
         yield return FlatsControls.KillCinematicKey; yield return FlatsControls.DamageNumbersKey;
         foreach (string key in FlatsGamepad.Keys) yield return key;
@@ -206,7 +208,9 @@ public static class FlatsSaveTransfer
         if (entry.kind != "string") return false;
         if (key == LanguageKey) return value == "en" || value == "zh-Hant";
         if (key == FlatsControls.AimModeKey) return value == "hold" || value == "toggle";
-        if (key == FlatsControls.KillCinematicKey) return value == "on" || value == "off"; if (key == FlatsControls.DamageNumbersKey) return value == "on" || value == "off";
+        if (key == FlatsControls.SprintModeKey) return value == "hold" || value == "toggle";
+        if (key == FlatsControls.WheelSwitchKey) return value == "on" || value == "off";
+        if (key == FlatsControls.KillCinematicKey) return value == "on" || value == "off"; if (key == FlatsControls.DamageNumbersKey) return Flats.Core.Roguelike.DamageNumberRules.IsStoredValue(value);   // off/floating/stacked, or a pre-QA-48 "on"
         if (Array.IndexOf(FlatsGamepad.Keys, key) >= 0) return FlatsGamepad.Valid(key, value);
         if (key == FlatsControls.AimSensitivityKey)
             return int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int level) && level < FlatsControls.AimSensitivities.Length;

@@ -69,10 +69,24 @@ public class EnemySensor : MonoBehaviour
 		}
 	}
 
+	private static int feedbackOverlay = -1;
+	/// <summary>The combat feedback overlay prefab exists in this build (checked once).</summary>
+	private static bool FeedbackOverlayPresent
+	{
+		get
+		{
+			if (feedbackOverlay < 0) feedbackOverlay = Resources.Load<GameObject>(CombatFeedbackView.ResourcePath) != null ? 1 : 0;
+			return feedbackOverlay == 1;
+		}
+	}
+
 	private IEnumerator EnemyDirection(Vector3 dir)
 	{
 		// Spectators spawned after GameOver have no combat HUD bindings.
 		if (Menu.gameState == "Multiplayer" && Multiplayer.end) yield break;
+		// the combat feedback overlay draws the hit direction as arcs around the crosshair (DamageDirectionIndicator, QA-35); the old
+		// left/right/back gradients would show the same hit twice, so they remain only as the fallback when that prefab is missing
+		if (FeedbackOverlayPresent) yield break;
 		X = dir.normalized.x;
 		Z = dir.normalized.z;
 		rot = mt.rotation.eulerAngles.y;

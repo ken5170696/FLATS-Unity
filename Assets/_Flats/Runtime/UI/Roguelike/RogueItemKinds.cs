@@ -8,8 +8,14 @@ using UnityEngine;
 /// </summary>
 public static class RogueItemKinds
 {
-    public static readonly Color StatTint = new Color(0.8f, 0.1f, 0.4f), CoreTint = new Color(0.5f, 0.27f, 0.85f), ModTint = new Color(0.18f, 0.52f, 0.92f),
-        TacticalTint = new Color(0.08f, 0.6f, 0.48f), UltimateTint = new Color(0.9f, 0.58f, 0.06f), WeaponTint = new Color(0.28f, 0.28f, 0.34f), SupplyTint = new Color(0.5f, 0.5f, 0.56f);
+    // Category colours live in the Roguelike theme (Resources/UI/Roguelike/RogueTheme); its defaults are the original values.
+    public static Color StatTint { get { return FlatsUiTheme.Rogue.stat; } }
+    public static Color CoreTint { get { return FlatsUiTheme.Rogue.core; } }
+    public static Color ModTint { get { return FlatsUiTheme.Rogue.mod; } }
+    public static Color TacticalTint { get { return FlatsUiTheme.Rogue.tactical; } }
+    public static Color UltimateTint { get { return FlatsUiTheme.Rogue.ultimate; } }
+    public static Color WeaponTint { get { return FlatsUiTheme.Rogue.weapon; } }
+    public static Color SupplyTint { get { return FlatsUiTheme.Rogue.supply; } }
 
     public static Color Tint(ItemKind kind)
     {
@@ -77,4 +83,7 @@ public static class RogueItemKinds
 
     /// <summary>Darker variant for text on a pale background (the gold and teal are too light as text).</summary>
     public static Color TextTint(Color tint) { return new Color(tint.r * 0.72f, tint.g * 0.72f, tint.b * 0.72f, 1f); }
+
+    /// <summary>Lighter variant for a chip label on the Roguelike screens' dark surfaces (the purple and blue are too dark as text there).</summary>
+    public static Color ChipText(Color tint) { return FlatsUiTheme.Rogue.ChipText(tint); }
 }

@@ -111,6 +111,84 @@ namespace Flats.Core.Roguelike
 
         /// <summary>Extra enemies a round passes through.</summary>
         public static int Pierce(RangedWeaponDef d) { return d != null && d.Trait == TraitKind.Pierce ? (int)d.T1 : 0; }
+
+        // ------------------------------------------------------------------ QA-49: shotgun range profile
+        // Roguelike shotguns hit hard up close and are very weak at range. The multiplier applies to every direct pellet at the hit
+        // (RogueHooks.MetaHitMul), on top of the headshot multiplier and the weapon's own trait and drawback (OnHit). Derived damage
+        // that scales from a pellet's hit (penetration, chain, kill explosion) inherits it; a ricochet takes it at the bounce point.
+        // Distances are world metres from where the round left the barrel to the hit point (a Flatman is about 2 m wide, 6 m tall).
+        // Classic modes never call this.
+
+        /// <summary>Pellet shotguns: x1.5 within 10 m, easing to x1 at 16 m, x1 up to 20 m, falling to x0.1 at 35 m and beyond.</summary>
+        public const double PelletCloseMul = 1.5, PelletCloseEnd = 10, PelletNeutralFrom = 16, PelletFalloffFrom = 20, PelletFarFrom = 35, PelletFarMul = 0.1;
+        /// <summary>Slug Gun (one heavy slug, meant for middle range): a milder profile, x1.2 within 10 m and x0.5 from 50 m.</summary>
+        public const double SlugCloseMul = 1.2, SlugCloseEnd = 10, SlugNeutralFrom = 16, SlugFalloffFrom = 30, SlugFarFrom = 50, SlugFarMul = 0.5;
+
+        /// <summary>
+        /// A damage-by-distance profile: <see cref="CloseMul"/> up to <see cref="CloseEnd"/>, linear to x1 at <see cref="NeutralFrom"/>,
+        /// x1 up to <see cref="FalloffFrom"/>, linear down to <see cref="FarMul"/> at <see cref="FarFrom"/> and flat beyond.
+        /// Non-increasing with distance (CloseMul >= 1 >= FarMul).
+        /// </summary>
+        public sealed class RangeProfile
+        {
+            public readonly double CloseMul, CloseEnd, NeutralFrom, FalloffFrom, FarFrom, FarMul;
+            public RangeProfile(double closeMul, double closeEnd, double neutralFrom, double falloffFrom, double farFrom, double farMul)
+            {
+                if (!(closeMul >= 1) || !(farMul > 0) || !(farMul <= 1) || !(closeEnd >= 0) || !(neutralFrom > closeEnd) || !(falloffFrom >= neutralFrom) || !(farFrom > falloffFrom))
+                    throw new ArgumentOutOfRangeException("closeMul", "range profile must be ordered and non-increasing");
+                CloseMul = closeMul; CloseEnd = closeEnd; NeutralFrom = neutralFrom; FalloffFrom = falloffFrom; FarFrom = farFrom; FarMul = farMul;
+            }
+
+            public double At(double distance)
+            {
+                if (double.IsNaN(distance)) return 1;
+                if (distance <= CloseEnd) return CloseMul;
+                if (distance < NeutralFrom) return CloseMul + (1 - CloseMul) * (distance - CloseEnd) / (NeutralFrom - CloseEnd);
+                if (distance <= FalloffFrom) return 1;
+                if (distance < FarFrom) return 1 + (FarMul - 1) * (distance - FalloffFrom) / (FarFrom - FalloffFrom);
+                return FarMul;
+            }
+        }
+
+        public static readonly RangeProfile PelletProfile = new RangeProfile(PelletCloseMul, PelletCloseEnd, PelletNeutralFrom, PelletFalloffFrom, PelletFarFrom, PelletFarMul);
+        public static readonly RangeProfile SlugProfile = new RangeProfile(SlugCloseMul, SlugCloseEnd, SlugNeutralFrom, SlugFalloffFrom, SlugFarFrom, SlugFarMul);
+        /// <summary>Enemy shotguns (rushers): the same long-range falloff, never a close bonus.</summary>
+        public static readonly RangeProfile EnemyPelletProfile = new RangeProfile(1, PelletCloseEnd, PelletNeutralFrom, PelletFalloffFrom, PelletFarFrom, PelletFarMul);
+
+        /// <summary>The range profile of an armory weapon: pellet shotguns and the slug gun; null for every other class.</summary>
+        public static RangeProfile Profile(RangedWeaponDef d)
+        {
+            if (d == null || d.Class != WeaponClass.Shotgun) return null;
+            return RogueArmory.Resolve(d).Pellets > 1 ? PelletProfile : SlugProfile;
+        }
+
+        /// <summary>A legacy gun model with no armory row (a shotgun taken from the ground that the loadout has no variant of).</summary>
+        public static RangeProfile ProfileForModel(int baseModel) { return IsPelletModel(baseModel) ? PelletProfile : null; }
+
+        /// <summary>Catalog models that fire a spread of pellets per shell (the two shotguns).</summary>
+        public static bool IsPelletModel(int baseModel)
+        {
+            if (baseModel < 0 || baseModel >= WeaponCatalog.Count) return false;
+            var b = WeaponCatalog.GetDefault(baseModel);
+            return b.oneShot && !b.grenade && b.burstCount > 1;
+        }
+
+        /// <summary>Damage multiplier of a direct shotgun hit at <paramref name="distance"/> m (1 for other weapons).</summary>
+        public static double ShotgunRangeMul(double distance, RangedWeaponDef def)
+        {
+            var p = Profile(def);
+            return p == null ? 1 : p.At(distance);
+        }
+
+        /// <summary>As <see cref="ShotgunRangeMul(double, RangedWeaponDef)"/>; without an armory row the catalog model decides.</summary>
+        public static double ShotgunRangeMul(double distance, RangedWeaponDef def, int baseModel)
+        {
+            var p = def != null ? Profile(def) : ProfileForModel(baseModel);
+            return p == null ? 1 : p.At(distance);
+        }
+
+        /// <summary>An enemy's shotgun pellet: falls off with distance like the player's, capped at x1 up close.</summary>
+        public static double EnemyShotgunRangeMul(double distance, int baseModel) { return IsPelletModel(baseModel) ? EnemyPelletProfile.At(distance) : 1; }
     }
 
     /// <summary>

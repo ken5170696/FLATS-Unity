@@ -34,12 +34,43 @@ public static partial class RogueHooks
         if (m != null) m.StampBullet(bullet);
     }
 
-    /// <summary>Hit-time multiplier of the meta layer for a player's bullet on an enemy (weapon range/elite rules, conditional skills).</summary>
+    /// <summary>Hit-time multiplier of the meta layer for a player's bullet on an enemy (shotgun range profile, weapon range/elite
+    /// rules, conditional skills). Direct rounds only: every pellet of a shell is scaled by its own distance (QA-49).</summary>
     public static float MetaHitMul(Bullet bullet, DamageReceiver target, bool headshot, Vector3 hitPoint, float damage)
     {
         if (!RoguelikeMode.Active || bullet == null || bullet.shooter == null || target == null || target.userIsPlayer || bullet.grenade || bullet.rogueKind != 0) return 1f;
         var m = RogueMetaRuntime.Of(bullet.shooter);
-        return m == null ? 1f : m.OnHit(bullet, target, headshot, Vector3.Distance(bullet.StartPosition, hitPoint), damage);
+        if (m == null) return 1f;
+        float distance = Vector3.Distance(bullet.StartPosition, hitPoint);
+        float range = ShotgunRangeMul(m, bullet.rogueWeaponModel, distance);
+        // the weapon and skill rules credit their share of the damage this pellet actually deals
+        return range * m.OnHit(bullet, target, headshot, distance, damage * range);
+    }
+
+    /// <summary>Shotgun range profile of a player's round (1 for other weapons): the armory row of the model that fired it, or the
+    /// catalog model when the loadout has no row for it (a shotgun taken from the ground).</summary>
+    static float ShotgunRangeMul(RogueMetaRuntime m, int model, float distance)
+    {
+        var def = m != null && m.Stats != null ? m.Stats.WeaponForModel(model) : null;
+        return (float)WeaponRules.ShotgunRangeMul(distance, def, model);
+    }
+
+    /// <summary>A ricochet leaving a player's direct round: the round's shotgun falloff at the bounce point (never the close bonus),
+    /// so a far pellet cannot bounce back to full damage. Ricochets of ricochets already carry it.</summary>
+    public static float RicochetRangeMul(Bullet bullet, Vector3 bouncePoint)
+    {
+        if (!RoguelikeMode.Active || bullet == null || bullet.shooter == null || bullet.rogueKind != 0) return 1f;
+        return Mathf.Min(1f, ShotgunRangeMul(RogueMetaRuntime.Of(bullet.shooter), bullet.rogueWeaponModel, Vector3.Distance(bullet.StartPosition, bouncePoint)));
+    }
+
+    /// <summary>An enemy's shotgun pellet on a player: the far falloff only, never above x1 (QA-49). 1 for other enemy weapons.
+    /// Wiring point: Bullet.OnCollisionEnter, enemy round on a player, before ApplyBulletDamage.</summary>
+    public static float EnemyShotgunRangeMul(Bullet bullet, Vector3 hitPoint)
+    {
+        if (!RoguelikeMode.Active || bullet == null || bullet.shooter == null || bullet.grenade) return 1f;
+        var ai = bullet.shooter.GetComponent<AI>();
+        var gun = ai != null && ai.primaryWeapon != null ? ai.primaryWeapon.GetComponent<Gun>() : null;
+        return gun == null ? 1f : (float)WeaponRules.EnemyShotgunRangeMul(Vector3.Distance(bullet.StartPosition, hitPoint), gun.id);
     }
 
     /// <summary>Executioner: the damage to apply for a headshot on a wounded regular enemy.</summary>
@@ -108,5 +139,17 @@ public static partial class RogueHooks
         var r = RogueArmory.Resolve(v);
         return new Flats.Core.WeaponDefinition(v.Name, r.Magazine, r.Reserve, r.Burst, (float)r.Damage, (float)r.Rpm, (float)r.Accuracy, (float)r.Reload, (float)r.HeadshotBonus,
             fallback.zoom, fallback.oneShot, fallback.handgun, fallback.grenade);
+    }
+
+    /// <summary>Display only (QA-49): the localized range profile of the local player's variant of a model, the same variant
+    /// <see cref="MetaWeaponDisplay"/> shows ("" for weapons without one). The close and far lines are joined by <paramref name="separator"/>.</summary>
+    public static string MetaWeaponRangeText(int model, string separator)
+    {
+        if (!RoguelikeMode.Active || model < 0 || model >= Flats.Core.WeaponCatalog.Count) return "";
+        var rp = Local;
+        var v = rp != null && rp.Stats != null ? rp.Stats.WeaponForModel(model) : null;
+        if (v == null && rp != null && rp.Build != null && rp.Build.meta != null && !rp.Build.meta.Empty) v = MetaRun.ShopVariant(rp.Build, model);
+        var line = v != null ? MetaText.RangeSummary(v) : MetaText.RangeSummary(model);
+        return string.IsNullOrEmpty(line.Template) ? "" : RogueMetaUI.L(line).Replace("\n", separator ?? "\n");
     }
 }

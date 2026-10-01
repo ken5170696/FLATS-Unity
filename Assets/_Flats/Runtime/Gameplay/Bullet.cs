@@ -49,7 +49,7 @@ public class Bullet : MonoBehaviour
 	[System.NonSerialized] public string rogueRootShot;
 	[System.NonSerialized] public string rogueTrigger;   // Roguelike: the trigger pull this round belongs to (suppression stacks once per pull)
 	[System.NonSerialized] public int rogueWeaponModel = -1;       // meta: armory weapon model that fired this round
-	[System.NonSerialized] public bool rogueForceHeadshot;         // meta: Fresh Magazine
+	[System.NonSerialized] public Flats.Core.Roguelike.FreshRound rogueFreshRound;   // meta: Fresh Magazine token of this round, shared by its pellets (QA-32)
 	private float radius;
 
 	private float dist;
@@ -205,6 +205,13 @@ public class Bullet : MonoBehaviour
 			trailPath.Add(mt.position);
 		}
 		ContactPoint contactPoint = col.contacts[0];
+		// QA-44: an enemy round that hits a carried enemy body ends there; the carrier behind it takes nothing from it
+		if (RoguelikeMode.Active && playerShooter == null && !grenade && RogueBodyShield.TryAbsorb(this, col))
+		{
+			base.GetComponent<Collider>().enabled = false;
+			UnityEngine.Object.Destroy(base.gameObject);
+			return;
+		}
 		if (RoguelikeMode.Active && playerShooter != null && !grenade && RogueHooks.OnBulletHitWorld(this, col))
 		{
 			base.GetComponent<Collider>().enabled = false;
@@ -250,9 +257,11 @@ public class Bullet : MonoBehaviour
 				if ((bool)component)
 				{
 					float aiHeadMul = aiHead ? EnemyHeadshotMul() : 1f;
-					bool rogueHead = RoguelikeMode.Active && rogueForceHeadshot && rogueKind == 0 && playerShooter != null && !component.userIsPlayer;   // Fresh Magazine: counts as a headshot
+					// Fresh Magazine: the round's first direct enemy hit counts as a headshot (asked only for that hit; pellets share the round)
+					bool rogueHead = RoguelikeMode.Active && rogueFreshRound != null && rogueKind == 0 && playerShooter != null && !component.userIsPlayer && RogueMetaRuntime.FreshHeadshot(this, false);
 					if (rogueHead && playerShooter.primaryWeapon != null) damage *= Mathf.Min(playerShooter.primaryWeapon.GetComponent<Gun>().headshotBonus, (float)Flats.Core.Roguelike.BuildStats.FreshMagazineMaxMul);   // capped forced headshot
 					if (RoguelikeMode.Active && playerShooter != null && !component.userIsPlayer) { damage *= RogueHooks.HitDamageMul(this, rogueHead, contactPoint.point); damage *= RogueHooks.MetaHitMul(this, component, rogueHead, contactPoint.point, damage); damage = RogueHooks.MetaExecute(this, component, damage, rogueHead); }
+					if (RoguelikeMode.Active && playerShooter == null && component.userIsPlayer) damage *= RogueHooks.EnemyShotgunRangeMul(this, contactPoint.point);   // QA-49: enemy pellets fall off at range, never gain up close
 					if (RoguelikeMode.Active && damage > 0f && (Menu.network == 0 || (shooter != null && shooter.GetComponent<PhotonView>() != null && shooter.GetComponent<PhotonView>().isMine)))
 						component.RogueReactToHit(shooter, rogueHead);
 					// Roguelike (solo and co-op): a head hit always reports the flag and the receiver decides lethality from the damage
@@ -284,6 +293,8 @@ public class Bullet : MonoBehaviour
 				if (playerShooter.primaryWeapon != null)
                     damage *= playerShooter.primaryWeapon.GetComponent<Gun>().headshotBonus;
 				DamageReceiver component2 = col.collider.GetComponentInParent<DamageReceiver>();
+				// a natural head hit is the round's first hit too: Fresh Magazine's conversion is spent on it (QA-32)
+				if (RoguelikeMode.Active && rogueFreshRound != null && rogueKind == 0 && component2 != null && !component2.userIsPlayer) RogueMetaRuntime.FreshHeadshot(this, true);
 				if (RoguelikeMode.Active && component2 != null && !component2.userIsPlayer) { damage *= RogueHooks.HitDamageMul(this, true, contactPoint.point); damage *= RogueHooks.MetaHitMul(this, component2, true, contactPoint.point, damage); damage = RogueHooks.MetaExecute(this, component2, damage, true); }
 				if ((bool)component2)
 				{
@@ -322,13 +333,19 @@ public class Bullet : MonoBehaviour
 		}
 	}
 
+	// QA-42: homing steers in the physics step. A round is spawned inside a coroutine, and the physics step moved it 30-60 m before its
+	// first Update, so an Update-time steer came too late to bend it onto the target.
+	private void FixedUpdate()
+	{
+		if (RoguelikeMode.Active && shooter != null) RogueHooks.SteerHoming(this, GetComponent<Rigidbody>());
+	}
+
 	private void Update()
 	{
 		if (shooter == null || Camera.main == null)
 		{
 			return;
 		}
-		if (RoguelikeMode.Active) RogueHooks.SteerHoming(this, GetComponent<Rigidbody>());
 		if (shooter != null && !played && mt != null && Camera.main.gameObject != null)
 		{
 			bool flag = false;

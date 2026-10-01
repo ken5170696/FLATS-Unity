@@ -7,6 +7,18 @@ public class DamageReceiver : MonoBehaviour
 {
 	public static bool invincibility;
 
+	/// <summary>QA-29: when the local player's latest timed protection ends (Time.time) and how long it was, written by every timed
+	/// source (spawn 3 s, revive 2 s, Guardian Angel); the HUD badge reads the exact time left. Grant extends, never shortens.</summary>
+	public static float invincibilityUntil = -10f, invincibilityLength;
+
+	/// <summary>Records a timed protection of <paramref name="seconds"/> starting now (the flag itself stays with its owner).</summary>
+	public static void NoteInvincibility(float seconds)
+	{
+		if (!(seconds > 0f)) return;
+		float until = Time.time + seconds;
+		if (until > invincibilityUntil) { invincibilityUntil = until; invincibilityLength = seconds; }
+	}
+
 	public bool userIsPlayer;
 
 	public float hitPoints;
@@ -39,12 +51,61 @@ public class DamageReceiver : MonoBehaviour
 	public bool Dead { get { return died; } }
 
 	// Bullet calls this before reporting damage, so local feedback never waits for the master.
+	// QA-05: a hit the enemy cannot take (an invulnerable finale core, a Guardian's last stand) only flashes; a shield bearer hit from the
+	// front flinches less with a blue flash; every other hit flashes and flinches (RogueHitReaction merges pellets and bursts).
 	public void RogueReactToHit(Transform source, bool headshot)
 	{
 		if (!RoguelikeMode.Active || userIsPlayer || died || !isActiveAndEnabled) return;
 		var reaction = GetComponent<RogueHitReaction>();
 		if (reaction == null) reaction = gameObject.AddComponent<RogueHitReaction>();
-		reaction.Hit(source != null ? transform.position - source.position : -transform.forward, headshot);
+		Vector3 travel = source != null ? transform.position - source.position : -transform.forward;
+		var role = GetComponent<RogueEnemyRole>();
+		var affixes = GetComponent<RogueEliteAffixes>();
+		if ((role != null && role.Invulnerable) || (affixes != null && affixes.GuardianActive)) { reaction.Blocked(travel); return; }
+		// E4 (QA-37): the crosshair hit tick for the local player's own hits, the same marker a drone or a device shows; the enemy plays
+		// its own hit sound, so no cue here. A kill turns it red from Die.
+		if (LocalPlayerSource(source)) ReportLocalHit(false, headshot);
+		if (role != null && role.ShieldFacing(source)) { reaction.Hit(travel, headshot, 0, RogueHitReaction.ShieldedStrength, true); return; }
+		reaction.Hit(travel, headshot);
+	}
+
+	/// <summary>The source is the local player's own character (solo, or the owner's copy in co-op).</summary>
+	private static bool LocalPlayerSource(Transform source)
+	{
+		if (source == null || source.GetComponent<FPSController>() == null) return false;
+		if (Menu.network == 0) return true;
+		var view = source.GetComponent<PhotonView>();
+		return view != null && view.isMine;
+	}
+
+	private static void ReportLocalHit(bool kill, bool headshot)
+	{
+		try { CombatFeedbackView.ReportHit(kill, headshot, false); }
+		catch (Exception e) { Debug.LogException(e); }
+	}
+
+	// QA-05: a teammate's copy shows the hit on that player's body (every client simulates enemy rounds against every player copy). The
+	// owner's own first-person body is hidden and gets no camera shake here; a downed or dead player gets nothing; absorbed damage (shield,
+	// melee guard) only flashes.
+	private void RogueRemotePlayerHit(Transform source, float damage)
+	{
+		if (!RoguelikeMode.Active || !userIsPlayer || died || !isActiveAndEnabled || MyView(base.gameObject)) return;
+		var rp = GetComponent<RoguePlayer>();
+		if (rp != null && rp.Downed) return;
+		var reaction = GetComponent<RogueHitReaction>();
+		if (reaction == null) { reaction = gameObject.AddComponent<RogueHitReaction>(); reaction.PlayerBody = true; }
+		Vector3 travel = source != null ? transform.position - source.position : -transform.forward;
+		if (damage > 0f) reaction.Hit(travel, false);
+		else reaction.Blocked(travel);
+	}
+
+	// QA-35: the local player took damage from a known source; the HUD's hit-direction indicator points at it. Self damage (own grenade,
+	// gas, falls, kill volumes) has no direction and reports nothing.
+	private void ReportDamageDirection(float damage, Transform source)
+	{
+		if (!userIsPlayer || !(damage > 0f) || source == null || source.root == base.transform.root) return;
+		try { DamageDirectionIndicator.Report(source.position, damage); }
+		catch (Exception e) { Debug.LogException(e, this); }
 	}
 
 	private string command;
@@ -104,6 +165,7 @@ public class DamageReceiver : MonoBehaviour
 			damageEffect.color = new Color(1f, 1f, 1f, 0f);
 			healthbar.size = 1f;
 			invincibility = true;
+			NoteInvincibility(3f);
 			yield return new WaitForSeconds(3f);
 			invincibility = false;
 		}
@@ -207,6 +269,7 @@ public class DamageReceiver : MonoBehaviour
 		{
 			return;
 		}
+		if (userIsPlayer) ReportDamageDirection(receivedData[0], shooter);   // Classic multiplayer: the victim's owner applies the hit here (QA-35)
 		// The shooter's local Bullet already played this hit. Only the remote authority needs a fallback.
 		if (RoguelikeMode.Active && receivedData[0] > 0 && (shooter == null || !MyView(shooter.gameObject)))
 			RogueReactToHit(shooter, receivedData[1] == 1);
@@ -298,8 +361,9 @@ public class DamageReceiver : MonoBehaviour
         if (RoguelikeMode.Active) damage = RogueMelee.Incoming(this, damage, shooter, reactionPlayed);
         if (RoguelikeMode.Active && RogueMeleeAuthority.Route(this, damage, headshot, shooter)) return;
 		if (Menu.gameState == "Multiplayer" && Multiplayer.end) return;
-		// zero, negative (a blast's far edge) or NaN damage is no hit: it must never heal
-		if ((invincibility && userIsPlayer) || !(damage > 0f) || died)
+		// zero, negative (a blast's far edge) or NaN damage is no hit: it must never heal. The static flag protects the local player; in the
+		// roguelike a teammate's copy keeps receiving (cosmetic) hits, so its hit feedback does not vanish while this player is protected.
+		if ((invincibility && userIsPlayer && (!RoguelikeMode.Active || MyView(base.gameObject))) || !(damage > 0f) || died)
 		{
 			return;
 		}
@@ -333,6 +397,8 @@ public class DamageReceiver : MonoBehaviour
 			{
 				return;
 			}
+			// solo, Classic co-op (rule 8) and Roguelike co-op resolve a player's hit on the owner's copy: this is where the local player is hit (QA-35)
+			if (userIsPlayer && MyView(base.gameObject)) ReportDamageDirection(damage, shooter);
 			// Classic: a headshot flag means a lethal head hit, so the enemy dies at once. The roguelike reports every head hit with the
 			// flag and decides lethality below from the damage after mitigation (shield front, Guardian last stand, invulnerable cores),
 			// as the co-op path above does; the raw-damage check in Bullet killed through all of them in solo.
@@ -362,6 +428,7 @@ public class DamageReceiver : MonoBehaviour
 				return;
 			}
 			if (RoguelikeMode.Active) damage = RogueHooks.ModifyIncomingDamage(this, damage, shooter);
+			if (RoguelikeMode.Active && userIsPlayer && !MyView(base.gameObject)) RogueRemotePlayerHit(shooter, damage);
 			hitPoints -= damage;
             if (RoguelikeMode.Active && Menu.network == 0 && !userIsPlayer) RogueCombatNumber.Show(this, damage, headshot == 1, Flats.Core.Roguelike.DamageKind.Direct, shooter);
 			if (!userIsPlayer && myAI != null && myAI.isPatrol && myAI.targets.Count > 0 && myAI.targets[0] != null && !(RoguelikeMode.Active && RogueEnemyStatus.Stunned(myAI)))
@@ -529,6 +596,12 @@ public class DamageReceiver : MonoBehaviour
 		foreach (SkinnedMeshRenderer skinnedMeshRenderer in array)
 		{
 			skinnedMeshRenderer.material = mt.GetChild(0).GetComponent<Renderer>().material;
+		}
+		// QA-44: a confirmed enemy death leaves a body that can be carried as a bullet shield (a predicted kill that rolls back never gets here)
+		if (RoguelikeMode.Active && !userIsPlayer)
+		{
+			try { RogueBodyShield.Register(this, gameObject); }
+			catch (Exception e) { Debug.LogException(e, this); }
 		}
 		if (base.gameObject.tag == "Player")
 		{
@@ -854,6 +927,7 @@ public class DamageReceiver : MonoBehaviour
 		{
 			if (RoguelikeMode.Active)
 			{
+				if (LocalPlayerSource(killer)) ReportLocalHit(true, command == "head");   // E4: the local player's kill marker
 				try { RogueHooks.OnEnemyDied(this, killer, command == "head"); }
 				catch (Exception e) { Debug.LogException(e, this); }
 			}

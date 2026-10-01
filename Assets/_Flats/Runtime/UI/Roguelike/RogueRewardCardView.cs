@@ -16,7 +16,7 @@ public class RogueRewardCardView : MonoBehaviour
         if (effect != null) effect.text = effectText ?? "";
         Color kindTint; string tagLabel;
         bool kind = RogueItemKinds.Parse(rarityText, out kindTint, out tagLabel);
-        if (rarity != null) { rarity.text = kind ? tagLabel : string.IsNullOrEmpty(rarityText) ? RoguelikeController.T("Common") : rarityText; if (kind) rarity.color = RogueItemKinds.TextTint(kindTint); }
+        if (rarity != null) { rarity.text = kind ? tagLabel : string.IsNullOrEmpty(rarityText) ? RoguelikeController.T("Common") : rarityText; if (kind) rarity.color = RogueItemKinds.ChipText(kindTint); }   // light on the dark card
         if (status != null) status.text = statusText ?? "";
         if (actionLabel != null) actionLabel.text = actionText ?? "";
         RogueIcons.Apply(icon, iconName);
@@ -26,7 +26,7 @@ public class RogueRewardCardView : MonoBehaviour
         if (rarityBand != null) rarityBand.color = tint;
         if (action != null)
         {
-            action.interactable = interactable;
+            FlatsUiTheme.SetInteractableNow(action, interactable);
             action.onClick.RemoveAllListeners();
             action.onClick.AddListener(() => { if (onPress != null) onPress(); if (onAction != null) onAction(); });
         }

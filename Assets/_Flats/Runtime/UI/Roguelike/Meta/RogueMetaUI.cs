@@ -31,7 +31,7 @@ public static class RogueMetaUI
     {
         if (b == null) return;
         Put(b.GetComponentInChildren<Text>(true), key);
-        b.interactable = enabled;
+        FlatsUiTheme.SetInteractableNow(b, enabled);
         b.onClick.RemoveAllListeners();
         if (action != null) b.onClick.AddListener(() => { Sound(); action(); });
     }

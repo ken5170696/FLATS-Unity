@@ -52,15 +52,15 @@ namespace Flats.Core.Roguelike
 
         public const double MaxAdsSpeedup = 0.4, MinSwapTimeMul = 0.3;
         // rule constants of the mechanic skills (read by the adapter and by MetaText)
-        public const int MaxSkillStacks = 3;
-        public const double AdrenalThreshold = 0.35, AdrenalCooldown = 20, BerserkerWindow = 5, SquadLinkSoloThreshold = 0.25;
+        public const int MaxSkillStacks = 6;
+        public const double AdrenalThreshold = 0.35, AdrenalCooldown = 10, BerserkerWindow = 5, SquadLinkSoloThreshold = 0.25;
 
         /// <summary>
         /// Envelope of the design rule: whatever combination of conditional skills is active at once,
-        /// meta skills add at most +15% damage, and cut incoming damage to no less than 85% (with the
-        /// +10% health node that is ~+29% effective toughness). Run items (cores, mods) are separate.
+        /// meta skills add at most +30% damage (six stacks), and cut incoming damage to no less
+        /// than 80%. No meta health bonus is granted. Run items (cores, mods) are separate.
         /// </summary>
-        public const double MaxMetaDamageBonus = 0.15, MinMetaDamageTakenMul = 0.85;
+        public const double MaxMetaDamageBonus = 0.30, MinMetaDamageTakenMul = 0.80;
         /// <summary>Fresh Magazine: a forced headshot never deals more than this multiple of the body shot (handgun and sniper headshot bonuses are x5).</summary>
         public const double FreshMagazineMaxMul = 2.0;
 
@@ -79,7 +79,13 @@ namespace Flats.Core.Roguelike
             if (ShredderBonus > 0 && c.Shredding) m *= 1 + ShredderBonus;
             if (OpeningShotBonus > 0 && c.OpeningShot) m *= 1 + OpeningShotBonus;
             if (SquadLinkBonus > 0 && c.SquadLinked) m *= 1 + SquadLinkBonus;
-            return Math.Min(1 + MaxMetaDamageBonus, m);
+            // The strongest active declared bonus sets the envelope. At <=3 stacks the old
+            // 15% envelope remains; Squad Link permits 20%, six stacks permit 30%.
+            double cap = 0.15;
+            cap = Math.Max(cap, BerserkerStep * Math.Max(0, Math.Min(MaxSkillStacks, c.BerserkerStacks)));
+            cap = Math.Max(cap, RhythmStep * Math.Max(0, Math.Min(MaxSkillStacks, c.RhythmStacks)));
+            if (c.SquadLinked) cap = Math.Max(cap, SquadLinkBonus);
+            return Math.Min(1 + Math.Min(MaxMetaDamageBonus, cap), m);
         }
 
         /// <summary>Incoming damage multiplier of the conditional meta skills, clamped to the envelope.</summary>

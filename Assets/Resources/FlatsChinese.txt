@@ -99,6 +99,7 @@ Movement speed -{0}% while carried.	攜帶時移速 -{0}%。
 {0} XP to the next overlevel reward	距離下次超越獎勵還需 {0} 經驗
 Hits slow enemies by {0}% for {1} s.	命中使敵人減速 {0}%，持續 {1} 秒。
 Rounds pass through {0} enemies.	子彈穿透 {0} 名敵人。
+Rounds pass through {0} enemy.	子彈穿透 {0} 名敵人。
 {0}: {1} kills to the next mastery	{0}：距離下次熟練度還需 {1} 次擊殺
 Kill {0} enemies with handguns	以手槍擊殺 {0} 名敵人
 Kill {0} enemies with shotguns	以霰彈槍擊殺 {0} 名敵人
@@ -246,7 +247,7 @@ Each loadout keeps its own skill choices.	每組配置各自保存技能選擇�
 Stuns on hit. Elites shake it off faster.	命中使敵人癱瘓，菁英恢復較快。
 Both slots would use the same gun model	兩個欄位不能使用同款槍身
 Q / E: tabs   Enter: select   Esc: back	Q／E 切頁・Enter 確認・Esc 返回
-Rounds pass through two enemies. Heavy.	子彈穿透兩名敵人，但武器沉重。
+Rounds pass through one enemy. Heavy.	子彈穿透一名敵人，但武器沉重。
 Tap a card to inspect · swipe to scroll	點選卡片檢視・滑動捲動
 Breaks shields and elites. Very heavy.	專門對付護盾與菁英，但十分沉重。
 Devastating inside a room. Cannot aim.	室內近戰威力驚人，但無法開鏡。
@@ -970,9 +971,9 @@ Pick the sniper rifle on the floor.\nLong tap to pick up.	拾取地上的狙擊�
 Hold left trigger\nfor zooming.	按住左扳機，\n使用瞄準鏡。
 Right click\nfor zooming.	按滑鼠右鍵，\n使用瞄準鏡。
 Press zoom button\nfor zooming.	按下縮放按鈕，\n使用瞄準鏡。
-Press this button to jump.\nAnd hold it to sprint.	按下這個按鈕跳躍，\n按住則可衝刺。
-Press space key to jump.\nAnd hold shift to sprint.	按空白鍵跳躍，\n按住 Shift 鍵衝刺。
-Press jump button to jump.\nAnd hold it to sprint.	按下跳躍按鈕跳躍，\n按住則可衝刺。
+Press this button to jump.\nAnd hold it to sprint.	按下這個按鈕跳躍，\n按住則可奔跑。
+Press space key to jump.\nAnd hold shift to sprint.	按空白鍵跳躍，\n按住 Shift 鍵奔跑。
+Press jump button to jump.\nAnd hold it to sprint.	按下跳躍按鈕跳躍，\n按住則可奔跑。
 OK. You've finished tutorial.	很好，你已完成教學。
 Press start or select button.\nSelect reset button\nand exit the tutorial.	按下 Start 或 Select 按鈕，\n選擇「重設」，\n即可離開教學。
 Press escape key.\nSelect reset button\nand exit the tutorial.	按下 Esc 鍵，\n選擇「重設」，\n即可離開教學。
@@ -1109,14 +1110,14 @@ Keyboard / Mouse	鍵盤／滑鼠
 Forward	前進
 Backward	後退
 Jump	跳躍
-Sprint	衝刺
+Sprint	奔跑
 Fire	射擊
 Aim	瞄準
 Reload	換彈
 Grenade	手榴彈
 Change weapon	切換武器
 Change / hold to pick up	切換／按住拾取
-Jump / hold to sprint	跳躍／按住衝刺
+Jump / hold to sprint	跳躍／按住奔跑
 Toggle aim	切換瞄準
 Pick up / exchange	拾取／交換
 Default bindings restored.	已還原預設綁定。
@@ -1144,7 +1145,7 @@ Throw grenade: {control:Grenade}.	投擲手榴彈：{control:Grenade}。
 Pick up: {control:Interact}.	拾取：{control:Interact}。
 Aim: {control:Aim}.	瞄準：{control:Aim}。
 Jump: {control:Jump}.	跳躍：{control:Jump}。
-Sprint: {control:Sprint}.	衝刺：{control:Sprint}。
+Sprint: {control:Sprint}.	奔跑：{control:Sprint}。
 Menu: {control:Menu}.	開啟選單：{control:Menu}。
 Exchange weapon: {control:Interact}.	交換武器：{control:Interact}。
 Select reset to exit the tutorial.	選擇重設以離開教學。
@@ -1159,7 +1160,7 @@ Reset bomb: {control:Interact}.	重設炸彈：{control:Interact}。
 Pick up bomb: {control:Interact}.	拾取炸彈：{control:Interact}。
 Join: {control:Join}.	加入：{control:Join}。
 Select a binding to change it.	選擇按鍵以變更綁定。
-Hold to sprint	按住以衝刺
+Hold to sprint	按住以奔跑
 Hold to pick up	按住以拾取
 Press a button...	請按下按鍵…
 Release, then press a new binding. Esc / Start cancels.	放開後按下新按鍵。Esc／Start 取消。
@@ -1485,7 +1486,7 @@ Vibration	震動
 Right stick: look	右搖桿：視角
 Left stick: move	左搖桿：移動
 Press to jump.	按一下跳躍。
-Click while moving forward to sprint. Sprint stops when you stop moving forward or aim. Holding also works.	向前移動時按一下開始衝刺；停止前進或開鏡時結束。按住也可以。
+Click while moving forward to sprint. Sprint stops when you stop moving forward or aim. Holding also works.	向前移動時按一下開始奔跑；停止前進或開鏡時結束。按住也可以。
 Shoot. Hold for automatic weapons.	射擊。自動武器請按住。
 Hold to aim down sights.	按住以開鏡瞄準。
 Reload the current weapon.	為目前的武器換彈。
@@ -2204,3 +2205,261 @@ Hold the extraction {0}s ({1}%)	守住撤離點 {0} 秒（{1}%）
 Paused, teammate down: {0}s left ({1}%)	暫停：隊友倒地，剩 {0} 秒（{1}%）
 Paused, all into the zone: {0}s left ({1}%)	暫停：全員進入撤離區，剩 {0} 秒（{1}%）
 Extraction called! Hold the zone for {0} s	已呼叫撤離！守住區域 {0} 秒
+No room to dash	沒有空間可衝刺
+Sprint Mode	奔跑方式
+Keyboard and mouse: hold the Sprint key, or press it once to start and again to stop. Aiming or firing ends a sprint.	鍵盤與滑鼠：按住奔跑鍵，或按一下開始、再按一下停止。開鏡或開火會結束奔跑。
+Click while moving forward to sprint. Sprint stops when you stop moving forward, aim or fire. Holding also works.	向前移動時按一下開始奔跑；停止前進、開鏡或開火時結束。按住也可以。
+Everyone is ready	所有人已就緒
+The stage starts in {0} s.	關卡將在 {0} 秒後開始。
+Everyone is ready. The stage starts in {0} s. Cancel Ready to wait.	所有人已就緒，關卡將在 {0} 秒後開始。取消就緒即可暫停倒數。
+Starting in {0} (tap to cancel)	{0} 秒後開始（再按取消）
+Stage starts in	關卡開始倒數
+Enemies arrive in	敵人抵達倒數
+Reroll with a ticket	用刷新券重抽
+Free: uses 1 reroll ticket from a skipped reward. Does not use this visit's rerolls.	免費：使用 1 張跳過獎勵換得的刷新券，不佔本次商店的重抽次數。
+Use ticket	使用刷新券
+Rerolling...	重抽中…
+Reroll tickets: {0}	刷新券：{0} 張
+Skip: give up these rewards and get 1 reroll ticket.	跳過：放棄這些獎勵，換得 1 張刷新券。
+A ticket is one free shop reroll, now or at any later stage of this run.	一張刷新券可讓商店免費重抽一次，本關或本局之後任一關都能用。
+Skip for 1 reroll ticket	跳過並換 1 張刷新券
+Skip this reward?	要跳過這次獎勵嗎？
+You give up: {0}	放棄：{0}
+You get: 1 reroll ticket.	獲得：1 張刷新券。
+A ticket rerolls the shop once for free, at this stage or any later one in this run. It does not use the shop's reroll limit.	一張刷新券可讓商店免費重抽一次，本關或本局之後任一關都能用，不佔商店的重抽次數上限。
+Skip and take the ticket	跳過並領取刷新券
+Reward skipped: +1 reroll ticket	已跳過獎勵：刷新券 +1
++1 reroll ticket	刷新券 +1
+Rerolled with a ticket	已用刷新券重抽
+Invulnerable {0}s	無敵 {0} 秒
+Invulnerable	無敵
+Everyone is ready. Starting in {0}...	所有人已就緒，{0} 秒後開始…
+Carrier stopped: destroy it! {0} s left ({1}% damage)	運輸車停下了：快摧毀它！剩 {0} 秒（已造成 {1}% 傷害）
+Carrier moving again: next stop in {0} s ({1}% of the route)	運輸車再度前進：{0} 秒後再次停車（路線 {1}%）
+Escort	護衛
+Released	已放開
+Interrupted	已中斷
+Gone	目標已消失
+Blocked	目前無法操作
+Shoot down the drone {0}%	擊落無人機 {0}%
+Done	完成
+Done: {0}	完成：{0}
+Overview (Roguelike)	總覽（Roguelike）
+Melee (Roguelike)	近戰（Roguelike）
+Tap to swing, hold to guard or throw	點按揮擊，按住格擋或投擲
+Immune	免疫
+Shoot down the drone: {0}% health, {1} s left	擊落無人機：剩 {0}% 耐久，{1} 秒
+Destroy the signal device: {0}% health, waves {1}/4	摧毀訊號裝置：剩 {0}% 耐久，增援 {1}/4 波
+{0} or {1} closes   {2} or {3} switches tabs   Wallet ${4}	{0} 或 {1} 關閉　{2} 或 {3} 切換分頁　錢包 ${4}
+Picked up: {0}	已拿起：{0}
+Put down: {0}	已放下：{0}
+Pick up the body	扛起屍體
+Enemy body	敵人屍體
+The body shield broke!	屍體盾牌碎了！
+Body shield {0}%: press {1} to put it down. You cannot fire.	屍體盾牌 {0}%：按 {1} 放下。扛著時無法開火。
+Body shield	屍體盾牌
+Hit	被擊中
+Mouse Wheel Switch	滑鼠滾輪切槍
+Mouse wheel also switches	滑鼠滾輪也可切換
+Event	事件
+Emergency	緊急狀況
+Finale	終局
+Optional	可選
+Details	詳情
+Tap for details	點一下看詳情
+Now	目前
+Watch out	注意
+Tip	提示
+Control: {0}	操作：{0}
+Objective complete	目標完成
+Reward: ${0}+ each	獎勵：每人 ${0} 起
+Reward: ${0} each	獎勵：每人 ${0}
+Objective complete: clear the last enemies ({0})	目標完成：清除剩下的敵人（{0}）
+Join the others in the zone	進入區域和隊友會合
+Cover {0} to the drop zone	掩護 {0} 前往投放區
+Hold {0} near it to repair	在旁邊按住 {0} 修理
+Wait in the exit zone for the others	在撤離區等待隊友
+Everyone back into the exit zone	全員回到撤離區
+Stay in the zone until the countdown ends	留在區域內直到倒數結束
+Hold {0} at power cell {1}	在 {1} 號電池按住 {0}
+Kill escorts before its next stop	在下一次停車前擊殺護衛
+Kill every enemy in the area	擊殺區域內所有敵人
+Fight off each wave as it arrives	擋下每一波來襲的敵人
+Follow the markers to the last enemies	跟著標記找出最後的敵人
+Reinforcements add to the total	增援也算進總數
+Stay close so you can revive each other	彼此靠近，才能互相救援
+Stand in the zone until it fills	站在區域內直到進度填滿
+Go to the blue capture zone	前往藍色佔領區
+Stay inside to fill the bar	待在區域內填滿進度條
+Kill enemies that enter the zone	擊殺進入區域的敵人
+Enemies inside stop it; an empty zone drains	區域內有敵人會暫停；沒人時進度會倒退
+Solo {0} s; four players only {1} s	單人 {0} 秒；四人只要 {1} 秒
+Carry the crate to the drop zone	把補給箱搬到投放區
+Pick up the supply crate	撿起補給箱
+Walk it into the gold drop ring	搬進金色投放圈
+Teammates clear the way	隊友負責開路
+The carrier moves at {0}% speed and cannot shoot	搬運者移速只有 {0}%，而且無法射擊
+A downed carrier drops it; anyone can pick it up	搬運者倒地會掉落，任何人都能撿起
+Repair the device to 100%	把裝置修到 100%
+Go to the device	前往裝置
+Hold near it to repair	在旁邊按住修理
+Keep enemies away from it	別讓敵人靠近
+If it breaks, clear the area for half the reward	裝置被毀就改為清除區域，獎勵減半
+Solo {0} s; repairing together is faster	單人 {0} 秒；一起修更快
+Reach the exit, then hold it	抵達撤離點並守住
+Get the whole squad into the exit zone	讓全隊進入撤離區
+Hold the zone for {0} s	守住區域 {0} 秒
+Revive downed teammates to resume	救起倒地隊友才會繼續
+Leaving the zone or going down pauses it	離開區域或倒地會暫停倒數
+Reinforcements attack the zone during the hold	堅守期間增援會進攻區域
+Kill the guards, then the commander	先殺護衛，再殺指揮官
+Kill the guard wave around it	擊殺周圍的護衛
+Its shield drops for {0} s	護盾會解除 {0} 秒
+Shoot the commander while exposed	趁暴露時射擊指揮官
+When the window ends, new guards arrive	時間一到會出現新的護衛
+From window {0} on, it stays exposed	第 {0} 次起護盾不再恢復
+Charge the cells, then shoot the core	充能電池，再射擊金庫核心
+Charge the power cells in order	依序為電池充能
+Each charge exposes the core {0} s	每次充能讓核心暴露 {0} 秒
+Shoot the vault core while exposed	趁暴露時射擊金庫核心
+Firing, aiming or reloading cancels a charge	開火、瞄準或換彈會中斷充能
+One player charges while the others cover	一人充能，其他人掩護
+Destroy the carrier before it escapes	在運輸車逃脫前摧毀它
+Kill the escorts near the carrier	擊殺運輸車附近的護衛
+Unescorted, it stops for {0} s	失去護衛時會停車 {0} 秒
+Shoot it while it is stopped	趁停車時攻擊
+If it reaches the exit: {0}% reward	抵達出口則只拿 {0}% 獎勵
+Escorts still on the way keep it moving	還在路上的護衛也會讓它繼續前進
+Shoot down the supply drone	擊落補給無人機
+Find the drone marker	找到無人機標記
+Shoot it before it flies off	在它飛走前擊落
+It leaves after {0} s	{0} 秒後離開
+Everyone's damage adds up	全隊的傷害會累加
+Open the cache for a big bounty	打開物資箱換取高額賞金
+Open the cache	打開物資箱
+It opens after {0} s	{0} 秒後開啟
+Then beat the reinforcements	接著擊退增援
+Opening calls enemies, including an elite	開箱會引來敵人，包含一名菁英
+Optional: skip it if the squad is hurt	可選：隊伍狀況差就跳過
+Use the low-gravity zone	利用低重力區
+The blue ring has half gravity	藍色圈內重力減半
+Jump higher and fall slower inside	圈內跳得更高、落得更慢
+In the air you are an easy target	在空中容易成為靶子
+Pays when the stage objective is done	完成本關目標時發放獎勵
+Flip the breaker to weaken enemies	切換斷路器削弱敵人
+Enemy shields and jammers go down	敵人的護盾與干擾器失效
+Enemies see half as far	敵人視野減半
+It lasts {0} s and works once	持續 {0} 秒，只能用一次
+Flip it right before a big fight	在大戰前一刻切換
+Repair the side device for a bounty	修理支線裝置換取賞金
+Enemies near it can destroy it	附近的敵人會把它破壞
+Repairing together is faster	一起修理更快
+Choose: harder enemies, bigger bounty	選擇：敵人更強、賞金更高
+Enemies deal +{0}% damage	敵人傷害 +{0}%
+Bounties pay +{0}% this stage	本關賞金 +{0}%
+It lasts until the stage ends	效果持續到本關結束
+Declining costs nothing	拒絕沒有任何代價
+Hunt down the marked elite	獵殺被標記的菁英
+It appears a few seconds in	開始後幾秒出現
+Follow its gold marker	跟著金色標記
+Kill it for a big bounty	擊殺可得高額賞金
+It is a marksman: it hits hard from range	它是神射手：遠距離傷害很高
+Break line of sight, then flank it	先脫離它的視線，再繞到側面
+Plant the lure to pull enemies away	放置誘餌引開敵人
+Pick up the lure crate	撿起誘餌箱
+Carry it away from the objective	把它搬離目標
+Plant it	放置
+Enemies chase the carrier, who cannot shoot	敵人會追搬運者，而搬運者無法射擊
+Planted, it draws enemies for {0} s	放置後吸引敵人 {0} 秒
+Activate 2 of the 3 vent switches	啟動 3 個通風開關中的 2 個
+Go to a vent switch	前往通風開關
+Hold it for {0} s	按住 {0} 秒
+Then do a second one	再啟動第二個
+At zero, gas spreads and hurts everyone in it	倒數歸零時毒氣擴散，區內所有人受傷
+Split up: two players, two switches	分頭行動：兩人各開一個
+Restart the generator	重新啟動發電機
+Go to the generator	前往發電機
+Hold for {0} s without letting go	連續按住 {0} 秒不要放開
+After {0} s it fails: bounty -{1}%	{0} 秒後失敗：賞金 -{1}%
+Teammates cover the one holding it	隊友掩護正在操作的人
+Carry the bomb to the disposal zone	把炸彈搬到處置區
+Walk it into the green ring	搬進綠色圈
+It explodes after {0} s ({1} m blast)	{0} 秒後爆炸（半徑 {1} 公尺）
+The carrier cannot shoot: escort them	搬運者無法射擊：要護送
+Destroy the signal device	摧毀信號裝置
+Find the signal device	找到信號裝置
+Shoot it until it breaks	持續射擊直到損毀
+It calls a wave every {0} s, up to {1}	每 {0} 秒呼叫一波，最多 {1} 波
+Destroy it early to face fewer enemies	越早摧毀，敵人越少
+Low gravity	低重力
+A supply drone crosses the map. Shoot it down before it leaves for a bounty.	補給無人機正飛越地圖。在它離開前擊落即可領取賞金。
+Floating	浮動
+Stacked	疊加
+Stacked: rapid hits on one enemy add up. Floating: one number per hit. Also shown through scopes.	疊加：連續命中同一敵人時合計成一個數字。浮動：每次命中各顯示一個。開鏡時也會顯示。
+Keyboard and mouse: hold the Sprint key to run, or press it once to start and again to stop.	鍵盤滑鼠：按住奔跑鍵奔跑，或按一下開始、再按一下停止。
+Keyboard and mouse: a mouse wheel notch also switches weapons.	鍵盤滑鼠：滾動滑鼠滾輪一格也會切換武器。
+Close range: x{0} damage within {1} m, easing to x{2} at {3} m.	近距離：{1} 公尺內傷害 x{0}，到 {3} 公尺時逐漸回到 x{2}。
+Long range: damage falls from x{0} at {1} m to x{2} at {3} m and beyond.	遠距離：傷害自 {1} 公尺的 x{0} 開始下降，{3} 公尺及更遠為 x{2}。
+Range	射程
+Next run	下一局
+Back to menu	返回選單
+Difficulty	難度
+Map	地圖
+Squad room	小隊房間
+Play again	再玩一局
+Ready for the next run	準備好下一局
+Takes the squad back to the room. Start the next run there.	帶小隊回到房間，再從那裡開始下一局。
+You will be ready as soon as the squad is back in the room.	小隊回到房間後，你會直接是就緒狀態。
+The host takes the squad back to the room.	由主機帶小隊回到房間。
+Continue to headquarters	前往局外總部
+This run's reward was already saved.	這一局的獎勵先前已經儲存。
+Could not save this run's rewards. Your previous progress is unchanged.	無法儲存這一局的獎勵，你原本的進度維持不變。
+Kills	擊殺
+Objectives	目標
+Earned	收入
+Time	時間
+Build: {0}	配置：{0}
+Reinforcements ahead!	前方有增援！
+Reinforcements on your left!	左側有增援！
+Reinforcements on your right!	右側有增援！
+Reinforcements behind you!	後方有增援！
+Kill Frenzy	擊殺狂熱
+Follow-Up	追擊加速
+Spin-Up	連射增傷
+Patient Shot	耐心射擊
+Last Round	最後一發
+Rounds Back	子彈回填
+Assault Rush	突擊衝勁
+Momentum	動能射擊
+Slowed	減速中
+Ambush Hit	伏擊重擊
+Sniped	遭狙擊
+Enraged Hit	狂暴重擊
+In Gas	身處毒霧
+Ultimate Jammed	絕招充能受阻
+ROGUELIKE	肉鴿
+SURVIVAL	生存
+ROGUELIKE SURVIVAL	肉鴿生存
+RUN #{0}	第 {0} 局
+CONTINUE RUN	繼續本局
+Chapter {0} · Stage {1}	第 {0} 章 · 第 {1} 關
+Axe thrown · walk over it to pick it up	斧頭已投出 · 走近拾回
+Guarding · release {0} to stop	舉盾中 · 放開 {0} 解除
+Rerolls {0}	重抽 {0}
+Invalid or unfinished run	無效或未完成的一局
+Play at least {0} seconds to earn experience	至少遊玩 {0} 秒才能獲得經驗
+Cancel Ready ({0})	取消就緒（{0}）
+Cancel Ready	取消就緒
+Revive {0} · {1} s	救起 {0} · {1} 秒
+Downed {0} s	倒地 {0} 秒
+Optional: you can skip it	可選：可以跳過
+After a full reload, the next fired round converts its first direct hit to a headshot (at most x{0} body damage). A miss consumes it; pellets share one conversion. Swapping keeps it on that weapon.	完整換彈後，下一發子彈的第一次直接命中會算成爆頭（最多為身體傷害的 x{0}）。沒打中就會用掉；霰彈的彈丸共用一次轉換。切換武器時保留在那把武器上。
+Aim settling time -{0}% after raising the sight.	舉起準星後的穩定時間 -{0}%。
+Magazine capacity +{0}% (round down, at least +{1} round).	彈匣容量 +{0}%（無條件捨去，至少 +{1} 發）。
+Revive speed +{0}% (divide base time by the speed multiplier).	救援速度 +{0}%（基礎時間除以速度倍率）。
+Reviving gives you and the teammate a {0}-point shield for {1} s. Another revive refills and refreshes it; shields do not stack.	救起隊友時，你和隊友獲得 {0} 點護盾，持續 {1} 秒。再次救援會補滿並重新計時；護盾不疊加。
+Account experience limit	帳號經驗上限
+Account merit limit	帳號功績上限
+Legacy play time estimated ({0} min)	舊存檔遊玩時間估算（{0} 分鐘）
+Run experience limit	單局經驗上限
+Run merit safety limit	單局功績安全上限

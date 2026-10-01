@@ -22,11 +22,11 @@ namespace Flats.Core.Roguelike
         SteadyBreath,            // V1 spread reduction after V2 seconds aimed without moving
         OpeningShot,             // V1 bonus against enemies at full health
         Executioner,             // V1 health fraction under which a headshot kills a regular enemy
-        HeadshotRhythm,          // V1 bonus per headshot within V2 s, up to 3 stacks
+        HeadshotRhythm,          // V1 bonus per headshot within V2 s, up to 6 stacks
         KillReload,              // V1 fraction of the magazine refilled from reserve on a kill
         MeleeKillRefill,         // a melee kill refills the magazine of the weapon in hand from reserve
-        AdrenalRush,             // V1 speed bonus for V2 s when dropping below 35% health (20 s cooldown)
-        Berserker,               // V1 damage per kill within 5 s, up to 3 stacks; reloading clears them
+        AdrenalRush,             // V1 speed bonus for V2 s when dropping below 35% health (10 s cooldown)
+        Berserker,               // V1 damage per kill within 5 s, up to 6 stacks; reloading clears them
         Juggernaut,              // V1 damage reduction below half health, V2 speed reduction always
         SuppressiveSlow,         // V1 slow fraction for V2 s on every hit
         HoldTheLine,             // V1 damage reduction after V2 s without moving
@@ -62,9 +62,9 @@ namespace Flats.Core.Roguelike
 
     /// <summary>
     /// The out-of-run skill tree. Design rule (2026-09-29, replaces "never permanent power"):
-    /// meta progression offers choice and sideways change, not unbounded power. Every stat node
-    /// is at most +15%, a fully learned tree stays within ~+30% effective damage and toughness
-    /// (checked by the rule tests), and co-op enemy scaling reads the squad's average meta power.
+    /// meta progression offers choice and sideways change, not unbounded power. Ordinary power nodes
+    /// are at most +15%; explicit capstones permit +20% or six +5% stacks. Conditional damage
+    /// and reduction remain bounded (checked by the rule tests), and co-op enemy scaling reads the squad's average meta power.
     /// </summary>
     public static class SkillTree
     {
@@ -79,9 +79,9 @@ namespace Flats.Core.Roguelike
         public static readonly SkillDef[] Nodes =
         {
             // ---------------- Precision
-            S("sk.fresh_mag", SkillBranch.Precision, 0, "Fresh Magazine", "Reload", "Right after a full reload: the first round always counts as a headshot.", E(SkillEffectKind.FreshMagazineHeadshot, 1)),
+            S("sk.fresh_mag", SkillBranch.Precision, 0, "Fresh Magazine", "Reload", "After a full reload: the next fired round converts its first direct hit. A miss consumes it; swapping preserves it on that weapon.", E(SkillEffectKind.FreshMagazineHeadshot, 1)),
             S("sk.steady_aim", SkillBranch.Precision, 0, "Steady Aim", "Sight", "Every time you aim: your aim settles faster.", E(SkillEffectKind.AdsTime, -0.25)),
-            S("sk.headhunter", SkillBranch.Precision, 1, "Headhunter", "Target", "Every headshot: bigger damage numbers.", E(SkillEffectKind.HeadshotDamage, 0.07)),
+            S("sk.headhunter", SkillBranch.Precision, 1, "Headhunter", "Target", "Every headshot: bigger damage numbers.", E(SkillEffectKind.HeadshotDamage, 0.10)),
             S("sk.spotter_eye", SkillBranch.Precision, 1, "Spotter's Eye", "Eye", "A headshot kill in a group: the enemies around it light up as marked.", E(SkillEffectKind.HeadshotKillMark, 8, 4)),
             S("sk.steady_breath", SkillBranch.Precision, 2, "Steady Breath", "Wind", "Hold still while aiming: the spread collapses after a moment.", E(SkillEffectKind.SteadyBreath, 0.45, 0.8)),
             S("sk.opening_shot", SkillBranch.Precision, 2, "Opening Shot", "Flag", "First hit on a fresh enemy: a visibly larger chunk of health.", E(SkillEffectKind.OpeningShot, 0.15)),
@@ -95,7 +95,7 @@ namespace Flats.Core.Roguelike
             S("sk.adrenal", SkillBranch.Assault, 2, "Adrenal Rush", "Bolt", "When your health drops low: a burst of speed to escape.", E(SkillEffectKind.AdrenalRush, 0.25, 3)),
             S("sk.quick_hands", SkillBranch.Assault, 2, "Quick Hands", "Swap", "Every weapon swap: the other gun is ready much sooner.", E(SkillEffectKind.SwapTime, -0.40)),
             S("sk.berserker", SkillBranch.Assault, 3, "Berserker", "Fire", "Kill streaks: each kill stacks more damage until you reload.", E(SkillEffectKind.Berserker, 0.05)),
-            S("sk.juggernaut", SkillBranch.Assault, 3, "Juggernaut", "Shield", "Below half health: hits hurt much less, but you move slower.", E(SkillEffectKind.Juggernaut, 0.15, 0.05), E(SkillEffectKind.MaxHealth, 0.10)),
+            S("sk.juggernaut", SkillBranch.Assault, 3, "Juggernaut", "Shield", "Below half health: hits hurt much less, but you move slower.", E(SkillEffectKind.Juggernaut, 0.20, 0.05)),
             // ---------------- Suppression
             S("sk.fast_reload", SkillBranch.Suppression, 0, "Fast Reload", "Reload", "Every reload: shorter.", E(SkillEffectKind.ReloadTime, -0.15)),
             S("sk.deep_pockets", SkillBranch.Suppression, 0, "Deep Pockets", "Ammo", "Longer fights: you run dry much later.", E(SkillEffectKind.Reserve, 0.35)),
@@ -106,14 +106,14 @@ namespace Flats.Core.Roguelike
             S("sk.endless_belt", SkillBranch.Suppression, 3, "Endless Belt", "Infinity", "Topping up a half-full magazine takes half the time.", E(SkillEffectKind.EndlessBelt, 0.5)),
             S("sk.shredder", SkillBranch.Suppression, 3, "Shredder", "Saw", "Keep the trigger down: after two seconds every round hits harder.", E(SkillEffectKind.Shredder, 0.15, 2.0)),
             // ---------------- Support
-            S("sk.field_medic", SkillBranch.Support, 0, "Field Medic", "Medkit", "Reviving a teammate: the ring fills much faster.", E(SkillEffectKind.ReviveSpeed, 0.30)),
+            S("sk.field_medic", SkillBranch.Support, 0, "Field Medic", "Medkit", "Reviving a teammate: the ring fills much faster.", E(SkillEffectKind.ReviveSpeed, 0.50)),
             S("sk.starter_mod", SkillBranch.Support, 0, "Starter Kit", "Gift", "Every run: you start with a random common mod already fitted.", E(SkillEffectKind.StarterMod, 1)),
-            S("sk.rescue_shield", SkillBranch.Support, 1, "Rescue Shield", "Shield", "Every revive: you and your teammate get a shield bubble.", E(SkillEffectKind.RescueShield, 250, 3)),
+            S("sk.rescue_shield", SkillBranch.Support, 1, "Rescue Shield", "Shield", "Every revive: you and your teammate get a shield bubble.", E(SkillEffectKind.RescueShield, 500, 3)),
             S("sk.second_wind", SkillBranch.Support, 1, "Second Wind", "Heart", "When you are revived: you get up with most of your health.", E(SkillEffectKind.SecondWind, 0.60)),
             S("sk.ult_charge", SkillBranch.Support, 2, "Overcharge", "Star", "The ultimate meter fills noticeably faster.", E(SkillEffectKind.UltimateCharge, 0.15)),
             S("sk.tactician", SkillBranch.Support, 2, "Tactician", "Clock", "Dash and shield come back sooner.", E(SkillEffectKind.TacticalCooldown, -0.25)),
             S("sk.guardian", SkillBranch.Support, 3, "Guardian Angel", "Wings", "Once per stage a killing blow leaves you standing, briefly invulnerable.", E(SkillEffectKind.GuardianAngel, 2.0)),
-            S("sk.squad_link", SkillBranch.Support, 3, "Squad Link", "Link", "When a teammate goes down (solo: when you are nearly dead): a surge of damage and speed.", E(SkillEffectKind.SquadLink, 0.15, 6)),
+            S("sk.squad_link", SkillBranch.Support, 3, "Squad Link", "Link", "When a teammate goes down (solo: when you are nearly dead): a surge of damage and speed.", E(SkillEffectKind.SquadLink, 0.20, 6)),
         };
 
         static Dictionary<string, SkillDef> byId;
@@ -266,7 +266,7 @@ namespace Flats.Core.Roguelike
         /// </summary>
         public static double Power(IList<string> learned) { int total = TotalCost(); return total <= 0 ? 0 : Math.Min(1, Spent(learned) / (double)total); }
 
-        /// <summary>Effects that add damage or toughness; each must stay within +15% on its own (design rule).</summary>
+        /// <summary>Effects that add damage or toughness; bounded by the per-kind PowerLimit.</summary>
         public static bool IsPowerBonus(SkillEffect e)
         {
             switch (e.Kind)
@@ -275,6 +275,14 @@ namespace Flats.Core.Roguelike
                 case SkillEffectKind.HoldTheLine: case SkillEffectKind.Shredder: case SkillEffectKind.SquadLink: return true;
             }
             return false;
+        }
+
+        // Only the explicitly tuned mechanics exceed the original 15% node limit.
+        public static double PowerLimit(SkillEffectKind kind)
+        {
+            if (kind == SkillEffectKind.HeadshotRhythm || kind == SkillEffectKind.Berserker) return 0.30;
+            if (kind == SkillEffectKind.Juggernaut || kind == SkillEffectKind.SquadLink) return 0.20;
+            return MaxStatNode;
         }
 
         public static List<string> Validate()
@@ -303,7 +311,7 @@ namespace Flats.Core.Roguelike
                 if (n.Row < 0 || n.Row > CapstoneRow) errors.Add("bad row " + n.Id);
                 foreach (var e in n.Effects)
                 {
-                    if (IsPowerBonus(e) && e.V1 * (e.Kind == SkillEffectKind.HeadshotRhythm || e.Kind == SkillEffectKind.Berserker ? BuildStats.MaxSkillStacks : 1) > MaxStatNode + 1e-9) errors.Add("power bonus above +15% in " + n.Id);
+                    if (IsPowerBonus(e) && e.V1 * (e.Kind == SkillEffectKind.HeadshotRhythm || e.Kind == SkillEffectKind.Berserker ? BuildStats.MaxSkillStacks : 1) > PowerLimit(e.Kind) + 1e-9) errors.Add("power bonus above declared limit in " + n.Id);
                     if (e.IsStat && Math.Abs(e.V1) > MaxStatNode && e.Kind != SkillEffectKind.Reserve && e.Kind != SkillEffectKind.AdsTime && e.Kind != SkillEffectKind.SwapTime
                         && e.Kind != SkillEffectKind.HipSpread && e.Kind != SkillEffectKind.ReviveSpeed && e.Kind != SkillEffectKind.ReloadTime && e.Kind != SkillEffectKind.TacticalCooldown)
                         errors.Add("power stat above +15% in " + n.Id);

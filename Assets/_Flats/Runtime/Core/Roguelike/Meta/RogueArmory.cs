@@ -121,6 +121,7 @@ namespace Flats.Core.Roguelike
 
     public static class RogueArmory
     {
+        public const double SniperHeadshotCap = 3.5;
         // ------------------------------------------------------------------ ranged weapons (30)
 
         public static readonly RangedWeaponDef[] Ranged =
@@ -155,9 +156,10 @@ namespace Flats.Core.Roguelike
                 Burst = 1, DamageMul = 1.55, RpmMul = 0.35, Magazine = 15, Accuracy = 100, Trait = TraitKind.PatientShot, T1 = 0.25, T2 = 0.4, Drawback = DrawbackKind.NoHipFire, D1 = 3.0 },
             new RangedWeaponDef { Id = "rw.ar_carbine", Name = "Carbine", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 280, Flavor = "Reloads from empty in a flash. Carries little spare ammunition.", Visual = "Armory/ShortStock",
                 Trait = TraitKind.EmptyReloadFast, T1 = 0.45, Drawback = DrawbackKind.LowReserve, D1 = 0.40, ReserveMul = 0.60 },
-            // Shotguns
+            // Shotguns. Every shotgun also carries the class range profile (WeaponRules.Profile, QA-49): stronger up close, very weak
+            // at range. Shotgun 1's old flat falloff (-40% beyond 15 m) would have doubled that falloff, so its cost is a shorter tube.
             new RangedWeaponDef { Id = "rw.sg1", Name = "Shotgun 1", Class = WeaponClass.Shotgun, BaseModel = 8, Starter = true, Flavor = "Point blank hits knock enemies back. Falls apart at range.",
-                Trait = TraitKind.CloseKnockback, T1 = 3.0, T2 = 8, Drawback = DrawbackKind.DamageFalloff, D1 = 0.40, D2 = 15 },
+                Trait = TraitKind.CloseKnockback, T1 = 3.0, T2 = 8, Drawback = DrawbackKind.SlowAds, D1 = 0.25 },   // QA-49: the class range curve replaced its falloff; a hip-fire gun keeps its full tube
             new RangedWeaponDef { Id = "rw.sg2", Name = "Shotgun 2", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 260, Flavor = "Close hits stun. Heavy.",
                 Trait = TraitKind.StaggerOnHit, T1 = 0.5, T2 = 10, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
             new RangedWeaponDef { Id = "rw.sg_auto", Name = "Auto Shotgun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 440, Flavor = "Fast pellets that refund a shell on every kill. Kicks hard.", Visual = "Armory/BoxMag",
@@ -168,13 +170,13 @@ namespace Flats.Core.Roguelike
                 Burst = 1, DamageMul = 1.9, RpmMul = 1.6, Accuracy = 95, Trait = TraitKind.Pierce, T1 = 2, Drawback = DrawbackKind.SlowAds, D1 = 0.35 },
             // Sniper rifles
             new RangedWeaponDef { Id = "rw.sr1", Name = "Sniper Rifle 1", Class = WeaponClass.Sniper, BaseModel = 10, Price = 260, Flavor = "A headshot chambers the next round fast. No hip fire.",
-                Trait = TraitKind.FollowUp, T1 = 0.60, Drawback = DrawbackKind.NoHipFire, D1 = 4.0 },
-            new RangedWeaponDef { Id = "rw.sr2", Name = "Sniper Rifle 2", Class = WeaponClass.Sniper, BaseModel = 11, Price = 340, Flavor = "Rounds pass through two enemies. Heavy.",
-                Trait = TraitKind.Pierce, T1 = 2, Drawback = DrawbackKind.MoveSlow, D1 = 0.12 },
+                Trait = TraitKind.FollowUp, T1 = 0.30, Drawback = DrawbackKind.NoHipFire, D1 = 4.0, ReserveMul = 0.75 },
+            new RangedWeaponDef { Id = "rw.sr2", Name = "Sniper Rifle 2", Class = WeaponClass.Sniper, BaseModel = 11, Price = 340, Flavor = "Rounds pass through one enemy. Heavy.",
+                Trait = TraitKind.Pierce, T1 = 1, Drawback = DrawbackKind.MoveSlow, D1 = 0.12, ReserveMul = 0.75 },
             new RangedWeaponDef { Id = "rw.sr_anti", Name = "Anti-Materiel Rifle", Class = WeaponClass.Sniper, BaseModel = 11, Price = 560, Flavor = "Breaks shields and elites. Very heavy.", Visual = "Armory/MuzzleBrake",
-                DamageMul = 1.75, RpmMul = 0.65, Trait = TraitKind.ArmorBreaker, T1 = 0.30, Drawback = DrawbackKind.MoveSlow, D1 = 0.20 },
+                DamageMul = 1.75, RpmMul = 0.65, ReserveMul = 0.75, Trait = TraitKind.ArmorBreaker, T1 = 0.30, Drawback = DrawbackKind.MoveSlow, D1 = 0.20 },
             new RangedWeaponDef { Id = "rw.sr_scout", Name = "Scout Rifle", Class = WeaponClass.Sniper, BaseModel = 10, Price = 380, Flavor = "A light rifle that aims in a blink. Headshots hit less hard.", Visual = "Armory/ShortStock",
-                DamageMul = 0.8, RpmMul = 1.5, ReloadMul = 0.7, Trait = TraitKind.SnapAim, T1 = 0.40, Drawback = DrawbackKind.WeakHeadshot, D1 = 0.40 },
+                DamageMul = 0.8, RpmMul = 1.5, ReloadMul = 0.7, ReserveMul = 0.75, Trait = TraitKind.SnapAim, T1 = 0.40, Drawback = DrawbackKind.WeakHeadshot, D1 = 0.40 },
             // Handguns
             new RangedWeaponDef { Id = "rw.hg1", Name = "Handgun 1", Class = WeaponClass.Handgun, BaseModel = 12, Starter = true, Flavor = "Out in a heartbeat. Weak at range.",
                 Trait = TraitKind.QuickDraw, T1 = 0.60, Drawback = DrawbackKind.DamageFalloff, D1 = 0.25, D2 = 20 },
@@ -278,7 +280,7 @@ namespace Flats.Core.Roguelike
                 Rpm = b.rpm * def.RpmMul,
                 Accuracy = def.Accuracy >= 0 ? def.Accuracy : b.accuracy,
                 Reload = b.reloadTime * def.ReloadMul,
-                HeadshotBonus = b.headshotBonus,
+                HeadshotBonus = def.Class == WeaponClass.Sniper ? Math.Min(b.headshotBonus, SniperHeadshotCap) : b.headshotBonus,
                 Magazine = def.Magazine > 0 ? def.Magazine : b.limitAmmo,
                 Reserve = (int)Math.Round(b.limitMaxAmmo * def.ReserveMul),
                 Burst = def.Burst > 0 ? def.Burst : b.burstCount,
@@ -331,12 +333,36 @@ namespace Flats.Core.Roguelike
         }
 
         // ------------------------------------------------------------------ stat bars (0..1), all derived from data
-        public struct StatBars { public double Damage, FireRate, Accuracy, Handling, Mobility; }
+        public struct StatBars { public double Damage, FireRate, Accuracy, Handling, Mobility, Range; }
+
+        /// <summary>Engagement band the Range bar averages over (m): typical Roguelike fights run from 8 to 60 m.</summary>
+        public const double RangeBarSpan = 60;
+
+        /// <summary>
+        /// Range bar: the mean damage multiplier of a body hit over 0..<see cref="RangeBarSpan"/> m from the weapon's distance rules
+        /// (class range profile, DamageFalloff drawback), each point capped at x1 so a close bonus does not count as reach.
+        /// Rifles and weapons without a distance cost read 1; a pellet shotgun reads about 0.5.
+        /// </summary>
+        public static double RangeReach(RangedWeaponDef def)
+        {
+            if (def == null) return 1;
+            const int steps = 120;
+            double sum = 0;
+            for (int i = 0; i <= steps; i++)
+            {
+                double d = RangeBarSpan * i / steps;
+                double m = WeaponRules.ShotgunRangeMul(d, def);
+                if (def.Drawback == DrawbackKind.DamageFalloff && d > def.D2) m *= 1 - def.D1;
+                sum += Math.Min(1, m) * (i == 0 || i == steps ? 0.5 : 1);
+            }
+            return Clamp01(sum / steps);
+        }
 
         public static StatBars Bars(RangedWeaponDef def)
         {
             var r = Resolve(def);
             var bars = new StatBars();
+            bars.Range = RangeReach(def);
             bars.Damage = Clamp01(r.Damage * r.Pellets / 600.0);
             bars.FireRate = Clamp01((RoundsPerCycle(r) / CycleSeconds(r)) / 12.0);
             double acc = r.Accuracy / 100.0;
@@ -359,6 +385,7 @@ namespace Flats.Core.Roguelike
                 Accuracy = Clamp01(def.Radius / 2.5),
                 Handling = Clamp01(1 - def.Windup / 0.6),
                 Mobility = Clamp01((def.MoveMul - 0.7) / 0.45),
+                Range = Clamp01(def.Range / RangeBarSpan),   // swing reach over the same band
             };
         }
 

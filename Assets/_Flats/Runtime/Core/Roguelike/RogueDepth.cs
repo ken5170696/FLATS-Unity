@@ -13,6 +13,9 @@ namespace Flats.Core.Roguelike
         public const int StagesPerChapter = 5;
         public const int MaxDepth = 1000000;
         public const int MaxDifficulty = 3;
+        public const double NormalOpeningBudgetMul = 0.88;
+        public const int NormalOpeningCapReduction = 2;
+        public static bool IsNormalOpening(int depth, int difficulty) { return ChapterOf(depth) == 1 && ClampDifficulty(difficulty) == 1; }
 
         public static int Clamp(int depth) { return depth < 1 ? 1 : (depth > MaxDepth ? MaxDepth : depth); }
         public static int ClampDifficulty(int difficulty) { return difficulty < 1 ? 1 : (difficulty > MaxDifficulty ? MaxDifficulty : difficulty); }
@@ -67,18 +70,31 @@ namespace Flats.Core.Roguelike
         {
             int p = players < 1 ? 1 : (players > 4 ? 4 : players);
             int cap = 10 + (int)Math.Round(Saturate(depth, 1.0, 30.0) * 4) + p * 2 + (ClampDifficulty(difficulty) - 1) * 2;
+            if (IsNormalOpening(depth, difficulty)) cap -= NormalOpeningCapReduction;
             return cap > 28 ? 28 : cap;
         }
 
         /// <summary>Total enemy weight of a stage's regular waves (before elites/finale). Bounded.</summary>
         public static int StageEnemyBudget(int depth, int difficulty, int players)
+        { return StageEnemyBudget(depth, difficulty, players, true); }
+
+        static int StageEnemyBudget(int depth, int difficulty, int players, bool adjustOpening)
         {
             int p = players < 1 ? 1 : (players > 4 ? 4 : players);
             double baseCount = 14 + 10.5 * (Saturate(depth, 2.0, 25.0) - 1.0);
             double perPlayer = 1.0 + 0.45 * (p - 1);
             double diff = 0.9 + 0.15 * ClampDifficulty(difficulty);
-            int count = (int)Math.Round(baseCount * perPlayer * diff);
+            int count = (int)Math.Round(baseCount * perPlayer * diff * (adjustOpening && IsNormalOpening(depth, difficulty) ? NormalOpeningBudgetMul : 1));
             return count < 6 ? 6 : (count > 158 ? 158 : count);
+        }
+
+        /// <summary>Keep the original wave count and release times when tuning total density:
+        /// crossing 26/55 enemies must not compress the smaller budget into fewer, larger early waves.</summary>
+        public static int StageWaveCount(int depth, int difficulty, int players, bool finale)
+        {
+            int budget = StageEnemyBudget(depth, difficulty, players, false);
+            if (finale) budget = Math.Max(6, budget * 2 / 3);
+            return budget <= 26 ? 3 : budget <= 55 ? 4 : 5;
         }
 
         /// <summary>Per-player combat income budget in coins (G). Grows with depth but saturates, matching the price table.</summary>

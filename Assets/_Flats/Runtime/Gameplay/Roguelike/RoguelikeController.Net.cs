@@ -4,7 +4,7 @@ using Flats.Core.Roguelike;
 using UnityEngine;
 
 // Co-op hardening: roster changes, authority hand-over, life replication, revive holds,
-// transaction effects, run end on every client, and session cleanup. See codex/REVIEW_ADAPTER_P1.md.
+// transaction effects, run end on every client, and session cleanup.
 public partial class RoguelikeController
 {
     bool endedHandled, travelling, screenDismissed;
@@ -54,6 +54,7 @@ public partial class RoguelikeController
         if (!RoguelikeMode.Coop || state == null) return;
         // a run that already ended has nothing left to decide; the result screen must not turn into "you are the host now" (X002)
         if (state.phase == RunPhase.Ended || endedHandled) return;
+        RogueBodyShield.ReleaseAllLocal();   // QA-44: the new authority has no claims; every copy puts its bodies down
         if (!PhotonNetwork.isMasterClient) { Banner(T("Host changed: waiting for the new host..."), 3f); return; }
         // We are the new authority: rebuild the machine from the last replicated state. A stage in progress cannot be
         // continued faithfully (spawn ownership and slot payments moved), so the squad returns to the safe node.
@@ -134,28 +135,44 @@ public partial class RoguelikeController
         EnsureLocalPlayerAlive();
     }
 
-    /// <summary>Authority: a rescuer reports held seconds; three seconds of continuous, in-range holding revives the victim.</summary>
+    /// <summary>
+    /// Authority: a rescuer reports held seconds; three seconds of holding in reach revives the victim. Revive progress lives here
+    /// and reaches every client as "revprog" events (the victim's HUD, and the victim's RoguePlayer.NoteReviveProgress, which
+    /// stops the crawl while it is being revived, QA-33). A revive that has started keeps its progress through a break of up to
+    /// RoguePlayer.ReviveResetSeconds and is measured with the same extra reach as the rescuer's prompt, so the authority never
+    /// refuses a hold that the rescuer still sees as valid.
+    /// </summary>
     void ReviveHold(string rescuer, string victim, float seconds)
     {
         var r = state.Player(rescuer); var v = state.Player(victim);
         if (r == null || v == null || rescuer == victim || !r.connected || r.life != PlayerLife.Alive || v.life != PlayerLife.Downed) return;
         var ro = RogueWorld.PlayerByKey(rescuer); var vo = RogueWorld.PlayerByKey(victim);
-        // the same reach rule as the rescuer's prompt (to the capsule, with the authority's tolerance), and one rescuer per victim
-        if (ro == null || vo == null || !RogueInteraction.AuthorityCanAct(ro) || !RogueInteraction.AuthorityInReach(ro, vo.GetComponent<CharacterController>(), RoguePlayer.ReviveRange)) return;
+        string key = rescuer + "|" + victim;
+        float last; bool reported = reviveLastReport.TryGetValue(key, out last);
+        float progress; reviveHold.TryGetValue(key, out progress);
+        bool ongoing = reported && progress > 0f && Time.time - last <= RoguePlayer.ReviveResetSeconds;
+        // the same reach rule as the rescuer's prompt (to the capsule, with the authority's tolerance, plus the extra reach of a
+        // revive in progress), and one rescuer per victim
+        if (ro == null || vo == null || !RogueInteraction.AuthorityCanAct(ro) ||
+            !RogueInteraction.AuthorityInReach(ro, vo.GetComponent<CharacterController>(), RoguePlayer.ReviveRange, ongoing ? RoguePlayer.ReviveContinueReach : 0f)) return;
         bool inUse; float granted = reviveLedger.Credit(rescuer, "revive:" + victim, seconds, true, out inUse);
         if (inUse) { if (reviveLedger.NoticeDue(rescuer)) Notify(new RogueEventMessage { kind = "denied", playerKey = rescuer, text = "Someone else is using it" }); return; }
-        string key = rescuer + "|" + victim;
-        float last; reviveLastReport.TryGetValue(key, out last);
-        if (Time.time - last > 1f) reviveHold[key] = 0;   // the hold was interrupted
+        if (!ongoing) reviveHold[key] = 0;   // a new hold, or one interrupted for longer than ReviveResetSeconds
         reviveLastReport[key] = Time.time;
         float held; reviveHold.TryGetValue(key, out held);
         var rr = ro.GetComponent<RoguePlayer>();
         // the authority's own record of the rescuer's build (a teammate's local copy only applied it at spawn)
         var rb = r.build != null ? BuildStats.Compute(r.build) : null;
-        held += granted * (rb != null ? (float)rb.ReviveSpeedMul : rr != null ? (float)rr.Stats.ReviveSpeedMul : 1f);
+        // held seconds against the rescuer's own time: the base time divided by its revive speed (BuildStats.ReviveSeconds, QA-32)
+        held += granted;
         reviveHold[key] = held;
-        Notify(new RogueEventMessage { kind = "revprog", playerKey = victim, text = r.name, value = Mathf.Clamp01(held / RoguePlayer.ReviveHoldSeconds) });
-        if (held < RoguePlayer.ReviveHoldSeconds) return;
+        var rs = rb != null ? rb : rr != null ? rr.Stats : null;
+        float needed = Mathf.Max(0.1f, rs != null ? (float)rs.ReviveSeconds(RoguePlayer.ReviveHoldSeconds) : RoguePlayer.ReviveHoldSeconds);
+        float progress01 = Mathf.Clamp01(held / needed);
+        Notify(new RogueEventMessage { kind = "revprog", playerKey = victim, text = r.name, value = progress01 });
+        // A victim who is the authority itself stops crawling here as well (every other victim through the "revprog" event).
+        { var vp = vo.GetComponent<RoguePlayer>(); if (vp != null && vp.IsMine) vp.NoteReviveProgress(progress01); }
+        if (held < needed) return;
         reviveHold.Remove(key);
         reviveLedger.Release("revive:" + victim);
         var pay = machine.Rescued(rescuer, victim);
@@ -213,6 +230,7 @@ public partial class RoguelikeController
     {
         foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.CancelAll(); }
         RogueEnemyRole.ClearOutlines();   // every player's Enemy Sight source, not only the legacy global one
+        RogueBodyShield.ReleaseAllLocal();
         DisposeEvents();
         CloseOverview();
         CloseScreens();

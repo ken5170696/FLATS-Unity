@@ -138,7 +138,7 @@ namespace Flats.Core.Roguelike
         {
             int budget = RogueDepth.StageEnemyBudget(depth, difficulty, players);
             if (finale) budget = Math.Max(6, budget * 2 / 3);
-            int waveCount = budget <= 26 ? 3 : budget <= 55 ? 4 : 5;
+            int waveCount = RogueDepth.StageWaveCount(depth, difficulty, players, finale);
             var roles = new List<EnemyRoleDef>();
             var roleWeights = new List<double>();
             foreach (var r in RogueCatalog.EnemyRoles)

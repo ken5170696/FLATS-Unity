@@ -342,13 +342,13 @@ namespace Flats.Core.Roguelike
         public static bool ApplyRunReward(MetaProfile p, RunReward reward, RunFacts facts, DateTime utcNow)
         {
             EnsureShape(p);
-            if (reward == null || facts == null || string.IsNullOrEmpty(reward.runId) || AlreadyRewarded(p, reward.runId)) return false;
+            if (reward == null || facts == null || reward.runId != facts.RunId || string.IsNullOrEmpty(reward.runId) || AlreadyRewarded(p, reward.runId)) return false;
             if (MetaProgression.Ineligible(facts) != "")
             {
                 // the same eligibility gates every side reward: remember the run so it cannot be replayed, grant nothing
                 var seen = new List<string>(p.rewardedRuns) { reward.runId }; if (seen.Count > RewardRing) seen.RemoveRange(0, seen.Count - RewardRing); p.rewardedRuns = seen.ToArray();
                 if (p.pendingRunId == reward.runId) p.pendingRunId = "";
-                reward.lines = new RewardLine[0]; reward.xp = 0; reward.merits = 0; reward.levelBefore = reward.levelAfter = p.Level;
+                reward.lines = new[] { MetaProgression.IneligibleLine(facts) }; reward.xp = 0; reward.merits = 0; reward.levelBefore = reward.levelAfter = p.Level;
                 return true;
             }
             var lines = new List<RewardLine>(reward.lines);
@@ -394,6 +394,8 @@ namespace Flats.Core.Roguelike
             int levelBefore = p.Level;
             long xpBefore = p.xp;
             p.xp = Math.Min(MetaProgression.MaxXp, p.xp + xpGain);
+            if (p.xp - xpBefore != xpGain) lines.Add(new RewardLine { source = "Account experience limit", xp = p.xp - xpBefore - xpGain });
+            xpGain = p.xp - xpBefore;
             int levelAfter = p.Level;
             long levelMerits = 0;
             for (int l = levelBefore + 1; l <= levelAfter; l++) levelMerits += MetaProgression.MeritsForLevelUp(l);
@@ -404,7 +406,10 @@ namespace Flats.Core.Roguelike
             if (overAfter > overBefore) { long m = (overAfter - overBefore) * MetaProgression.OverlevelMerits; levelMerits += m; lines.Add(new RewardLine { source = "Beyond level {0} x{1}", arg = MetaProgression.MaxLevel + "|" + (overAfter - overBefore), merits = m }); }
 
             long totalMerits = meritGain + levelMerits;
+            long meritsBefore = p.merits;
             p.merits = Math.Min(MetaProgression.MaxMerits, p.merits + totalMerits);
+            if (p.merits - meritsBefore != totalMerits) lines.Add(new RewardLine { source = "Account merit limit", merits = p.merits - meritsBefore - totalMerits });
+            totalMerits = p.merits - meritsBefore;
             p.lifetimeMerits += totalMerits;
 
             p.weaponKills = FormatCounts(kills);

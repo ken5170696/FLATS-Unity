@@ -94,93 +94,250 @@ public class DroppedGun : MonoBehaviour
 
 	private void OnDestroy()
 	{
-		if ((bool)message)
-		{
-			message.GetChild(1).gameObject.SetActive(false);
-		}
+		HideOffer();
 	}
 
 	private void OnDisable()
 	{
-		ready = false;
-		if ((bool)message)
+		HideOffer();
+	}
+
+	// ---- What touching this weapon offers the local player (QA-26). In Roguelike a weapon is told apart by its model and its
+	// sight: armory numbers belong to the holder's loadout for a model, so the model and the sight are what taking a weapon
+	// changes. Classic modes keep the model alone (the legacy rule), so only the first and last cases occur there.
+	//  - Same model and sight as a carried weapon: its rounds top up that weapon's reserve and it is used up, as before.
+	//  - Same model as the weapon in hand, another sight: an exchange in the same slot is offered; the reserve is topped up from
+	//    it first with only the rounds needed, and the rest stay in it.
+	//  - Same model as the holstered weapon, another sight: that reserve is topped up the same way. Two copies of one model
+	//    cannot be carried (they share one magazine), so the exchange is offered once that weapon is in hand.
+	//  - Any other model: an exchange is offered, as before.
+	// The offer follows the Roguelike action rule every frame (FPSController.MayPickUpWeapon): it disappears while carrying,
+	// down, in a menu, dashing or while Interact belongs to a Roguelike target, and returns when that ends.
+	private static DroppedGun showing;
+
+	private bool inside;
+
+	private bool consumed;
+
+	private bool requested;
+
+	private int claimedBy;
+
+	/// <summary>Every copy, in the order the server delivered the requests: true for the first taker only (FPSController.ExchangeWeapons).</summary>
+	public bool Claim(int takerViewId)
+	{
+		if (claimedBy != 0 || consumed)
 		{
-			message.GetChild(1).gameObject.SetActive(false);
+			return false;
 		}
+		claimedBy = takerViewId;
+		HideOffer();
+		return true;
+	}
+
+	/// <summary>The local player asked for this weapon; the offer stays hidden until the request is settled.</summary>
+	public void NoteRequested()
+	{
+		requested = true;
+		HideOffer();
 	}
 
 	private void OnTriggerEnter(Collider col)
 	{
-		if (!(col.tag == "Player") || ready || !MyView(col.gameObject))
+		if (!(col.tag == "Player") || !MyView(col.gameObject))
+		{
+			return;
+		}
+		FPSController candidate = col.gameObject.GetComponent<FPSController>();
+		if (candidate == null)
 		{
 			return;
 		}
 		player = col.transform;
-		fc = player.gameObject.GetComponent<FPSController>();
+		fc = candidate;
+		inside = true;
+		Evaluate();
+	}
+
+	private void Evaluate()
+	{
+		if (!inside || consumed || requested || claimedBy != 0 || fc == null || fc.primaryWeapon == null || fc.primaryWeapons == null)
+		{
+			HideOffer();
+			return;
+		}
 		pw = fc.primaryWeapon.GetComponent<Gun>();
 		sw = fc.primaryWeapons.GetChild(fc.secondaryWeaponIndex).GetComponent<Gun>();
-		currentGunImage.sprite = weaponTextures[fc.primaryWeaponIndex];
-		thisGunImage.sprite = weaponTextures[weaponIndex];
-		if (fc.primaryWeaponIndex == weaponIndex && pw.maxAmmo != pw.limitMaxAmmo)
+		if (pw == null || sw == null)
 		{
-			base.GetComponent<AudioSource>().PlayOneShot(getAmmo);
-			pw.maxAmmo += currentAmmo + maxAmmo;
-			if (pw.maxAmmo > pw.limitMaxAmmo)
-			{
-				pw.maxAmmo = pw.limitMaxAmmo;
-			}
-			if (Menu.network == 0)
-			{
-				UnityEngine.Object.Destroy(base.gameObject);
-			}
-			else if (Menu.network != 1)
-			{
-				base.gameObject.GetPhotonView().RPC("Destroy", PhotonTargets.All);
-			}
+			HideOffer();
+			return;
 		}
-		else if (fc.secondaryWeaponIndex == weaponIndex && sw.maxAmmo != sw.limitMaxAmmo)
+		bool samePrimary = fc.primaryWeaponIndex == weaponIndex;
+		bool sameSecondary = !samePrimary && fc.secondaryWeaponIndex == weaponIndex;
+		bool rogue = RoguelikeMode.Active;
+		bool primaryIdentical = samePrimary && (!rogue || sight == fc.primarySightIndex);
+		bool secondaryIdentical = sameSecondary && (!rogue || sight == fc.secondarySightIndex);
+		if (primaryIdentical)
 		{
-			base.GetComponent<AudioSource>().PlayOneShot(getAmmo);
-			sw.maxAmmo += currentAmmo + maxAmmo;
-			if (sw.maxAmmo > sw.limitMaxAmmo)
+			if (pw.maxAmmo != pw.limitMaxAmmo)
 			{
-				sw.maxAmmo = sw.limitMaxAmmo;
-			}
-			if (Menu.network == 0)
-			{
-				UnityEngine.Object.Destroy(base.gameObject);
-			}
-			else if (Menu.network != 1)
-			{
-				base.gameObject.GetPhotonView().RPC("Destroy", PhotonTargets.All);
-			}
-		}
-		else if (!fc.zombie && fc.primaryWeaponIndex != weaponIndex && fc.secondaryWeaponIndex != weaponIndex)
-		{
-			ready = true;
-			fc.droppedGun = base.transform;
-			if (Input.GetJoystickNames().Length > 0)
-			{
-				message.GetChild(1).GetChild(3).GetComponent<Text>()
-					.text = "Exchange weapon: {control:Interact}.";
-			}
-			else if (!Application.isMobilePlatform && Input.mousePresent)
-			{
-				message.GetChild(1).GetChild(3).GetComponent<Text>()
-					.text = "Exchange weapon: {control:Interact}.";
+				TakeAll(pw);
 			}
 			else
 			{
-				// Mobile browsers can report a mouse; touch players use the HUD Swap button.
-				message.GetChild(1).GetChild(3).GetComponent<Text>()
-					.text = "Tap Swap to exchange";
+				HideOffer();
 			}
-			message.GetChild(1).gameObject.SetActive(true);
+			return;
+		}
+		if (secondaryIdentical)
+		{
+			if (sw.maxAmmo != sw.limitMaxAmmo)
+			{
+				TakeAll(sw);
+			}
+			else
+			{
+				HideOffer();
+			}
+			return;
+		}
+		if (samePrimary)
+		{
+			TakeNeeded(pw);
+		}
+		else if (sameSecondary)
+		{
+			TakeNeeded(sw);
+			HideOffer();
+			return;
+		}
+		if (!fc.zombie && fc.MayPickUpWeapon)
+		{
+			ShowOffer();
+		}
+		else
+		{
+			HideOffer();
+		}
+	}
+
+	// The legacy refill: every round goes to the reserve (up to its limit) and the weapon is used up.
+	private void TakeAll(Gun gun)
+	{
+		consumed = true;
+		HideOffer();
+		base.GetComponent<AudioSource>().PlayOneShot(getAmmo);
+		gun.maxAmmo += currentAmmo + maxAmmo;
+		if (gun.maxAmmo > gun.limitMaxAmmo)
+		{
+			gun.maxAmmo = gun.limitMaxAmmo;
+		}
+		if (Menu.network == 0)
+		{
+			UnityEngine.Object.Destroy(base.gameObject);
+		}
+		else if (Menu.network != 1)
+		{
+			base.gameObject.GetPhotonView().RPC("Destroy", PhotonTargets.All);
+		}
+	}
+
+	// A weapon worth keeping on the ground (another sight): only the rounds the reserve lacks are taken, reserve first, and every
+	// copy learns what is left through DropData, so nobody takes the same rounds twice.
+	private void TakeNeeded(Gun gun)
+	{
+		int need = gun.limitMaxAmmo - gun.maxAmmo;
+		int available = Mathf.Max(0, currentAmmo) + Mathf.Max(0, maxAmmo);
+		if (need <= 0 || available <= 0)
+		{
+			return;
+		}
+		int take = Mathf.Min(need, available);
+		gun.maxAmmo += take;
+		int fromReserve = Mathf.Min(take, Mathf.Max(0, maxAmmo));
+		maxAmmo = Mathf.Max(0, maxAmmo) - fromReserve;
+		currentAmmo = Mathf.Max(0, currentAmmo) - (take - fromReserve);
+		base.GetComponent<AudioSource>().PlayOneShot(getAmmo);
+		if (Menu.network != 0 && Menu.network != 1)
+		{
+			PhotonView view = base.gameObject.GetPhotonView();
+			if (view != null)
+			{
+				view.RPC("DropData", PhotonTargets.Others, currentAmmo, maxAmmo, sight);
+			}
+		}
+	}
+
+	private void ShowOffer()
+	{
+		if (fc != null && fc.droppedGun != base.transform)
+		{
+			fc.droppedGun = base.transform;
+		}
+		if (ready && showing == this)
+		{
+			return;
+		}
+		ready = true;
+		if (message == null)
+		{
+			return;
+		}
+		currentGunImage.sprite = weaponTextures[fc.primaryWeaponIndex];
+		thisGunImage.sprite = weaponTextures[weaponIndex];
+		if (Input.GetJoystickNames().Length > 0)
+		{
+			message.GetChild(1).GetChild(3).GetComponent<Text>()
+				.text = "Exchange weapon: {control:Interact}.";
+		}
+		else if (!Application.isMobilePlatform && Input.mousePresent)
+		{
+			message.GetChild(1).GetChild(3).GetComponent<Text>()
+				.text = "Exchange weapon: {control:Interact}.";
+		}
+		else
+		{
+			// Mobile browsers can report a mouse; touch players use the HUD Swap button.
+			message.GetChild(1).GetChild(3).GetComponent<Text>()
+				.text = "Tap Swap to exchange";
+		}
+		message.GetChild(1).gameObject.SetActive(true);
+		showing = this;
+	}
+
+	private void HideOffer()
+	{
+		ready = false;
+		if (fc != null && fc.droppedGun == base.transform)
+		{
+			fc.droppedGun = null;
+		}
+		if (showing == this)
+		{
+			showing = null;
+			if ((bool)message)
+			{
+				message.GetChild(1).gameObject.SetActive(false);
+			}
 		}
 	}
 
 	private void Update()
 	{
+		if (inside)
+		{
+			if (fc == null)
+			{
+				inside = false;
+				HideOffer();
+			}
+			else
+			{
+				// Re-read each frame: a weapon switch, a spent reserve, a carry or a menu changes what this weapon offers.
+				Evaluate();
+			}
+		}
 		if ((bool)ct)
 		{
 			if (Vector3.Distance(mt.position, ct.position) > 120f)
@@ -202,12 +359,8 @@ public class DroppedGun : MonoBehaviour
 	{
 		if (col.tag == "Player" && MyView(col.gameObject))
 		{
-			ready = false;
-			fc.droppedGun = null;
-			if ((bool)message)
-			{
-				message.GetChild(1).gameObject.SetActive(false);
-			}
+			inside = false;
+			HideOffer();
 		}
 	}
 
@@ -223,11 +376,15 @@ public class DroppedGun : MonoBehaviour
 			{
 				dontDestroy = true;
 			}
-			if (currentAmmo < 0 || currentAmmo > limitAmmo)
+			// Roguelike magazines and reserves grow with the loadout and upgrades: a larger count is the dropper's real count, not
+			// corrupt data, so it is kept (the taker's own capacity applies on pickup, FPSController.ExchangeWeapons).
+			int magazineCap = RoguelikeMode.Active ? Mathf.Max(limitAmmo, GunInfo.limitAmmo[weaponIndex]) * 10 : limitAmmo;
+			int reserveCap = RoguelikeMode.Active ? Mathf.Max(limitMaxAmmo, GunInfo.limitMaxAmmo[weaponIndex]) * 10 : limitMaxAmmo;
+			if (currentAmmo < 0 || currentAmmo > magazineCap)
 			{
 				currentAmmo = GunInfo.limitAmmo[weaponIndex];
 			}
-			if (maxAmmo < 0 || maxAmmo > limitMaxAmmo)
+			if (maxAmmo < 0 || maxAmmo > reserveCap)
 			{
 				maxAmmo = GunInfo.limitMaxAmmo[weaponIndex];
 			}

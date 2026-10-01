@@ -11,6 +11,8 @@ GameObject:
   - component: {fileID: 9208036715526969987}
   - component: {fileID: 187992967287262629}
   - component: {fileID: 2320319246043922888}
+  - component: {fileID: 3686362479639787796}
+  - component: {fileID: 889591512793802938}
   m_Layer: 0
   m_Name: Title
   m_TagString: Untagged
@@ -34,8 +36,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 37, y: -5}
-  m_SizeDelta: {x: -42, y: 26}
+  m_AnchoredPosition: {x: 37, y: -4}
+  m_SizeDelta: {x: -42, y: 31}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &187992967287262629
 CanvasRenderer:
@@ -58,7 +60,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
-  m_Color: {r: 0.16, g: 0.16, b: 0.16, a: 1}
+  m_Color: {r: 0.12156863, g: 0.12941177, b: 0.16078432, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -67,7 +69,7 @@ MonoBehaviour:
       m_Calls: []
   m_FontData:
     m_Font: {fileID: 12800000, guid: 7e97e1fb4f0f2684293e6fd3c05e5d04, type: 3}
-    m_FontSize: 13
+    m_FontSize: 12
     m_FontStyle: 1
     m_BestFit: 0
     m_MinSize: 10
@@ -75,11 +77,41 @@ MonoBehaviour:
     m_Alignment: 3
     m_AlignByGeometry: 0
     m_RichText: 1
-    m_HorizontalOverflow: 1
-    m_VerticalOverflow: 1
+    m_HorizontalOverflow: 0
+    m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Title
   translate: 1
+--- !u!114 &3686362479639787796
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1286366725333737509}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 20
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}
+--- !u!114 &889591512793802938
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1286366725333737509}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77f39d5a9100418da43269aefb6bf951, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RogueCjkWeight
+  latinStyle: 1
+  chineseStyle: 0
 --- !u!1 &5642168591564390573
 GameObject:
   m_ObjectHideFlags: 0
@@ -166,6 +198,7 @@ GameObject:
   - component: {fileID: 1343280712954590252}
   - component: {fileID: 6528638426724135885}
   - component: {fileID: 2529407556605278558}
+  - component: {fileID: 8403961275893551256}
   m_Layer: 0
   m_Name: Sub
   m_TagString: Untagged
@@ -187,10 +220,10 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 4937048423342731809}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 5, y: -33}
-  m_SizeDelta: {x: -10, y: 26}
+  m_AnchoredPosition: {x: 5, y: -37}
+  m_SizeDelta: {x: -10, y: -41}
   m_Pivot: {x: 0, y: 1}
 --- !u!222 &6528638426724135885
 CanvasRenderer:
@@ -213,7 +246,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FlatsLocalizedText
   m_Material: {fileID: 0}
-  m_Color: {r: 0.4, g: 0.4, b: 0.4, a: 1}
+  m_Color: {r: 0.36862746, g: 0.3764706, b: 0.4392157, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -224,7 +257,7 @@ MonoBehaviour:
     m_Font: {fileID: 12800000, guid: 7e97e1fb4f0f2684293e6fd3c05e5d04, type: 3}
     m_FontSize: 10
     m_FontStyle: 0
-    m_BestFit: 1
+    m_BestFit: 0
     m_MinSize: 9
     m_MaxSize: 10
     m_Alignment: 0
@@ -232,9 +265,25 @@ MonoBehaviour:
     m_RichText: 1
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
-    m_LineSpacing: 1
+    m_LineSpacing: 1.05
   m_Text: Sub
   translate: 1
+--- !u!114 &8403961275893551256
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6098407535102659203}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 21
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}
 --- !u!1 &6202695223924105220
 GameObject:
   m_ObjectHideFlags: 0
@@ -246,6 +295,7 @@ GameObject:
   - component: {fileID: 193496058375595301}
   - component: {fileID: 2718123207064002580}
   - component: {fileID: 3269647797357413533}
+  - component: {fileID: 7512169924348270331}
   m_Layer: 0
   m_Name: IconBack
   m_TagString: Untagged
@@ -294,7 +344,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Image
   m_Material: {fileID: 0}
-  m_Color: {r: 0.8, g: 0.098, b: 0.4, a: 1}
+  m_Color: {r: 0.8, g: 0.09803922, b: 0.39215687, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -311,6 +361,22 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &7512169924348270331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6202695223924105220}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 1
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}
 --- !u!1 &6690696928894518241
 GameObject:
   m_ObjectHideFlags: 0
@@ -323,6 +389,7 @@ GameObject:
   - component: {fileID: 2693793797127653737}
   - component: {fileID: 9003537943893288011}
   - component: {fileID: 1472347410385464654}
+  - component: {fileID: 2762283450113124999}
   m_Layer: 0
   m_Name: RogueCard
   m_TagString: Untagged
@@ -407,3 +474,19 @@ MonoBehaviour:
   icon: {fileID: 8207109865513372136}
   title: {fileID: 2320319246043922888}
   sub: {fileID: 2529407556605278558}
+--- !u!114 &2762283450113124999
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6690696928894518241}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d99f6260ec4a477eba10d4a3e32c9b69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsThemeTag
+  token: 13
+  alpha: -1
+  live: 0
+  theme: {fileID: 0}

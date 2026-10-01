@@ -25,6 +25,7 @@ namespace Flats.Core.Roguelike
         public ShopOffer[] offers = new ShopOffer[0];
         public ShopOffer[] rewardOffers = new ShopOffer[0];
         public int rerollsLeft;
+        public int rerollTickets; // run-local; serialized across stages, reconnect and authority migration
         public int deaths, kills, headshots, rescues;
         public string[] processedTx = new string[0];
         public bool joinedAtSafeNode;        // one-time catch-up grant already given
@@ -63,6 +64,10 @@ namespace Flats.Core.Roguelike
         public long teamEarnedMinor;
         public int paidDepth;                // the ledger/plan belong to this depth, including host-change replays
         public string[] rewardPaidPlayers = new string[0];
+        public int totalStagesCleared, totalObjectives, totalEvents, totalFinales, progressLastDepth;
+        public bool progressTotalsInitialized;
+        public double elapsedSeconds; // authoritative cumulative play time; never derive new saves from history
+        public bool elapsedEstimated; // legacy resume estimate, exposed on the result breakdown
         public double stageSeconds;                     // authority clock within the stage
         public int riskContract;                        // 0 none, 1 accepted this stage
         public double stageBountyMul = 1;
@@ -183,12 +188,50 @@ namespace Flats.Core.Roguelike
             p.ready = false;
         }
 
+        TransactionResult TicketTransaction(ShopTransaction tx, RunPlayer p)
+        {
+            var fail = new TransactionResult { Status = TransactionStatus.NotAllowed, NewShopVersion = p.shopVersion };
+            if (string.IsNullOrEmpty(tx.txId) || tx.rewardPick || tx.remove || (tx.skipReward && (tx.reroll || tx.useRerollTicket))) return fail;
+            // a skip gives up this stage's reward offers, whatever the shop version the guest last saw (a guest's snapshot can trail the
+            // host's; rewardPaidPlayers and the sold offers below already make it once per stage)
+            if (tx.runId != State.runId || (!tx.skipReward && tx.shopVersion != p.shopVersion)) { fail.Status = TransactionStatus.WrongVersion; return fail; }
+            if (tx.expectedPriceMinor != 0) { fail.Status = TransactionStatus.PriceMismatch; return fail; }
+            ShopOffer[] replacement = null;
+            if (tx.skipReward)
+            {
+                if (State.phase != RunPhase.Reward) { fail.Status = TransactionStatus.WrongPhase; return fail; }
+                if (Array.IndexOf(State.rewardPaidPlayers, p.key) >= 0 || p.rewardOffers.Length == 0 || p.rerollTickets == int.MaxValue) return fail;
+                foreach (var offer in p.rewardOffers) if (offer.sold) return fail;
+            }
+            else
+            {
+                if (!tx.reroll || p.rerollTickets <= 0) return fail;
+                if (State.phase != RunPhase.Prep && State.phase != RunPhase.ChapterEnd) { fail.Status = TransactionStatus.WrongPhase; return fail; }
+                // Sample BEFORE spending: no coin, ticket, quota or version changes on failure.
+                replacement = RogueShop.Sample(rng, runSalt, State.depth, p.key, p.shopVersion + 1, p.build, State.routeTag, State.phase == RunPhase.ChapterEnd);
+                if (replacement == null || replacement.Length == 0) return fail;
+            }
+            if (tx.skipReward)
+            {
+                p.rerollTickets++;
+                foreach (var offer in p.rewardOffers) offer.sold = true;
+                var paid = new List<string>(State.rewardPaidPlayers) { p.key }; State.rewardPaidPlayers = paid.ToArray();
+            }
+            else { p.rerollTickets--; p.offers = replacement; p.ready = false; }
+            p.shopVersion++;
+            var processed = new List<string>(p.processedTx) { tx.txId };
+            if (processed.Count > 64) processed.RemoveRange(0, processed.Count - 64);
+            p.processedTx = processed.ToArray(); Persist();
+            return new TransactionResult { Status = TransactionStatus.Ok, NewShopVersion = p.shopVersion };
+        }
+
         public TransactionResult Buy(ShopTransaction tx)
         {
             var p = tx != null ? State.Player(tx.playerKey) : null;
             if (p == null) return new TransactionResult { Status = TransactionStatus.NotAllowed, Reason = "unknown player" };
             if (Array.IndexOf(p.processedTx, tx.txId) >= 0)
                 return new TransactionResult { Status = TransactionStatus.Duplicate, Reason = "already processed", NewShopVersion = p.shopVersion };
+            if (tx.skipReward || tx.useRerollTicket) return TicketTransaction(tx, p);
             bool open = tx.rewardPick
                 ? State.phase == RunPhase.Reward && !tx.remove && !tx.reroll && Array.IndexOf(State.rewardPaidPlayers, p.key) < 0
                 : State.phase == RunPhase.Prep || State.phase == RunPhase.ChapterEnd;
@@ -428,9 +471,25 @@ namespace Flats.Core.Roguelike
             return true;
         }
 
+        /// <summary>Authority supplies cumulative elapsed play seconds. Replayed/older values do not add time twice.</summary>
+        public void RecordElapsed(double cumulativeSeconds)
+        {
+            RogueStateBag.NonNegative(cumulativeSeconds);
+            State.elapsedSeconds = Math.Max(State.elapsedSeconds, cumulativeSeconds);
+        }
+
         public bool StageCleared()
         {
             if (State.phase != RunPhase.Combat) return false;
+            MetaRun.EnsureProgressTotals(State);
+            if (State.depth > State.progressLastDepth)
+            {
+                State.totalStagesCleared++;
+                State.progressLastDepth = State.depth;
+                if (!string.IsNullOrEmpty(State.encounter.objectiveId)) State.totalObjectives++;
+                if (!string.IsNullOrEmpty(State.encounter.eventId)) State.totalEvents++;
+                if (!string.IsNullOrEmpty(State.encounter.finaleId)) State.totalFinales++;
+            }
             var h = new EncounterHistory { depth = State.depth, objectiveId = State.encounter.objectiveId, eventId = State.encounter.eventId, emergencyId = State.encounter.emergencyId, finaleId = State.encounter.finaleId };
             var list = new List<EncounterHistory>(State.history);
             list.RemoveAll(x => x.depth == State.depth); list.Add(h);

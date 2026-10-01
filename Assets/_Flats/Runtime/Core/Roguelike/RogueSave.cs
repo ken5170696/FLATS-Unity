@@ -72,6 +72,7 @@ namespace Flats.Core.Roguelike
                     run.rewardPaidPlayers = picked.ToArray();
                 }
             }
+            MetaRun.MigrateProgress(run);
             doc.schema = RunSaveDocument.CurrentSchema; run.schema = RunSaveDocument.CurrentSchema;
         }
 
@@ -82,13 +83,15 @@ namespace Flats.Core.Roguelike
             if (doc == null) { errors.Add("empty document"); return errors; }
             if (doc.schema > RunSaveDocument.CurrentSchema) { errors.Add("newer save format (" + doc.schema + ")"); return errors; }
             if (doc.schema < 1) errors.Add("invalid schema");
-            if (doc.schema == 1) Migrate(doc);
+            if (doc.schema >= 1 && doc.schema <= RunSaveDocument.CurrentSchema) Migrate(doc);
             var run = doc.run;
             if (run == null) { errors.Add("missing run"); return errors; }
             if (string.IsNullOrEmpty(run.runId)) errors.Add("missing run id");
             if (run.rulesVersion != RogueCatalog.RulesVersion) errors.Add("rules version " + run.rulesVersion + " differs from " + RogueCatalog.RulesVersion);
             // A different content hash (reworded text, tuned prices) is not a reason to lose a run: every id the checkpoint
             // references is checked below, so an update that keeps those ids resumes. See ContentChanged.
+            if (double.IsNaN(run.elapsedSeconds) || double.IsInfinity(run.elapsedSeconds) || run.elapsedSeconds < 0) errors.Add("invalid elapsed seconds");
+            if (run.totalStagesCleared < 0 || run.totalObjectives < 0 || run.totalEvents < 0 || run.totalFinales < 0) errors.Add("invalid progress totals");
             if (run.depth < 1 || run.depth > RogueDepth.MaxDepth) errors.Add("depth out of range");
             if (run.difficulty < 1 || run.difficulty > RogueDepth.MaxDifficulty) errors.Add("difficulty out of range");
             if (run.phase != RunPhase.Prep && run.phase != RunPhase.ChapterEnd) errors.Add("checkpoint is not at a safe boundary");
@@ -114,6 +117,7 @@ namespace Flats.Core.Roguelike
                     if (p.refundedMinor < 0) errors.Add("refund total out of range for " + p.key);
                     if (double.IsNaN(p.overshieldFraction) || double.IsInfinity(p.overshieldFraction) || p.overshieldFraction < 0 || p.overshieldFraction > 1) errors.Add("overshield out of range for " + p.key);
                     if (p.ultimateCharge < 0 || p.ultimateCharge > 100) errors.Add("ultimate charge out of range for " + p.key);
+                    if (p.rerollTickets < 0) errors.Add("negative reroll tickets for " + p.key);
                     if (p.rerollsLeft < 0 || p.rerollsLeft > RogueShop.MaxRerollsChapterEnd) errors.Add("rerolls out of range for " + p.key);
                     if (p.processedTx == null || p.offers == null || p.rewardOffers == null) errors.Add("missing shop record for " + p.key);
                     if (p.build == null) { errors.Add("missing build for " + p.key); continue; }

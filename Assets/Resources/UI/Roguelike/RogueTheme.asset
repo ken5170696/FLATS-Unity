@@ -1,0 +1,82 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b061c554d50245e18e97f9d422e54e50, type: 3}
+  m_Name: RogueTheme
+  m_EditorClassIdentifier: Assembly-CSharp::FlatsUiTheme
+  brandPrimary: {r: 0.8, g: 0.09803922, b: 0.39215687, a: 1}
+  brandHover: {r: 0.8784314, g: 0.14117648, b: 0.43529412, a: 1}
+  brandPressed: {r: 0.6117647, g: 0.05882353, b: 0.2901961, a: 1}
+  brandHot: {r: 1, g: 0.1254902, b: 0.4745098, a: 1}
+  onBrand: {r: 1, g: 1, b: 1, a: 1}
+  backdrop: {r: 0.9411765, g: 0.9019608, b: 0.9098039, a: 1}
+  scrim: {r: 0.043137256, g: 0.047058824, b: 0.0627451, a: 0.45}
+  surfaceBase: {r: 0.96862745, g: 0.9490196, b: 0.95686275, a: 0.98}
+  surfaceRaised: {r: 1, g: 1, b: 1, a: 1}
+  surfaceRaisedHover: {r: 0.9647059, g: 0.90588236, b: 0.93333334, a: 1}
+  surfaceSunken: {r: 0.8862745, g: 0.8627451, b: 0.8745098, a: 1}
+  lineSubtle: {r: 0.84705883, g: 0.8156863, b: 0.83137256, a: 1}
+  ink: {r: 0.12156863, g: 0.12941177, b: 0.16078432, a: 1}
+  onInk: {r: 1, g: 1, b: 1, a: 1}
+  meritOnInk: {r: 0.4, g: 0.9490196, b: 0.85882354, a: 1}
+  textPrimary: {r: 0.12156863, g: 0.12941177, b: 0.16078432, a: 1}
+  textSecondary: {r: 0.36862746, g: 0.3764706, b: 0.4392157, a: 1}
+  textMuted: {r: 0.5411765, g: 0.54901963, b: 0.6, a: 1}
+  positive: {r: 0.11764706, g: 0.61960787, b: 0.3529412, a: 1}
+  negative: {r: 0.6784314, g: 0.16862746, b: 0.23921569, a: 1}
+  warning: {r: 0.7176471, g: 0.4745098, b: 0.12156863, a: 1}
+  info: {r: 0.18039216, g: 0.52156866, b: 0.92156863, a: 1}
+  merit: {r: 0.050980393, g: 0.47843137, b: 0.47843137, a: 1}
+  stat: {r: 0.8, g: 0.1, b: 0.4, a: 1}
+  core: {r: 0.5, g: 0.27, b: 0.85, a: 1}
+  mod: {r: 0.18, g: 0.52, b: 0.92, a: 1}
+  tactical: {r: 0.08, g: 0.6, b: 0.48, a: 1}
+  ultimate: {r: 0.9, g: 0.58, b: 0.06, a: 1}
+  weapon: {r: 0.28, g: 0.28, b: 0.34, a: 1}
+  supply: {r: 0.5, g: 0.5, b: 0.56, a: 1}
+  rarityCommon: {r: 0.8, g: 0.098, b: 0.4, a: 1}
+  rarityUncommon: {r: 0.25, g: 0.6, b: 1, a: 1}
+  rarityRare: {r: 1, g: 0.7, b: 0.1, a: 1}
+  display:
+    size: 56
+    lineSpacingEn: 1
+    lineSpacingZh: 1
+  h1:
+    size: 40
+    lineSpacingEn: 1.05
+    lineSpacingZh: 1.05
+  h2:
+    size: 30
+    lineSpacingEn: 1.1
+    lineSpacingZh: 1.1
+  h3:
+    size: 24
+    lineSpacingEn: 1.15
+    lineSpacingZh: 1.15
+  body:
+    size: 22
+    lineSpacingEn: 1.15
+    lineSpacingZh: 1.25
+  small:
+    size: 18
+    lineSpacingEn: 1.15
+    lineSpacingZh: 1.25
+  micro:
+    size: 16
+    lineSpacingEn: 1.1
+    lineSpacingZh: 1.1
+  recolorMenuTiles: 0
+  hideMenuCubes: 0
+  themeMenuDialogs: 0
+  openDuration: 0.18
+  closeDuration: 0.12
+  staggerStep: 0.04
+  countUpDuration: 0.4

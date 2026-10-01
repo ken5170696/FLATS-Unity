@@ -28,18 +28,18 @@ namespace Flats.Core.Roguelike
                 case SkillEffectKind.HeadshotDamage: return new TextLine("Headshot damage +{0}%.", P(e.V1));
                 case SkillEffectKind.MoveSpeed: return new TextLine("Movement speed +{0}%.", P(e.V1));
                 case SkillEffectKind.ReloadTime: return new TextLine("Reload time -{0}%.", P(e.V1));
-                case SkillEffectKind.AdsTime: return new TextLine("Your aim steadies {0}% faster after raising the sight.", P(e.V1));
+                case SkillEffectKind.AdsTime: return new TextLine("Aim settling time -{0}% after raising the sight.", P(e.V1));
                 case SkillEffectKind.SwapTime: return new TextLine("Weapon swap time -{0}%.", P(e.V1));
-                case SkillEffectKind.Magazine: return new TextLine("Magazine capacity +{0}%.", P(e.V1));
+                case SkillEffectKind.Magazine: return new TextLine("Magazine capacity +{0}% (round down, at least +{1} round).", P(e.V1), "1");
                 case SkillEffectKind.Reserve: return new TextLine("Reserve ammunition +{0}%.", P(e.V1));
                 case SkillEffectKind.MaxHealth: return new TextLine("Maximum health +{0}%.", P(e.V1));
                 case SkillEffectKind.DamageTaken: return new TextLine("Damage taken -{0}%.", P(e.V1));
-                case SkillEffectKind.ReviveSpeed: return new TextLine("Revive speed +{0}%.", P(e.V1));
+                case SkillEffectKind.ReviveSpeed: return new TextLine("Revive speed +{0}% (divide base time by the speed multiplier).", P(e.V1));
                 case SkillEffectKind.UltimateCharge: return new TextLine("Ultimate charge +{0}%.", P(e.V1));
                 case SkillEffectKind.TacticalCooldown: return new TextLine("Tactical cooldown -{0}%.", P(e.V1));
                 case SkillEffectKind.MeleeDamage: return new TextLine("Melee damage +{0}%.", P(e.V1));
                 case SkillEffectKind.HipSpread: return new TextLine("Hip-fire spread -{0}%.", P(e.V1));
-                case SkillEffectKind.FreshMagazineHeadshot: return new TextLine("The first round after a full reload always counts as a headshot (at most x{0} its body damage).", N(BuildStats.FreshMagazineMaxMul));
+                case SkillEffectKind.FreshMagazineHeadshot: return new TextLine("After a full reload, the next fired round converts its first direct hit to a headshot (at most x{0} body damage). A miss consumes it; pellets share one conversion. Swapping keeps it on that weapon.", N(BuildStats.FreshMagazineMaxMul));
                 case SkillEffectKind.HeadshotKillMark: return new TextLine("A headshot kill marks enemies within {0} m for {1} s.", N(e.V1), N(e.V2));
                 case SkillEffectKind.SteadyBreath: return new TextLine("Aiming without moving for {1} s: spread -{0}%.", P(e.V1), N(e.V2));
                 case SkillEffectKind.OpeningShot: return new TextLine("+{0}% damage to enemies at full health.", P(e.V1));
@@ -55,7 +55,7 @@ namespace Flats.Core.Roguelike
                 case SkillEffectKind.Scavenger: return new TextLine("Every {0} kills refill {1}% of your reserve.", N(e.V1), P(e.V2));
                 case SkillEffectKind.EndlessBelt: return new TextLine("Reloading with at least half the magazine left takes {0}% of the time.", P(e.V1));
                 case SkillEffectKind.Shredder: return new TextLine("After {1} s of continuous fire: +{0}% damage until you stop.", P(e.V1), N(e.V2));
-                case SkillEffectKind.RescueShield: return new TextLine("Reviving gives you and the teammate a {0}-point shield for {1} s.", N(e.V1), N(e.V2));
+                case SkillEffectKind.RescueShield: return new TextLine("Reviving gives you and the teammate a {0}-point shield for {1} s. Another revive refills and refreshes it; shields do not stack.", N(e.V1), N(e.V2));
                 case SkillEffectKind.SecondWind: return new TextLine("You get up from a revive with {0}% health.", P(e.V1));
                 case SkillEffectKind.StarterMod: return new TextLine("Start every run with {0} random common mod.", N(e.V1));
                 case SkillEffectKind.GuardianAngel: return new TextLine("Once per stage a lethal hit leaves you standing, invulnerable for {0} s.", N(e.V1));
@@ -71,7 +71,52 @@ namespace Flats.Core.Roguelike
             return list;
         }
 
+        /// <summary>The weapon's positive line: a shotgun's close-range bonus (QA-49) first, then its trait. Arguments keep the trait's first.</summary>
         public static TextLine Trait(RangedWeaponDef w)
+        {
+            var p = WeaponRules.Profile(w);
+            return p == null ? TraitOnly(w) : ClassLineFirst(TraitOnly(w), RangeClose(p));
+        }
+
+        /// <summary>Shotgun class, close band: the multiplier within CloseEnd and where it eases back to x1.</summary>
+        public static TextLine RangeClose(WeaponRules.RangeProfile p)
+        {
+            return new TextLine("Close range: x{0} damage within {1} m, easing to x{2} at {3} m.", N(p.CloseMul), N(p.CloseEnd), N(1), N(p.NeutralFrom));
+        }
+
+        /// <summary>Shotgun class, far band: where the falloff starts and the floor it reaches.</summary>
+        public static TextLine RangeFar(WeaponRules.RangeProfile p)
+        {
+            return new TextLine("Long range: damage falls from x{0} at {1} m to x{2} at {3} m and beyond.", N(1), N(p.FalloffFrom), N(p.FarMul), N(p.FarFrom));
+        }
+
+        /// <summary>Both range lines of a weapon (empty lines for weapons without a class range profile), for in-run summaries.</summary>
+        public static TextLine RangeSummary(RangedWeaponDef w)
+        {
+            var p = WeaponRules.Profile(w);
+            return p == null ? new TextLine("") : ClassLineFirst(RangeFar(p), RangeClose(p));
+        }
+
+        /// <summary>A legacy model without an armory row (a pellet shotgun taken from the ground).</summary>
+        public static TextLine RangeSummary(int baseModel)
+        {
+            var p = WeaponRules.ProfileForModel(baseModel);
+            return p == null ? new TextLine("") : ClassLineFirst(RangeFar(p), RangeClose(p));
+        }
+
+        // "{class line}\n{own line}": the own line keeps its placeholders and arguments first, the class line's are shifted after them,
+        // so every line still translates on its own (FlatsLocalization translates a multi-line text line by line).
+        static TextLine ClassLineFirst(TextLine own, TextLine classLine)
+        {
+            if (string.IsNullOrEmpty(own.Template)) return classLine;
+            int shift = own.Args.Length;
+            string shifted = System.Text.RegularExpressions.Regex.Replace(classLine.Template, @"\{(\d+)\}", m => "{" + (int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) + shift).ToString(System.Globalization.CultureInfo.InvariantCulture) + "}");
+            var args = new string[own.Args.Length + classLine.Args.Length];
+            own.Args.CopyTo(args, 0); classLine.Args.CopyTo(args, own.Args.Length);
+            return new TextLine(shifted + "\n" + own.Template, args);
+        }
+
+        static TextLine TraitOnly(RangedWeaponDef w)
         {
             switch (w.Trait)
             {
@@ -84,7 +129,7 @@ namespace Flats.Core.Roguelike
                 case TraitKind.LongRangeBonus: return new TextLine("+{0}% damage beyond {1} m.", P(w.T1), N(w.T2));
                 case TraitKind.CloseRangeBonus: return new TextLine("+{0}% damage within {1} m.", P(w.T1), N(w.T2));
                 case TraitKind.DoubleTap: return new TextLine("Every {0} trigger pulls: one extra round for free.", N(w.T1));
-                case TraitKind.Pierce: return new TextLine("Rounds pass through {0} enemies.", N(w.T1));
+                case TraitKind.Pierce: return w.T1 < 1.5 ? new TextLine("Rounds pass through {0} enemy.", N(w.T1)) : new TextLine("Rounds pass through {0} enemies.", N(w.T1));
                 case TraitKind.ArmorBreaker: return new TextLine("Ignores shields. +{0}% damage to elites.", P(w.T1));
                 case TraitKind.SnapAim: return new TextLine("Aim steadies {0}% faster after raising the sight.", P(w.T1));
                 case TraitKind.StaggerOnHeadshot: return new TextLine("Headshots stagger the enemy for {0} s.", N(w.T1));
@@ -121,10 +166,12 @@ namespace Flats.Core.Roguelike
             return new TextLine("");
         }
 
+        /// <summary>The weapon's negative line: a shotgun's long-range falloff (QA-49) first, then its drawback. Arguments keep the drawback's first.</summary>
         public static TextLine Drawback(RangedWeaponDef w)
         {
-            if (w.Drawback == DrawbackKind.SmallMagazine) return new TextLine("Magazine {0} rounds.", RogueArmory.Resolve(w).Magazine.ToString());
-            return Drawback(w.Drawback, w.D1, w.D2);
+            var own = w.Drawback == DrawbackKind.SmallMagazine ? new TextLine("Magazine {0} rounds.", RogueArmory.Resolve(w).Magazine.ToString()) : Drawback(w.Drawback, w.D1, w.D2);
+            var p = WeaponRules.Profile(w);
+            return p == null ? own : ClassLineFirst(own, RangeFar(p));
         }
 
         public static TextLine MeleeSpecialText(MeleeDef m)

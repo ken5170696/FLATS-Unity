@@ -12,8 +12,10 @@ public class RogueCardView : MonoBehaviour
         if (title != null) title.text = titleText ?? "";
         if (sub != null) sub.text = subText ?? "";
         RogueIcons.Apply(icon, iconName);
-        if (iconBack != null) iconBack.color = empty ? new Color(0, 0, 0, 0.08f) : tint;
-        if (panel != null) panel.color = empty ? new Color(1, 1, 1, 0.35f) : Color.white;
-        if (icon != null) icon.color = empty ? new Color(0, 0, 0, 0.25f) : Color.white;
+        // an empty slot is a sunken, quiet card; a filled one the raised card with its category block (Roguelike theme)
+        var theme = FlatsUiTheme.Rogue;
+        if (iconBack != null) iconBack.color = empty ? theme.lineSubtle : tint;
+        if (panel != null) panel.color = empty ? FlatsUiTheme.WithAlpha(theme.surfaceSunken, 0.9f) : theme.surfaceRaised;
+        if (icon != null) icon.color = empty ? theme.textMuted : Color.white;
     }
 }

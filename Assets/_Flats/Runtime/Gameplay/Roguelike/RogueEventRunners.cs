@@ -59,27 +59,63 @@ public abstract class RogueEventRunner
 // ---------------------------------------------------------------- general events
 public sealed class MovingSupplyRunner : RogueEventRunner
 {
-    MovingSupplyEvent machine; GameObject drone; RogueDamageable dmg; Vector3 a, b; float t;
+    MovingSupplyEvent machine; GameObject drone; RogueDamageable dmg; Vector3 a, b; float t, sendTimer, dealt; RogueDroneMover mover;
+    /// <summary>Damage that shoots the drone down (MovingSupplyEvent's threshold, mirrored for the health shown to players, QA-37).</summary>
+    public const float DroneHealth = 600f;
+    /// <summary>Radius of the shoot-down blast (QA-45).</summary>
+    public static float DroneBlastRadius = 4f;
     public override void Begin()
     {
         a = Point(0); b = Point(1);
-        drone = RogueWorld.Cube("SupplyDrone", a + Vector3.up * 6f, new Vector3(2f, 0.8f, 2f), RogueWorld.Gold, true);
-        RogueWaypoint.Attach(drone, "Coin", "Supply drone", RogueWorld.Gold, 1.2f, 1);
-        dmg = drone.AddComponent<RogueDamageable>(); dmg.OnHit = (d, s) => { if (machine != null) machine.OnDamaged(d); };
-        if (Authority) machine = new MovingSupplyEvent(600);
-        Banner("Moving Supply: shoot the drone down before it leaves!", 3);
+        drone = RogueWorld.Cube("SupplyDrone", a + Vector3.up * (6f - 0.4f * RogueWorld.PropScale("SupplyDrone")), new Vector3(2f, 0.8f, 2f), RogueWorld.Gold, true);   // centre at 6 m, where RogueDroneMover flies it (QA-38)
+        RogueWaypoint.Attach(drone, "Coin", "Supply drone", RogueWorld.Gold, RogueWorld.WaypointHeight(drone), 1);
+        dmg = drone.AddComponent<RogueDamageable>(); dmg.DisplayName = "Supply drone";
+        dmg.OnHit = (d, s) => { if (machine != null && machine.Status == EventStatus.Active) { dealt += d; machine.OnDamaged(d); Controller.ObjectiveTextChanged(); Debug.Log("FLATS_ROGUE_DRONE hit damage=" + d.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " health=" + Mathf.CeilToInt(Mathf.Clamp01(1f - dealt / DroneHealth) * 100f) + "%"); } };
+        // clients never tick event runners: the drone flies there from the authority's replicated progress ("drone" events)
+        mover = drone.AddComponent<RogueDroneMover>(); mover.A = a; mover.B = b;
+        if (Authority) { machine = new MovingSupplyEvent(DroneHealth); Banner("Moving Supply: shoot the drone down before it leaves!", 3); }
     }
     public override void Tick(float dt)
     {
-        t = machine != null ? (float)machine.VehicleProgress : Mathf.Clamp01(t + dt / 90f);
-        if (drone != null) { Vector3 p = Vector3.Lerp(a, b, t); Vector3 g; RogueWorld.Ground(p, out g); drone.transform.position = g + Vector3.up * 6f; }
         if (machine == null) return;
+        t = (float)machine.VehicleProgress;
+        if (mover != null) mover.Target = t;
         machine.Tick(dt);
-        StatusText = N("Drone {0} s", Mathf.CeilToInt((float)machine.Countdown));
-        if (machine.Status == EventStatus.Succeeded) { RogueWorldFx.Burst(drone.transform.position, 4f, null); }
+        sendTimer -= dt;
+        if (sendTimer <= 0f && Menu.network != 0) { sendTimer = 0.5f; Controller.Notify(new RogueEventMessage { kind = "drone", value = t }); }
+        float health = Mathf.Clamp01(1f - dealt / DroneHealth);
+        dmg.SetState(health, machine.Status != EventStatus.Active);   // the drone's health on every client and its waypoint (QA-37)
+        StatusText = N("Shoot down the drone: {0}% health, {1} s left", Mathf.CeilToInt(health * 100f), Mathf.CeilToInt((float)machine.Countdown));
+        if (machine.Status == EventStatus.Succeeded && drone != null)
+        {
+            // shot down: the blast here and on every client, and the drone gone everywhere (clients never settle event runners)
+            RogueWorldFx.Burst(drone.transform.position, DroneBlastRadius, RogueWorld.Gold);
+            if (Menu.network != 0) Controller.Notify(new RogueEventMessage { kind = "drone", value = t, flag = true });
+            RogueWorld.Destroy(drone); drone = null;
+        }
         Settle(machine.Status);
     }
+    public override void OnClientEvent(RogueEventMessage e)
+    {
+        if (e.kind != "drone" || machine != null) return;
+        if (e.flag) { if (drone != null) { RogueWorldFx.Burst(drone.transform.position, DroneBlastRadius, RogueWorld.Gold); RogueWorld.Destroy(drone); drone = null; mover = null; } return; }
+        if (mover != null) mover.Target = Mathf.Clamp01((float)e.value);
+    }
     public override void Dispose() { RogueWorld.Destroy(drone); }
+}
+
+/// <summary>Moves the supply drone between its two anchors toward the replicated progress, 6 m above the ground, on every copy.</summary>
+public sealed class RogueDroneMover : MonoBehaviour
+{
+    public Vector3 A, B;
+    public float Target;
+    float shown = -1f;
+    void Update()
+    {
+        shown = shown < 0f || Mathf.Abs(Target - shown) > 0.2f ? Target : Mathf.Lerp(shown, Target, 1f - Mathf.Exp(-4f * Time.deltaTime));
+        Vector3 p = Vector3.Lerp(A, B, shown), g; RogueWorld.Ground(p, out g);
+        transform.position = g + Vector3.up * 6f;
+    }
 }
 
 public sealed class AlarmCacheRunner : RogueEventRunner
@@ -88,7 +124,7 @@ public sealed class AlarmCacheRunner : RogueEventRunner
     public override void Begin()
     {
         cache = RogueWorld.Cube("AlarmCache", Point(0), new Vector3(1.6f, 1.2f, 1.6f), RogueWorld.Gold, true);
-        RogueWaypoint.Attach(cache, "Coin", "Alarm cache", RogueWorld.Gold, 1.8f, 1);
+        RogueWaypoint.Attach(cache, "Coin", "Alarm cache", RogueWorld.Gold, RogueWorld.WaypointHeight(cache), 1);
         it = cache.AddComponent<RogueInteractable>(); it.Action = "cache:open"; it.Prompt = "Open the cache (calls reinforcements)";
         if (Authority) machine = new AlarmCacheEvent(100);
     }
@@ -106,7 +142,7 @@ public sealed class AlarmCacheRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "cache:open") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, cache.GetComponent<Collider>(), 4.5f) && machine.Accept()) { Banner("Alarm! Reinforcements incoming.", 2.5f); it.Enabled = false; }
+        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, cache.GetComponent<Collider>(), 4.5f) && machine.Accept()) { Banner("Alarm! Reinforcements incoming.", 2.5f); it.SetProgress(1f, true); }   // every copy drops the prompt
     }
     public override void Dispose() { RogueWorld.Destroy(cache); }
 }
@@ -118,6 +154,7 @@ public sealed class LowGravityRunner : RogueEventRunner
     {
         var c = Point(0);
         ring = RogueWorld.Ring("LowGravity", c, Radius, RogueWorld.Blue, 0.3f);
+        RogueWaypoint.Attach(ring, "Wings", "Low gravity", RogueWorld.Blue, 2.5f, 1);   // QA-43: the zone gets an icon and distance like every other goal
         Controller.AddGravityZone(c, Radius, 0.5f);
         if (Authority) machine = new LowGravityEvent();
         Banner("Low gravity in the marked area.", 2.5f);
@@ -132,7 +169,7 @@ public sealed class PowerRerouteRunner : RogueEventRunner
     public override void Begin()
     {
         breaker = RogueWorld.Cube("Breaker", Point(0), new Vector3(1f, 2f, 0.6f), RogueWorld.Blue, true);
-        RogueWaypoint.Attach(breaker, "Settings5", "Breaker", RogueWorld.Blue, 2.2f, 1);
+        RogueWaypoint.Attach(breaker, "Settings5", "Breaker", RogueWorld.Blue, RogueWorld.WaypointHeight(breaker), 1);
         it = breaker.AddComponent<RogueInteractable>(); it.Action = "breaker:flip"; it.Prompt = "Flip the breaker";
         if (Authority) machine = new PowerRerouteEvent();
     }
@@ -140,6 +177,8 @@ public sealed class PowerRerouteRunner : RogueEventRunner
     {
         if (machine == null) return;
         machine.Tick(dt);
+        // the reroute ending reaches the clients too; they only ever heard it start (QA-11: their shield and jammer rules follow it)
+        if (Controller.PowerRerouted && !machine.Rerouted && Menu.network != 0) Controller.Notify(new RogueEventMessage { kind = "power", flag = false });
         Controller.PowerRerouted = machine.Rerouted;
         StatusText = machine.Status == EventStatus.Pending ? N("Breaker: optional") : machine.Rerouted ? N("Power rerouted {0} s", Mathf.CeilToInt((float)machine.Countdown)) : "";
         Settle(machine.Status);
@@ -148,7 +187,7 @@ public sealed class PowerRerouteRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "breaker:flip") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, breaker.GetComponent<Collider>(), 4.5f) && machine.Flip()) { Banner("Power rerouted: enemy shields and jammers are down, their sight is halved.", 3); it.Enabled = false; Controller.Notify(new RogueEventMessage { kind = "power", flag = true }); }
+        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, breaker.GetComponent<Collider>(), 4.5f) && machine.Flip()) { Banner("Power rerouted: enemy shields and jammers are down, their sight is halved.", 3); it.SetProgress(1f, true); Controller.Notify(new RogueEventMessage { kind = "power", flag = true }); }
     }
     public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "power") Controller.PowerRerouted = e.flag; }
     public override void Dispose() { Controller.PowerRerouted = false; RogueWorld.Destroy(breaker); }
@@ -160,7 +199,7 @@ public sealed class RepairDeviceRunner : RogueEventRunner
     public override void Begin()
     {
         device = RogueWorld.Cube("SideDevice", Point(0), new Vector3(1.6f, 2f, 1.6f), RogueWorld.White, true);
-        RogueWaypoint.Attach(device, "Settings5", "Repair device", RogueWorld.Blue, 2.2f, 1);
+        RogueWaypoint.Attach(device, "Settings5", "Repair device", RogueWorld.Blue, RogueWorld.WaypointHeight(device), 1);
         it = device.AddComponent<RogueInteractable>(); it.Action = "sidedevice"; it.Prompt = "Repair (optional)";
         if (Authority) machine = new RepairDeviceEvent(800, 0.025);
     }
@@ -172,6 +211,8 @@ public sealed class RepairDeviceRunner : RogueEventRunner
         int near = RogueWorld.EnemiesWithin(device.transform.position, 12f);
         if (near > 0) { accum += near * 20f * dt; if (accum >= 5f) { machine.OnDeviceDamaged(accum); accum = 0; } }
         StatusText = N("Optional repair {0}%", Mathf.RoundToInt((float)machine.Progress * 100));
+        it.SetProgress((float)machine.Progress, machine.Status == EventStatus.Succeeded);
+        if (machine.Status == EventStatus.Failed) it.SetUnavailable();
         Settle(machine.Status);
     }
     public override void OnCommand(RogueCommandMessage cmd)
@@ -236,7 +277,7 @@ public sealed class LureCrateRunner : RogueEventRunner
     public override void Begin()
     {
         crate = RogueWorld.Cube("LureCrate", Point(0), new Vector3(1.2f, 1.2f, 1.2f), RogueWorld.Pink2, true);
-        RogueWaypoint.Attach(crate, "Crate", "Lure crate", RogueWorld.Pink2, 1.6f, 1);
+        RogueWaypoint.Attach(crate, "Crate", "Lure crate", RogueWorld.Pink2, RogueWorld.WaypointHeight(crate), 1);
         crate.GetComponent<Collider>().isTrigger = true;
         carry = crate.AddComponent<RogueCarryable>(); carry.DisplayName = "Lure crate"; carry.Action = "lure"; carry.Prompt = "Pick up the lure (enemies follow it)";
         if (Authority) machine = new LureCrateEvent();
@@ -252,7 +293,7 @@ public sealed class LureCrateRunner : RogueEventRunner
         Settle(machine.Status);
     }
     void SetHolder(string key) { string previous = carry.HolderKey; carry.HolderKey = key; Controller.Notify(new RogueEventMessage { kind = "carry", text = "LureCrate|" + key }); RogueCarryable.AnnounceHolder(Controller, "Lure crate", previous, key); ApplyLureCarrying(key); }
-    static void ApplyLureCarrying(string key) { foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = RogueWorld.KeyOf(go) == key && key != ""; } }
+    static void ApplyLureCarrying(string key) { RogueCarryable.RefreshCarryingFlags(); }
     public override void OnCommand(RogueCommandMessage cmd)
     {
         if (machine == null) return;
@@ -261,7 +302,7 @@ public sealed class LureCrateRunner : RogueEventRunner
         else if (cmd.text == "lure:drop" && machine.Holder == cmd.playerKey && machine.OnPlanted()) { SetHolder(""); Banner("Lure planted: enemies are drawn to it.", 2); }
     }
     public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "carry" && e.text.StartsWith("LureCrate|") && carry != null) { carry.HolderKey = e.text.Substring(10); ApplyLureCarrying(carry.HolderKey); Controller.LureTarget = crate != null ? crate.transform : null; } }
-    public override void Dispose() { Controller.LureTarget = null; RogueWorld.Destroy(crate); }
+    public override void Dispose() { Controller.LureTarget = null; if (carry != null) carry.HolderKey = ""; RogueCarryable.RefreshCarryingFlags(); RogueWorld.Destroy(crate); }
 }
 
 // ---------------------------------------------------------------- emergencies
@@ -269,6 +310,8 @@ public sealed class GasLeakRunner : RogueEventRunner
 {
     GasLeakEvent machine; readonly GameObject[] switches = new GameObject[3]; readonly GameObject[] zones = new GameObject[3]; Vector3 origin; readonly Dictionary<int, Dictionary<string, float>> held = new Dictionary<int, Dictionary<string, float>>();
     int shownZones; float damageTick; bool leaked; float sentFraction;
+    /// <summary>Held seconds that activate one vent switch (GasLeakEvent's threshold, mirrored for the progress display).</summary>
+    public const float VentSeconds = 2.5f;
     public override void Begin()
     {
         origin = Point(0);
@@ -277,8 +320,9 @@ public sealed class GasLeakRunner : RogueEventRunner
         for (int i = 0; i < 3; i++)
         {
             switches[i] = RogueWorld.Cube("VentSwitch" + i, Point(i), new Vector3(1f, 2.2f, 0.6f), RogueWorld.Green, true);
-            RogueWaypoint.Attach(switches[i], "Warning", "Vent {0}|" + (i + 1), RogueWorld.Green, 2.4f, 2).Pulse = true;
-            var it = switches[i].AddComponent<RogueInteractable>(); it.Action = "vent:" + i; it.Prompt = "Vent switch (hold)"; it.Radius = 3.5f;
+            RogueWaypoint.Attach(switches[i], "Warning", "Vent {0}|" + (i + 1), RogueWorld.Green, RogueWorld.WaypointHeight(switches[i]), 2).Pulse = true;
+            var it = switches[i].AddComponent<RogueInteractable>(); it.Action = "vent:" + i; it.Prompt = "Vent switch (hold)"; it.Radius = 3.5f; it.HoldSeconds = VentSeconds;
+            it.TintWhenCompleted(RogueWorld.White);   // an activated vent turns white on every client (QA-22), from the replicated completion
             RogueWorld.Beacon("VentBeacon" + i, Point(i), RogueWorld.Green).transform.SetParent(switches[i].transform, true);
         }
         if (Authority)
@@ -299,7 +343,14 @@ public sealed class GasLeakRunner : RogueEventRunner
             foreach (var kv in new List<KeyValuePair<string, float>>(byPlayer)) { if (kv.Value > 0) machine.OnSwitchProgress(i, kv.Key, Mathf.Min(dt, kv.Value)); byPlayer[kv.Key] = Mathf.Max(0, kv.Value - dt); }
         }
         machine.Tick(dt);
-        int done = 0; for (int i = 0; i < 3; i++) if (machine.SwitchProgress(i) >= 2.5) { done++; if (switches[i] != null) switches[i].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.White); }
+        int done = 0;
+        for (int i = 0; i < 3; i++)
+        {
+            bool vented = machine.SwitchProgress(i) >= VentSeconds;
+            if (vented) done++;
+            var it = switches[i] != null ? switches[i].GetComponent<RogueInteractable>() : null;
+            if (it != null) it.SetProgress((float)(machine.SwitchProgress(i) / VentSeconds), vented);
+        }
         if (machine.Phase == GasPhase.Warning) StatusText = N("Gas in {0} s  Switches {1}/2", Mathf.CeilToInt((float)machine.Countdown), done);
         else if (machine.Phase == GasPhase.Leaking) { StatusText = N("GAS LEAKING! Switches {0}/2", done); if (!leaked) { leaked = true; Banner("Gas is leaking! You can still contain it: 2 switches.", 3); } }
         else StatusText = N("Gas contained");
@@ -338,7 +389,11 @@ public sealed class GasLeakRunner : RogueEventRunner
         float radius = 10f + 10f * (shownZones - 1);
         if (Vector3.Distance(local.transform.position, origin) > radius) return;
         var dr = local.GetComponent<DamageReceiver>();
-        if (dr != null) dr.ApplyDamage(RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * fraction * slice, -1, local.transform);
+        if (dr != null)
+        {
+            dr.ApplyDamage(RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * fraction * slice, -1, local.transform);
+            RogueMetaFeedback.Pulse(RogueMetaRuntime.Of(local.transform), "env.gas");   // QA-51: "In Gas" debuff chip while the gas hurts
+        }
     }
     public override void OnClientEvent(RogueEventMessage e)
     {
@@ -381,12 +436,12 @@ public sealed class RogueGasTicker : MonoBehaviour
 
 public sealed class PowerOutageRunner : RogueEventRunner
 {
-    PowerOutageEvent machine; GameObject generator; readonly Dictionary<string, float> held = new Dictionary<string, float>(); Light sun; float sunIntensity; Color ambient; bool dark;
+    PowerOutageEvent machine; GameObject generator; RogueInteractable it; readonly Dictionary<string, float> held = new Dictionary<string, float>(); Light sun; float sunIntensity; Color ambient; bool dark;
     public override void Begin()
     {
         generator = RogueWorld.Cube("Generator", Point(0), new Vector3(1.6f, 2.2f, 1.6f), RogueWorld.Gold, true);
-        RogueWaypoint.Attach(generator, "Warning", "Generator", RogueWorld.Gold, 2.4f, 2).Pulse = true;
-        var it = generator.AddComponent<RogueInteractable>(); it.Action = "generator"; it.Prompt = "Restart the generator (hold 8 s)"; it.Radius = 4f;
+        RogueWaypoint.Attach(generator, "Warning", "Generator", RogueWorld.Gold, RogueWorld.WaypointHeight(generator), 2).Pulse = true;
+        it = generator.AddComponent<RogueInteractable>(); it.Action = "generator"; it.Prompt = "Restart the generator (hold 8 s)"; it.Radius = 4f; it.HoldSeconds = 8f;
         RogueWorld.Beacon("GeneratorBeacon", Point(0), RogueWorld.Gold).transform.SetParent(generator.transform, true);
         SetDark(true);
         if (Authority) machine = new PowerOutageEvent();
@@ -407,6 +462,7 @@ public sealed class PowerOutageRunner : RogueEventRunner
         if (best > 0) machine.OnSwitchProgress(holder, Mathf.Min(dt, best));
         machine.Tick(dt);
         StatusText = machine.Status == EventStatus.Active ? N("Generator {0}/8 s  Outage {1} s", Mathf.FloorToInt((float)machine.Progress), Mathf.CeilToInt((float)machine.Countdown)) : "";
+        if (it != null) { if (machine.Status == EventStatus.Failed) it.SetUnavailable(); else it.SetProgress((float)machine.Progress / 8f, machine.Status == EventStatus.Succeeded); }
         if (machine.Status == EventStatus.Succeeded) { SetDark(false); Controller.Notify(new RogueEventMessage { kind = "power", flag = false, index = 1 }); }
         if (machine.Status == EventStatus.Failed) { Controller.Machine.SetStageBountyMul(machine.BountyMul); Banner("The generator failed: bounty -25% this stage.", 3); SetDark(false); Controller.Notify(new RogueEventMessage { kind = "power", flag = false, index = 1 }); }
         Settle(machine.Status);
@@ -428,7 +484,7 @@ public sealed class MobileBombRunner : RogueEventRunner
     {
         disposal = Point(1);
         bomb = RogueWorld.Cube("MobileBomb", Point(0), new Vector3(1.1f, 1.1f, 1.1f), new Color(0.15f, 0.15f, 0.15f), true);
-        RogueWaypoint.Attach(bomb, "Warning", "Bomb", new Color(1f, 0.35f, 0.35f), 1.6f, 2).Pulse = true;
+        RogueWaypoint.Attach(bomb, "Warning", "Bomb", new Color(1f, 0.35f, 0.35f), RogueWorld.WaypointHeight(bomb), 2).Pulse = true;
         bomb.GetComponent<Collider>().isTrigger = true;
         carry = bomb.AddComponent<RogueCarryable>(); carry.DisplayName = "Bomb"; carry.Action = "bomb"; carry.Prompt = "Pick up the bomb";
         ring = RogueWorld.Ring("DisposalZone", disposal, 4f, RogueWorld.Green); beacon = RogueWorld.Beacon("DisposalBeacon", disposal, RogueWorld.Green);
@@ -457,20 +513,23 @@ public sealed class MobileBombRunner : RogueEventRunner
     void Explode(float radius)
     {
         if (bomb == null) return;
-        RogueWorldFx.Burst(bomb.transform.position, radius, null);
+        RogueWorldFx.Burst(bomb.transform.position, radius, new Color(1f, 0.35f, 0.35f));   // the bomb's own damage radius (QA-45)
         var local = RoguelikeController.FindLocalPlayer();
         if (local != null && Vector3.Distance(local.transform.position, bomb.transform.position) <= radius)
         {
             var dr = local.GetComponent<DamageReceiver>();
-            if (dr != null) dr.ApplyDamage(RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * 0.7f, -1, local.transform);
+            float blast = dr != null ? RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * 0.7f : 0f;
+            // the blast is applied as self damage (no source to point at), so the hit-direction indicator gets the bomb's position here (QA-35)
+            if (dr != null && !dr.Dead && !DamageReceiver.invincibility) DamageDirectionIndicator.Report(bomb.transform.position, blast);
+            if (dr != null) dr.ApplyDamage(blast, -1, local.transform);
         }
         RogueWorld.Destroy(bomb); bomb = null;
-        foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = false; }   // the bomb is gone: nobody carries it
+        if (carry != null) carry.HolderKey = ""; RogueCarryable.RefreshCarryingFlags();   // the bomb is gone: nobody carries it
     }
     void SetHolder(string key)
     {
         string previous = carry.HolderKey; carry.HolderKey = key; Controller.Notify(new RogueEventMessage { kind = "carry", text = "MobileBomb|" + key }); RogueCarryable.AnnounceHolder(Controller, "Bomb", previous, key);
-        foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = RogueWorld.KeyOf(go) == key && key != ""; }
+        RogueCarryable.RefreshCarryingFlags();
     }
     public override void OnCommand(RogueCommandMessage cmd)
     {
@@ -481,32 +540,39 @@ public sealed class MobileBombRunner : RogueEventRunner
     }
     public override void OnClientEvent(RogueEventMessage e)
     {
-        if (e.kind == "carry" && e.text.StartsWith("MobileBomb|") && carry != null) { carry.HolderKey = e.text.Substring(11); foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = RogueWorld.KeyOf(go) == carry.HolderKey && carry.HolderKey != ""; } }
+        if (e.kind == "carry" && e.text.StartsWith("MobileBomb|") && carry != null) { carry.HolderKey = e.text.Substring(11); RogueCarryable.RefreshCarryingFlags(); }
         if (e.kind == "boom") Explode((float)e.value);
     }
-    public override void Dispose() { foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = false; } RogueWorld.Destroy(bomb); RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon); }
+    public override void Dispose() { if (carry != null) carry.HolderKey = ""; RogueCarryable.RefreshCarryingFlags(); RogueWorld.Destroy(bomb); RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon); }
 }
 
 public sealed class ReinforcementSignalRunner : RogueEventRunner
 {
-    ReinforcementSignalEvent machine; GameObject device; RogueDamageable dmg;
+    ReinforcementSignalEvent machine; GameObject device; RogueDamageable dmg; float dealt;
+    /// <summary>The signal device's health (ReinforcementSignalEvent's hp, mirrored for the health shown to players, QA-37).</summary>
+    public const float DeviceHealth = 1500f;
     public override void Begin()
     {
         device = RogueWorld.Cube("SignalDevice", Point(0), new Vector3(1.4f, 3f, 1.4f), RogueWorld.Pink2, true);
-        RogueWaypoint.Attach(device, "Warning", "Signal device", RogueWorld.Pink2, 3.2f, 2).Pulse = true;
+        RogueWaypoint.Attach(device, "Warning", "Signal device", RogueWorld.Pink2, RogueWorld.WaypointHeight(device), 2).Pulse = true;
         RogueWorld.Beacon("SignalBeacon", Point(0), RogueWorld.Pink2).transform.SetParent(device.transform, true);
-        dmg = device.AddComponent<RogueDamageable>(); dmg.OnHit = (d, s) => { if (machine != null) machine.OnDamaged(d); };
-        if (Authority) { machine = new ReinforcementSignalEvent(1500, 100); Banner("A signal device is calling reinforcements. Destroy it!", 3); }
+        dmg = device.AddComponent<RogueDamageable>(); dmg.DisplayName = "Signal device";
+        dmg.OnHit = (d, s) => { if (machine != null && machine.Status == EventStatus.Active) { dealt += d; machine.OnDamaged(d); Controller.ObjectiveTextChanged(); } };
+        if (Authority) { machine = new ReinforcementSignalEvent(DeviceHealth, 100); Banner("A signal device is calling reinforcements. Destroy it!", 3); }
     }
     public override void Tick(float dt)
     {
         if (machine == null) return;
         machine.Tick(dt);
         foreach (var w in machine.TakeReinforcements()) Controller.SpawnExtraEnemy("role.rifleman", false, device.transform.position);
-        StatusText = machine.Status == EventStatus.Active ? N("Signal device: waves {0}/4", machine.SpawnCount) : "";
-        if (machine.Status == EventStatus.Succeeded && device != null) { RogueWorldFx.Burst(device.transform.position, 4f, null); Controller.Notify(new RogueEventMessage { kind = "signal" }); RogueWorld.Destroy(device); device = null; }
+        float health = Mathf.Clamp01(1f - dealt / DeviceHealth);
+        if (dmg != null) dmg.SetState(health, machine.Status != EventStatus.Active);
+        StatusText = machine.Status == EventStatus.Active ? N("Destroy the signal device: {0}% health, waves {1}/4", Mathf.CeilToInt(health * 100f), machine.SpawnCount) : "";
+        if (machine.Status == EventStatus.Succeeded && device != null) { RogueWorldFx.Burst(device.transform.position, SignalBlastRadius, RogueWorld.Pink2); Controller.Notify(new RogueEventMessage { kind = "signal" }); RogueWorld.Destroy(device); device = null; }
         Settle(machine.Status);
     }
-    public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "signal") { RogueWorld.Destroy(device); device = null; } }
+    public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "signal" && machine == null) { if (device != null) RogueWorldFx.Burst(device.transform.position, SignalBlastRadius, RogueWorld.Pink2); RogueWorld.Destroy(device); device = null; } }
+    /// <summary>Radius of the destroyed signal device's blast (QA-45).</summary>
+    public static float SignalBlastRadius = 4f;
     public override void Dispose() { RogueWorld.Destroy(device); }
 }

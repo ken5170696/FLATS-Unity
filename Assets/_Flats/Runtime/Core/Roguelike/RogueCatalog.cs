@@ -76,7 +76,16 @@ namespace Flats.Core.Roguelike
         public const string RulesVersion = "1";
         public const int MaxCores = 2, MaxMods = 6, StatTiers = 5;
         public const double HeadshotMoneyMultiplier = 1.5;
-        public const double DashDistance = 20, DashSpeed = 50, DashCooldownSeconds = 6, DashMinIntervalSeconds = .3;
+        public const double DashDistance = 20, DashSpeed = 50, DashCooldownSeconds = 8, DashMinIntervalSeconds = .3;
+        public const double ChainRange = 12, ExplosionRadius = 6, HomingRange = 60, HomingAngleDegrees = 15, EnemySightRange = 200;
+        public const int ChainMaxTargets = 3;
+        public const double ChainDurationSeconds = 9, UltimateDurationSeconds = 8, ShortUltimateDurationSeconds = 5;
+        public const double ShieldCooldownSeconds = 12;
+        public static double UltimateSeconds(string id)
+        {
+            switch (id) { case "ult.emergency_revive": return 0; case "ult.lethal_shot": case "ult.invincible": return ShortUltimateDurationSeconds;
+                case "ult.chain_bullets": return ChainDurationSeconds; default: return UltimateDurationSeconds; }
+        }
         public const double TierPriceStep = .5;
         public const double ClearRewardFraction = .2, ObjectiveRewardFraction = .3, BreakoutRewardFraction = .35, FinaleRewardFraction = .4;
         public const double ConvoyFailureRewardMultiplier = .5;
@@ -121,7 +130,7 @@ namespace Flats.Core.Roguelike
             new ItemDef("core.suppression", ItemKind.Core, "Suppression", "Each trigger hit adds +4% damage, up to +40%. After 2.5 s, lose one stack per 0.5 s. Reload keeps half. +20% magazine, +20% reload time.", 60, 3, 1, TagSuppression),
             new ItemDef("core.reloadburst", ItemKind.Core, "Reload Burst", "Reloading after firing at least 60% of the magazine grants +35% damage for 3 s.", 60, 3, 1, TagReload),
             new ItemDef("core.ricochet", ItemKind.Core, "Ricochet", "Bullets bounce once off walls at 80% damage. Ricochet hits deal +30%.", 60, 3, 1, TagRicochet),
-            new ItemDef("core.demolition", ItemKind.Core, "Demolition", "Kills explode: 40% of the killing damage in a 6 m radius and a short knockback. Explosions never chain.", 60, 3, 1, TagDemolition),
+            new ItemDef("core.demolition", ItemKind.Core, "Demolition", "Kills explode: 40% of the killing damage in a " + ExplosionRadius + " m radius. Explosions never chain.", 60, 3, 1, TagDemolition),
             new ItemDef("core.marker", ItemKind.Core, "Marker", "Your hits mark enemies for 4 s. Marked enemies take +12% damage from everyone. Marked kills by anyone charge your ultimate.", 60, 3, 1, TagMarker),
             new ItemDef("core.mobility", ItemKind.Core, "Mobility", "+12% speed, revive 40% faster, carry objects at full speed. Dash cooldown x" + TierList("core.mobility", 2) + " by tier. The first shot after a dash or a jump landing deals +20%.", 60, 3, 1, TagMobility),
         };
@@ -159,19 +168,19 @@ namespace Flats.Core.Roguelike
         public static readonly ItemDef[] Tacticals =
         {
             new ItemDef("tactical.doublejump", ItemKind.Tactical, "Double Jump", "Passive: press Jump again in the air for a second jump. Resets on landing.", 45, 1, 1, TagMobility),
-            new ItemDef("tactical.dash", ItemKind.Tactical, "Dash", "Active: dash " + DashDistance + " m forward at " + DashSpeed + " m/s. Each charge recharges in " + DashCooldownSeconds + " s. Stops at walls and edges.", 45, 1, 1, TagMobility, TagAssault),
-            new ItemDef("tactical.shield", ItemKind.Tactical, "Shield", "Active: absorb 400 damage for 4 s. 12 s cooldown. Re-activating replaces the shield, it does not stack.", 45, 1, 1, TagGeneric),
+            new ItemDef("tactical.dash", ItemKind.Tactical, "Dash", "Active: dash " + DashDistance + " m forward at " + DashSpeed + " m/s. Charges recharge one at a time in " + DashCooldownSeconds + " s. Stops at walls and edges.", 45, 1, 1, TagMobility, TagAssault),
+            new ItemDef("tactical.shield", ItemKind.Tactical, "Shield", "Active: absorb " + TacticalRuntime.ShieldCapacity + " damage for " + TacticalRuntime.ShieldDurationSeconds + " s. " + ShieldCooldownSeconds + " s cooldown. Re-activating replaces the shield, it does not stack.", 45, 1, 1, TagGeneric),
         };
 
         public static readonly ItemDef[] Ultimates =
         {
-            new ItemDef("ult.infinite_fire", ItemKind.Ultimate, "Infinite Fire", "8 s of unlimited ammunition with no reloads. Fire rate unchanged.", 80, 1, 2, TagSuppression, TagReload),
-            new ItemDef("ult.lethal_shot", ItemKind.Ultimate, "Lethal Shot", "5 s: direct hits kill regular enemies outright. Finale targets take +200% instead.", 80, 1, 2, TagPrecision),
-            new ItemDef("ult.invincible", ItemKind.Ultimate, "Invincible", "5 s of immunity to combat and gas damage. Only you.", 80, 1, 2, TagAssault),
+            new ItemDef("ult.infinite_fire", ItemKind.Ultimate, "Infinite Fire", UltimateDurationSeconds + " s of unlimited ammunition with no reloads. Fire rate unchanged.", 80, 1, 2, TagSuppression, TagReload),
+            new ItemDef("ult.lethal_shot", ItemKind.Ultimate, "Lethal Shot", ShortUltimateDurationSeconds + " s: direct hits kill regular enemies outright. Finale targets take +200% instead.", 80, 1, 2, TagPrecision),
+            new ItemDef("ult.invincible", ItemKind.Ultimate, "Invincible", ShortUltimateDurationSeconds + " s of immunity to combat and gas damage. Only you.", 80, 1, 2, TagAssault),
             new ItemDef("ult.emergency_revive", ItemKind.Ultimate, "Emergency Revive", "Once per run: instantly revive downed or dead teammates with their build. Solo: survive one lethal hit.", 80, 1, 2, TagMarker, TagMobility),
-            new ItemDef("ult.enemy_sight", ItemKind.Ultimate, "Enemy Sight", "8 s: outlines of every spawned enemy within 80 m.", 80, 1, 2, TagMarker),
-            new ItemDef("ult.chain_bullets", ItemKind.Ultimate, "Chain Bullets", "8 s: hits arc to up to 3 enemies within 10 m at 50% damage. Chains do not count as headshots.", 80, 1, 2, TagRicochet, TagDemolition),
-            new ItemDef("ult.homing_bullets", ItemKind.Ultimate, "Homing Bullets", "8 s: bullets steer toward the nearest visible enemy within 15 degrees.", 80, 1, 2, TagPrecision, TagMobility),
+            new ItemDef("ult.enemy_sight", ItemKind.Ultimate, "Enemy Sight", UltimateDurationSeconds + " s: outlines of every spawned enemy within " + EnemySightRange + " m.", 80, 1, 2, TagMarker),
+            new ItemDef("ult.chain_bullets", ItemKind.Ultimate, "Chain Bullets", ChainDurationSeconds + " s: hits arc to up to " + ChainMaxTargets + " enemies within " + ChainRange + " m at " + (EffectChainRules.ChainDamageFraction * 100) + "% damage. Chains do not count as headshots.", 80, 1, 2, TagRicochet, TagDemolition),
+            new ItemDef("ult.homing_bullets", ItemKind.Ultimate, "Homing Bullets", UltimateDurationSeconds + " s: bullets steer toward the most aligned visible enemy within " + HomingRange + " m and " + HomingAngleDegrees + " degrees.", 80, 1, 2, TagPrecision, TagMobility),
         };
 
         public static readonly EnemyRoleDef[] EnemyRoles =
@@ -204,7 +213,7 @@ namespace Flats.Core.Roguelike
 
         public static readonly EncounterDef[] Events =
         {
-            new EncounterDef("ev.moving_supply", "Moving Supply", "A supply drone crosses the map. Shoot it down before it leaves to claim the crate.", 1, 2, 90, 0.2, null, null, null),
+            new EncounterDef("ev.moving_supply", "Moving Supply", "A supply drone crosses the map. Shoot it down before it leaves for a bounty.", 1, 2, 90, 0.2, null, null, null),
             new EncounterDef("ev.alarm_cache", "Alarm Cache", "Open the cache for a high bounty. Opening it calls a reinforcement wave.", 2, 2, 80, 0.4, null, null, null),
             new EncounterDef("ev.low_gravity", "Low Gravity", "Gravity is halved in the marked area for this stage.", 2, 3, 60, 0.1, null, new[] { "droplinks" }, new[] { "obj.capture" }),
             new EncounterDef("ev.power_reroute", "Power Reroute", "Flip the breaker: for 60 s enemy shields and jammers lose power and enemies see half as far.", 3, 3, 60, 0.15, new[] { "indoor" }, null, null),

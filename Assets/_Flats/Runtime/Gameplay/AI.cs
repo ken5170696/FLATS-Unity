@@ -136,6 +136,7 @@ public class AI : MonoBehaviour
 	{
         if (RoguelikeMode.Active) RogueEnemyStatus.Attach(gameObject);
         if (RoguelikeMode.Coop && Menu.network == 2) RogueEnemyNetSync.Install(gameObject);   // before the first serialization on every copy
+        if (RoguelikeMode.Active) { RogueEnemyLinkTraversal.Install(gameObject); RogueEnemyTactics.Install(gameObject); }   // QA-23 drop arcs, QA-31 role movement
 		mt = base.transform;
 		ct = mt.Find("Camera");
 		anim = GetComponent<Animator>();
@@ -626,7 +627,7 @@ public class AI : MonoBehaviour
 										Menu.canOpen = false;
 										agent.acceleration = 0f;
 										agent.velocity = Vector3.zero;
-										if (agent.isOnOffMeshLink)
+										if (agent.isOnOffMeshLink && !RogueEnemyLinkTraversal.Manages(this))   // an arc it manages ends on its own (QA-23); a stop mid-link stranded it
 										{
 											agent.Stop();
 										}
@@ -705,7 +706,7 @@ public class AI : MonoBehaviour
 							}
 							else
 							{
-								if (agent.isOnOffMeshLink)
+								if (agent.isOnOffMeshLink && !RogueEnemyLinkTraversal.Manages(this))   // an arc it manages ends on its own (QA-23); a stop mid-link stranded it
 								{
 									agent.Stop();
 								}
@@ -1053,11 +1054,30 @@ public class AI : MonoBehaviour
 		tt = trailTime;
 		agent.speed = defaultSpeed;
 		inSight = true;
-		if (agent.isOnOffMeshLink)
+		if (agent.isOnOffMeshLink && !RogueEnemyLinkTraversal.Manages(this))   // an arc it manages ends on its own (QA-23); a stop mid-link stranded it
 		{
 			agent.Stop();
 		}
 	}
+
+	/// <summary>One axis of a round's aim error: the gun's legacy spread (100 - accuracy), scaled in the roguelike by the role's aim
+	/// relative to the rifleman at the target's distance (QA-31; RogueEnemyRole.RelativeAimSpread). Classic modes are unchanged.</summary>
+	private float RogueSpreadSample()
+	{
+		float spread = 100f - currentGun.accuracy;
+		if (RoguelikeMode.Active)
+		{
+			var role = GetComponent<RogueEnemyRole>();
+			Transform aimed = null;
+			if (rogueAimViewId >= 0) { var v = PhotonView.Find(rogueAimViewId); if (v != null) aimed = v.transform; }
+			if (aimed == null && targets.Count > 0) aimed = targets[0];
+			if (role != null) spread *= role.RelativeAimSpread(aimed != null ? Vector3.Distance(mt.position, aimed.position) : 60f);
+		}
+		return UnityEngine.Random.Range(0f - spread, spread);
+	}
+
+	/// <summary>Roguelike role movement (RogueEnemyTactics): the target this enemy is engaging, or null while it patrols or searches.</summary>
+	public Transform RogueEngagedTarget { get { return !isPatrol && !searchRunning && targets.Count > 0 && IsValidTarget(targets[0]) ? targets[0] : null; } }
 
 	[System.NonSerialized] int rogueAimViewId = -1;
 	[System.NonSerialized] Quaternion rogueAimError = Quaternion.identity;
@@ -1147,8 +1167,8 @@ public class AI : MonoBehaviour
 			for (int i = 0; i < currentGun.burstCount; i++)
 			{
 				AimAtRogueTarget();
-				float x = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
-				float y = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
+				float x = RogueSpreadSample();
+				float y = RogueSpreadSample();
 				Vector3 velocity = ((currentGun.id != 15) ? ct.TransformDirection(x, y, 1500f) : ct.TransformDirection(x, y, 800f));
 				Rigidbody rigidbody = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 				Bullet component = rigidbody.GetComponent<Bullet>();
@@ -1208,8 +1228,8 @@ public class AI : MonoBehaviour
 			mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 			base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
 			AimAtRogueTarget();
-			float ram1 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
-			float ram2 = UnityEngine.Random.Range(0f - (100f - currentGun.accuracy), 100f - currentGun.accuracy);
+			float ram1 = RogueSpreadSample();
+			float ram2 = RogueSpreadSample();
 			Vector3 dir = ct.TransformDirection(ram1, ram2, 1500f);
 			Rigidbody b = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 			Bullet bb = b.GetComponent<Bullet>();
@@ -1463,8 +1483,8 @@ public class AI : MonoBehaviour
 		if (RoguelikeMode.Active)
 		{
 			range *= RogueHooks.EnemyRangeScale();
-			// marksmen hold their distance: too close means "not in range" so they back off toward a farther waypoint (Search)
-			if (rolePreferredRange >= 80f && num < rolePreferredRange * 0.35f) return false;
+			// a marksman that is too close keeps shooting while it backs off (RogueEnemyTactics). This used to report "not in range", which
+			// started a Search, and a Search walks TOWARD the target: marksmen closed in instead of keeping their distance (QA-31).
 		}
 		return num < range;
 	}

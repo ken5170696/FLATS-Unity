@@ -295,13 +295,17 @@ namespace Flats.Core.Roguelike
             return s;
         }
 
-        /// <summary>Magazine capacity after the multiplier: integer, at least base+1 when any tier is owned.</summary>
+        /// <summary>Magazine capacity after the multiplier: integer, at least base+1 when any capacity bonus is active.</summary>
         public int Magazine(int baseCapacity, int magazineTier)
         {
             int cap = (int)Math.Floor(baseCapacity * MagazineMul);
-            if (magazineTier > 0 && cap < baseCapacity + 1) cap = baseCapacity + 1;
+            if ((magazineTier > 0 || MagazineMul > 1) && cap < baseCapacity + 1) cap = baseCapacity + 1;
             return Math.Max(1, Math.Min(cap, baseCapacity * 3));
         }
+
+        public double ExplosionRadius { get { return (DemolitionRadius > 0 ? DemolitionRadius : RogueCatalog.ExplosionRadius) * ExplosionRadiusMul; } }
+
+        public double ReviveSeconds(double baseSeconds) { return RogueStateBag.NonNegative(baseSeconds) / RogueStateBag.Positive(ReviveSpeedMul); }
 
         public int Reserve(int baseReserve) { return Math.Max(0, (int)Math.Floor(baseReserve * ReserveMul)); }
 

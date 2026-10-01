@@ -35,7 +35,7 @@ public sealed class CarryRunner : RogueObjectiveRunner
     {
         Vector3 start = c.PlanPoint(0); dropPoint = c.PlanPoint(1);
         crate = RogueWorld.Cube("SupplyCrate", start, new Vector3(1.4f, 1.0f, 1.4f), RogueWorld.Gold, true);
-        RogueWaypoint.Attach(crate, "Crate", "Supply crate", RogueWorld.Gold, 1.6f, 3);
+        RogueWaypoint.Attach(crate, "Crate", "Supply crate", RogueWorld.Gold, RogueWorld.WaypointHeight(crate), 3);
         crate.GetComponent<Collider>().isTrigger = true;
         carry = crate.AddComponent<RogueCarryable>(); carry.Action = "carry"; carry.Prompt = "Pick up the crate"; carry.DisplayName = "Supply crate";
         ring = RogueWorld.Ring("DropZone", dropPoint, 4f, RogueWorld.Gold);
@@ -69,7 +69,7 @@ public sealed class CarryRunner : RogueObjectiveRunner
         carry.HolderKey = key;
         Controller.Notify(new RogueEventMessage { kind = "carry", text = "SupplyCrate|" + key });
         if (machine.Status != ObjectiveStatus.Succeeded) RogueCarryable.AnnounceHolder(Controller, "Supply crate", previous, key);
-        foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = RogueWorld.KeyOf(go) == key && key != ""; }
+        RogueCarryable.RefreshCarryingFlags();   // every player's flag from every held item (a body shield carrier keeps its own, QA-44)
     }
     public override void OnCommand(RogueCommandMessage cmd)
     {
@@ -87,11 +87,11 @@ public sealed class CarryRunner : RogueObjectiveRunner
         var parts = e.text.Split('|');
         if (parts[0] != "SupplyCrate" || carry == null) return;
         carry.HolderKey = parts.Length > 1 ? parts[1] : "";
-        foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = RogueWorld.KeyOf(go) == carry.HolderKey && carry.HolderKey != ""; }
+        RogueCarryable.RefreshCarryingFlags();
     }
     public override void Dispose()
     {
-        foreach (var go in GameObject.FindGameObjectsWithTag("Player")) { var rp = go.GetComponent<RoguePlayer>(); if (rp != null) rp.Carrying = false; }
+        if (carry != null) carry.HolderKey = ""; RogueCarryable.RefreshCarryingFlags();
         RogueWorld.Destroy(crate); RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon);
     }
 }
@@ -105,7 +105,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
     {
         center = c.PlanPoint(0);
         device = RogueWorld.Cube("RepairDevice", center, new Vector3(2f, 2.4f, 2f), RogueWorld.White, true);
-        RogueWaypoint.Attach(device, "Shield", "Protect the device", RogueWorld.Blue, 2.2f, 3);
+        RogueWaypoint.Attach(device, "Shield", "Protect the device", RogueWorld.Blue, RogueWorld.WaypointHeight(device), 3);
         interact = device.AddComponent<RogueInteractable>(); interact.Action = "repair"; interact.Prompt = "Repair"; interact.Radius = 4f;
         beacon = RogueWorld.Beacon("RepairBeacon", center, RogueWorld.White);
         if (c.IsAuthority) machine = new ProtectObjective(1000, 0.02);
@@ -121,11 +121,12 @@ public sealed class ProtectRunner : RogueObjectiveRunner
         int near = RogueWorld.EnemiesWithin(center, 12f);
         if (near > 0) { damageAccum += near * 25f * dt; if (damageAccum >= 5f) { machine.OnDeviceDamaged(damageAccum); damageAccum = 0; } }
         ProgressText = RoguelikeController.F("Repair {0}%  Device {1}%", Mathf.RoundToInt((float)machine.Progress * 100), Mathf.RoundToInt((float)machine.DeviceHp / 10f));
+        interact.SetProgress((float)machine.Progress, machine.Status == ObjectiveStatus.Succeeded);   // the HUD's progress ring on every client (QA-22)
         if (machine.Status == ObjectiveStatus.Failed)
         {
             fallback = machine.FallbackToClear();
             Controller.Notify(new RogueEventMessage { kind = "banner", text = "The device was destroyed. Clear the area instead.", value = 3 });
-            device.GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(new Color(0.3f, 0.3f, 0.3f)); interact.Enabled = false;
+            RogueWorld.SetStateColor(device, new Color(0.3f, 0.3f, 0.3f)); interact.SetUnavailable();
         }
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
     }
@@ -205,7 +206,7 @@ public sealed class BreakoutRunner : RogueObjectiveRunner
         int alive = Controller.AliveEnemies;
         int wanted = Mathf.Clamp(2 + Controller.State.ConnectedPlayers, 3, 6) - alive - Controller.UnreleasedEnemies;
         wanted = Mathf.Min(wanted, Controller.State.encounter.concurrentCap - alive);
-        for (int i = 0; i < wanted; i++) Controller.SpawnExtraEnemy(i % 2 == 0 ? "role.rifleman" : "role.rusher", false, Controller.PickSpawnPosition());
+        for (int i = 0; i < wanted; i++) Controller.SpawnExtraEnemy(i % 2 == 0 ? "role.rifleman" : "role.rusher", false, Controller.PickSpawnPosition(), true);
     }
     public override void Dispose()
     {
@@ -245,15 +246,15 @@ public sealed class CommanderRunner : RogueObjectiveRunner
 public sealed class VaultRunner : RogueObjectiveRunner
 {
     VaultObjective machine; RogueEnemyRole core; bool coreKilled; readonly GameObject[] cells = new GameObject[3]; readonly float[] charge = new float[3];
-    readonly RogueHoldLedger ledger = new RogueHoldLedger(); const float CellRadius = 3.5f;
+    readonly RogueHoldLedger ledger = new RogueHoldLedger(); const float CellRadius = 3.5f, CellSeconds = 4f;
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
         for (int i = 0; i < 3; i++)
         {
             var p = c.PlanPoint(i);
             cells[i] = RogueWorld.Cube("PowerCell" + i, p, new Vector3(1.2f, 1.8f, 1.2f), RogueWorld.Blue, true);
-            RogueWaypoint.Attach(cells[i], "Battery", "Power cell {0}|" + (i + 1), RogueWorld.Blue, 2f, i == 0 ? 3 : 1);
-            var it = cells[i].AddComponent<RogueInteractable>(); it.Action = "cell:" + i; it.Prompt = "Charge cell " + (i + 1); it.Radius = CellRadius;
+            RogueWaypoint.Attach(cells[i], "Battery", "Power cell {0}|" + (i + 1), RogueWorld.Blue, RogueWorld.WaypointHeight(cells[i]), i == 0 ? 3 : 1);
+            var it = cells[i].AddComponent<RogueInteractable>(); it.Action = "cell:" + i; it.Prompt = "Charge cell " + (i + 1); it.Radius = CellRadius; it.HoldSeconds = CellSeconds;
         }
         if (c.IsAuthority) machine = new VaultObjective(1000);
     }
@@ -279,18 +280,21 @@ public sealed class VaultRunner : RogueObjectiveRunner
         bool inUse; float granted = ledger.Credit(cmd.playerKey, "cell:" + i, (float)cmd.value, true, out inUse);
         if (inUse) { if (ledger.NoticeDue(cmd.playerKey)) Controller.Notify(new RogueEventMessage { kind = "denied", playerKey = cmd.playerKey, text = "Someone else is using it" }); return; }
         charge[i] += granted;
-        if (charge[i] >= 4f && machine.OnCellCharged(i))
+        var cellIt = cells[i].GetComponent<RogueInteractable>();
+        if (charge[i] >= CellSeconds && machine.OnCellCharged(i))
         {
+            if (cellIt != null) cellIt.SetProgress(1f, true);
             ledger.Release("cell:" + i);
-            cells[i].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.Gold);
+            RogueWorld.SetStateColor(cells[i], RogueWorld.Gold);
             Controller.Notify(new RogueEventMessage { kind = "banner", text = "Cell {0} charged: the core is exposed!|" + (i + 1), value = 2 });
             Controller.Notify(new RogueEventMessage { kind = "cell", index = i });
         }
+        else if (cellIt != null) cellIt.SetProgress(charge[i] / CellSeconds, false);
     }
     public override void OnClientEvent(RogueEventMessage e)
     {
         if (e.kind != "cell" || e.index < 0 || e.index > 2 || cells[e.index] == null) return;
-        cells[e.index].GetComponent<Renderer>().sharedMaterial = RogueWorld.Unlit(RogueWorld.Gold);
+        RogueWorld.SetStateColor(cells[e.index], RogueWorld.Gold);
         RogueWaypoint.Hide(cells[e.index], true);
         { var it = cells[e.index].GetComponent<RogueInteractable>(); if (it != null) it.Enabled = false; }   // a charged cell no longer offers a prompt
         if (e.index + 1 < 3 && cells[e.index + 1] != null) { var wp = cells[e.index + 1].GetComponent<RogueWaypoint>(); if (wp != null) wp.Priority = 3; }
@@ -299,48 +303,132 @@ public sealed class VaultRunner : RogueObjectiveRunner
     public override void Dispose() { foreach (var c in cells) RogueWorld.Destroy(c); }
 }
 
-/// <summary>Finale: an escorted carrier walks a route; when the escort is dead it stops for 12 s and can be shot. Reaching the exit fails to a half-reward clear.</summary>
+/// <summary>
+/// Finale: an escorted carrier drives a NavMesh route (RogueConvoyRoute); when no escort is left near it, it stops for a 12 s
+/// window and can be shot. Reaching the exit fails to a half-reward clear. QA-17 stop/go rules (authority):
+/// - escort = live enemies within RogueConvoyCarrier.EscortRadius of the carrier, plus arrivals still in the spawn queue. Far or
+///   hidden stragglers elsewhere on the map no longer keep the carrier shielded forever, and dead or removed enemies never count.
+/// - before the first wave has fully arrived the carrier just drives: an empty field at the start is not a cleared escort.
+/// - a window that runs out with still nobody near lets the carrier drive on for ResumeSeconds, then it stops again.
+/// - being shot, cooldowns other than these, and where the players are never stop it.
+/// Every state reads on the HUD line (one English template each). The carrier moves on every client from the replicated distance.
+/// </summary>
 public sealed class ConvoyRunner : RogueObjectiveRunner
 {
-    ConvoyObjective machine; GameObject carrier, beacon; RogueDamageable damageable; Vector3 start, end; float progress, speed = 1.6f; ClearObjective fallback;
+    /// <summary>Mirror of ConvoyObjective's window length (Core keeps it private) for the countdown text, and the drive between windows.</summary>
+    public const float WindowSeconds = 12f, ResumeSeconds = 6f;
+    /// <summary>Radius of the destroyed carrier's blast (QA-45).</summary>
+    public static float CarrierBlastRadius = 6f;
+    /// <summary>Carrier state events per second while it moves, and while it stands.</summary>
+    public const float StateRateMoving = 4f, StateRateStopped = 1f, RouteResendSeconds = 5f;
+    const string CarrierName = "ConvoyCarrier";
+    ConvoyObjective machine; GameObject carrier, beacon; RogueDamageable damageable; RogueConvoyCarrier mover; ClearObjective fallback;
+    float distance, windowStartedAt, resumeLeft, sendTimer, routeTimer; bool wasStopped, armed, finished;
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
-        start = c.PlanPoint(0); end = c.PlanPoint(1);
-        carrier = RogueWorld.Cube("ConvoyCarrier", start, new Vector3(2.4f, 2f, 3.6f), RogueWorld.Pink2, true);
-        RogueWaypoint.Attach(carrier, "Enemy", "Carrier", RogueWorld.Pink2, 2.4f, 3);
+        Vector3 start = c.PlanPoint(0), end = c.PlanPoint(1);
+        // the route first (the authority validated this pair in ChooseConvoyRoute; clients take the replicated control points as soon as
+        // the first carrier state arrives). Without any path the carrier stays parked at its start: never a straight line through walls.
+        RogueConvoyRoute.Report report;
+        var route = RogueConvoyRoute.Build(start, end, false, out report);
+        if (route == null) { Debug.LogWarning("FLATS_ROGUE_CONVOY no path between the plan points; the carrier stays at its start"); route = new List<Vector3> { start, start }; }
+        // the duck model when the project has it (Resources/Objectives/ConvoyDuck: pivot at its feet, +Z forward, its own box collider),
+        // else the flat cube; RogueConvoyCarrier stands either on the ground from its bounds
+        var prefab = Resources.Load<GameObject>("Objectives/ConvoyDuck");
+        if (prefab != null) { carrier = Object.Instantiate(prefab, start, Quaternion.identity); carrier.name = CarrierName; }
+        else carrier = RogueWorld.Cube(CarrierName, start, new Vector3(2.4f, 2f, 3.6f), RogueWorld.Pink2, true);
+        float top = 2.4f;
+        { var rs = carrier.GetComponentsInChildren<Renderer>(); if (rs.Length > 0) { var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds); top = b.max.y - carrier.transform.position.y + 0.6f; } }
+        RogueWaypoint.Attach(carrier, "Enemy", "Carrier", RogueWorld.Pink2, top, 3);
         // only the authority gates hits on the flag (it re-checks forwarded hits in OnWorldHit); a guest copy that stayed shielded
         // dropped every guest shot before it was forwarded, because nothing clears the flag on guests (A3)
-        damageable = carrier.AddComponent<RogueDamageable>(); damageable.Invulnerable = c.IsAuthority;
+        damageable = carrier.AddComponent<RogueDamageable>(); damageable.Invulnerable = c.IsAuthority; damageable.DisplayName = "Carrier";
         damageable.OnHit = (dmg, shooter) => { if (machine != null && machine.OnDamaged(dmg)) { } };
+        mover = carrier.AddComponent<RogueConvoyCarrier>();
+        mover.Configure(route, c.IsAuthority);
         beacon = RogueWorld.Beacon("ConvoyExit", end, RogueWorld.Pink2);
         RogueWaypoint.Attach(beacon, "Warning", "Carrier exit", RogueWorld.Pink2, 2.5f, 1);
         if (c.IsAuthority) machine = new ConvoyObjective(3000);
     }
     public override void Tick(float dt)
     {
-        if (machine == null) { MoveCarrier(dt, false); return; }
-        if (fallback != null) { ProgressText = RoguelikeController.F("Carrier escaped: clear the area"); Succeeded = Controller.AliveEnemies == 0 && Controller.WavesDone; return; }
-        int escorts = Controller.AliveEnemies;
-        machine.OnEscortKilled(escorts);
+        if (machine == null) return;   // clients: RogueConvoyCarrier moves the carrier from the replicated state
+        if (fallback != null) { damageable.SetState(1f - (float)machine.Progress, true); ProgressText = RoguelikeController.F("Carrier escaped: clear the area"); Succeeded = Controller.AliveEnemies == 0 && Controller.WavesDone; SendState(dt, false); return; }
+        int near = EscortsNear(), queued = Controller.QueuedEnemies;
+        if (!armed && Controller.ReleasedWaves > 0 && queued == 0) armed = true;   // the first wave is on the field
+        int reported = near + queued;
+        if (!armed) reported = Mathf.Max(1, reported);
+        if (resumeLeft > 0f) { resumeLeft -= dt; reported = Mathf.Max(1, reported); }   // re-arms the machine so the next empty check opens a new window
+        machine.OnEscortKilled(reported);
         bool stopped = machine.Stopped;
-        damageable.Invulnerable = !stopped;
-        MoveCarrier(dt, !stopped);
-        machine.OnCarrierProgress(Mathf.Clamp01(progress));
+        if (stopped && !wasStopped) windowStartedAt = Time.time;
+        if (!stopped && wasStopped && near + queued == 0) resumeLeft = ResumeSeconds;
+        wasStopped = stopped;
+        damageable.SetState(1f - (float)machine.Progress, !stopped);   // shootable only in the window; health and immunity on every client (QA-37)
+        if (!stopped) distance = Mathf.Min(mover.Length, distance + RogueConvoyCarrier.Speed * dt);
+        mover.SetAuthorityState(distance, !stopped, near);
+        machine.OnCarrierProgress(mover.Length > 0.01f ? Mathf.Clamp01(distance / mover.Length) : 0f);   // a parked carrier (no path) never counts as escaped
         machine.Tick(dt);
-        if (machine.Status == ObjectiveStatus.Failed) { fallback = machine.FallbackToClear(); Controller.Notify(new RogueEventMessage { kind = "banner", text = "The carrier reached the exit. Clear the area for half the reward.", value = 3 }); return; }
-        ProgressText = stopped ? RoguelikeController.F("Carrier stopped! Destroy it {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) : RoguelikeController.F("Kill the escort ({0})  Carrier {1}%", escorts, Mathf.RoundToInt(progress * 100));
+        if (machine.Status == ObjectiveStatus.Failed)
+        {
+            fallback = machine.FallbackToClear();
+            Controller.Notify(new RogueEventMessage { kind = "banner", text = "The carrier reached the exit. Clear the area for half the reward.", value = 3 });
+            SendState(0f, true);
+            return;
+        }
+        int routePercent = mover.Length > 0.01f ? Mathf.RoundToInt(distance / mover.Length * 100f) : 0, damagePercent = Mathf.RoundToInt((float)machine.Progress * 100);
+        if (stopped) ProgressText = RoguelikeController.F("Carrier stopped: destroy it! {0} s left ({1}% damage)", Mathf.Max(0, Mathf.CeilToInt(WindowSeconds - (Time.time - windowStartedAt))), damagePercent);
+        else if (resumeLeft > 0f && near + queued == 0) ProgressText = RoguelikeController.F("Carrier moving again: next stop in {0} s ({1}% of the route)", Mathf.CeilToInt(resumeLeft), routePercent);
+        else ProgressText = RoguelikeController.F("Kill the escort ({0})  Carrier {1}%", near + queued, routePercent);
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
-        if (Succeeded && carrier != null) { RogueWorldFx.Burst(carrier.transform.position, 6f, null); RogueWorld.Destroy(carrier); }
+        if (Succeeded && carrier != null) { SendState(0f, true); RogueWorldFx.Burst(carrier.transform.position, CarrierBlastRadius, RogueWorld.Gold); RogueWorld.Destroy(carrier); carrier = null; }
+        else SendState(dt, false);
     }
-    void MoveCarrier(float dt, bool moving)
+
+    /// <summary>Live escorts near the carrier: not dying, not removed, within the escort radius.</summary>
+    int EscortsNear()
     {
-        if (carrier == null) return;
-        if (moving) progress += dt * speed / Mathf.Max(1f, Vector3.Distance(start, end));
-        Vector3 p = Vector3.Lerp(start, end, Mathf.Clamp01(progress)); Vector3 g; RogueWorld.Ground(p, out g);
-        carrier.transform.position = g + Vector3.up * 1f;
-        if (Vector3.Distance(start, end) > 0.1f) carrier.transform.rotation = Quaternion.LookRotation(end - start);
+        if (carrier == null) return 0;
+        int n = 0;
+        foreach (var go in GameObject.FindGameObjectsWithTag("Enemy"))
+        {
+            if (go.GetComponent<AI>() == null || go.GetComponent<RogueEnemyRole>() == null) continue;
+            var dr = go.GetComponent<DamageReceiver>();
+            if (dr == null || dr.Dead) continue;
+            if (Vector3.Distance(go.transform.position, carrier.transform.position) <= RogueConvoyCarrier.EscortRadius) n++;
+        }
+        return n;
     }
-    public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "carrier") progress = (float)e.value; }
+
+    /// <summary>Authority: "carrier" event = travelled distance (value), moving (flag), escorts near (minor), 1 = destroyed / 2 = escaped
+    /// (index), and every RouteResendSeconds the route's control points (text), so a client that joined or rejoined agrees exactly.</summary>
+    void SendState(float dt, bool force)
+    {
+        if (Menu.network == 0 || mover == null) return;
+        sendTimer -= dt; routeTimer -= dt;
+        bool moving = machine != null && !machine.Stopped && fallback == null && !finished;
+        if (!force && sendTimer > 0f) return;
+        sendTimer = 1f / (moving ? StateRateMoving : StateRateStopped);
+        string route = "";
+        if (routeTimer <= 0f || force) { routeTimer = RouteResendSeconds; route = RogueConvoyRoute.Pack(mover.ControlPoints); }
+        int flags = machine != null && machine.Status == ObjectiveStatus.Succeeded ? 1 : fallback != null ? 2 : 0;
+        if (flags == 1) finished = true;
+        Controller.Notify(new RogueEventMessage { kind = "carrier", value = distance, flag = moving, minor = EscortsNear(), index = flags, text = route });
+    }
+
+    public override void OnClientEvent(RogueEventMessage e)
+    {
+        if (e.kind != "carrier" || machine != null) return;
+        if (e.index == 1)
+        {
+            if (carrier != null) { RogueWorldFx.Burst(carrier.transform.position, CarrierBlastRadius, RogueWorld.Gold); RogueWorld.Destroy(carrier); carrier = null; mover = null; }
+            return;
+        }
+        if (mover == null) return;
+        var route = RogueConvoyRoute.Unpack(e.text);
+        if (route != null) mover.SetRoute(route);
+        mover.ReceiveState((float)e.value, e.flag && e.index == 0, (int)e.minor);
+    }
     public override void Dispose() { RogueWorld.Destroy(carrier); RogueWorld.Destroy(beacon); }
     public override double RewardFraction { get { return fallback != null ? 0.5 : 1.0; } }
 }

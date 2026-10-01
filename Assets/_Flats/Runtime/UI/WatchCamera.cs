@@ -124,6 +124,20 @@ public class WatchCamera : MonoBehaviour
 		}
 	}
 
+	// The spectator view has real buttons (Previous, Next, Menu) and exists only after the local player died: the dead player's
+	// controller is destroyed before this camera is made, and the run controller removes it before a new player spawns. So it
+	// owns the cursor while it lives (FlatsCursor, QA-34): free and visible, with no gameplay to block. The short input guard after
+	// it closes also stops a spectator's last click from firing the respawned player's weapon.
+	private void OnEnable()
+	{
+		FlatsCursor.Push(this);
+	}
+
+	private void OnDisable()
+	{
+		FlatsCursor.Pop(this);
+	}
+
 	// Spectator Menu button (WatchCamera prefab). The player HUD and its menu button are hidden
 	// while spectating, so this opens the same pause menu with Settings.
 	public void OpenMenu()
@@ -252,9 +266,11 @@ public class WatchCamera : MonoBehaviour
 		}
 		InputDevice activeDevice = InputManager.ActiveDevice;
 		// Switching the watched player belongs to the spectator view, not to an open menu.
-		// Roguelike co-op adds keyboard switching (a dead player does not move): D / Right arrow next, A / Left arrow previous.
-		bool keyNext = RoguelikeMode.Coop && (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow));
-		bool keyPrevious = RoguelikeMode.Coop && (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow));
+		// Roguelike co-op adds keyboard switching (a dead player does not move): the player's own "Move right" binding (D by default)
+		// or the Right arrow shows the next player, "Move left" (A) or the Left arrow the previous one (QA-41). The arrows stay as a
+		// fixed fallback; FlatsControls.Down ignores a binding capture.
+		bool keyNext = RoguelikeMode.Coop && (FlatsControls.Down("Right") || (!FlatsControls.Capturing && Input.GetKeyDown(KeyCode.RightArrow)));
+		bool keyPrevious = RoguelikeMode.Coop && (FlatsControls.Down("Left") || (!FlatsControls.Capturing && Input.GetKeyDown(KeyCode.LeftArrow)));
 		if (Menu.current == "Playing" && (activeDevice.RightTrigger.WasPressed || activeDevice.RightBumper.WasPressed || keyNext))
 		{
 			ChangeCamera(1);

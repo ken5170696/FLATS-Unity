@@ -282,15 +282,11 @@ public partial class FPSController
 		{
 			yield break;
 		}
-		if (MyView(base.gameObject))
-		{
-			if (Aiming)
-			{
-				Zoom(false);
-			}
-			reticle.SetVisible(false);
-		}
 		int[] gunInfo = new int[5];
+		// The owner's own count of the weapon it puts down (sent as entries 5 and 6 by TryExchangeGroundWeapon); the master's copy
+		// of another player's magazine can differ from the owner's, and the dropped weapon must keep the owner's rounds.
+		int droppedCurrent = -1;
+		int droppedReserve = -1;
 		if (Menu.network == 0)
 		{
 			gunInfo[0] = receivedData[0];
@@ -300,16 +296,38 @@ public partial class FPSController
 		}
 		else if (Menu.network != 1)
 		{
-			GameObject gun = PhotonView.Find(receivedData[4]).gameObject;
-			DroppedGun component = gun.GetComponent<DroppedGun>();
+			// One ground weapon, one taker (QA-26). Requests travel through the server, so every copy handles competing requests
+			// in the same order: the first claims the weapon on every copy, a later one (another player pressing at the same
+			// moment, or a repeat) is refused on every copy, including the master, whose copy of the weapon is already gone.
+			// A refused request changes nothing: the player keeps the weapon in hand and drops nothing.
+			PhotonView groundView = PhotonView.Find(receivedData[4]);
+			DroppedGun component = groundView != null ? groundView.GetComponent<DroppedGun>() : null;
+			PhotonView takerView = base.gameObject.GetPhotonView();
+			if (component == null || takerView == null || !component.Claim(takerView.viewID))
+			{
+				yield break;
+			}
 			gunInfo[0] = component.weaponIndex;
 			gunInfo[1] = component.currentAmmo;
 			gunInfo[2] = component.maxAmmo;
 			gunInfo[3] = component.sight;
+			if (receivedData.Length >= 7)
+			{
+				droppedCurrent = receivedData[5];
+				droppedReserve = receivedData[6];
+			}
 			if (PhotonNetwork.isMasterClient)
 			{
-				PhotonNetwork.Destroy(gun);
+				PhotonNetwork.Destroy(groundView.gameObject);
 			}
+		}
+		if (MyView(base.gameObject))
+		{
+			if (Aiming)
+			{
+				Zoom(false);
+			}
+			reticle.SetVisible(false);
 		}
 		enableFire = false; firing = false;
 		anim.SetBool("Change", true);
@@ -317,7 +335,7 @@ public partial class FPSController
 		ikc.leftIK = false;
 		yield return new WaitForSeconds(0.8f);
 		primaryWeapon.gameObject.SetActive(false);
-		if (primarySightIndex != 0)
+		if (primarySightIndex != 0 && primaryWeapon.GetChild(2).childCount > 0)
 		{
 			UnityEngine.Object.Destroy(primaryWeapon.GetChild(2).GetChild(0).gameObject);
 		}
@@ -334,13 +352,27 @@ public partial class FPSController
 		else if (Menu.network != 1 && PhotonNetwork.isMasterClient)
 		{
 			GameObject newGun = PhotonNetwork.InstantiateSceneObject("Weapons/Weapon" + primaryWeaponIndex, mt.position + Vector3.up * 3f, Quaternion.identity, 0, null);
-			newGun.GetPhotonView().RPC("DropData", PhotonTargets.All, currentGun.currentAmmo, currentGun.maxAmmo, primarySightIndex);
+			newGun.GetPhotonView().RPC("DropData", PhotonTargets.All, droppedCurrent >= 0 ? droppedCurrent : currentGun.currentAmmo, droppedReserve >= 0 ? droppedReserve : currentGun.maxAmmo, primarySightIndex);
 		}
 		primaryWeaponIndex = gunInfo[0];
+		RogueNoteWeaponTaken(primaryWeaponIndex);   // a new weapon instance: its Fresh Magazine state starts unarmed
 		primaryWeapon = primaryWeapons.GetChild(primaryWeaponIndex);
 		currentGun = primaryWeapon.GetComponent<Gun>();
-		currentGun.currentAmmo = gunInfo[1];
-		currentGun.maxAmmo = gunInfo[2];
+		// The taker's own capacity (Roguelike magazine and reserve upgrades differ per player): rounds above the magazine go to
+		// the reserve, rounds above both are left out, so a swap never creates a magazine larger than the taker's.
+		int takenMagazine = gunInfo[1];
+		int takenReserve = gunInfo[2];
+		if (currentGun.limitAmmo > 0 && takenMagazine > currentGun.limitAmmo)
+		{
+			takenReserve += takenMagazine - currentGun.limitAmmo;
+			takenMagazine = currentGun.limitAmmo;
+		}
+		if (currentGun.limitMaxAmmo > 0 && takenReserve > currentGun.limitMaxAmmo)
+		{
+			takenReserve = currentGun.limitMaxAmmo;
+		}
+		currentGun.currentAmmo = Mathf.Max(0, takenMagazine);
+		currentGun.maxAmmo = Mathf.Max(0, takenReserve);
 		primarySightIndex = gunInfo[3];
 		if (primarySightIndex != 0)
 		{
@@ -645,8 +677,12 @@ public partial class FPSController
 					anim.SetFloat("Horizontal", moving ? RogueLocomotion.LegParam(rogueRemoteVelocity.x) : 0f, 0.1f, Time.deltaTime);
 					if (isGrounded())
 					{
-						anim.SetBool("Jump", false);
-						anim.SetBool("Run", rogueRemoteVelocity.z > 20f && !zombie);
+						anim.SetBool("Jump", false);   // a landed teammate leaves the airborne pose (this reset was lost in the sprint rework)
+						// Presentation only: the owner's sprint state is not replicated, so the run pose follows the smoothed speed,
+						// with the threshold raised by the player's own speed multiplier so a fast walk is not shown as a run. No
+						// gameplay reads this bool (aiming and firing use the owner's explicit sprint state, QA-21).
+						float runSpeed = 20f * Mathf.Max(1f, RogueHooks.MoveSpeedScale(this));
+						anim.SetBool("Run", rogueRemoteVelocity.z > runSpeed && !zombie);
 					}
 					else
 					{

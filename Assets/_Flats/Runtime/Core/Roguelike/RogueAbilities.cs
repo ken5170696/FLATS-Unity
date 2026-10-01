@@ -15,7 +15,7 @@ namespace Flats.Core.Roguelike
         {
             var item = RogueCatalog.Item(id); if (item == null || item.Kind != ItemKind.Ultimate) throw new ArgumentException("ultimate id");
             Id = id; ReviveUsed = reviveUsed;
-            switch (id) { case "ult.emergency_revive": DurationSeconds = 0; break; case "ult.lethal_shot": case "ult.invincible": DurationSeconds = 5; break; default: DurationSeconds = 8; break; }
+            DurationSeconds = RogueCatalog.UltimateSeconds(id);
         }
         // 充能及跨裝備的一次／run 旗標由 RunMachine.SpendUltimate 持有；此物件只處理效果時效。
         public bool Activate(double now) { RogueStateBag.NonNegative(now); if (IsActive(now) || (Id == "ult.emergency_revive" && ReviveUsed)) return false; started = now; activated = true; if (Id == "ult.emergency_revive") ReviveUsed = true; return true; }
@@ -32,22 +32,38 @@ namespace Flats.Core.Roguelike
         public const double ShieldCapacity = 400, ShieldDurationSeconds = 4;
         private readonly List<double> recharge = new List<double>();
         private double shield, shieldUntil, observedNow;
-        private bool secondJumpUsed;
+        private bool secondJumpUsed, committing;
         private double lastDash = double.NegativeInfinity;
         public TacticalRuntime(string id, BuildStats stats = null)
         {
             var item = RogueCatalog.Item(id); if (item == null || item.Kind != ItemKind.Tactical) throw new ArgumentException("tactical id");
             Id = id; stats = stats ?? new BuildStats();
             MaxCharges = id == "tactical.dash" ? Math.Max(1, Math.Min(2, stats.DashCharges)) : 1;
-            CooldownSeconds = id == "tactical.dash" ? RogueCatalog.DashCooldownSeconds * RogueStateBag.Positive(stats.DashCooldownMul) : id == "tactical.shield" ? 12 : 0;
+            CooldownSeconds = id == "tactical.dash" ? RogueCatalog.DashCooldownSeconds * RogueStateBag.Positive(stats.DashCooldownMul) : id == "tactical.shield" ? RogueCatalog.ShieldCooldownSeconds * RogueStateBag.Positive(stats.ShieldCooldownMul) : 0;
         }
         public void Tick(double now) { RogueStateBag.NonNegative(now); if (now < observedNow) throw new ArgumentOutOfRangeException("now", "時間不可倒退"); observedNow = now; recharge.RemoveAll(t => t <= now); if (now >= shieldUntil) shield = 0; }
         public int Charges(double now) { Tick(now); return MaxCharges - recharge.Count; }
-        public bool TryUse(double now)
+        // Logical charge index is zero based in the HUD: available charges precede the charging segment.
+        public int RechargingIndex(double now) { Tick(now); return recharge.Count == 0 ? -1 : MaxCharges - recharge.Count; }
+        public double RechargeProgress(double now) { Tick(now); return recharge.Count == 0 ? 1 : Math.Max(0, Math.Min(1, 1 - (recharge[0] - now) / CooldownSeconds)); }
+        public double NextChargeAt(double now) { Tick(now); return recharge.Count == 0 ? double.PositiveInfinity : recharge[0]; }
+        public double NextAvailableAt(double now) { Tick(now); return Math.Max(Id == "tactical.dash" ? lastDash + RogueCatalog.DashMinIntervalSeconds : now, recharge.Count < MaxCharges ? now : recharge[0]); }
+        // The adapter validates geometry/action permission before committing. A rejected action spends nothing.
+        public bool TryUse(double now, bool actionAllowed) { Tick(now); return actionAllowed && TryUse(now); }
+        public bool TryUse(double now) { return TryUse(now, () => true); }
+        /// <summary>Call the synchronous action only when a charge is available. False/throw spends nothing;
+        /// true means movement actually started, then exactly one charge is committed. No reentrant use.</summary>
+        public bool TryUse(double now, Func<bool> tryStartAction)
         {
+            if (tryStartAction == null) throw new ArgumentNullException("tryStartAction");
+            if (committing) return false;
             Tick(now); if (Id == "tactical.doublejump" || recharge.Count >= MaxCharges) return false;
             if (Id == "tactical.dash" && now < lastDash + RogueCatalog.DashMinIntervalSeconds) return false;
-            recharge.Add(now + CooldownSeconds);
+            committing = true;
+            bool started;
+            try { started = tryStartAction(); } finally { committing = false; }
+            if (!started) return false;
+            recharge.Add((recharge.Count == 0 ? now : recharge[recharge.Count - 1]) + CooldownSeconds);
             if (Id == "tactical.dash") lastDash = now;
             if (Id == "tactical.shield") { shield = ShieldCapacity; shieldUntil = now + ShieldDurationSeconds; }
             return true;
@@ -165,12 +181,12 @@ namespace Flats.Core.Roguelike
             if (source.kind == DamageKind.Chain && next == DamageKind.Chain || source.kind == DamageKind.Explosion && next == DamageKind.Explosion) return false;
             return CanTrigger(next, source.depth + 1);
         }
-        public static string[] ChainTargets(IEnumerable<ChainCandidate> candidates, ISet<string> alreadyHit = null, int maxTargets = 3, double maxDistance = 10)
+        public static string[] ChainTargets(IEnumerable<ChainCandidate> candidates, ISet<string> alreadyHit = null, int maxTargets = RogueCatalog.ChainMaxTargets, double maxDistance = RogueCatalog.ChainRange)
         {
             if (candidates == null) throw new ArgumentNullException("candidates"); RogueStateBag.NonNegative(maxDistance);
-            return candidates.Where(c => c.Visible && !string.IsNullOrEmpty(c.Id) && !double.IsNaN(c.Distance) && c.Distance >= 0 && c.Distance <= maxDistance && (alreadyHit == null || !alreadyHit.Contains(c.Id))).OrderBy(c => c.Distance).ThenBy(c => c.Id, StringComparer.Ordinal).Select(c => c.Id).Distinct().Take(Math.Max(0, Math.Min(3, maxTargets))).ToArray();
+            return candidates.Where(c => c.Visible && !string.IsNullOrEmpty(c.Id) && !double.IsNaN(c.Distance) && c.Distance >= 0 && c.Distance <= maxDistance && (alreadyHit == null || !alreadyHit.Contains(c.Id))).OrderBy(c => c.Distance).ThenBy(c => c.Id, StringComparer.Ordinal).Select(c => c.Id).Distinct().Take(Math.Max(0, Math.Min(RogueCatalog.ChainMaxTargets, maxTargets))).ToArray();
         }
-        public static bool HomingSteer(double currentDirDot, double maxAngleDeg = 15) { if (double.IsNaN(currentDirDot) || double.IsInfinity(currentDirDot) || currentDirDot < -1 || currentDirDot > 1 || double.IsNaN(maxAngleDeg) || maxAngleDeg < 0 || maxAngleDeg > 180) return false; return currentDirDot + 1e-12 >= Math.Cos(maxAngleDeg * Math.PI / 180); }
+        public static bool HomingSteer(double currentDirDot, double maxAngleDeg = RogueCatalog.HomingAngleDegrees) { if (double.IsNaN(currentDirDot) || double.IsInfinity(currentDirDot) || currentDirDot < -1 || currentDirDot > 1 || double.IsNaN(maxAngleDeg) || maxAngleDeg < 0 || maxAngleDeg > 180) return false; return currentDirDot + 1e-12 >= Math.Cos(maxAngleDeg * Math.PI / 180); }
         private static string ShotKey(DamageContext c) { if (string.IsNullOrEmpty(c.sourceKey) || string.IsNullOrEmpty(c.rootShotId)) throw new ArgumentException("source/rootShotId"); return c.sourceKey.Length + ":" + c.sourceKey + c.rootShotId; }
         public bool TryRegisterDerivedHit(DamageContext context, string targetId)
         {

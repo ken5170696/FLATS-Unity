@@ -12,6 +12,7 @@ public sealed class FlatsSightTarget : MonoBehaviour
     RenderTextureDescriptor template;
     Camera sightCamera;
     RawImage[] displays;
+    Material displayMaterial;
     Camera aimCamera;
     FPSController owner;
     float imageRoll;
@@ -23,6 +24,7 @@ public sealed class FlatsSightTarget : MonoBehaviour
     public int RenderScale { get; private set; } = 1;
     // The live lens image; replaced by SetRenderScale, so consumers re-read it after each call.
     public RenderTexture Target { get { return target; } }
+    public Material DisplayMaterial { get { return displayMaterial; } }
     // Intended magnification from the prefab name: "4x sight" = 4, the reflex sight = 1.
     public float Magnification { get; private set; } = 1f;
     // Sight camera field of view that gives Magnification on screen, or the authored value
@@ -133,6 +135,9 @@ public sealed class FlatsSightTarget : MonoBehaviour
         var source=displays[0].texture as RenderTexture;
         if(source==null)return;
         template=source.descriptor;
+        var displayShader=Resources.Load<Shader>("sights/ScopeDisplay");
+        if(displayShader!=null)
+            displayMaterial=new Material(displayShader) { name="Flats opaque scope image", hideFlags=HideFlags.DontSave };
         target=new RenderTexture(template) { name="Flats runtime sight", hideFlags=HideFlags.DontSave };
         target.Create();
         sightCamera.targetTexture=target;
@@ -140,7 +145,11 @@ public sealed class FlatsSightTarget : MonoBehaviour
         // Render the scope first so every consumer sees this frame's image.
         if(UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline != null)
             sightCamera.depth=-100;
-        foreach(var display in displays)if(display.texture==source)display.texture=target;
+        foreach(var display in displays)if(display.texture==source)
+        {
+            display.texture=target;
+            if(displayMaterial!=null)display.material=displayMaterial;
+        }
     }
     // Recreates the runtime target at an integer multiple of the template size, for the
     // sight the local player is aiming through when a scope.view module enlarges its
@@ -164,6 +173,7 @@ public sealed class FlatsSightTarget : MonoBehaviour
     }
     void OnDestroy()
     {
+        if(displayMaterial!=null)Destroy(displayMaterial);
         if(target==null)return;
         if(sightCamera!=null && sightCamera.targetTexture==target)sightCamera.targetTexture=null;
         if(displays!=null)foreach(var display in displays)if(display!=null && display.texture==target)display.texture=null;

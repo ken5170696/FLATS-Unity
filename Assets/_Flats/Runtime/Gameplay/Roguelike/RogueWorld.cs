@@ -137,8 +137,33 @@ public static class RogueWorld
     }
 
     // ---------------------------------------------------------------- props
+    /// <summary>
+    /// An objective or event prop standing on <paramref name="position"/> (its bottom centre) with the given size. QA-38: the authored
+    /// model Resources/Objectives/(name) when the project has one (exact name first; VentSwitch0-2 and PowerCell0-2 use the
+    /// numberless prefab), else the flat cube in <paramref name="color"/>. Models have a centred pivot, root scale 1 and a root BoxCollider
+    /// with centre 0 whose size is the authored size; they are scaled per axis to the requested size (1 when it matches) and placed like the
+    /// cube, centre at position + half the height. The instance keeps the passed name (events address props by it). collider false removes
+    /// the colliders. Children named Rotor* spin locally (RogueRotorSpin).
+    /// </summary>
     public static GameObject Cube(string name, Vector3 position, Vector3 size, Color color, bool collider)
     {
+        size *= PropScale(name);   // QA-38: objective props at the 4x characters' scale (1 for everything else)
+        var prefab = ObjectivePrefab(name);
+        if (prefab != null)
+        {
+            var model = UnityEngine.Object.Instantiate(prefab);
+            model.name = name;
+            model.AddComponent<RogueAuthoredProp>();
+            var box = model.GetComponent<BoxCollider>();
+            if (box != null && box.size.x > 0.0001f && box.size.y > 0.0001f && box.size.z > 0.0001f)
+                model.transform.localScale = new Vector3(size.x / box.size.x, size.y / box.size.y, size.z / box.size.z);
+            model.transform.position = position + Vector3.up * size.y * 0.5f;
+            if (!collider) foreach (var c in model.GetComponentsInChildren<Collider>()) UnityEngine.Object.Destroy(c);
+            int rotor = 0;
+            foreach (var t in model.GetComponentsInChildren<Transform>())
+                if (t != model.transform && t.name.StartsWith("Rotor")) t.gameObject.AddComponent<RogueRotorSpin>().Direction = (rotor++ % 2 == 0) ? 1f : -1f;
+            return model;
+        }
         var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
         go.name = name;
         go.transform.position = position + Vector3.up * size.y * 0.5f;
@@ -146,6 +171,86 @@ public static class RogueWorld
         var r = go.GetComponent<Renderer>(); r.sharedMaterial = Unlit(color); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         if (!collider) UnityEngine.Object.Destroy(go.GetComponent<Collider>());
         return go;
+    }
+
+    /// <summary>
+    /// QA-38: the authored sizes are 1x-character sizes, so next to the 4x Flatman a crate would be ankle-high and a breaker
+    /// knee-high. Each objective prop's requested size is multiplied by its factor here (collider, model, carry grip and waypoint
+    /// follow): carried items about waist-high on the ground and two-handed when carried (RogueCarryable.CarriedScale), stations and
+    /// switches chest-high. Names not listed (beacons, rings, the convoy) keep 1.
+    /// </summary>
+    public static readonly Dictionary<string, float> PropScales = new Dictionary<string, float>
+    {
+        { "SupplyCrate", 3.2f }, { "LureCrate", 3f }, { "MobileBomb", 3f }, { "AlarmCache", 2.6f }, { "Breaker", 2.4f },
+        { "Generator", 2.2f }, { "SideDevice", 2.2f }, { "RepairDevice", 2f }, { "VentSwitch", 2.2f }, { "PowerCell", 2.4f },
+        { "SignalDevice", 2.2f }, { "SupplyDrone", 2f },
+    };
+
+    public static float PropScale(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return 1f;
+        float k;
+        if (PropScales.TryGetValue(name, out k)) return k;
+        string trimmed = name.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+        return trimmed != name && PropScales.TryGetValue(trimmed, out k) ? k : 1f;
+    }
+
+    /// <summary>Waypoint height over a prop's centre so the marker sits just above its top (props now differ in size, QA-38).</summary>
+    public static float WaypointHeight(GameObject prop, float margin = 0.8f)
+    {
+        if (prop == null) return 2f;
+        var rs = prop.GetComponentsInChildren<Renderer>();
+        if (rs.Length == 0) return 2f;
+        var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+        return b.max.y - prop.transform.position.y + margin;
+    }
+
+    static readonly Dictionary<string, GameObject> objectivePrefabs = new Dictionary<string, GameObject>();
+
+    static GameObject ObjectivePrefab(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return null;
+        GameObject prefab;
+        if (objectivePrefabs.TryGetValue(name, out prefab)) return prefab;
+        prefab = Resources.Load<GameObject>("Objectives/" + name);
+        if (prefab == null)
+        {
+            string trimmed = name.TrimEnd('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
+            if (trimmed != name && (trimmed == "VentSwitch" || trimmed == "PowerCell")) prefab = Resources.Load<GameObject>("Objectives/" + trimmed);
+        }
+        objectivePrefabs[name] = prefab;   // a missing model is remembered too: the cube, without asking Resources again
+        return prefab;
+    }
+
+    /// <summary>
+    /// A prop's state colour (a charged cell, an activated vent, a destroyed device). The flat cube is recoloured; an authored model keeps
+    /// its palette texture (its Texture Only material takes its colour from the texture, not a tint) and shows the state on its children
+    /// named StatusLight*, or on a small light added on top when it has none.
+    /// </summary>
+    public static void SetStateColor(GameObject prop, Color color)
+    {
+        if (prop == null) return;
+        var r = prop.GetComponent<Renderer>();
+        bool flatCube = r != null && prop.GetComponent<RogueAuthoredProp>() == null;
+        var mat = Unlit(color);
+        if (flatCube) { r.sharedMaterial = mat; return; }
+        bool found = false;
+        foreach (var t in prop.GetComponentsInChildren<Transform>())
+        {
+            if (!t.name.StartsWith("StatusLight")) continue;
+            var lr = t.GetComponent<Renderer>(); if (lr != null) { lr.sharedMaterial = mat; found = true; }
+        }
+        if (found) return;
+        var lamp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        lamp.name = "StatusLight";
+        UnityEngine.Object.Destroy(lamp.GetComponent<Collider>());
+        var bounds = r != null ? r.bounds : new Bounds(prop.transform.position, Vector3.one);
+        lamp.transform.SetParent(prop.transform, true);
+        lamp.transform.position = new Vector3(bounds.center.x, bounds.max.y + 0.15f, bounds.center.z);
+        lamp.transform.rotation = prop.transform.rotation;
+        Vector3 ls = prop.transform.lossyScale;
+        lamp.transform.localScale = new Vector3(0.35f / Mathf.Max(0.01f, Mathf.Abs(ls.x)), 0.25f / Mathf.Max(0.01f, Mathf.Abs(ls.y)), 0.35f / Mathf.Max(0.01f, Mathf.Abs(ls.z)));
+        var lampRenderer = lamp.GetComponent<Renderer>(); lampRenderer.sharedMaterial = mat; lampRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
     }
 
     /// <summary>A flat ring on the ground (zone outline), FLATS-style: a thin unlit cylinder shell built from quads.</summary>
@@ -236,6 +341,16 @@ public static class RogueWorld
     }
 }
 
+/// <summary>QA-38: marks a prop built from an authored model (RogueWorld.Cube); SetStateColor keeps its texture.</summary>
+public sealed class RogueAuthoredProp : MonoBehaviour { }
+
+/// <summary>QA-38: a prop's rotor (SupplyDrone Rotor* children) spins about its local +Y; local only, nothing is synchronised.</summary>
+public sealed class RogueRotorSpin : MonoBehaviour
+{
+    public float DegreesPerSecond = 1440f, Direction = 1f;
+    void Update() { transform.Rotate(0f, DegreesPerSecond * Direction * Time.deltaTime, 0f, Space.Self); }
+}
+
 /// <summary>Short-lived flat effects (chain arcs, explosion bursts) in the bullet-trail style.</summary>
 public static class RogueWorldFx
 {
@@ -252,25 +367,179 @@ public static class RogueWorldFx
 
     public static void Burst(Vector3 center, float radius, Transform shooter)
     {
-        var ring = RogueWorld.Ring("Burst", center, radius, shooter != null && shooter.childCount > 0 && shooter.GetChild(0).GetComponent<Renderer>() != null ? shooter.GetChild(0).GetComponent<Renderer>().material.color : Color.white, 0.4f);
-        UnityEngine.Object.Destroy(ring, 0.35f);
+        Blast(center, radius, TintOf(shooter));
+    }
+
+    public static void Burst(Vector3 center, float radius, Color tint) { Blast(center, radius, tint); }
+
+    // ---------------------------------------------------------------- QA-45 explosions in the original FLATS style
+    /// <summary>The original grenade blast (Prefabs/VFX/GrenadeHitEffect, reached through a Bullet prefab's grenadeHitEffect) is sized
+    /// for this radius (Bullet's grenade radius, 15 m): its particle size, speed and emission shape scale by radius / GrenadeRadius.</summary>
+    public static float GrenadeRadius = 15f;
+    /// <summary>The blast's scale never goes below or above these multiples of the grenade's (small puffs stay visible, huge ones stay sane).</summary>
+    public static float MinBlastScale = 0.2f, MaxBlastScale = 1.5f;
+    /// <summary>At most this many blasts (particles and sound) in BlastWindow seconds; more (a chain of kills) show the ring only.</summary>
+    public static int MaxBlastsPerWindow = 4;
+    public static float BlastWindow = 0.25f;
+    /// <summary>The flat ring that marks the blast radius: how long it stays, its height, and how far the tint is lightened for dark maps.</summary>
+    public static float RingSeconds = 0.35f, RingHeight = 0.4f, RingLighten = 0.25f;
+    /// <summary>Volume of the original blast sound (its own 3D linear falloff to 1000 m stays).</summary>
+    public static float BlastVolume = 0.8f;
+
+    static UnityEngine.Object grenadeEffect;
+    static float windowStart = -10f;
+    static int windowCount;
+
+    /// <summary>
+    /// An explosion (a Demolition kill, a destroyed drone, device, carrier or bomb, a broken body shield): the original grenade blast in
+    /// the given tint, scaled to the radius, with its own sound, plus the flat radius ring. Local and cheap: the blast destroys itself
+    /// (its Destroy timer), and past MaxBlastsPerWindow only the ring shows. No camera shake (the owner asked for none on hits, QA-05).
+    /// </summary>
+    public static void Blast(Vector3 center, float radius, Color tint) { Blast(center, radius, tint, true); }
+
+    /// <summary>particles false: the ring and the sound only (a blast right in front of the local camera would fill the view).</summary>
+    public static void Blast(Vector3 center, float radius, Color tint, bool particles)
+    {
+        radius = Mathf.Max(0.5f, radius);
+        var ring = RogueWorld.Ring("Burst", center, radius, Color.Lerp(tint, Color.white, RingLighten), RingHeight);
+        UnityEngine.Object.Destroy(ring, RingSeconds);
+        if (Time.time - windowStart > BlastWindow) { windowStart = Time.time; windowCount = 0; }
+        if (++windowCount > MaxBlastsPerWindow) return;
+        var prefab = GrenadeEffect();
+        if (!particles && prefab != null)
+        {
+            // the original blast's own sound without its particles
+            var src = (prefab as GameObject) != null ? (prefab as GameObject).GetComponent<AudioSource>() : null;
+            if (src != null && src.clip != null) AudioSource.PlayClipAtPoint(src.clip, center, src.volume * BlastVolume);
+            return;
+        }
+        if (prefab == null) return;
+        var go = UnityEngine.Object.Instantiate(prefab, center, Quaternion.identity) as GameObject;
+        if (go == null) return;
+        float k = Mathf.Clamp(radius / Mathf.Max(0.1f, GrenadeRadius), MinBlastScale, MaxBlastScale);
+        foreach (var ps in go.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = ps.main;
+            main.startSizeMultiplier *= k; main.startSpeedMultiplier *= k;
+            main.startColor = tint;   // the original treatment: the blast takes the shooter's colour (Bullet.Explode)
+            var shape = ps.shape;
+            if (shape.enabled) shape.radius *= k;
+            ps.Play(true);
+        }
+        var audio = go.GetComponent<AudioSource>();
+        if (audio != null) audio.volume *= BlastVolume;
+    }
+
+    static UnityEngine.Object GrenadeEffect()
+    {
+        if (grenadeEffect != null) return grenadeEffect;
+        // every Bullet prefab carries the original blast; the local player's rifle round is the usual source, any enemy's otherwise
+        var local = RoguelikeController.FindLocalPlayer();
+        var fps = local != null ? local.GetComponent<FPSController>() : null;
+        if (fps == null) fps = UnityEngine.Object.FindObjectOfType<FPSController>();
+        var bullet = fps != null && fps.bullet != null ? fps.bullet.GetComponent<Bullet>() : null;
+        if (bullet == null) { var ai = UnityEngine.Object.FindObjectOfType<AI>(); bullet = ai != null && ai.bullet != null ? ai.bullet.GetComponent<Bullet>() : null; }
+        if (bullet != null) grenadeEffect = bullet.grenadeHitEffect;
+        return grenadeEffect;
+    }
+
+    /// <summary>The character's body colour (Bullet uses the same for its effects), white when unknown.</summary>
+    public static Color TintOf(Transform shooter)
+    {
+        return shooter != null && shooter.childCount > 0 && shooter.GetChild(0).GetComponent<Renderer>() != null ? shooter.GetChild(0).GetComponent<Renderer>().material.color : Color.white;
+    }
+
+    /// <summary>A Demolition kill explosion seen by everyone (QA-45): the killer's client plays it and asks the authority, which sends it
+    /// to every other client ("fx" event). Solo plays it here only.</summary>
+    public static void KillBlast(Vector3 center, float radius, Transform killer)
+    {
+        Color tint = TintOf(killer);
+        Blast(center, radius, tint);
+        var ctrl = RoguelikeController.Instance;
+        if (ctrl == null || Menu.network == 0) return;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        ctrl.Command(new RogueCommandMessage { kind = "objective", text = "fx:kill|" + center.x.ToString("R", inv) + "|" + center.y.ToString("R", inv) + "|" + center.z.ToString("R", inv) + "|" + ColorUtility.ToHtmlStringRGB(tint), value = radius });
+    }
+
+    static readonly Dictionary<string, float> fxAllowance = new Dictionary<string, float>();
+    /// <summary>Kill blasts one player may relay per second (the rules already bound explosions per second; this caps a flood).</summary>
+    public static float RelayPerSecond = 6f;
+
+    /// <summary>Authority: relay a player's kill blast to everyone else (rate-limited per player).</summary>
+    public static void RelayKillBlast(RoguelikeController ctrl, RogueCommandMessage cmd)
+    {
+        if (ctrl == null || !ctrl.IsAuthority || cmd == null || string.IsNullOrEmpty(cmd.text)) return;
+        float tokens, now = Time.time;
+        if (!fxAllowance.TryGetValue(cmd.playerKey, out tokens)) tokens = RelayPerSecond;
+        float last; if (!fxLast.TryGetValue(cmd.playerKey, out last)) last = now;
+        tokens = Mathf.Min(RelayPerSecond, tokens + (now - last) * RelayPerSecond);
+        fxLast[cmd.playerKey] = now;
+        if (tokens < 1f) { fxAllowance[cmd.playerKey] = tokens; return; }
+        fxAllowance[cmd.playerKey] = tokens - 1f;
+        float r = Mathf.Clamp((float)cmd.value, 0.5f, 40f);
+        ctrl.Notify(new RogueEventMessage { kind = "fx", playerKey = cmd.playerKey, text = cmd.text.Substring(3), value = r });
+    }
+    static readonly Dictionary<string, float> fxLast = new Dictionary<string, float>();
+
+    /// <summary>Every client: an "fx" event (text "kill|x|y|z|colour", value radius); the sender already played its own.</summary>
+    public static void ApplyFxEvent(RogueEventMessage e, string localKey)
+    {
+        if (e == null || string.IsNullOrEmpty(e.text) || e.playerKey == localKey) return;
+        var parts = e.text.Split('|');
+        if (parts.Length < 5 || parts[0] != "kill") return;
+        var inv = System.Globalization.CultureInfo.InvariantCulture; var style = System.Globalization.NumberStyles.Float;
+        float x, y, z;
+        if (!float.TryParse(parts[1], style, inv, out x) || !float.TryParse(parts[2], style, inv, out y) || !float.TryParse(parts[3], style, inv, out z)) return;
+        Color tint; if (!ColorUtility.TryParseHtmlString("#" + parts[4], out tint)) tint = Color.white;
+        Blast(new Vector3(x, y, z), Mathf.Clamp((float)e.value, 0.5f, 40f), tint);
     }
 }
 
-/// <summary>A world object that bullets can damage (devices, carriers, drones). The authority owns the health; hits are forwarded to the runner.</summary>
+/// <summary>
+/// A world object that bullets can damage (the supply drone, the signal device, the convoy carrier). The authority owns the health and
+/// the immunity; hits are forwarded to the runner. QA-37: a hit reads like an enemy hit for the player who fired it (the crosshair hit
+/// tick with its sound, a short flash of the object, a damage number when damage numbers are on); a hit on an immune object shows a
+/// blue flash and "Immune" (at most once a second) instead. The runner reports the health fraction and immunity every tick (SetState);
+/// it reaches every client ("dmghp" event, rate-limited) and shows on the object's waypoint label ("Supply drone 60%").
+/// </summary>
 public class RogueDamageable : MonoBehaviour
 {
     public Action<float, Transform> OnHit;
     public float Health;
+    /// <summary>Authority gate: the authority ignores hits while set (it re-checks forwarded guest hits in OnWorldHit). A guest copy keeps
+    /// it false so its owner's shots are always forwarded; the replicated Immune flag drives the guest's feedback instead.</summary>
     public bool Invulnerable;
+    /// <summary>Translation key of the object's name for the waypoint label ("Supply drone").</summary>
+    public string DisplayName = "";
+    /// <summary>Health left, 0..1, from the authority on every client (1 before the first report).</summary>
+    public float HealthFraction { get; private set; }
+    /// <summary>The object cannot be damaged right now (the authority's state, on every client).</summary>
+    public bool Immune { get; private set; }
+    /// <summary>Seconds between "Immune" texts over the object, and the flash length.</summary>
+    public const float ImmuneCueInterval = 1f, FlashSeconds = 0.08f;
+
+    static readonly List<RogueDamageable> live = new List<RogueDamageable>();
+    float sentFraction = -1f, sentAt = -10f, immuneCueAt = -10f, flashUntil;
+    bool sentImmune, flashing, stateKnown;
+    int shownPercent = -1;
+    Renderer[] flashRenderers; Material[][] savedMaterials; Material flashMaterial;
+
+    void Awake() { HealthFraction = 1f; }
+    void OnEnable() { if (!live.Contains(this)) live.Add(this); }
+    void OnDisable() { live.Remove(this); EndFlash(); }
+
     public void Hit(float damage, Transform shooter)
     {
+        var shooterView = shooter != null ? shooter.GetComponent<PhotonView>() : null;
+        bool mine = shooter != null && (Menu.network == 0 || (shooterView != null && shooterView.isMine));
+        bool immuneHere = Invulnerable || (stateKnown && Immune);
+        if (mine && shooter.GetComponent<FPSController>() != null) LocalHitFeedback(damage, immuneHere);
         if (Invulnerable) return;
         if (Menu.network != 0 && shooter != null)
         {
             // only the shooter's owner reports world hits, exactly like enemy damage
-            var view = shooter.GetComponent<PhotonView>();
-            if (view == null || !view.isMine) return;
+            if (shooterView == null || !shooterView.isMine) return;
             if (!PhotonNetwork.isMasterClient)
             {
                 var ctrl = RoguelikeController.Instance;
@@ -280,6 +549,108 @@ public class RogueDamageable : MonoBehaviour
         }
         if (OnHit != null) OnHit(damage, shooter);
     }
+
+    /// <summary>The local player's shot landed: what an enemy hit shows, or the immune cue.</summary>
+    void LocalHitFeedback(float damage, bool immune)
+    {
+        if (immune)
+        {
+            Flash(new Color(0.55f, 0.8f, 1f));
+            if (Time.time - immuneCueAt >= ImmuneCueInterval) { immuneCueAt = Time.time; RogueWorldNumber.Show(TopPoint(), RoguelikeController.T("Immune"), new Color(0.6f, 0.82f, 1f)); }
+            return;
+        }
+        Flash(Color.white);
+        try { CombatFeedbackView.ReportHit(false, false, true); } catch (Exception e) { Debug.LogException(e, this); }   // the crosshair tick and the hit sound (a prop has no hit sound of its own)
+        if (FlatsControls.DamageNumbers && damage > 0f && !float.IsNaN(damage) && !float.IsInfinity(damage))
+            RogueCombatNumber.ShowObject(gameObject, TopPoint(), damage);   // QA-48: stacked per object on the combat overlay, readable through scopes
+    }
+
+    Vector3 TopPoint()
+    {
+        var rs = GetComponentsInChildren<Renderer>();
+        if (rs.Length == 0) return transform.position + Vector3.up;
+        var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+        return new Vector3(b.center.x, b.max.y + 0.4f, b.center.z);
+    }
+
+    // ---------------------------------------------------------------- flash (textured models too: a flat material for a moment)
+    void Flash(Color color)
+    {
+        if (!flashing)
+        {
+            flashRenderers = GetComponentsInChildren<Renderer>();
+            savedMaterials = new Material[flashRenderers.Length][];
+            for (int i = 0; i < flashRenderers.Length; i++) savedMaterials[i] = flashRenderers[i].sharedMaterials;
+        }
+        if (flashMaterial == null || flashMaterial.color != color) flashMaterial = RogueWorld.Unlit(color);
+        var flat = flashMaterial;
+        for (int i = 0; i < flashRenderers.Length; i++)
+        {
+            if (flashRenderers[i] == null) continue;
+            var mats = new Material[savedMaterials[i].Length];
+            for (int k = 0; k < mats.Length; k++) mats[k] = flat;
+            flashRenderers[i].sharedMaterials = mats;
+        }
+        flashing = true; flashUntil = Time.time + FlashSeconds;
+    }
+
+    void EndFlash()
+    {
+        if (!flashing) return;
+        flashing = false;
+        for (int i = 0; i < flashRenderers.Length; i++)
+        {
+            var fr = flashRenderers[i];
+            if (fr == null) continue;
+            // a renderer whose material changed during the flash (a state light) keeps the new one
+            var current = fr.sharedMaterials;
+            if (current.Length > 0 && current[0] != flashMaterial) continue;
+            fr.sharedMaterials = savedMaterials[i];
+        }
+    }
+
+    void Update() { if (flashing && Time.time >= flashUntil) EndFlash(); }
+
+    // ---------------------------------------------------------------- replicated health
+    /// <summary>Authority, every tick: health left (0..1) and immunity. Sets the authority gate, updates the label, and replicates at most
+    /// five times a second while it changes, at once when immunity changes, and every three seconds for clients that joined late.</summary>
+    public void SetState(float healthFraction, bool immune)
+    {
+        Invulnerable = immune;
+        Apply(Mathf.Clamp01(healthFraction), immune);
+        var ctrl = RoguelikeController.Instance;
+        if (ctrl == null || !ctrl.IsAuthority || Menu.network == 0) return;
+        float since = Time.time - sentAt;
+        bool due = immune != sentImmune || (Mathf.Abs(HealthFraction - sentFraction) >= 0.01f && since >= 0.2f) || since >= 3f;
+        if (!due) return;
+        sentAt = Time.time; sentFraction = HealthFraction; sentImmune = immune;
+        ctrl.Notify(new RogueEventMessage { kind = "dmghp", text = name, value = HealthFraction, flag = immune });
+    }
+
+    /// <summary>Every client: a "dmghp" event (text = object name, value = health fraction, flag = immune).</summary>
+    public static void ApplyHealthEvent(RogueEventMessage e)
+    {
+        if (e == null || string.IsNullOrEmpty(e.text)) return;
+        var ctrl = RoguelikeController.Instance;
+        if (ctrl != null && ctrl.IsAuthority) return;
+        foreach (var d in live) if (d != null && d.name == e.text) d.Apply(Mathf.Clamp01((float)e.value), e.flag);
+    }
+
+    void Apply(float fraction, bool immune)
+    {
+        HealthFraction = fraction; Immune = immune; stateKnown = true;
+        int percent = Mathf.CeilToInt(fraction * 100f);
+        if (percent == shownPercent || string.IsNullOrEmpty(DisplayName)) return;
+        shownPercent = percent;
+        var wp = GetComponent<RogueWaypoint>();
+        if (wp != null) wp.Label = "{0} {1}%|@" + DisplayName + "|" + percent;   // "Supply drone 60%": the name translated, the number as is
+    }
+}
+
+/// <summary>Kept for existing callers (the Immune cue): a short text over a world point, drawn on the combat overlay (QA-48).</summary>
+public static class RogueWorldNumber
+{
+    public static void Show(Vector3 worldPoint, string text, Color color) { RogueCombatNumber.ShowWorld(worldPoint, text, color); }
 }
 
 /// <summary>
@@ -293,41 +664,134 @@ public class RogueInteractable : MonoBehaviour
     public float Radius = 3.5f;      // horizontal reach from the player's capsule axis to this collider (RogueInteraction)
     public string Prompt = "";
     public bool Enabled = true;
+    /// <summary>Seconds one player needs (0 = a single press or not known); the HUD may show it. The authority's machine is the real rule.</summary>
+    public float HoldSeconds;
     float sendAccumulator;
     bool holding;
     int holdEpoch;
     Collider body;
 
+    // ---------------------------------------------------------------- replicated progress (QA-22)
+    static readonly List<RogueInteractable> live = new List<RogueInteractable>();
+    /// <summary>Authority-owned progress 0..1 of this target, the same on every client ("iprog" event); 0 before anyone worked on it.</summary>
+    public float Progress { get; private set; }
+    /// <summary>The target is done (switch activated, cell charged, device repaired): every client stops offering it.</summary>
+    public bool Completed { get; private set; }
+    bool tintOnComplete; Color completedTint;
+    float sentProgress = -1f, lastSentAt = -10f; bool sentCompleted;
+
+    /// <summary>Every copy: recolour the prop when it completes (a vented gas switch turns white on every screen, not only the host's).</summary>
+    public void TintWhenCompleted(Color color) { tintOnComplete = true; completedTint = color; if (Completed) ApplyCompletedLook(); }
+
+    /// <summary>Authority: report this target's progress (0..1) and completion; it is replicated at most five times a second while it
+    /// changes, at once when it completes, and every two seconds while partly done (so a client that joins late sees it).</summary>
+    public void SetProgress(float progress01, bool done)
+    {
+        var ctrl = RoguelikeController.Instance;
+        if (ctrl == null || !ctrl.IsAuthority) return;
+        ApplyProgress(Mathf.Clamp01(progress01), done);
+        if (Menu.network == 0) { sentProgress = Progress; sentCompleted = Completed; return; }
+        float since = Time.time - lastSentAt;
+        bool changed = Mathf.Abs(Progress - sentProgress) >= 0.02f;
+        bool due = Completed != sentCompleted || (changed && since >= 0.2f) || (since >= 2f && (Progress > 0f || Completed));
+        if (!due) return;
+        lastSentAt = Time.time; sentProgress = Progress; sentCompleted = Completed;
+        ctrl.Notify(new RogueEventMessage { kind = "iprog", text = name, value = Progress, flag = Completed });
+    }
+
+    /// <summary>Authority: the target can no longer be used without having completed (a destroyed device); every copy drops its prompt.</summary>
+    public void SetUnavailable()
+    {
+        var ctrl = RoguelikeController.Instance;
+        Enabled = false;
+        if (ctrl != null && ctrl.IsAuthority && Menu.network != 0) ctrl.Notify(new RogueEventMessage { kind = "iprog", text = name, value = -1 });
+    }
+
+    /// <summary>Every client: an "iprog" event (text = object name, value = progress or -1 for unavailable, flag = completed).</summary>
+    public static void ApplyProgressEvent(RogueEventMessage e)
+    {
+        if (e == null || string.IsNullOrEmpty(e.text)) return;
+        var ctrl = RoguelikeController.Instance;
+        if (ctrl != null && ctrl.IsAuthority) return;   // the authority applied it when it set it
+        foreach (var it in live)
+        {
+            if (it == null || it.name != e.text) continue;
+            if (e.value < 0) it.Enabled = false;
+            else it.ApplyProgress(Mathf.Clamp01((float)e.value), e.flag);
+        }
+    }
+
+    void ApplyProgress(float progress01, bool done)
+    {
+        bool completedNow = done && !Completed;
+        Progress = done ? 1f : progress01;
+        Completed = done;
+        if (completedNow)
+        {
+            Enabled = false;   // a completed target no longer offers a prompt on any copy
+            ApplyCompletedLook();
+            RogueInteractionFeedback.NoteCompleted(this);
+        }
+    }
+
+    void ApplyCompletedLook()
+    {
+        if (!tintOnComplete) return;
+        RogueWorld.SetStateColor(gameObject, completedTint);
+    }
+
+    void OnEnable() { if (!live.Contains(this)) live.Add(this); }
+    void OnDisable() { live.Remove(this); if (holding) RogueInteractionFeedback.NoteCancelled(this, "Gone"); holding = false; RogueInteractionFeedback.Forget(this); }
+
     void Update()
     {
         if (body == null) body = GetComponent<Collider>();
         var ctrl = RoguelikeController.Instance;
-        var local = Enabled && Menu.current == "Playing" && ctrl != null && body != null ? RoguelikeController.FindLocalPlayer() : null;
+        if (!Enabled && holding) { RogueInteractionFeedback.NoteCancelled(this, Completed ? "" : "Unavailable"); Pause(); }
+        bool blocked = !FlatsCursor.GameplayInput;   // a screen or dialog owns the input (E5)
+        var local = Enabled && !blocked && ctrl != null && body != null ? RoguelikeController.FindLocalPlayer() : null;
         var rp = local != null ? local.GetComponent<RoguePlayer>() : null;
-        if (rp == null || rp.Downed) { Pause(); return; }
-        if (holdEpoch != RogueInteraction.HoldEpoch) { holdEpoch = RogueInteraction.HoldEpoch; Pause(); }   // a down or a carry cancelled every hold
+        if (rp == null || rp.Downed)
+        {
+            if (holding) RogueInteractionFeedback.NoteCancelled(this, rp != null && rp.Downed ? "Can't do that while down" : blocked ? "Blocked" : "");
+            Pause(); return;
+        }
+        if (holdEpoch != RogueInteraction.HoldEpoch)
+        {
+            holdEpoch = RogueInteraction.HoldEpoch;   // a down or a carry cancelled every hold
+            if (holding) RogueInteractionFeedback.NoteCancelled(this, "Interrupted");
+            Pause();
+        }
         bool held = RogueInput.InteractHeld;
         var check = RogueInteraction.CheckHold(local, body, Radius, this, held, holding);
         if (check.Prompt) ctrl.NoteInteractPrompt();
         if (!check.Valid)
         {
             // any violation pauses the hold: the unsent time is dropped, the authority keeps what it already credited
+            if (holding) RogueInteractionFeedback.NoteCancelled(this, string.IsNullOrEmpty(check.Reason) ? "Too far away" : check.Reason);   // no reason: walked out of reach
             Pause();
-            if (!string.IsNullOrEmpty(check.Reason)) ctrl.Banner(RoguelikeController.T(check.Reason), 0.6f);
+            if (check.Prompt || !string.IsNullOrEmpty(check.Reason)) RogueInteractionFeedback.NoteFocus(this, false);
+            if (!string.IsNullOrEmpty(check.Reason)) RogueInteractionFeedback.NoteRefusal(check.Reason);
+            if (!string.IsNullOrEmpty(check.Reason) && !RogueInteractionFeedback.HudDrawsInteraction) ctrl.Banner(RoguelikeController.T(check.Reason), 0.6f);
             return;
         }
         if (held)
         {
+            if (!holding) RogueInteractionFeedback.NoteStarted(this);
             holding = true;
             RogueInteraction.NoteLocalHold(this);
+            RogueInteractionFeedback.NoteFocus(this, true);
             sendAccumulator += Time.deltaTime;
             if (sendAccumulator >= 0.2f) Send(ctrl);
         }
         else
         {
             if (sendAccumulator > 0) Send(ctrl);   // released while valid: that last part was really held
+            if (holding) RogueInteractionFeedback.NoteCancelled(this, "Released");
             holding = false;
-            if (!string.IsNullOrEmpty(Prompt)) ctrl.Banner(RoguelikeController.T("Hold {0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)), 0.3f);
+            RogueInteractionFeedback.NoteFocus(this, false);
+            if (!string.IsNullOrEmpty(Prompt)) RogueInteractionFeedback.NotePrompt(RoguelikeController.T("Hold {0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)));
+            if (!string.IsNullOrEmpty(Prompt) && !RogueInteractionFeedback.HudDrawsInteraction) ctrl.Banner(RoguelikeController.T("Hold {0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)), 0.3f);
         }
     }
 
@@ -338,6 +802,112 @@ public class RogueInteractable : MonoBehaviour
     }
 
     void Pause() { sendAccumulator = 0; holding = false; }
+}
+
+/// <summary>An item that poses and places itself while RogueCarryable handles input, claims and replication (QA-44 body shield).</summary>
+public interface IRogueCarryVisual
+{
+    /// <summary>The item may be offered for pickup right now.</summary>
+    bool Pickable { get; }
+    /// <summary>A carrier took it (every copy).</summary>
+    void OnHeld(GameObject carrier);
+    /// <summary>Every frame while carried, after the carrier's Animator and IK; rig is null when the hands must not be posed this call.</summary>
+    void Follow(GameObject carrier, RogueCarryPose.Rig rig);
+    /// <summary>Released: put it down at the authority's point (every copy).</summary>
+    void PlaceAt(Vector3 point, float yaw);
+}
+
+/// <summary>Result of the local player's hold interaction, for the HUD (RogueInteractionFeedback).</summary>
+public enum RogueInteractionResult { None, Started, Cancelled, Succeeded, Failed }
+
+/// <summary>
+/// QA-22: what the local player's hold interaction looks like right now, for the HUD's progress ring or bar. Read it
+/// every frame; nothing here changes gameplay.
+/// - Target: the interactable the local player is focused on or holding (null when none this frame or the last).
+/// - Holding: the Interact button is held and the hold is valid this frame. Progress: the target's authority progress 0..1.
+/// - Prompt: the translated "Hold E: Repair" line. HoldSeconds: seconds one player needs (0 = a single press).
+/// - Results: Serial increases with every Started, Cancelled (Reason is a translation key: "Released", "Too far away", "Interrupted", "Gone",
+///   "Unavailable", "Blocked", or the refusal the rule gave, such as "Look at it to keep going"), Succeeded (the target the
+///   player was holding, or had just released, completed) and Failed (the target became unavailable without completing).
+///   The Result event fires with the same data.
+/// Set HudDrawsInteraction when the HUD draws the prompt and the refusals; the short banner fallback is then skipped.
+/// </summary>
+public static class RogueInteractionFeedback
+{
+    public static bool HudDrawsInteraction;
+    public static event System.Action<RogueInteractionResult, string> Result;
+
+    static RogueInteractable focus, lastHeld;
+    static int focusFrame = -10;
+    static bool holding;
+    static float releasedAt = -10f;
+
+    public static RogueInteractable Target { get { return focus != null && Time.frameCount - focusFrame <= 1 ? focus : null; } }
+    public static bool Holding { get { return holding && Target != null; } }
+    public static float Progress { get { var t = Target; return t != null ? t.Progress : 0f; } }
+    public static float HoldSeconds { get { var t = Target; return t != null ? t.HoldSeconds : 0f; } }
+    public static string Prompt
+    {
+        get
+        {
+            var t = Target;
+            if (t == null || string.IsNullOrEmpty(t.Prompt)) return "";
+            return RoguelikeController.T("Hold {0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(t.Prompt));
+        }
+    }
+
+    /// <summary>The refusal that stops the local player's interaction this frame (a translation key, possibly packed "key|arg": show it
+    /// with RoguelikeController.Decode; e.g. "Look at it to keep going",
+    /// "Stop shooting, aiming or reloading to interact", "You are already carrying something"); "" when nothing refuses.</summary>
+    public static string Refusal { get { return Time.frameCount - refusalFrame <= 1 ? refusal : ""; } }
+    /// <summary>The prompt line the local player is offered this frame from any source ("Hold E: Repair", "E: Pick up the crate"),
+    /// already translated; "" when none. Hold targets also appear in Target.</summary>
+    public static string CurrentPrompt { get { return Time.frameCount - promptFrame <= 1 ? promptLine : ""; } }
+    static string refusal = "", promptLine = "";
+    static int refusalFrame = -10, promptFrame = -10;
+    internal static void NoteRefusal(string reason) { refusal = reason ?? ""; refusalFrame = Time.frameCount; }
+    internal static void NotePrompt(string line) { promptLine = line ?? ""; promptFrame = Time.frameCount; }
+
+    public static int Serial { get; private set; }
+    public static RogueInteractionResult LastResult { get; private set; }
+    public static string LastReason { get; private set; }
+    public static RogueInteractable LastTarget { get; private set; }
+    public static float LastResultTime { get; private set; }
+
+    internal static void NoteFocus(RogueInteractable target, bool isHolding)
+    {
+        // several interactables update each frame; the one being held wins over one only in view
+        if (focusFrame == Time.frameCount && focus != null && holding && !isHolding) return;
+        focus = target; focusFrame = Time.frameCount; holding = isHolding;
+    }
+
+    internal static void NoteStarted(RogueInteractable target) { lastHeld = target; Raise(RogueInteractionResult.Started, target, ""); }
+
+    internal static void NoteCancelled(RogueInteractable target, string reason)
+    {
+        if (target == lastHeld) releasedAt = Time.time;
+        if (focus == target) holding = false;
+        if (reason == "Unavailable") Raise(RogueInteractionResult.Failed, target, reason);
+        else if (!string.IsNullOrEmpty(reason)) Raise(RogueInteractionResult.Cancelled, target, reason);
+    }
+
+    internal static void NoteCompleted(RogueInteractable target)
+    {
+        // the replicated completion of the target this player was working on (held now, or released within the last second)
+        if (target == null || target != lastHeld) return;
+        if (!(holding && focus == target) && Time.time - releasedAt > 1f) return;
+        Raise(RogueInteractionResult.Succeeded, target, "");
+        lastHeld = null;
+    }
+
+    internal static void Forget(RogueInteractable target) { if (focus == target) { focus = null; holding = false; } if (lastHeld == target) lastHeld = null; }
+
+    static void Raise(RogueInteractionResult result, RogueInteractable target, string reason)
+    {
+        Serial++; LastResult = result; LastReason = reason ?? ""; LastTarget = target; LastResultTime = Time.time;
+        var handler = Result;
+        if (handler != null) { try { handler(result, LastReason); } catch (System.Exception e) { Debug.LogException(e); } }
+    }
 }
 
 /// <summary>
@@ -354,11 +924,17 @@ public class RogueCarryable : MonoBehaviour
     public string Prompt = "Pick up";
     public string DisplayName = "Supply crate";     // translation key used by banners, the HUD hint and the waypoint
     public float PickupRadius = 3.5f;               // horizontal reach from the player's capsule axis (RogueInteraction); the authority adds its tolerance
-    public float CarriedScale = 0.5f;
+    public float CarriedScale = 0.45f;   // carried props are scaled for the 4x characters (QA-38): about 1.4-2 m, held with both hands
     // Carry pose in the rig's own units, multiplied by the carrier's scale (Flatman is 4): the centre ahead of and below the chest
     public float HoldForward = 0.26f, HoldDrop = 0.12f, GripOutset = 0.04f, GripBack = 0.03f;
     public float PitchFollow = 0.5f, MaxPitch = 35f;          // share of the look pitch the item follows, so it stays within the arms' reach
     public float StepBob = 0.015f, StrideLength = 0.45f;      // a small bounce per step makes a moving carrier readable (F38)
+    /// <summary>QA-44: an item that poses and places itself (a carried enemy body, RogueBodyShield); null for rigid props.</summary>
+    [System.NonSerialized] public IRogueCarryVisual Visual;
+    /// <summary>The collider reach and look are measured to (a body's hips); the item's own root collider when unset.</summary>
+    [System.NonSerialized] public Collider ReachCollider;
+    /// <summary>Half size for the drop point; the collider-derived size when zero.</summary>
+    [System.NonSerialized] public Vector3 HalfExtentsOverride;
 
     Vector3 lastValid, baseScale, carrierGround;
     bool hasCarrierGround;
@@ -372,7 +948,10 @@ public class RogueCarryable : MonoBehaviour
     bool dropPending; Vector3 pendingDrop; float pendingYaw;
     static readonly List<RogueCarryable> live = new List<RogueCarryable>();
 
-    Vector3 HalfExtents { get { return (baseScale == Vector3.zero ? transform.localScale : baseScale) * 0.5f; } }
+    // the item's size is its BoxCollider's size times its scale (an authored model has scale 1 and the size in the collider, QA-38)
+    Vector3 UnitSize { get { var box = GetComponent<BoxCollider>(); return box != null ? box.size : Vector3.one; } }
+    Vector3 HalfExtents { get { return HalfExtentsOverride != Vector3.zero ? HalfExtentsOverride : Vector3.Scale(baseScale == Vector3.zero ? transform.localScale : baseScale, UnitSize) * 0.5f; } }
+    Collider Reach { get { return ReachCollider != null ? ReachCollider : body; } }
     Vector3 CarrierGround { get { return hasCarrierGround ? carrierGround : lastValid - Vector3.up * HalfExtents.y; } }
 
     void OnEnable() { if (!live.Contains(this)) live.Add(this); }
@@ -389,6 +968,13 @@ public class RogueCarryable : MonoBehaviour
             var carrier = socketedTo;
             bool released = string.IsNullOrEmpty(HolderKey) && !string.IsNullOrEmpty(lastHolder);
             RefreshCarriedLook(holder);
+            // an instant interaction (QA-22 E2): the local player's pickup or put-down, confirmed by the authority, on the HUD ring
+            var ctrlResult = RoguelikeController.Instance;
+            if (ctrlResult != null && !string.IsNullOrEmpty(ctrlResult.LocalKey))
+            {
+                if (HolderKey == ctrlResult.LocalKey) ctrlResult.ShowInteractionResult(true, RoguelikeController.T("Picked up: {0}", RoguelikeController.T(DisplayName)));
+                else if (lastHolder == ctrlResult.LocalKey && string.IsNullOrEmpty(HolderKey) && RogueHooks.Local != null && !RogueHooks.Local.Downed) ctrlResult.ShowInteractionResult(true, RoguelikeController.T("Put down: {0}", RoguelikeController.T(DisplayName)));
+            }
             lastHolder = HolderKey;
             if (released) Released(carrier);
             else dropPending = false;   // picked up again: an older drop no longer applies
@@ -400,7 +986,7 @@ public class RogueCarryable : MonoBehaviour
             float yaw; Place(RogueCarryPose.DropPoint(null, gameObject, HalfExtents, CarrierGround, out yaw), yaw);
         }
         if (holder != null) TrackCarrier(holder);
-        else if (transform.position.y < -50f)
+        else if (Visual == null && transform.position.y < -50f)
         {
             // fell out of the map: return to the last valid spot instead of blocking the objective
             transform.position = lastValid;
@@ -409,7 +995,7 @@ public class RogueCarryable : MonoBehaviour
         else if (Physics.Raycast(transform.position + Vector3.up, Vector3.down, 3f, ~0, QueryTriggerInteraction.Ignore)) lastValid = transform.position;
         if (dropPending && string.IsNullOrEmpty(HolderKey)) { dropPending = false; Place(pendingDrop, pendingYaw); }
 
-        if (Menu.current != "Playing" || pressCooldown > 0) return;
+        if (!FlatsCursor.GameplayInput || pressCooldown > 0) return;   // a screen or dialog owns the input (E5)
         var local = RoguelikeController.FindLocalPlayer();
         var rp = local != null ? local.GetComponent<RoguePlayer>() : null;
         var ctrl2 = RoguelikeController.Instance;
@@ -425,20 +1011,25 @@ public class RogueCarryable : MonoBehaviour
                 ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":drop" }); pressCooldown = 0.5f;
             }
         }
-        else if (string.IsNullOrEmpty(HolderKey) && body != null)
+        else if (string.IsNullOrEmpty(HolderKey) && Reach != null && (Visual == null || Visual.Pickable))
         {
             // same rule as every other interaction: reach from the capsule, looking at it, nothing in between, and the one focused target
             float score;
-            if (RogueInteraction.Evaluate(local, body, PickupRadius, out score) != RogueInteraction.Result.Ok || !RogueInteraction.Focus(this, score)) return;
+            if (RogueInteraction.Evaluate(local, Reach, PickupRadius, out score) != RogueInteraction.Result.Ok || !RogueInteraction.Focus(this, score)) return;
             ctrl2.NoteInteractPrompt();
             if (RogueInput.InteractDown)
             {
                 RogueActionGate.NoteInteractConsumed();
                 string refusal = RogueActionGate.Refusal(fps, RogueAction.Carry);
                 if (refusal == null) { ctrl2.Command(new RogueCommandMessage { kind = "objective", text = Action + ":pickup" }); pressCooldown = 0.5f; }
-                else if (refusal.Length > 0) ctrl2.Banner(RoguelikeController.T(refusal), 1.5f);
+                else if (refusal.Length > 0) { RogueInteractionFeedback.NoteRefusal(refusal); if (!RogueInteractionFeedback.HudDrawsInteraction) ctrl2.Banner(RoguelikeController.T(refusal), 1.5f); }
             }
-            else ctrl2.Banner(RoguelikeController.T("{0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt)), 0.3f);
+            else
+            {
+                string line = RoguelikeController.T("{0}: {1}", RogueInput.InteractLabel, RoguelikeController.T(Prompt));
+                RogueInteractionFeedback.NotePrompt(line);
+                if (!RogueInteractionFeedback.HudDrawsInteraction) ctrl2.Banner(line, 0.3f);
+            }
         }
     }
 
@@ -461,6 +1052,7 @@ public class RogueCarryable : MonoBehaviour
 
     void FollowCarrier(GameObject carrier, bool grip)
     {
+        if (Visual != null) { Visual.Follow(carrier, grip ? rig : null); return; }
         float s = Mathf.Abs(carrier.transform.lossyScale.y);
         Vector3 forward = carrier.transform.forward; forward.y = 0f;
         if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
@@ -470,10 +1062,12 @@ public class RogueCarryable : MonoBehaviour
         Quaternion frame = Quaternion.LookRotation(forward.normalized) * Quaternion.Euler(Mathf.Clamp(pitch * PitchFollow, -MaxPitch, MaxPitch), 0f, 0f);
         Vector3 chest = rig != null ? rig.Chest.position : carrier.transform.position + Vector3.up * 1.1f * s;
         float bob = StepBob * s * Mathf.Abs(Mathf.Sin(stridePhase)) * Mathf.Clamp01(carrierSpeed / RogueLocomotion.WalkSpeed);
-        Vector3 centre = chest + frame * new Vector3(0f, -HoldDrop * s + bob, HoldForward * s);
+        // ahead of the chest by the hold distance plus the item's own half depth, so a large item never sits inside the carrier
+        Vector3 held = Vector3.Scale(transform.localScale, UnitSize) * 0.5f;
+        Vector3 centre = chest + frame * new Vector3(0f, -HoldDrop * s + bob, HoldForward * s + held.z);
         transform.SetPositionAndRotation(centre, frame);
         if (!grip || rig == null) return;
-        Vector3 half = transform.localScale * 0.5f;
+        Vector3 half = Vector3.Scale(transform.localScale, UnitSize) * 0.5f;
         float side = half.x + GripOutset * s, low = -0.2f * half.y, back = -GripBack * s;
         rig.Grip(centre + frame * new Vector3(side, low, back), centre + frame * new Vector3(-side, low, back),
             chest + frame * new Vector3(0.35f * s, -0.3f * s, -0.1f * s), chest + frame * new Vector3(-0.35f * s, -0.3f * s, -0.1f * s));
@@ -491,6 +1085,7 @@ public class RogueCarryable : MonoBehaviour
 
     void Place(Vector3 point, float yaw)
     {
+        if (Visual != null) { Visual.PlaceAt(point, yaw); lastValid = point; return; }
         transform.SetPositionAndRotation(point, Quaternion.Euler(0f, yaw, 0f));
         lastValid = point;
     }
@@ -524,7 +1119,7 @@ public class RogueCarryable : MonoBehaviour
     {
         if (baseScale == Vector3.zero) baseScale = transform.localScale;
         if (socketedTo != null) { if (rig != null) rig.Restore(); rig = null; SetCarryPose(socketedTo, false); socketedTo = null; }
-        transform.localScale = holder != null ? baseScale * CarriedScale : baseScale;
+        if (Visual == null) transform.localScale = holder != null ? baseScale * CarriedScale : baseScale;
         if (holder != null)
         {
             // the carry is not a child of the player, so a destroyed carrier never takes the objective with it
@@ -534,8 +1129,10 @@ public class RogueCarryable : MonoBehaviour
             socketedTo = holder;
             rig = RogueCarryPose.Rig.Bind(holder);
             lastCarrierPosition = holder.transform.position; carrierSpeed = 0f;
+            if (Visual != null) Visual.OnHeld(holder);
             FollowCarrier(holder, false);
         }
+        if (Visual != null) return;   // a body keeps its colliders (they are its shield) and has no waypoint
         if (body == null) body = GetComponent<Collider>();
         if (body != null) body.enabled = holder == null;
         var wp = GetComponent<RogueWaypoint>();
@@ -566,6 +1163,24 @@ public class RogueCarryable : MonoBehaviour
 
     void OnDestroy() { if (socketedTo != null) { if (rig != null) rig.Restore(); SetCarryPose(socketedTo, false); socketedTo = null; } }
 
+    /// <summary>
+    /// Every copy: RoguePlayer.Carrying for every player from what the live carryables' holders are. The runners used to set the flag
+    /// for all players from one item's holder, which cleared it on a player carrying another item (a body shield, QA-44).
+    /// Call it after changing a HolderKey; an item being disposed must clear its HolderKey first.
+    /// </summary>
+    public static void RefreshCarryingFlags()
+    {
+        foreach (var go in GameObject.FindGameObjectsWithTag("Player"))
+        {
+            var rp = go.GetComponent<RoguePlayer>();
+            if (rp == null) continue;
+            string key = RogueWorld.KeyOf(go);
+            bool carrying = false;
+            if (!string.IsNullOrEmpty(key)) foreach (var item in live) if (item != null && item.HolderKey == key) { carrying = true; break; }
+            rp.Carrying = carrying;
+        }
+    }
+
     /// <summary>True when this player already carries an objective or event item (the authority refuses a second pickup).</summary>
     public static bool IsCarrying(GameObject player) { int n; return player != null && carriedCount.TryGetValue(player, out n) && n > 0; }
 
@@ -594,7 +1209,8 @@ public class RogueCarryable : MonoBehaviour
             var p = ctrl != null && ctrl.State != null ? ctrl.State.Player(currentHolder) : null;
             return "{0} is already carrying it|" + (p != null ? p.name : currentHolder);
         }
-        var col = item.body != null ? item.body : item.GetComponent<Collider>();
+        if (item.Visual != null && !item.Visual.Pickable) return "";
+        var col = item.Reach != null ? item.Reach : item.GetComponent<Collider>();
         if (col == null || !RogueInteraction.AuthorityInReach(player, col, item.PickupRadius)) return "Too far away";
         return null;
     }

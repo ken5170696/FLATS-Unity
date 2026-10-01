@@ -51,9 +51,10 @@ public class RogueScreenView : MonoBehaviour
         previousCamRotate = FPSController.enableCamRotate;
         if (Menu.current == "Playing") Menu.current = ScreenState;
         FPSController.enableCamRotate = false;
-        UnityEngine.Cursor.lockState = CursorLockMode.None; UnityEngine.Cursor.visible = true;
-        var menu = Menu.Current;
-        if (paper != null && menu != null) { var tint = menu.RogueThemeTint(); var light = Color.Lerp(new Color(tint.r, tint.g, tint.b), Color.white, 0.55f); paper.color = new Color(light.r, light.g, light.b, 1f); }
+        FlatsCursor.Push(this);   // cursor free and gameplay input blocked while the screen is up (one rule for every screen)
+        // the long reward note can run under the Skip button on narrow screens; text must never swallow a button's click
+        if (footerNote != null) footerNote.raycastTarget = false;
+        // the paper keeps its authored Roguelike theme colour (QA-36 G3: no longer tinted by the map, which gave pale pink on pale pink)
         if (rowTemplate == null)
         {
             var rowPrefab = Resources.Load<GameObject>("UI/Roguelike/RogueOfferRow");
@@ -70,7 +71,7 @@ public class RogueScreenView : MonoBehaviour
         if (Suspended) { Destroy(gameObject); return; }   // the overview on top owns the input state and restores it when it closes
         if (Menu.current == ScreenState) Menu.current = previousState == ScreenState ? "Playing" : previousState;
         FPSController.enableCamRotate = previousCamRotate || Menu.current == "Playing";
-        if (Menu.current == "Playing") { UnityEngine.Cursor.lockState = CursorLockMode.Locked; UnityEngine.Cursor.visible = false; }
+        FlatsCursor.Pop(this);    // after the state is restored: the cursor locks again only when play resumes and nothing else is open
         if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(previousSelection);
         if (hudCanvas != null && (hudWasEnabled || Menu.current == "Playing")) hudCanvas.enabled = true;
         Destroy(gameObject);
@@ -151,11 +152,19 @@ public class RogueScreenView : MonoBehaviour
         if (footerNote != null) footerNote.text = note ?? "";
     }
 
+    /// <summary>Rewrites the primary button's label and the footer note in place (a countdown ticking once per second), keeping the
+    /// button, its action and the controller focus as they are.</summary>
+    public void SetPrimaryText(string label, string note)
+    {
+        if (primaryLabel != null && primary != null && primary.gameObject.activeSelf && primaryLabel.text != (label ?? "")) primaryLabel.text = label ?? "";
+        if (footerNote != null && footerNote.text != (note ?? "")) footerNote.text = note ?? "";
+    }
+
     /// <summary>Footer buttons stay visible but greyed when the local player may not use them (a non-host at the chapter end).</summary>
     public void SetFooterInteractable(bool primaryOn, bool secondaryOn)
     {
-        if (primary != null) primary.interactable = primaryOn;
-        if (secondary != null) secondary.interactable = secondaryOn;
+        FlatsUiTheme.SetInteractableNow(primary, primaryOn);
+        FlatsUiTheme.SetInteractableNow(secondary, secondaryOn);
     }
 
     Color primaryBaseColor; bool primaryColorKnown;
@@ -165,7 +174,7 @@ public class RogueScreenView : MonoBehaviour
         var image = primary != null ? primary.targetGraphic as Image : null;
         if (image == null) return;
         if (!primaryColorKnown) { primaryBaseColor = image.color; primaryColorKnown = true; }
-        image.color = on ? Color.Lerp(primaryBaseColor, new Color(0.3f, 0.75f, 0.4f, primaryBaseColor.a), 0.65f) : primaryBaseColor;
+        image.color = on ? FlatsUiTheme.WithAlpha(FlatsUiTheme.Rogue.positive, primaryBaseColor.a) : primaryBaseColor;
     }
 
     void Bind(Button button, Text label, Image icon, string text, string iconName, Action action)

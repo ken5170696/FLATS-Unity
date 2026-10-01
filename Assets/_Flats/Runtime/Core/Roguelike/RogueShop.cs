@@ -25,6 +25,8 @@ namespace Flats.Core.Roguelike
         public int offerIndex;      // -1 with itemId for direct buys (supplies)
         public string itemId;
         public long expectedPriceMinor;
+        public bool skipReward;     // Reward -> one run-local reroll ticket, mutually exclusive with a pick
+        public bool useRerollTicket; // requires reroll, expected price zero; does not use the visit quota
         public bool reroll;         // reroll request instead of a purchase
         public bool rewardPick;     // picking from the free reward offers
         public bool remove;
@@ -238,6 +240,7 @@ namespace Flats.Core.Roguelike
             var r = new TransactionResult { NewShopVersion = shopVersion };
             if (tx == null || string.IsNullOrEmpty(tx.txId)) { r.Status = TransactionStatus.NotAllowed; r.Reason = "missing transaction id"; return r; }
             if (processedTx != null && processedTx.Contains(tx.txId)) { r.Status = TransactionStatus.Duplicate; r.Reason = "already processed"; return r; }
+            if (tx.skipReward || tx.useRerollTicket) { r.Status = TransactionStatus.NotAllowed; r.Reason = "ticket transactions require RunMachine"; return r; }
             if (tx.remove && (tx.rewardPick || (phase != RunPhase.Prep && phase != RunPhase.ChapterEnd))) { r.Status = TransactionStatus.WrongPhase; r.Reason = "cannot remove outside a shop"; return r; }
             if (!shopOpen) { r.Status = TransactionStatus.WrongPhase; r.Reason = "shop closed"; return r; }
             if (tx.runId != runId) { r.Status = TransactionStatus.WrongVersion; r.Reason = "different run"; return r; }

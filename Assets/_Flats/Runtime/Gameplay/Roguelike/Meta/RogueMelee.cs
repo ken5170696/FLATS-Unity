@@ -6,8 +6,6 @@ using UnityEngine;
 [DefaultExecutionOrder(250)]
 public sealed class RogueMelee : MonoBehaviour
 {
-    public KeyCode MeleeKey = KeyCode.V;
-    public InControl.InputControlType MeleeButton = InControl.InputControlType.DPadLeft;
     public bool Guarding { get; private set; }
     public bool Busy { get; private set; }
     public bool AxeThrown => state != null && state.AxeThrown;
@@ -57,11 +55,14 @@ public sealed class RogueMelee : MonoBehaviour
         return m != null && (m.Busy || MeleeRules.BlocksFire(m.Def, m.Guarding));
     }
     public void TouchHeld(bool value) { touchHeld = value; }
+    /// <summary>The Melee binding was pressed this frame (keyboard or controller; FlatsControls, rebindable in Settings).</summary>
+    public static bool MeleePressed() { return FlatsControls.Down("Melee") || FlatsControls.PadState("Melee", 1); }
     bool Held()
     {
         if (!Mine) return remoteHeld;
         if (!FPSController.enableControl || Time.timeScale == 0 || FlatsControls.Capturing) return false;
-        return touchHeld || Input.GetKey(MeleeKey) || InControl.InputManager.ActiveDevice.GetControl(MeleeButton).IsPressed
+        // the rebindable Melee action (QA-39): keyboard V and D-pad left by default, as the fixed keys were
+        return touchHeld || FlatsControls.Held("Melee") || FlatsControls.PadState("Melee")
             || FlatsControls.Held("Fire") || FlatsControls.PadState("Fire") || (RogueInput.IsTouch && ETCInput.GetButton("Fire"));
     }
     void Update()
@@ -85,7 +86,7 @@ public sealed class RogueMelee : MonoBehaviour
             oldHeld = held;
             if (Menu.network != 0) GetComponent<PhotonView>().RPC("RogueMeleeHeld", PhotonTargets.Others, held);
         }
-        bool explicitDown = Input.GetKeyDown(MeleeKey) || InControl.InputManager.ActiveDevice.GetControl(MeleeButton).WasPressed;
+        bool explicitDown = MeleePressed();
         if (explicitDown && !Busy && fc.MeleeReady)
         {
             RogueActionGate.NoteMeleeRequest(fc);   // an explicit melee input, not Fire near an object

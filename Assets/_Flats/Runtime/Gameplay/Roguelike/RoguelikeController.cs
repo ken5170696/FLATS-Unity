@@ -49,6 +49,120 @@ public partial class RoguelikeController : MonoBehaviour
         hudRefresh -= Time.deltaTime;
         if (hudRefresh <= 0 && runStarted) { hudRefresh = 0.5f; RefreshHud(); }
         TickOverview();
+        TickStageClockBanner();
+        // a client builds the stage's objective and event world once the intro is over, the same moment the authority starts them
+        if (clientWorldPending && !SpawnsHeld) { clientWorldPending = false; if (state != null && state.phase == RunPhase.Combat && !IsAuthority) BuildClientWorld(); }
+    }
+
+    // ---------------------------------------------------------------- stage clock (QA-20 ready countdown, QA-19 stage intro)
+    /// <summary>What the authority's stage clock is counting: the ready countdown in Prep, or the intro before any spawn in Combat.</summary>
+    public enum StageClockKind { None = 0, Countdown = 1, Intro = 2 }
+    /// <summary>Seconds of the ready countdown once every connected player is ready (solo, co-op), and of the stage intro before spawns.</summary>
+    public const float SoloReadyCountdownSeconds = 3f, CoopReadyCountdownSeconds = 5f, StageIntroSeconds = 2f;
+    /// <summary>A running clock is repeated this often, so a client that loaded slowly or rejoined still counts down.</summary>
+    public const float StageClockResendSeconds = 1f;
+    /// <summary>Set by the HUD when it draws the countdown and the intro itself; the controller then skips its banner fallback.</summary>
+    public static bool HudDrawsStageClock;
+
+    StageClockKind clockKind;
+    double clockEndsAt;
+    float clockDuration, clockResend;
+    int clockEpoch, clockShownSecond = -1;
+    StageClockKind clockShownKind;
+    bool clientWorldPending;
+
+    /// <summary>Shared time base: the Photon server clock in co-op (the same on every client), game time offline.</summary>
+    static double ClockNow { get { return Menu.network != 0 && PhotonNetwork.inRoom ? PhotonNetwork.time : (double)Time.time; } }
+    /// <summary>to - from, across the wrap of PhotonNetwork.time (2^32 ms).</summary>
+    static double ClockDelta(double to, double from)
+    {
+        const double wrap = 4294967.296;
+        double d = to - from;
+        if (d > wrap * 0.5) d -= wrap; else if (d < -wrap * 0.5) d += wrap;
+        return d;
+    }
+
+    float StageClockRemaining() { return clockKind == StageClockKind.None ? 0f : Mathf.Max(0f, (float)ClockDelta(clockEndsAt, ClockNow)); }
+
+    /// <summary>Authority: start, replace or clear (None) the stage clock and tell every client.</summary>
+    void SetStageClock(StageClockKind kind, float seconds)
+    {
+        clockKind = kind;
+        clockDuration = kind == StageClockKind.None ? 0f : Mathf.Max(0f, seconds);
+        clockEndsAt = ClockNow + clockDuration;
+        clockEpoch = state != null ? state.authorityEpoch : 0;
+        clockResend = StageClockResendSeconds;
+        SendStageClock();
+    }
+
+    void SendStageClock()
+    {
+        // the end time travels as text: JsonUtility may round a double to float precision, which is half a second at server-clock magnitudes
+        Notify(new RogueEventMessage { kind = "stageclock", index = (int)clockKind, text = clockEndsAt.ToString("R", System.Globalization.CultureInfo.InvariantCulture), minor = Mathf.RoundToInt(clockDuration * 1000f) });
+    }
+
+    void ResendStageClock(float dt)
+    {
+        clockResend -= dt;
+        if (clockResend > 0f) return;
+        clockResend = StageClockResendSeconds;
+        SendStageClock();
+    }
+
+    void ApplyStageClock(RogueEventMessage e)
+    {
+        double endsAt;
+        if (!double.TryParse(e.text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out endsAt)) return;
+        clockKind = e.index >= 0 && e.index <= 2 ? (StageClockKind)e.index : StageClockKind.None;
+        clockEndsAt = endsAt; clockDuration = e.minor / 1000f; clockEpoch = e.epoch;
+    }
+
+    /// <summary>
+    /// HUD: which stage clock is running for this client, from the authority's replicated clock. Countdown only while the run
+    /// is in Prep, Intro only in Combat; None when nothing counts down, the clock is from an earlier host, or it already ran out.
+    /// </summary>
+    public StageClockKind VisibleStageClock
+    {
+        get
+        {
+            if (state == null || clockKind == StageClockKind.None || clockEpoch < state.authorityEpoch || StageClockRemaining() <= 0f) return StageClockKind.None;
+            if (clockKind == StageClockKind.Countdown && state.phase != RunPhase.Prep) return StageClockKind.None;
+            if (clockKind == StageClockKind.Intro && state.phase != RunPhase.Combat) return StageClockKind.None;
+            return clockKind;
+        }
+    }
+
+    /// <summary>HUD (QA-20): seconds left of the ready countdown (everyone ready, in Prep); 0 when none runs. Un-ready, a join or a
+    /// host change clears it on every client.</summary>
+    public float CountdownRemaining { get { return VisibleStageClock == StageClockKind.Countdown ? StageClockRemaining() : 0f; } }
+    /// <summary>HUD (QA-19): seconds left of the stage intro; enemies, the objective and event timers start when it reaches 0.</summary>
+    public float IntroRemaining { get { return VisibleStageClock == StageClockKind.Intro ? StageClockRemaining() : 0f; } }
+    /// <summary>HUD: full length (seconds) of the visible clock, for a ring or bar (remaining / duration).</summary>
+    public float StageClockDuration { get { return VisibleStageClock == StageClockKind.None ? 0f : clockDuration; } }
+    /// <summary>Stage intro running: nothing spawns and a client keeps its objective/event world until it ends (every client, any phase).</summary>
+    public bool SpawnsHeld { get { return state != null && clockKind == StageClockKind.Intro && clockEpoch >= state.authorityEpoch && StageClockRemaining() > 0f; } }
+    /// <summary>HUD: the translated objective or finale name the intro announces ("" outside combat).</summary>
+    public string StageIntroTitle
+    {
+        get
+        {
+            if (state == null || state.phase != RunPhase.Combat) return "";
+            var def = RogueCatalog.Encounter(state.encounter.IsFinale ? state.encounter.finaleId : state.encounter.objectiveId);
+            return def != null ? T(def.Name) : "";
+        }
+    }
+
+    /// <summary>Every client: the countdown and intro as banners, one per second, unless the HUD draws them (HudDrawsStageClock).</summary>
+    void TickStageClockBanner()
+    {
+        var kind = VisibleStageClock;
+        if (kind == StageClockKind.None) { clockShownSecond = -1; clockShownKind = kind; return; }
+        int second = Mathf.CeilToInt(StageClockRemaining());
+        if (second == clockShownSecond && kind == clockShownKind) return;
+        clockShownSecond = second; clockShownKind = kind;
+        if (HudDrawsStageClock || second <= 0) return;
+        if (kind == StageClockKind.Countdown) Banner(T("Everyone is ready. Starting in {0}...", second), 1.2f);
+        else Banner(T("Stage {0}-{1}: {2}\nstart in {3}...", state.Chapter, RogueDepth.StageInChapter(state.depth), StageIntroTitle, second), 1.2f);
     }
 
     void OnDestroy()
@@ -58,6 +172,28 @@ public partial class RoguelikeController : MonoBehaviour
         CleanupWorld();
         RoguelikeMode.RunInProgress = false;
         if (!travelling) RoguelikeMode.PendingResume = null;
+        RestoreSendRates();
+    }
+
+    // Co-op positions (enemies, teammates) were serialised 10 times a second, PUN's default. RogueEnemyNetSync plays them back
+    // 0.15 s behind, so one late or dropped (unreliable) update emptied the buffer and an enemy stopped, then caught up: "stop and
+    // go". Twenty updates a second leave three samples inside the same delay. PUN batches every view into one message per tick.
+    const int CoopSendRate = 30, CoopSerializeRate = 20;
+    static int savedSendRate = -1, savedSerializeRate = -1;
+
+    static void RaiseSendRates()
+    {
+        if (!RoguelikeMode.Coop || savedSendRate >= 0) return;
+        savedSendRate = PhotonNetwork.sendRate; savedSerializeRate = PhotonNetwork.sendRateOnSerialize;
+        PhotonNetwork.sendRate = Mathf.Max(savedSendRate, CoopSendRate);
+        PhotonNetwork.sendRateOnSerialize = Mathf.Max(savedSerializeRate, CoopSerializeRate);
+    }
+
+    static void RestoreSendRates()
+    {
+        if (savedSendRate < 0) return;
+        PhotonNetwork.sendRate = savedSendRate; PhotonNetwork.sendRateOnSerialize = savedSerializeRate;
+        savedSendRate = -1; savedSerializeRate = -1;
     }
 
     IEnumerator Start()
@@ -65,6 +201,7 @@ public partial class RoguelikeController : MonoBehaviour
         yield return null;   // let Multiplayer.Awake/Start settle the rule first
         if (!RoguelikeMode.Active) { Destroy(this); yield break; }
         Instance = this;
+        RaiseSendRates();
         RoguelikeMode.RunInProgress = true;
         RoguePlayer.ResetLastHit();
         localKey = RoguelikeMode.LocalPlayerKey;
@@ -142,6 +279,7 @@ public partial class RoguelikeController : MonoBehaviour
         {
             bool fromEarlierVersion = RogueSave.ContentChanged(resume);
             state = resume.run;
+            MetaRun.MigrateProgress(state);   // an older checkpoint: progress totals once, and an estimated play time only when none was saved (QA-18)
             state.authorityEpoch++;
             state.contentHash = RogueCatalog.ContentHash();   // an update that kept every id resumes; later checkpoints carry this build's hash
             if (Menu.network == 0 && !string.IsNullOrEmpty(resume.localPlayerKey) && resume.localPlayerKey != localKey)
@@ -326,6 +464,7 @@ public partial class RoguelikeController : MonoBehaviour
         if (state != null && state.phase == RunPhase.Combat) BuildClientWorld();
         else if (state != null && !IsAuthority && state.phase != RunPhase.Combat) DisposeEvents();
         if (state != null && state.phase != RunPhase.Prep) screenDismissed = false;
+        if (state != null && state.phase != RunPhase.Combat) RogueBodyShield.ReleaseAllLocal();   // QA-44: bodies are only carried in combat
         if (state != null && state.phase != RunPhase.ChapterEnd) chapterDecisionSent = false;
         if (state != null && state.phase != RunPhase.Combat && !IsAuthority) ExtraEnemyDamageMul = 1f;   // the stage's contract ended
         ApplyLives();
@@ -346,15 +485,41 @@ public partial class RoguelikeController : MonoBehaviour
         }
     }
 
+    /// <summary>QA-52: the reinforcement banner names the side the wave arrives from, relative to where this player is looking.</summary>
+    void ShowArrivalSide(RogueEventMessage e)
+    {
+        var cam = Camera.main; if (cam == null) return;
+        double bearing = e.value; float x, z; var parts = (e.text ?? "").Split(';');
+        if (parts.Length == 2 && float.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out x)
+            && float.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out z))
+            bearing = ArrivalDirector.Bearing(cam.transform.position.x, cam.transform.position.z, x, z);
+        Vector3 f = cam.transform.forward; f.y = 0f; if (f.sqrMagnitude < 1e-4f) return;
+        double rel = ArrivalDirector.AngleDiff(bearing, ArrivalDirector.Bearing(0, 0, f.x, f.z));   // + = right (clockwise)
+        string key = Math.Abs(rel) <= 45 ? "Reinforcements ahead!" : Math.Abs(rel) >= 135 ? "Reinforcements behind you!"
+                   : rel < 0 ? "Reinforcements on your left!" : "Reinforcements on your right!";
+        Banner(T(key), 2f);
+    }
+
     void ApplyEvent(RogueEventMessage e)
     {
         switch (e.kind)
         {
-            case "bounty":
+            case "credit":
+                // money credited to one member (index 0 kill bounty, 1 marked-kill bonus): only that member's screen shows it (QA-27)
+                if (e.playerKey != localKey || e.minor <= 0) break;
+                if (e.index == 1) Log(T("Marked kill bonus +{0}", RogueMoney.Format(e.minor)));
+                else Log(T(e.flag ? "Headshot bounty +{0}" : "Bounty +{0}", RogueMoney.Format(e.minor)) + (string.IsNullOrEmpty(e.text) ? "" : " (" + e.text + ")"));
+                ShowPayout(e.minor, e.flag && e.index == 0);
+                break;
+            case "bounty":   // older authority build: one shared amount
                 if (e.minor > 0) Log(T(e.flag ? "Headshot bounty +{0}" : "Bounty +{0}", RogueMoney.Format(e.minor)) + (string.IsNullOrEmpty(e.text) ? "" : " (" + e.text + ")"));
                 if (e.minor > 0 && hudView != null) hudView.ShowBounty("+$" + RogueMoney.Format(e.minor) + (e.flag && e.playerKey == localKey ? "  " + T("Headshot") : ""));   // every member is paid the same bounty
                 break;
             case "banner": Banner(Decode(e.text), (float)(e.value > 0 ? e.value : 3)); break;
+            case "arrivaldir": ShowArrivalSide(e); break;   // QA-52: which side a reinforcement wave comes from, relative to this player's view
+            case "brief":
+                if (!HudDrawsBriefing) { var brief = RogueCatalog.Encounter(e.text); if (brief != null) Banner(T(brief.Brief), (float)(e.value > 0 ? e.value : 4)); }
+                break;
             case "log": Log(Decode(e.text)); break;
             case "downed": MetaTeammateDowned(e.playerKey); Log(T("{0} is down!", e.text)); { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.AcknowledgeDown(e.index); } break;
             case "downrefused": { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.RefuseDown(e.index); } break;
@@ -368,8 +533,16 @@ public partial class RoguelikeController : MonoBehaviour
             case "ult": Log(e.text == "" ? T("Ultimate used") : T("Ultimate: {0}", ItemName(e.text))); OnUltimateConfirmed(e); break;
             case "objective": Log(e.text); break;
             case "objtext": ApplyObjectiveText(e.text); break;
+            case "stageclock": ApplyStageClock(e); break;
+            case "body": RogueBodyShield.ApplyEvent(e); break;   // QA-44 body shield
+            case "fx": RogueWorldFx.ApplyFxEvent(e, localKey); break;   // QA-45 a teammate's kill explosion
+            case "iprog": RogueInteractable.ApplyProgressEvent(e); break;
+            case "dmghp": RogueDamageable.ApplyHealthEvent(e); break;
             case "equip": OnEquipEvent(e); break;
-            case "revprog": if (e.playerKey == localKey && hudView != null) hudView.SetRevive((float)e.value, T("{0} is reviving you", e.text)); break;
+            case "revprog":
+                if (e.playerKey == localKey && hudView != null) hudView.SetRevive((float)e.value, T("{0} is reviving you", e.text));
+                { var rp = RogueHooks.Local; if (rp != null && e.playerKey == localKey) rp.NoteReviveProgress((float)e.value); }   // a downed player being revived stops crawling (QA-33)
+                break;
             case "inv":
                 if (!IsAuthority)
                 {
@@ -486,6 +659,7 @@ public partial class RoguelikeController : MonoBehaviour
     void WriteCheckpoint()
     {
         if (!IsAuthority || machine == null || !machine.AtCheckpointBoundary()) return;
+        RecordElapsed();   // a resumed run continues from the play time saved here
         machine.MarkCheckpoint();
         if (!RogueSaveStore.WriteCheckpoint(state, localKey)) Log(T("Checkpoint failed: {0}", RogueSaveStore.LastError));
     }
@@ -495,6 +669,7 @@ public partial class RoguelikeController : MonoBehaviour
     {
         StopAllCoroutines();
         DisposeEvents();
+        RogueBodyShield.ReleaseAllLocal();
         foreach (var e in liveEnemies.Values) if (e != null) { /* scene objects are destroyed with the scene */ }
         liveEnemies.Clear();
         CloseOverview();

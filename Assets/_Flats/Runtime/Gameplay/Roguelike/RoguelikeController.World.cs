@@ -43,6 +43,69 @@ public partial class RoguelikeController
             foreach (var e in extra) if (!list.Contains(e)) list.Add(e);
             state.encounter.points = list.ToArray();
         }
+        if (state.encounter.IsFinale && state.encounter.finaleId == "fin.convoy") ChooseConvoyRoute(rng);
+    }
+
+    /// <summary>Finale used when the map has no candidate pair a vehicle can drive (QA-17): it needs no route and fits every map.</summary>
+    public const string ConvoyFallbackFinale = "fin.commander";
+
+    /// <summary>
+    /// QA-17, authority before the plan is broadcast: the convoy's start (point 0) and exit (point 1) are a candidate pair whose route
+    /// passes every vehicle check (RogueConvoyRoute: complete NavMesh path, 60-200 m, same level, no stairs, the 3.0 m test body swept
+    /// clear along the rounded line with ground under it). Starts are the objective anchors already picked near the squad; exits are
+    /// every candidate in the stage's shuffled order, so the choice is the same for a given seed; at most MaxPairsTried pairs are tried
+    /// and the valid route closest to the preferred length wins (the first one inside the preferred band ends the search). Every client
+    /// rebuilds the same line from the replicated points and the control points the carrier state carries. When no pair passes, the
+    /// stage becomes the Commander finale instead: a carrier is never driven through walls, on a straight line, or teleported.
+    /// </summary>
+    void ChooseConvoyRoute(RogueRng rng)
+    {
+        var points = state.encounter.points;
+        var candidates = RogueWorld.Candidates();
+        int bestStart = -1, bestExit = -1, tried = 0;
+        float bestScore = float.MinValue;
+        var bestReport = new RogueConvoyRoute.Report { reason = "no candidate pair" };
+        var lastReport = bestReport;
+        if (points != null && points.Length >= 2 && candidates.Count >= 2)
+        {
+            var exits = new List<int>();
+            for (int i = 0; i < candidates.Count; i++) exits.Add(i);
+            rng.Shuffle(exits);
+            int starts = Mathf.Min(3, points.Length);
+            for (int s = 0; s < starts && tried < RogueConvoyRoute.MaxPairsTried; s++)
+            {
+                Vector3 a = RogueWorld.PointAt(points[s]);
+                foreach (int x in exits)
+                {
+                    if (tried >= RogueConvoyRoute.MaxPairsTried) break;
+                    if (x == points[s]) continue;
+                    Vector3 b = RogueWorld.PointAt(x);
+                    float straight = Vector3.Distance(a, b);
+                    if (straight < RogueConvoyRoute.MinLength * 0.4f || straight > RogueConvoyRoute.MaxLength) continue;   // the walk is never shorter than the line
+                    tried++;
+                    RogueConvoyRoute.Report report;
+                    var route = RogueConvoyRoute.Build(a, b, true, out report);
+                    lastReport = report;
+                    if (route == null || !report.ok) continue;
+                    float score = RogueConvoyRoute.Score(report);
+                    if (score > bestScore) { bestScore = score; bestStart = points[s]; bestExit = x; bestReport = report; }
+                    if (report.length >= RogueConvoyRoute.PreferredMinLength && report.length <= RogueConvoyRoute.PreferredMaxLength) { s = starts; break; }
+                }
+            }
+        }
+        string map = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        if (bestStart < 0)
+        {
+            state.encounter.finaleId = ConvoyFallbackFinale;
+            Debug.Log("FLATS_ROGUE_CONVOY map=" + map + " no drivable route in " + tried + " pairs (last: " + lastReport.reason + "): finale changed to " + ConvoyFallbackFinale);
+            return;
+        }
+        // point 0 and 1 become the chosen pair; an exit that was also another anchor trades places with the old point 1
+        int oldExit = points[1];
+        for (int i = 2; i < points.Length; i++) if (points[i] == bestExit) points[i] = oldExit;
+        for (int i = 2; i < points.Length; i++) if (points[i] == bestStart) points[i] = points[0];
+        points[0] = bestStart; points[1] = bestExit;
+        Debug.Log("FLATS_ROGUE_CONVOY map=" + map + " start=" + bestStart + " exit=" + bestExit + " tried=" + tried + " length=" + bestReport.length.ToString("0") + " minEdge=" + bestReport.minEdge.ToString("0.00") + " minRadius=" + bestReport.minRadius.ToString("0.0"));
     }
 
     public float GravityScaleAt(Vector3 position)
@@ -63,11 +126,15 @@ public partial class RoguelikeController
 
     public string ObjectiveText { get { return objectiveText; } }
 
+    /// <summary>Authority: a runner's status changed now (a hit on the drone or the signal device): the status line goes out this
+    /// tick instead of at the next check, so the HUD's event line and bar follow each hit (QA-37).</summary>
+    public void ObjectiveTextChanged() { objectiveTextTimer = 0f; }
+
     void TickObjectiveText(float dt)
     {
         objectiveTextTimer -= dt;
         if (objectiveTextTimer > 0 || !IsAuthority) return;
-        objectiveTextTimer = 1f;
+        objectiveTextTimer = 0.25f;   // QA-37: status changes (drone health) reach the HUD within a quarter second; only sent when changed
         // always three parts (objective|event|emergency) so every client can place each line on the HUD
         string composed = (objectiveRunner != null ? objectiveRunner.ProgressText : "") + "|" + (eventRunner != null ? eventRunner.StatusText : "") + "|" + (emergencyRunner != null ? emergencyRunner.StatusText : "");
         if (composed == lastSentObjectiveText) return;
@@ -122,7 +189,7 @@ public partial class RoguelikeController
         if (emergencyRunner != null) { emergencyRunner.Dispose(); emergencyRunner = null; }
         if (objectiveRunner != null) { objectiveRunner.Dispose(); objectiveRunner = null; }
         LureTarget = null; PowerRerouted = false; ClearGravityZones();
-        objectiveText = ""; lastSentObjectiveText = "";
+        objectiveText = ""; lastSentObjectiveText = ""; clientWorldPending = false;
         huntInstance = -1; pendingInvulnerable.Clear();
         foreach (var world in GameObject.FindGameObjectsWithTag("Untagged")) { }   // world props are tracked by their runners
     }
@@ -131,6 +198,9 @@ public partial class RoguelikeController
     void BuildClientWorld()
     {
         if (IsAuthority) return;     // the authority's runners already built theirs
+        // QA-19: during the stage intro the authority has not started its objective and events yet; this client waits for the same
+        // moment (Update builds it when the replicated intro ends). A late joiner mid-stage has no running intro and builds at once.
+        if (SpawnsHeld) { clientWorldPending = true; return; }
         var enc = state.encounter;
         if (objectiveRunner == null && state.phase == RunPhase.Combat) objectiveRunner = RogueObjectiveRunner.Create(this, enc);
         if (eventRunner == null && !string.IsNullOrEmpty(enc.eventId)) { eventRunner = RogueEventRunner.Create(this, enc.eventId, 3); if (eventRunner != null) eventRunner.Begin(); }
@@ -138,15 +208,15 @@ public partial class RoguelikeController
     }
 
     /// <summary>Authority: a reinforcement or summoned enemy paid from the bonus pool (weight 0 slots never touch the stage budget).</summary>
-    public RogueEnemyRole SpawnExtraEnemy(string roleId, bool elite, Vector3 near)
+    /// <param name="exact">QA-52: near is already a checked arrival (PickSpawnPosition); use it instead of the nearest authored point.</param>
+    public RogueEnemyRole SpawnExtraEnemy(string roleId, bool elite, Vector3 near, bool exact = false)
     {
-        if (!IsAuthority || machine == null || state.phase != RunPhase.Combat) return null;
+        if (!IsAuthority || machine == null || state.phase != RunPhase.Combat || !combatLive) return null;   // nothing arrives during the stage intro (QA-19)
         var def = RogueCatalog.Role(roleId) ?? RogueCatalog.EnemyRoles[0];
         long each = RogueMoney.MulFraction(state.ledger.budgetMinor, 0.02);   // a small, bounded bounty per extra
         var slot = RogueEconomy.ReserveExtra(state.ledger, def.Id, 0, each);
         int lastPoint = -1;
-        int pointIndex = NearestSpawnPoint(near);
-        Vector3 pos = spawnPoints.GetChild(pointIndex).position;
+        Vector3 pos = exact ? near : GroundedArrival(spawnPoints.GetChild(NearestSpawnPoint(near)).position);
         GameObject go = Menu.network == 0 ? Instantiate(Resources.Load("Flatman_Enemy"), pos, Quaternion.identity) as GameObject : PhotonNetwork.InstantiateSceneObject("Flatman_Enemy", pos, Quaternion.identity, 0, null);
         if (go == null) return null;
         var ai = go.GetComponent<AI>();
@@ -245,7 +315,7 @@ public partial class RoguelikeController
         var fps = FindLocalPlayer() != null ? FindLocalPlayer().GetComponent<FPSController>() : null;
         if (fps == null) return;
         int index = int.Parse(e.text);
-        fps.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.All, new int[5] { index, GunInfo.limitAmmo[index], GunInfo.limitMaxAmmo[index], 0, e.index });
+        fps.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.AllViaServer, new int[5] { index, GunInfo.limitAmmo[index], GunInfo.limitMaxAmmo[index], 0, e.index });
     }
 
     /// <summary>Authority: a world hit reported by a client for a RogueDamageable (name-addressed).</summary>

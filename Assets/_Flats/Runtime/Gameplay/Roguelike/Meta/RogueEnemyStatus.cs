@@ -82,6 +82,25 @@ public sealed class RogueEnemyStatus : MonoBehaviour
         push = delta; pushLeft = delta.sqrMagnitude > 0 ? 0.12f : 0;
         if (Menu.network == 0) BeginVisual(stun, slow, duration, delta);
         else GetComponent<PhotonView>().RPC("RogueStatusBegin", PhotonTargets.All, stun, slow, duration, delta);
+        // QA-40: the Stun Baton's stun is electric; every copy plays the shock for the stun's own length (shorter on elites)
+        if (melee != null && melee.Special == MeleeSpecial.Shock && stun > 0f)
+        {
+            if (Menu.network == 0) BeginShock(stun);
+            else GetComponent<PhotonView>().RPC("RogueShockBegin", PhotonTargets.All, stun);
+        }
+    }
+    [PunRPC] void RogueShockBegin(float seconds, PhotonMessageInfo info)
+    {
+        if (info.sender != PhotonNetwork.masterClient || !RoguelikeMode.Active || !Finite(seconds)) return;
+        BeginShock(seconds);
+    }
+    void BeginShock(float seconds)
+    {
+        var receiver = GetComponent<DamageReceiver>();
+        if (receiver != null && receiver.Dead) return;
+        var reaction = GetComponent<RogueHitReaction>();
+        if (reaction == null) reaction = gameObject.AddComponent<RogueHitReaction>();
+        reaction.Shock(Mathf.Clamp(seconds, 0f, 10f));
     }
     public Vector3 ClampKnockback(Vector3 requested)
     {
@@ -158,6 +177,8 @@ public sealed class RogueEnemyStatus : MonoBehaviour
         Freeze();
         if (Authority && agent != null && agent.enabled && agent.isOnNavMesh)
         {
+            // a knockback never moves an enemy that is mid-arc on a link (QA-23): the arc owns its position until it lands
+            if (pushLeft > 0) { var link = GetComponent<RogueEnemyLinkTraversal>(); if (agent.isOnOffMeshLink || (link != null && link.Traversing)) pushLeft = 0; }
             if (pushLeft > 0)
             {
                 float dt = Mathf.Min(Time.deltaTime, pushLeft);
@@ -170,7 +191,9 @@ public sealed class RogueEnemyStatus : MonoBehaviour
                 if (Time.time >= slowUntil) { slowUntil = 0; slowScale = 1; }
             }
         }
-        UpdateIcon(stunIcon, StunRemaining > 0, 0); UpdateIcon(slowIcon, Time.time < slowUntil, 1);
+        // a kill this client already predicted hides the body; its status icons go with it (QA-28)
+        bool shown = !RogueKillPrediction.IsPredictedDead(gameObject);
+        UpdateIcon(stunIcon, shown && StunRemaining > 0, 0); UpdateIcon(slowIcon, shown && Time.time < slowUntil, 1);
     }
     void UpdateIcon(GameObject icon, bool visible, int slot)
     {

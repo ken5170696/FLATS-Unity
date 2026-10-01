@@ -20,6 +20,8 @@ public sealed class RogueEliteAffixes : MonoBehaviour
     static readonly List<RogueEliteAffixes> live = new List<RogueEliteAffixes>();
 
     public bool Enraged { get { return Time.time < enragedUntil; } }
+    /// <summary>A Guardian elite's last stand is running: hits do nothing (the hit feedback shows a blocked flash, QA-05).</summary>
+    public bool GuardianActive { get { return Time.time < invulnerableUntil; } }
 
     public static void Attach(GameObject enemy, RogueEnemyRole role)
     {
@@ -138,11 +140,15 @@ public sealed class RogueEliteAffixes : MonoBehaviour
             else if (mine) { agent.speed = ai.defaultSpeed; lastSetSpeed = -1f; }
         }
         var cam = Camera.main;
+        // QA-28: Die (and a kill this client predicted) hides the body's children, affix icons included; this loop used to switch them
+        // back on, so the icons floated over the empty spot for the five seconds before the root was removed
+        bool gone = !Alive(this) || RogueKillPrediction.IsPredictedDead(gameObject);
         for (int i = 0; i < icons.Count; i++)
         {
             if (icons[i] == null) continue;
-            bool near = cam != null && Vector3.Distance(cam.transform.position, transform.position) < 45f;
+            bool near = !gone && cam != null && Vector3.Distance(cam.transform.position, transform.position) < 45f;
             icons[i].SetActive(near);
+            if (!near) continue;
             if (cam != null) icons[i].transform.rotation = cam.transform.rotation;
             var r = icons[i].GetComponent<SpriteRenderer>();
             if (r != null) r.color = i < Affixes.Length && ((Affixes[i] == "af.berserker" && Enraged) || (Affixes[i] == "af.guardian" && Time.time < invulnerableUntil)) ? Color.white : AffixColor;
