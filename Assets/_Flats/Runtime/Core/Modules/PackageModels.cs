@@ -108,7 +108,7 @@ namespace Flats.Modules
         // API 1.1.0 adds manifest schema 2 (data packages, settings, presets); 1.2.0 adds the
         // module context (installed directory, live setting values), the optional setting
         // group/performance fields and Flats.Rendering.RenderPolicy. 1.x packages still load.
-        public const string GameVersion = "5.4.5", ApiVersion = "1.3.0";
+        public const string GameVersion = "5.4.6", ApiVersion = "1.3.0";
         public const long MaxArchive = 64L * 1024 * 1024, MaxExpanded = 256L * 1024 * 1024;
         public static void Id(string id)
         {

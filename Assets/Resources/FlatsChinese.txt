@@ -2697,3 +2697,5 @@ Set by the host	由房主決定
 Your Heat applies to the squad	全隊使用你的 Heat
 Starting the run...	正在開始…
 Open squad	公開小隊
+New mode: Roguelike Survival.	新模式：Roguelike 生存。
+- New mode: Roguelike Survival, solo or co-op for 1-4 players.\n- Clear stages, pick upgrades, shop between stages, choose routes.\n- Headquarters: loadouts, skill tree, armory, challenges and Heat.\n- Gunplay: recoil, hit feedback, footsteps and new sounds.\n- New screens for rewards, shop, combat, overview and pause.\n\nPlatform validation: see release notes.	- 新模式：Roguelike 生存，單人或 1–4 人合作。\n- 清關、選強化、關卡之間逛商店、選路線。\n- 總部：配置、技能樹、軍械庫、挑戰與 Heat。\n- 射擊手感：後座力、命中回饋、腳步聲與新音效。\n- 獎勵、商店、戰鬥、總覽與暫停都是新畫面。\n\n平台驗證範圍請見發布說明。
