@@ -107,6 +107,7 @@ public partial class Menu
 
 	public void OpenMenu()
 	{
+        PrepareRoguePause();
         float nextTimeScale;
         if (!pauseNavigation.TryOpen(current, gameState, Time.timeScale, out nextTimeScale)) return;
 		anim.SetTrigger("OpenMenu");
@@ -153,6 +154,7 @@ public partial class Menu
 			Screen.lockCursor = false;
 			UnityEngine.Cursor.visible = true;
 		}
+        ShowRoguePause();
 		if (!VRmode)
 		{
 			return;
@@ -178,6 +180,7 @@ public partial class Menu
 	{
         float nextTimeScale;
         if (!pauseNavigation.TryClose(current, gameState, Time.timeScale, savedTimeScale, out nextTimeScale)) return;
+        HideRoguePause();
 		anim.SetTrigger("CloseMenu");
 		anim.SetBool("Fade", false);
 		current = "Playing";
@@ -220,6 +223,7 @@ public partial class Menu
 			Camera.main.transform.GetChild(0).gameObject.SetActive(true);
 			Camera.main.BroadcastMessage("UpdateStereoValues", SendMessageOptions.DontRequireReceiver);
 		}
+        RestoreRoguePauseUnderlying();
 	}
 
 	public void Fade(int button)

@@ -266,6 +266,8 @@ public class RogueScreenView : MonoBehaviour
     public void SetFooterInteractable(bool p, bool s) { FlatsUiTheme.SetInteractableNow(primary, p); FlatsUiTheme.SetInteractableNow(secondary, s); }
     public void SetPrimaryText(string label, string note) { if (primaryLabel != null) primaryLabel.text = label ?? ""; if (footerNote != null) footerNote.text = note ?? ""; }
     public void SetPrimaryHighlight(bool on) { /* BrandPrimary remains the action; the original label expresses readiness. */ }
+    /// <summary>The pause menu closed over this screen: the press that closed it is not an activation here.</summary>
+    public void GuardInput() { activateFrom = Mathf.Max(activateFrom, Time.unscaledTime + activationDelay); }
     public void SetCovered(bool value)
     {
         if (value && !covered && EventSystem.current != null)

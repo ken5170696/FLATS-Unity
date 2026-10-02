@@ -14,6 +14,12 @@ using UnityEngine.UI;
 /// </summary>
 public class FlatsModeTilesView : MonoBehaviour
 {
+    public GameObject modeTemplate;
+    public Text subtitleTemplate;
+    public Vector2 footerSize = new Vector2(200,120);
+    public Vector2 footerFocusedSize = new Vector2(210,130);
+    public float wideMultiplier = 1.8f;
+    int rememberedIndex;
     public ScrollRect scroll;            // null on the grid layout
     public RectTransform content;
     public Scrollbar indicator;
@@ -36,6 +42,7 @@ public class FlatsModeTilesView : MonoBehaviour
         public Text label;
         public LayoutElement layout;
         public Action onClick;
+        public bool wide;
         public Image badge;      // corner counter (map vote), created on first use
         public Text badgeText;
     }
@@ -63,17 +70,42 @@ public class FlatsModeTilesView : MonoBehaviour
         return view;
     }
 
+    /// <summary>
+    /// A tile made from the authored mode template takes the face and reading-surface colours of the live menu tile, which
+    /// carries the player's theme colour (Character page); the template alone would stay the default pink next to a themed map tile.
+    /// </summary>
+    static void CopyTheme(GameObject live, GameObject copy)
+    {
+        if (live == null || copy == null) return;
+        var from = live.GetComponent<Image>(); var to = copy.GetComponent<Image>();
+        if (from != null && to != null) { to.material = from.material; to.color = from.color; }
+        // the live tile's opaque reading surface is the one MenuTileArtwork lists under that tile (ModulePageBinding colours it)
+        Image a = null; var artwork = live.GetComponentInParent<MenuTileArtwork>();
+        if (artwork != null && artwork.readingSurfaces != null) foreach (var surface in artwork.readingSurfaces) if (surface != null && surface.transform.parent == live.transform) a = surface;
+        var copySurface = copy.transform.Find(readingSurfaceName); var b = copySurface != null ? copySurface.GetComponent<Image>() : null;
+        if (a != null && b != null) { b.material = a.material; b.color = a.color; }
+    }
+    const string readingSurfaceName = "TileReadingSurface";
+
     public int Count { get { return tiles.Count; } }
     public Tile Get(int index) { return index >= 0 && index < tiles.Count ? tiles[index] : null; }
     public Tile Footer { get { return footerTile; } }
 
     /// <summary>Adds one tile: a copy of <paramref name="template"/> (an authored MainButtons tile) bound to this option.</summary>
-    public Tile Add(GameObject template, Sprite artwork, string label, Action onClick)
+    public Tile Add(GameObject template, Sprite artwork, string label, Action onClick, string subtitle = null, bool wide = false)
     {
         if (content == null) return null;
-        var tile = Build(template, content, artwork, label, onClick);
+        var tile = Build(modeTemplate != null ? modeTemplate : template, content, artwork, label, onClick);
         if (tile == null) return null;
         tile.rect.anchorMin = tile.rect.anchorMax = new Vector2(0f, 0.5f);
+        tile.wide = wide;
+        if (modeTemplate != null)
+        {
+            var sub = tile.root.transform.Find("Subtitle").GetComponent<Text>();
+            sub.text = subtitle ?? "";
+            CopyTheme(template, tile.root);
+        }
+        ApplySize(tile, tileSize);
         tiles.Add(tile);
         RebuildNavigation();
         return tile;
@@ -88,6 +120,7 @@ public class FlatsModeTilesView : MonoBehaviour
         if (footerTile == null) return null;
         footerTile.rect.anchorMin = footerTile.rect.anchorMax = new Vector2(0.5f, 0.5f);
         footerTile.rect.anchoredPosition = Vector2.zero;
+        ApplySize(footerTile, footerSize);
         RebuildNavigation();
         return footerTile;
     }
@@ -190,10 +223,13 @@ public class FlatsModeTilesView : MonoBehaviour
     }
 
     /// <summary>Selects a tile for keyboard and gamepad navigation and scrolls the row so it is visible.</summary>
+    public void FocusRemembered() { Focus(rememberedIndex); }
+
     public void Focus(int index)
     {
         var tile = Get(index);
         if (tile == null || EventSystem.current == null) return;
+        rememberedIndex = index;
         EventSystem.current.SetSelectedGameObject(tile.root);
         Canvas.ForceUpdateCanvases();
         Reveal(tile);
@@ -208,6 +244,7 @@ public class FlatsModeTilesView : MonoBehaviour
             if (tile.rect != null) tile.rect.localScale = new Vector3(scale, scale, 1f);
             return;
         }
+        if (tile.wide) size.x *= wideMultiplier;
         if (tile.layout != null)
         {
             tile.layout.preferredWidth = size.x; tile.layout.preferredHeight = size.y;
@@ -251,7 +288,7 @@ public class FlatsModeTilesView : MonoBehaviour
 
     void Update()
     {
-        // A keyboard or gamepad user who starts navigating with nothing selected lands on the first tile.
+        // A keyboard or gamepad user who starts navigating with nothing selected returns to the remembered tile.
         if (tiles.Count == 0 || EventSystem.current == null) return;
         if (footerTile != null && Selected() == footerTile) { UpdateUpFromFooter(); return; }
         var selected = EventSystem.current.currentSelectedGameObject;
@@ -262,7 +299,7 @@ public class FlatsModeTilesView : MonoBehaviour
             var device = InControl.InputManager.ActiveDevice;
             moving = device != null && (device.LeftStickX.Value != 0f || device.DPadX.Value != 0f || device.LeftStickY.Value != 0f);
         }
-        if (moving) Focus(0);
+        if (moving) Focus(rememberedIndex);
     }
 
     // Up from the footer returns to the row tile nearest to the footer's centre, not always the first one.
@@ -286,11 +323,12 @@ public class FlatsModeTilesView : MonoBehaviour
     void LateUpdate()
     {
         var selected = Selected();
-        foreach (var tile in tiles) ApplySize(tile, tile == selected ? focusedTileSize : tileSize);
-        if (footerTile != null) ApplySize(footerTile, footerTile == selected ? focusedTileSize : tileSize);
         var selectedObject = selected != null ? selected.root : null;
         if (selectedObject != lastSelected)
         {
+            foreach (var tile in tiles) ApplySize(tile, tile == selected ? focusedTileSize : tileSize);
+            if (footerTile != null) ApplySize(footerTile, footerTile == selected ? footerFocusedSize : footerSize);
+            if (selected != null && selected != footerTile) rememberedIndex = tiles.IndexOf(selected);
             lastSelected = selectedObject;
             if (selected != null && selected != footerTile) Reveal(selected);
         }

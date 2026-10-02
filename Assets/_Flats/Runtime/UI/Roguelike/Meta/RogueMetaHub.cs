@@ -78,7 +78,7 @@ public class RogueMetaHub : MonoBehaviour
     /// </summary>
     public sealed class PlaySetup
     {
-        public Func<string> title, detail, playLabel, difficulty, map;
+        public Func<string> title, detail, playLabel, difficulty, map, checkpoint;
         public Action play, cycleDifficulty, cycleMap;
         public Func<bool> playEnabled;   // null: always enabled
         public Func<bool> closeOnPlay;   // null: the hub closes itself before play runs
@@ -250,7 +250,7 @@ public class RogueMetaHub : MonoBehaviour
             bool enabled = show && (s.playEnabled == null || s.playEnabled());
             if (playBar.play.interactable != enabled) playBar.play.interactable = enabled;
             RogueMetaPlayBar.Put(playBar.playLabel, s.playLabel != null ? s.playLabel() : RogueMetaUI.T("Start Run"));
-            if(hq!=null)hq.BindPlay(detail:s.detail!=null?s.detail():"",caption:playBar.playLabel.text,summary:string.Join("\n",new[]{s.title!=null?s.title():"",(s.difficulty!=null?s.difficulty()+" / ":"")+RogueMetaUI.L(MetaText.Value("Heat {0}", Profile.lastHeat)),s.detail!=null?s.detail():""}.Where(x=>!string.IsNullOrEmpty(x)).ToArray()),available:enabled,shown:show);
+            if(hq!=null)hq.BindPlay(checkpoint:s.checkpoint!=null?s.checkpoint():null,detail:s.detail!=null?s.detail():"",caption:playBar.playLabel.text,summary:string.Join("\n",new[]{s.title!=null?s.title():"",(s.difficulty!=null?s.difficulty()+" / ":"")+RogueMetaUI.L(MetaText.Value("Heat {0}", Profile.lastHeat)),s.detail!=null?s.detail():""}.Where(x=>!string.IsNullOrEmpty(x)).ToArray()),available:enabled,shown:show);
         }
     }
     static void SetOption(Button button, Text caption, Text value, string captionKey, Func<string> text, Action cycle)

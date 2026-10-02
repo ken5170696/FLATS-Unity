@@ -97,6 +97,9 @@ public class RogueOverviewView : MonoBehaviour
             return false;
         }
     }
+    int guardedFrame = -1;
+    /// <summary>The pause menu closed over the overview: the B or click that closed it neither closes the overview nor activates a tile.</summary>
+    public void GuardInput() { guardedFrame = Time.frameCount; activateAfter = Time.unscaledTime + activationDelay; }
     void RequestClose() { if (!AcceptsInput) return; escapeHeldAfterClose = Input.GetKey(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Escape); var c = RoguelikeController.Instance; if (c != null && c.OverviewOpen) c.CloseOverview(); else Close(); }
     public void Close() { Release(); Destroy(gameObject); }
     void Release()
@@ -231,7 +234,7 @@ public class RogueOverviewView : MonoBehaviour
         if (!AcceptsInput) return;
         var pad = InControl.InputManager.ActiveDevice;
         if (RogueInput.TabPreviousDown) Select(Current - 1); else if (RogueInput.TabNextDown) Select(Current + 1);
-        if (Input.GetKeyDown(KeyCode.Escape) || (pad != null && pad.Action2.WasPressed)) { RequestClose(); return; }
+        if (Time.frameCount != guardedFrame && (Input.GetKeyDown(KeyCode.Escape) || (pad != null && pad.Action2.WasPressed))) { RequestClose(); return; }
         if (RogueInput.ShopDown && shop.interactable) shop.onClick.Invoke();
         // a tile that was removed, replaced or hidden leaves the selection on an inactive object: directions would do nothing
         var es = EventSystem.current;

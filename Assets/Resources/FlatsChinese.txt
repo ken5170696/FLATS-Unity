@@ -2652,3 +2652,48 @@ Clear objectives, upgrade, then push on or evacuate	清目標、選強化，再�
 {0} skill point available	{0} 技能點可用
 Equip	裝備
 Cleared finales	已完成的終戰
+Upgrades each stage, 1–4 players	每關選強化，1–4 人
+Survive waves of enemies	撐過一波波敵人
+Beat changing objectives	完成輪替的挑戰目標
+Chain headshots without a miss	連續爆頭，挑戰高分
+Practice weapons against enemies	練習武器，迎戰敵人
+Learn movement and combat	學習移動與戰鬥操作
+Checkpoint: Chapter {0} Stage {1}	存檔點：第 {0} 章第 {1} 關
+Saved checkpoint	已有存檔點
+Continue the saved run, or start a new run and discard this checkpoint?	續玩存檔點，或捨棄存檔點開始新局？
+Start new run	開始新局
+Return to this run	回到這一局
+Sound, display and controls	音效、畫面與操作設定
+Controls and how to play	操作與玩法
+Controls follow your bindings	依照目前的按鍵設定顯示
+Abandon run	放棄這一局
+Confirm before leaving	離開前會再次確認
+Back to main menu	回主選單
+Multiplayer does not pause	多人遊戲不會暫停
+Stage {0}-{1} · {2} · Heat {3}	第 {0}-{1} 關 · {2} · Heat {3}
+You leave with a reduced reward. The squad continues with a new host.	你會離開並獲得部分結算獎勵，小隊將由新房主繼續。
+You leave with a reduced reward. The squad continues without you.	你會離開並獲得部分結算獎勵，其餘隊友繼續這一局。
+This run ends as a defeat and shows results. Its checkpoint is cleared.	這一局會以倒下結束並進入結算，存檔點也會清除。
+Progress returns to the last chapter checkpoint. Unsaved progress is lost.	進度會保留到最近一章的存檔點，之後尚未存檔的進度會失去。
+There is no checkpoint. Leaving loses this run's progress.	目前沒有存檔點，離開後會失去這一局的進度。
+Waiting for player	等待玩家
+Loadout not shared	等級與配裝未同步
+Set when creating the room	建立房間時決定
+Vote after the host starts	房主開始後投票選圖
+Room rules	依照房間規則
+Prepare your next run	準備下一局的配置
+Cancel ready	取消就緒
+Everyone ready · starting in {0}	全員就緒 · {0} 秒後開始
+Ready {0}/{1}	就緒 {0}/{1}
+You can start at any time	你可以隨時開始
+The host starts the run	由房主開始這一局
+Leave this squad and return to multiplayer?	離開目前小隊，返回多人遊戲選單？
+Loadout and armory	配置與軍械庫
+Preparation	出擊準備
+Room host	房主
+Leave	離開
+Practice weapons in combat	練習武器，迎戰敵人
+Set by the host	由房主決定
+Your Heat applies to the squad	全隊使用你的 Heat
+Starting the run...	正在開始…
+Open squad	公開小隊

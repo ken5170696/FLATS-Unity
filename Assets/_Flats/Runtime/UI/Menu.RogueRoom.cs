@@ -29,6 +29,9 @@ public partial class Menu
 
     RogueMetaHub roomHub;
     RogueRoomPanel roomPanel;
+    FlatsRoomView tileRoom;
+    float nextRoomPresentation;
+    string roomPresentationKey;
     RogueCoopResultPanel coopResultPanel;
     float roomAllReadySince = -1f;
     bool roomStartSent, roomReturnStarted;
@@ -166,7 +169,7 @@ public partial class Menu
         if (panel != null && panel.gameObject.activeSelf != active) panel.gameObject.SetActive(active);
         RefreshRoomCards();
         if (!active) { roomAllReadySince = -1f; return; }
-        EnsureRogueSkin(true);   // QA-53: the co-op room of the mode wears the mode's look while it is open
+        RefreshRogueRoomPresentation();
         int total, ready = RoomReadyCount(out total);
         bool mine = IsRoomReady(PhotonNetwork.player), host = PhotonNetwork.isMasterClient;
         bool everyone = total > 0 && ready == total;
@@ -252,8 +255,9 @@ public partial class Menu
         if (!mine && (panel == null || panel.armory == null))
         {
             // No authored armory button: readying up is where the loadout can still be changed.
-            ShowConfirm("Ready for the run?", "The run uses your Roguelike loadout.\nChange it in Loadout & Armory before you ready up.",
-                ok => { if (ok) { SetLocalRoomReady(true); RefreshRogueRoom(); } else OpenRoomHub(); }, "Ready", "Loadout & Armory");
+            // asked on the new room screen in its own dialog (the legacy confirmation hid the room and showed the old panel behind it)
+            FlatsMenuDialog.Show("Ready for the run?", "The run uses your Roguelike loadout.\nChange it in Loadout & Armory before you ready up.",
+                "Ready", () => { if (!RogueRoomActive || readyStarted) return; SetLocalRoomReady(true); RefreshRogueRoom(); }, "Loadout & Armory", () => { if (RogueRoomActive && !readyStarted) OpenRoomHub(); });
             return;
         }
         SetLocalRoomReady(!mine);
@@ -265,8 +269,8 @@ public partial class Menu
         if (!RogueRoomActive || !PhotonNetwork.isMasterClient || readyStarted || roomStartSent) return;
         int total, ready = RoomReadyCount(out total);
         if (ready >= total) { SendRoomStart(); return; }
-        ShowConfirm("Start the run", string.Format("{0} of {1} players are ready. Start the run now without waiting?", ready, total),
-            ok => { if (ok) SendRoomStart(); }, "Start now", "Keep waiting");
+        FlatsMenuDialog.Show("Start the run", string.Format(RoomText("{0} of {1} players are ready. Start the run now without waiting?"), ready, total),
+            "Start now", () => { if (RogueRoomActive && PhotonNetwork.isMasterClient && !readyStarted && !roomStartSent) SendRoomStart(); });
     }
 
     void SendRoomStart()
@@ -291,6 +295,7 @@ public partial class Menu
     /// <summary>Master, every frame in the room: everyone ready for the whole grace period starts the run.</summary>
     void TickRogueRoom()
     {
+        RefreshRogueRoomPresentation();
         if (!PhotonNetwork.isMasterClient || current != "Matching" || gameState == "Multiplayer" || readyStarted || roomStartSent || !RogueRoomActive)
         { roomAllReadySince = -1f; return; }
         int total, ready = RoomReadyCount(out total);
@@ -313,6 +318,43 @@ public partial class Menu
             ReopenReturnedRoom();
         RefreshRogueRoom();
         RefreshRogueCoopResult();
+    }
+
+    // Authored room presentation. No property publication, RPC, countdown or authority decision is made here.
+    void RefreshRogueRoomPresentation()
+    {
+        if (!RogueRoomActive || gameState == "Multiplayer") { if(tileRoom!=null){Destroy(tileRoom.gameObject);tileRoom=null;roomPresentationKey=null;} return; }
+        // the room stays up while the run starts (its actions go off); only a legacy confirmation or another page hides it
+        bool visible = current == "Matching" && (confirm == null || !confirm.activeSelf);
+        if(tileRoom==null && visible)tileRoom=FlatsRoomView.Open(()=>{if(PhotonNetwork.isMasterClient)ConfirmHostStart();else ToggleRoomReady();},ToggleRoomReady,OpenRoomHub,ConfirmTileRoomLeave);
+        if(tileRoom==null)return;tileRoom.SetVisible(visible);
+        if(!visible||Time.unscaledTime<nextRoomPresentation)return;nextRoomPresentation=Time.unscaledTime+.25f;
+        var profile=RogueMetaStore.Current;
+        var players=PhotonNetwork.playerList;
+        System.Array.Sort(players,(a,b)=>a.ID.CompareTo(b.ID));   // the same slot order on every client, stable across joins
+        int total,readyCount=RoomReadyCount(out total);
+        int hostHeat=PhotonNetwork.isMasterClient?Mathf.Min(profile.lastHeat,profile.heatUnlocked):-1;
+        int countdown=roomAllReadySince<0?-1:Mathf.Max(0,Mathf.CeilToInt(RoomAllReadyGrace-(Time.realtimeSinceStartup-roomAllReadySince)));
+        var key=new System.Text.StringBuilder();key.Append(FlatsLocalization.IsChinese).Append('|').Append(profile.Level).Append('|').Append(profile.merits).Append('|').Append(profile.Active.primary).Append('|').Append(objective).Append('|').Append(hostHeat).Append('|').Append(countdown).Append('|').Append(readyStarted);
+        foreach(var p in players)key.Append('|').Append(p.ID).Append(':').Append(p.NickName).Append(':').Append(IsRoomReady(p)).Append(':').Append(p.IsMasterClient);
+        string signature=key.ToString();if(signature==roomPresentationKey)return;roomPresentationKey=signature;
+        var roster=new FlatsRoomView.Member[players.Length];
+        for(int i=0;i<players.Length;i++){var p=players[i];bool self=p==PhotonNetwork.player;roster[i]=new FlatsRoomView.Member{name=p.NickName,level=self?RoomText("Level")+" "+profile.Level:"",weapon=self?profile.Active.primary:null,ready=IsRoomReady(p),host=p.IsMasterClient,self=self};}
+        tileRoom.SetStarting(readyStarted);
+        string summary=readyStarted?RoomText("Starting the run..."):countdown>=0?string.Format(RoomText("Everyone ready · starting in {0}"),countdown):string.Format(RoomText("Ready {0}/{1}"),readyCount,total)+" · "+RoomText(PhotonNetwork.isMasterClient?"You can start at any time":"The host starts the run");
+        // matchmade rooms have generated names ("pub-..."): not something to show a player
+        string roomName=PhotonNetwork.room.Name!=null&&PhotonNetwork.room.Name.StartsWith("pub-")?RoomText("Open squad"):PhotonNetwork.room.Name;
+        tileRoom.Present(roomName,PhotonNetwork.room.MaxPlayers,roster,profile.Level,profile.merits,RoomText(RoguelikeMode.DifficultyNames[Mathf.Clamp(objective,1,3)]),hostHeat,PhotonNetwork.isMasterClient,IsRoomReady(PhotonNetwork.player),summary);
+    }
+    bool tileRoomLeaveConfirmed;
+    bool HandleTileRoomBack(int button)
+    {
+        if(button!=-1||current!="Matching"||!RogueRoomActive||tileRoomLeaveConfirmed)return false;
+        if(!FlatsMenuDialog.BlocksMenuInput)ConfirmTileRoomLeave();return true;
+    }
+    void ConfirmTileRoomLeave()
+    {
+        FlatsMenuDialog.Show("Leave room","Leave this squad and return to multiplayer?","Leave",()=>{stayRoom.isOn=false;tileRoomLeaveConfirmed=true;Fade(-1);tileRoomLeaveConfirmed=false;});
     }
 
     // ---------------------------------------------------------------- Loadout & Armory from the room and the result screen
@@ -622,6 +664,8 @@ public partial class Menu
     void ResetRogueRoomState()
     {
         CloseRoomHub();
+        if(tileRoom!=null){Destroy(tileRoom.gameObject);tileRoom=null;}roomPresentationKey=null;
+        FlatsMenuDialog.CloseAll();
         rogueRejoinedRun = false;
         roomStartSent = false;
         roomAllReadySince = -1f;

@@ -30,12 +30,12 @@ public partial class Menu
     {
         if (OpenModeTiles(false) == null) return;
         var template = TileTemplate();
-        modeTiles.Add(template, images[18], "Survival", () => Fade(0));
-        modeTiles.Add(template, roguelikeTileImage != null ? roguelikeTileImage : RogueIcons.Get("Stage"), "Roguelike Survival", () => { if (!fliping) StartCoroutine(ShowRoguelike()); });
-        modeTiles.Add(template, images[19], "Assortment", () => Fade(1));
-        modeTiles.Add(template, images[20], "Headshot Challenge", () => Fade(2));
-        modeTiles.Add(template, images[21], "Training", () => Fade(3));
-        modeTiles.Add(template, images[22], "Tutorial", () => Fade(4));
+        modeTiles.Add(template, roguelikeTileImage != null ? roguelikeTileImage : RogueIcons.Get("Stage"), "Roguelike Survival", () => { if (!fliping) StartCoroutine(ShowRoguelike()); }, "Upgrades each stage, 1–4 players", true);
+        modeTiles.Add(template, images[18], "Survival", () => Fade(0), "Survive waves of enemies");
+        modeTiles.Add(template, images[19], "Assortment", () => Fade(1), "Beat changing objectives");
+        modeTiles.Add(template, images[20], "Headshot Challenge", () => Fade(2), "Chain headshots without a miss");
+        modeTiles.Add(template, images[21], "Training", () => Fade(3), "Practice weapons in combat");
+        modeTiles.Add(template, images[22], "Tutorial", () => Fade(4), "Learn movement and combat");
         modeTiles.AddFooter(template, images[23], "Stage Select", () => Fade(5));   // the map choice sits under the mode row
     }
 

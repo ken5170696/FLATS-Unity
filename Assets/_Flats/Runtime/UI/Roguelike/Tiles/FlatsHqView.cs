@@ -135,13 +135,13 @@ public sealed class FlatsHqView : MonoBehaviour
         var tile=destinations[i]; var click=tile.onClick;
         tile.Bind(title,"",useful,value,Icon(icon),token,()=>{RogueMetaUI.Sound();hub.SelectPage(i);});
     }
-    public void BindPlay(string caption,string summary,bool available,bool shown,string detail="")
+    public void BindPlay(string caption,string summary,bool available,bool shown,string detail="",string checkpoint=null)
     {
         RogueMetaUI.Put(hero.title,caption==RogueMetaUI.T("Start Run")?"Deploy":caption);
         hero.title.fontSize=Screen.height>Screen.width?64:72;
         RogueMetaPlayBar.Put(hero.subtitle,hub.Profile==null?summary:RogueMetaUI.PresetName(hub.Profile.Active.name));
         // solo: the Heat the run starts at; a room has no settings of its own here and says who starts or who is ready instead
-        RogueMetaPlayBar.Put(hero.label,!hub.HasPlayOptions&&!string.IsNullOrEmpty(detail)?detail:RogueMetaUI.L(MetaText.Value("Heat {0}",hub.Profile==null?0:hub.Profile.lastHeat)));
+        RogueMetaPlayBar.Put(hero.label,!string.IsNullOrEmpty(checkpoint)?checkpoint:!hub.HasPlayOptions&&!string.IsNullOrEmpty(detail)?detail:RogueMetaUI.L(MetaText.Value("Heat {0}",hub.Profile==null?0:hub.Profile.lastHeat)));
         if(hero.interactable!=available)hero.SetAvailable(available);
         hero.gameObject.SetActive(shown);
         if(Home) { RogueMetaUI.Put(actionLabel,hero.title.text); actions.primary.interactable=available&&shown; }

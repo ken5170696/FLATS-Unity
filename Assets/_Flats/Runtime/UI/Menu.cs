@@ -1300,6 +1300,7 @@ public partial class Menu : MonoBehaviour
         if (TickBindingCapture()) return;
         TickLocalMatch();
         TickRogueRoom();
+        if (TryRogueOverlayPause()) return;
         // The version notice belongs to the main page. Leaving that page by any path (an invite, a quick join, a pad shortcut pressed
         // before OK) closes it; it used to stay drawn over the room, the map vote and every later page.
         if (current != "Main" && anim != null && anim.GetBool("Update")) anim.SetBool("Update", false);
@@ -1322,7 +1323,7 @@ public partial class Menu : MonoBehaviour
 				return;
 			}
 		}
-		if (current != "Modules" && !fliping && !backWithCancel && !RogueResultView.BlocksMenuInput && !RogueOverviewView.BlocksMenuInput && (Input.GetKeyUp(KeyCode.Escape) || (activeDevice.CommandWasPressed && !RogueOverviewButtonPressed()) || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
+		if (current != "Modules" && !fliping && !backWithCancel && !RogueResultView.BlocksMenuInput && !RogueOverviewView.BlocksMenuInput && !FlatsMenuDialog.BlocksMenuInput && (Input.GetKeyUp(KeyCode.Escape) || (activeDevice.CommandWasPressed && !RogueOverviewButtonPressed()) || ((current != "Main" || pauseNavigation.IsOpen) && current != "Playing" && !TouchScreenKeyboard.visible && !Keyboard.isOpen && activeDevice.Action2.WasPressed)) && canOpen && !confirm.activeSelf && !update.activeSelf && (current == "Playing" || backButton.activeSelf || current == "Main" || (localMatchPanel != null && localMatchPanel.activeSelf)))
 		{
 			Fade(-1);
 		}
@@ -1531,7 +1532,7 @@ public partial class Menu : MonoBehaviour
 				else if (modeTiles != null && modeTiles.Count > 0 && (current == "Singleplayer" || (current == "Map" && !voted)))
 				{
 					// The mode row replaces the grid on these pages; controller focus starts on its first tile.
-					modeTiles.Focus(0);
+					if (current == "Singleplayer") modeTiles.FocusRemembered(); else modeTiles.Focus(0);
 				}
 				else if (current == "Main" || (current == "Map" && !voted))
 				{
@@ -2114,6 +2115,6 @@ public partial class Menu : MonoBehaviour
 	// that toggles the overview must not also open the pause menu (QA-41). Start still pauses; a binding capture cannot take it.
 	static bool RogueOverviewButtonPressed()
 	{
-		return RoguelikeMode.Active && current == "Playing" && !FlatsControls.Capturing && FlatsControls.PadState("Overview", 1);
+		return RoguelikeMode.Active && (current == "Playing" || current == "RogueScreen") && !FlatsControls.Capturing && FlatsControls.PadState("Overview", 1);
 	}
 	}
