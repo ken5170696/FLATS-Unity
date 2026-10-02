@@ -131,7 +131,7 @@ public class RogueOverviewView : MonoBehaviour
     {
         for (int i = 0; i < tabs.Length; i++) { tabs[i].back.color = i == Current ? FlatsUiTheme.Rogue.brandPrimary : FlatsUiTheme.WithAlpha(FlatsUiTheme.Rogue.ink, .8f); FlatsOverviewTile.Put(tabs[i].label, RoguelikeController.T(i == 0 ? "My equipment" : "Squad and run")); }
     }
-    public void SetHeader(string iconName, string heading, string sub) { FlatsOverviewTile.Put(title, heading); FlatsOverviewTile.Put(subtitle, sub); }
+    public void SetHeader(string iconName, string heading, string sub) { FlatsOverviewTile.Put(title, heading); FlatsOverviewTile.Put(subtitle, sub); PaintTabs(); }
     public void SetWallet(string value) { FlatsOverviewTile.Put(wallet, value.Replace("$", "<size=22>$</size>")); }
     public void SetFooter(string text) { FlatsOverviewTile.Put(footer, text); }
     public void SetShop(bool available, Action open)
