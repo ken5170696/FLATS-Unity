@@ -35,22 +35,20 @@ public sealed class PointerFocusPolicy : MonoBehaviour
     bool restartIgnore;
     RectTransform focusFrame;
 
-    // Screens that draw their own focus (the Roguelike tile screens) switch the policy off while they own the input. Each one
-    // used to save and restore `enabled` itself; opened and closed in a different order they restored each other's "off" and the
-    // policy stayed off for the rest of the session. A hold is released by its owner only, and the policy is on whenever no
-    // live owner holds it.
-    static PointerFocusPolicy instance;
+    // Screens that draw their own focus (the Roguelike tile screens, the headquarters) hold the policy while they own the
+    // input. Each one used to save and restore `enabled` itself; opened and closed in a different order they restored each
+    // other's "off" and the policy stayed off for the rest of the session. A hold is released by its owner only.
+    // A held policy still tracks which device is in use: Menu picks the input module from PointerActive, and with the policy
+    // switched off a connected controller took the mouse away on those screens. It only stops clearing the selection and
+    // drawing its focus frame.
     static readonly System.Collections.Generic.List<Object> holds = new System.Collections.Generic.List<Object>();
-    public static void Hold(Object owner) { if (owner != null && !holds.Contains(owner)) holds.Add(owner); Apply(); }
-    public static void Release(Object owner) { holds.Remove(owner); Apply(); }
-    static void Apply()
-    {
-        holds.RemoveAll(o => o == null);   // an owner destroyed without releasing
-        if (instance != null && instance.enabled != (holds.Count == 0)) instance.enabled = holds.Count == 0;
-    }
+    public static void Hold(Object owner) { if (owner != null && !holds.Contains(owner)) holds.Add(owner); }
+    public static void Release(Object owner) { holds.Remove(owner); }
+    /// <summary>True while a live owner holds the policy (an owner destroyed without releasing does not count).</summary>
+    public static bool Held { get { holds.RemoveAll(Gone); return holds.Count > 0; } }
+    static bool Gone(Object owner) { return owner == null; }
 
-    void Awake() { events = GetComponent<EventSystem>(); instance = this; Apply(); }
-    void OnDestroy() { if (instance == this) instance = null; }
+    void Awake() { events = GetComponent<EventSystem>(); }
     void OnEnable() { lastMouse = Input.mousePosition; restartIgnore = true; }
     void OnApplicationFocus(bool focused) { if (focused) restartIgnore = true; }
     void OnDisable() { PointerActive = false; if (focusCanvas != null) focusCanvas.gameObject.SetActive(false); }
@@ -122,6 +120,7 @@ public sealed class PointerFocusPolicy : MonoBehaviour
         if (navigation) pointerMode = false;
         else if (pointer) pointerMode = true;
         PointerActive = pointerMode;
+        if (Held) { ShowFocusFrame(null); return; }   // the screen on top owns selection and draws its own focus
 
         var selected = events.currentSelectedGameObject;
         if (!pointerMode)

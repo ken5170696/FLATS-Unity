@@ -2618,3 +2618,37 @@ Combat	戰鬥
 Mods {0}/{1} · Health T{2} · Damage T{3}	改件 {0}/{1} · 生命 {2} 階 · 傷害 {3} 階
 Magazine T{0} · Speed T{1}	彈匣 {0} 階 · 速度 {1} 階
 At the total cap: one more tier adds nothing	已達加成上限，再升一階也沒有效果
+HQ home	總部
+Deploy	出擊
+Fight through changing stages, alone or with friends.	獨自或與朋友並肩，挑戰變化的關卡。
+Clear objectives, choose upgrades, then push on or evacuate.	完成目標、挑選強化，再決定深入或撤離。
+A defeat ends the run; experience and unlocked equipment stay.	倒下會結束這一局；經驗與已解鎖裝備會留下。
+{0} skill points available	{0} 技能點可用
+{0} Merits remaining	還差 {0} 功勳
+All equipment owned	已擁有所有裝備
+Choose 1 of 2	二選一
+Invest {0} more points	需要再投 {0} 點
+Previous page	上一頁
+Next page	下一頁
+Level	等級
+Skill points	技能點
+Tier {0}	第 {0} 層
+{0} XP to next level	距下一級 {0} XP
+Equip secondary	裝備到副武器
+{0} points	{0} 點
+In use	使用中
+Challenges	挑戰
+Records	統計
+Unlock equipment with merits	用功勳解鎖裝備
+Try a different skill branch	免費重置，嘗試不同技能分支
+Equip before deploying	出擊前，先將裝備放進配置
+Clear a finale at Heat {0}	在 Heat {0} 完成章節終戰
+Try another build for free	免費嘗試不同配置
+Squad power is balanced for co-op	合作時會平衡隊伍能力
+Steady the reticle after aiming	瞄準後等待準星穩定
+Clear objectives, upgrade, then push on or evacuate	清目標、選強化，再決定續戰或撤離
+{0} point	{0} 點
+{0} Merits short	還差 {0} 功勳
+{0} skill point available	{0} 技能點可用
+Equip	裝備
+Cleared finales	已完成的終戰
