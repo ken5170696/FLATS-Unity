@@ -61,7 +61,38 @@ public static class RogueMetaStore
         }
         LastRepairs = MetaProfiles.Sanitize(p);
         if (LastRepairs.Count > 0) Debug.LogWarning("FLATS_ROGUE_PROFILE_REPAIRED " + string.Join("; ", LastRepairs.ToArray()));
+        // The statistics and codex pages read the profile's own records. Run ends used to update only the schema-1 file, so the
+        // profile's copy stayed as it was at migration; take over what that file counted since (never a run twice: both files
+        // count the same runs, and the larger value wins).
+        if (!readOnly)
+        {
+            string loadError = LastError;
+            if (MetaProfiles.MergeRecords(p, RogueSaveStore.ReadMeta()))
+            {
+                if (Write(p)) Debug.Log("FLATS_ROGUE_PROFILE_RECORDS_MERGED evacuated=" + p.records.runsEvacuated + " wiped=" + p.records.runsWiped + " deepest=" + p.records.deepestDepth + " codex=" + p.records.seenItems.Length);
+                else Debug.LogWarning("FLATS_ROGUE_PROFILE_RECORDS_UNSAVED " + LastError);
+            }
+            LastError = loadError;
+        }
         return p;
+    }
+
+    /// <summary>Codex: items the local player owns in a run and enemy roles it met. Saved at once, and only when something is
+    /// new (at most once per entry in a profile's lifetime), so a run that is quit or lost to a crash keeps its discoveries.</summary>
+    public static bool NoteSeen(IList<string> items, IList<string> enemies)
+    {
+        var current = Current;
+        if (!MetaProfiles.HasUnseen(current, items, enemies)) return false;
+        var p = Copy(current);
+        if (!MetaProfiles.NoteSeen(p, items, enemies)) return false;
+        return Commit(p);
+    }
+
+    /// <summary>After NoteSeen: true when some of these entries are still not in the profile although it can be written, i.e. the
+    /// save failed and the caller should keep them and try again. A read-only session never saves, so there is nothing to retry.</summary>
+    public static bool SeenStillUnsaved(IList<string> items, IList<string> enemies)
+    {
+        return !readOnly && MetaProfiles.HasUnseen(Current, items, enemies);
     }
 
     static bool readOnly;

@@ -111,14 +111,14 @@ namespace Flats.Core.Roguelike
                     g.Icon = "Load";
                     g.Goal = L("Load", "Stand in the zone until it fills");
                     g.Steps = new[] { L("Arrow", "Go to the blue capture zone"), L("Load", "Stay inside to fill the bar"), L("Enemy", "Kill enemies that enter the zone") };
-                    g.Watch = L("Warning", "Enemies inside stop it; an empty zone drains");
+                    g.Watch = L("Warning", "Stepping in calls an ambush; enemies inside stop it");
                     g.Tip = L("Squad", "Solo {0} s; four players only {1} s", N(m.CaptureSolo), N(m.CaptureFour));
                     g.RewardIsMinimum = true;
                     break;
                 case "obj.carry":   // CarryRunner + RogueActionGate: the carrier is slowed and cannot fire or dash; downed drops it
                     g.Icon = "Crate";
                     g.Goal = L("Crate", "Carry the crate to the drop zone");
-                    g.Steps = new[] { K("Crate", "Pick up the supply crate", "Interact"), L("Check", "Walk it into the gold drop ring"), L("Squad", "Teammates clear the way") };
+                    g.Steps = new[] { K("Crate", "Pick up the supply crate", "Interact"), L("Check", "Walk it into the gold drop ring"), L("Squad", "Teammates fight off the ambush") };
                     g.Watch = L("Warning", "The carrier moves at {0}% speed and cannot shoot", Pct(m.CarrySpeed));
                     g.Tip = L("Medkit", "A downed carrier drops it; anyone can pick it up");
                     g.RewardIsMinimum = true;
@@ -128,7 +128,7 @@ namespace Flats.Core.Roguelike
                     g.Goal = L("Shield", "Repair the device to 100%");
                     g.Steps = new[] { L("Arrow", "Go to the device"), K("Tap", "Hold near it to repair", "Interact"), L("Enemy", "Keep enemies away from it") };
                     g.Watch = L("Warning", "If it breaks, clear the area for half the reward");
-                    g.Tip = L("Squad", "Solo {0} s; repairing together is faster", N(m.ProtectSolo));
+                    g.Tip = L("Squad", "Repairing calls enemies; solo it takes {0} s", N(m.ProtectSolo));
                     g.RewardIsMinimum = true;
                     break;
                 case "obj.breakout":   // BreakoutRunner + BreakoutObjective: everyone alive in the ring calls it; a downed or absent player pauses it
@@ -144,7 +144,7 @@ namespace Flats.Core.Roguelike
                     g.Icon = "Skull";
                     g.Goal = L("Skull", "Kill the guards, then the commander");
                     g.Steps = new[] { L("Enemy", "Kill the guard wave around it"), L("Shield", "Its shield drops for {0} s", N(m.CommanderWindow)), L("Target", "Shoot the commander while exposed") };
-                    g.Watch = L("Warning", "When the window ends, new guards arrive");
+                    g.Watch = L("Warning", "When the window ends, a larger guard arrives");
                     g.Tip = L("Star", "From window {0} on, it stays exposed", m.CommanderRounds.ToString(CultureInfo.InvariantCulture));
                     break;
                 case "fin.vault":   // VaultRunner: cells in order (one charger each, a hold), each opens a window on the core
@@ -152,14 +152,14 @@ namespace Flats.Core.Roguelike
                     g.Goal = L("Battery", "Charge the cells, then shoot the core");
                     g.Steps = new[] { K("Battery", "Charge the power cells in order", "Interact"), L("Shield", "Each charge exposes the core {0} s", N(m.VaultWindow)), L("Target", "Shoot the vault core while exposed") };
                     g.Watch = L("Warning", "Firing, aiming or reloading cancels a charge");
-                    g.Tip = L("Squad", "One player charges while the others cover");
+                    g.Tip = L("Squad", "Each charge calls an ambush: cover the charger");
                     break;
                 case "fin.convoy":   // ConvoyRunner: it stops only with no escort near it; reaching the exit fails to a half-reward clear
                     g.Icon = "Target";
                     g.Goal = L("Target", "Destroy the carrier before it escapes");
                     g.Steps = new[] { L("Enemy", "Kill the escorts near the carrier"), L("Timer", "Unescorted, it stops for {0} s", N(m.ConvoyWindow)), L("Target", "Shoot it while it is stopped") };
                     g.Watch = L("Warning", "If it reaches the exit: {0}% reward", Pct(RogueCatalog.ConvoyFailureRewardMultiplier));
-                    g.Tip = L("Squad", "Escorts still on the way keep it moving");
+                    g.Tip = L("Squad", "Each stop calls a relief squad to it");
                     break;
                 // ---------------------------------------------------------------- general events
                 case "ev.moving_supply":   // MovingSupplyRunner: damage the drone past its threshold before it leaves; no crate drops
@@ -167,13 +167,13 @@ namespace Flats.Core.Roguelike
                     g.Goal = L("Gift", "Shoot down the supply drone");
                     g.Steps = new[] { L("Arrow", "Find the drone marker"), L("Fire", "Shoot it before it flies off") };
                     g.Watch = L("Timer", "It leaves after {0} s", N(m.SupplySeconds));
-                    g.Tip = L("Squad", "Everyone's damage adds up");
+                    g.Tip = L("Squad", "It is armoured; shooting it calls enemies");
                     break;
                 case "ev.alarm_cache":   // AlarmCacheRunner: open (instant), wait, paid on opening; 3 enemies (1 elite) then arrive at it
                     g.Icon = "Lock"; g.Optional = true;
                     g.Goal = L("Lock", "Open the cache for a big bounty");
                     g.Steps = new[] { K("Lock", "Open the cache", "Interact"), L("Timer", "It opens after {0} s", N(m.CacheSeconds)), L("Enemy", "Then beat the reinforcements") };
-                    g.Watch = L("Warning", "Opening calls enemies, including an elite");
+                    g.Watch = L("Warning", "Touching it calls an ambush, then an elite wave");
                     g.Tip = L("Coin", "Optional: skip it if the squad is hurt");
                     break;
                 case "ev.low_gravity":   // LowGravityRunner: half gravity inside the ring for the stage; pays when the stage objective is done
@@ -188,34 +188,34 @@ namespace Flats.Core.Roguelike
                     g.Goal = L("Bolt", "Flip the breaker to weaken enemies");
                     g.Steps = new[] { K("Bolt", "Flip the breaker", "Interact"), L("Shield", "Enemy shields and jammers go down"), L("Eye", "Enemies see half as far") };
                     g.Watch = L("Timer", "It lasts {0} s and works once", N(m.RerouteSeconds));
-                    g.Tip = L("Star", "Flip it right before a big fight");
+                    g.Tip = L("Star", "Flipping it draws a squad: be ready");
                     break;
                 case "ev.repair_device":   // RepairDeviceRunner: an optional hold-repair; nearby enemies can destroy it, with no penalty
                     g.Icon = "Plus"; g.Optional = true;
                     g.Goal = L("Plus", "Repair the side device for a bounty");
                     g.Steps = new[] { L("Arrow", "Go to the device"), K("Tap", "Hold near it to repair", "Interact") };
-                    g.Watch = L("Warning", "Enemies near it can destroy it");
+                    g.Watch = L("Warning", "Repairing calls an ambush; enemies can destroy it");
                     g.Tip = L("Squad", "Repairing together is faster");
                     break;
                 case "ev.risk_contract":   // RiskContractRunner: a choice; accepted, enemy damage and bounties rise until the stage ends
                     g.Icon = "Fist"; g.Optional = true;
                     g.Goal = L("Fist", "Choose: harder enemies, bigger bounty");
                     g.Steps = new[] { L("Fire", "Enemies deal +{0}% damage", Pct(m.RiskDamage - 1)), L("Coin", "Bounties pay +{0}% this stage", Pct(m.RiskBounty - 1)) };
-                    g.Watch = L("Warning", "It lasts until the stage ends");
+                    g.Watch = L("Warning", "Accepting calls a squad; it lasts all stage");
                     g.Tip = L("Check", "Declining costs nothing");
                     break;
                 case "ev.elite_hunt":   // EliteHuntRunner: a marked marksman elite appears a few seconds in; killing it pays
                     g.Icon = "Target"; g.Optional = true;
                     g.Goal = L("Target", "Hunt down the marked elite");
                     g.Steps = new[] { L("Timer", "It appears a few seconds in"), L("Target", "Follow its gold marker"), L("Skull", "Kill it for a big bounty") };
-                    g.Watch = L("Warning", "It is a marksman: it hits hard from range");
+                    g.Watch = L("Warning", "A marksman with bodyguards: it hits hard from range");
                     g.Tip = L("Eye", "Break line of sight, then flank it");
                     break;
                 case "ev.lure_crate":   // LureCrateRunner: carried or planted, enemies are drawn to it; planted it lasts a while
                     g.Icon = "Flag"; g.Optional = true;
                     g.Goal = L("Flag", "Plant the lure to pull enemies away");
                     g.Steps = new[] { K("Crate", "Pick up the lure crate", "Interact"), L("Arrow", "Carry it away from the objective"), K("Flag", "Plant it", "Interact") };
-                    g.Watch = L("Warning", "Enemies chase the carrier, who cannot shoot");
+                    g.Watch = L("Warning", "Picking it up calls a squad; the carrier cannot shoot");
                     g.Tip = L("Timer", "Planted, it draws enemies for {0} s", N(m.LureSeconds));
                     break;
                 // ---------------------------------------------------------------- emergencies
@@ -224,20 +224,20 @@ namespace Flats.Core.Roguelike
                     g.Goal = L("Wind", "Activate 2 of the 3 vent switches");
                     g.Steps = new[] { L("Arrow", "Go to a vent switch"), K("Wind", "Hold it for {0} s", "Interact", N(m.VentSeconds)), L("Check", "Then do a second one") };
                     g.Watch = L("Warning", "At zero, gas spreads and hurts everyone in it");
-                    g.Tip = L("Squad", "Split up: two players, two switches");
+                    g.Tip = L("Squad", "Each switch calls an ambush when touched");
                     break;
                 case "em.power_outage":   // PowerOutageRunner: one player holds the generator for a while without letting go; a timeout costs bounty
                     g.Icon = "Battery";
                     g.Goal = L("Battery", "Restart the generator");
                     g.Steps = new[] { L("Arrow", "Go to the generator"), K("Tap", "Hold for {0} s without letting go", "Interact", N(m.GeneratorSeconds)) };
                     g.Watch = L("Warning", "After {0} s it fails: bounty -{1}%", N(m.OutageSeconds), Pct(1 - m.OutagePenalty));
-                    g.Tip = L("Squad", "Teammates cover the one holding it");
+                    g.Tip = L("Squad", "Holding it calls an ambush: cover the holder");
                     break;
-                case "em.mobile_bomb":   // MobileBombRunner: carry the bomb into the disposal ring before the countdown; it explodes where it is
+                case "em.mobile_bomb":   // MobileBombRunner: carry the bomb into the disposal ring before the countdown; at zero it hits every player on the map
                     g.Icon = "Zoom";
                     g.Goal = L("Zoom", "Carry the bomb to the disposal zone");
-                    g.Steps = new[] { K("Zoom", "Pick up the bomb", "Interact"), L("Check", "Walk it into the green ring") };
-                    g.Watch = L("Warning", "It explodes after {0} s ({1} m blast)", N(m.BombSeconds), N(m.BombRadius));
+                    g.Steps = new[] { K("Zoom", "Pick up the bomb", "Interact"), L("Check", "Walk it into the green ring"), L("Enemy", "Fight off the ambush on the carrier") };
+                    g.Watch = L("Warning", "At zero everyone, anywhere, loses {0}% health (min 1)", Pct(MobileBombEvent.SquadBlastFraction));
                     g.Tip = L("Squad", "The carrier cannot shoot: escort them");
                     break;
                 case "em.reinforcement_signal":   // ReinforcementSignalRunner: shoot the device; it calls a wave on a timer up to a cap

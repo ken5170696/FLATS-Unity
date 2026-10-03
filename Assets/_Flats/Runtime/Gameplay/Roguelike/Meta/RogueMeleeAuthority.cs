@@ -4,6 +4,20 @@ using UnityEngine;
 public sealed class RogueMeleeAuthority : MonoBehaviour
 {
     public static bool MeleeHit;
+    // Many hits made in one go (Chain Bullets: up to 24 arcs a round) queue their RPCs and force one send at the end instead of one
+    // per hit. A depth, not a flag: a batch opened inside another (a chain started by a chained kill) must not close the outer one.
+    static int batchDepth; static bool batchPending;
+    /// <summary>True while a batch is open: hits are queued and sent together by the outermost EndBatch.</summary>
+    public static bool Batching { get { return batchDepth > 0; } }
+    public static void BeginBatch() { batchDepth++; }
+    /// <summary>Always paired with BeginBatch (call it in a finally). The outermost one sends what the batch queued, once.</summary>
+    public static void EndBatch()
+    {
+        if (batchDepth > 0) batchDepth--;
+        if (batchDepth > 0 || !batchPending) return;
+        batchPending = false;
+        if (Menu.network != 0) PhotonNetwork.SendOutgoingCommands();
+    }
     static DamageReceiver resolvingTarget;
     bool resolvingMelee; int resolvingHeadshot;
     public static void Attach(GameObject enemy)
@@ -23,7 +37,8 @@ public sealed class RogueMeleeAuthority : MonoBehaviour
         else
         {
             target.GetComponent<PhotonView>().RPC("RogueAuthoritativeHit", PhotonTargets.MasterClient, damage, headshot, sourceView.viewID, melee);
-            PhotonNetwork.SendOutgoingCommands();   // a kill should not also wait for the next send tick (F07)
+            // a kill should not also wait for the next send tick (F07); a batch (a chain of arcs) sends once when it ends
+            if (batchDepth > 0) batchPending = true; else PhotonNetwork.SendOutgoingCommands();
             RogueKillPrediction.OnHitSent(target, damage, source);
         }
         return true;
@@ -50,7 +65,10 @@ public sealed class RogueMeleeAuthority : MonoBehaviour
         var sourceView=source.GetComponent<PhotonView>();var adapter=target.GetComponent<RogueMeleeAuthority>();
         if(sourceView==null||adapter==null)return;
         target.GetComponent<PhotonView>().RPC("RogueHitResolved",PhotonTargets.All,target.hitPoints,damage,sourceView.viewID,adapter.resolvingMelee&&target.hitPoints<=0,adapter.resolvingHeadshot==1);
-        if (target.hitPoints > 0f) PhotonNetwork.SendOutgoingCommands();   // a lethal hit sends right after its Die RPC (DamageReceiver)
+        if (target.hitPoints > 0f)   // a lethal hit sends right after its Die RPC (DamageReceiver)
+        {
+            if (batchDepth > 0) batchPending = true; else PhotonNetwork.SendOutgoingCommands();
+        }
     }
     [PunRPC] void RogueHitResolved(float health, float damage, int sourceId, bool meleeKill, bool headshot, PhotonMessageInfo info)
     {

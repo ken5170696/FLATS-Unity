@@ -779,6 +779,7 @@ public partial class RoguelikeController
             else if (!enemyCache.ContainsKey(kv.Key)) RememberCachedInstantiate(kv.Key, kv.Value.gameObject);   // extras spawned elsewhere
         }
         if (gone != null) foreach (int id in gone) RemoveEnemy(id, null);
+        SweepFallenEnemies();   // an enemy below the map can never be killed: it leaves the field and its slot is voided (Lifecycle)
     }
 
     // X006: enemies are room-cached scene objects and every client destroys its own dead copy locally, so the cached instantiate
@@ -941,6 +942,7 @@ public partial class RoguelikeController
         {
             // co-op travels through the existing map RPC so every client loads the same scene; a rejoin during the travel lands on the new map
             Menu.SetRunMapProperty(map.BuildIndex);
+            ClearRoomCacheForTravel();   // this map's cached players, weapons and buffered RPCs must not reach a later (re)joiner
             GetComponent<PhotonView>().RPC("RogueTravel", PhotonTargets.All, map.BuildIndex, RogueSaveStore.ToJson(state));
         }
     }
@@ -961,6 +963,7 @@ public partial class RoguelikeController
         menu.StartCoroutine("BackgroundColor", "FadeIn");
         yield return new WaitForSeconds(1.5f);
         Menu.changedSettings = true;
+        ForgetOwnCacheBeforeTravel();   // every client: its own cached Flatman of this map goes with the scene
         menu.LoadOfflineSceneForRun(buildIndex);
     }
 
@@ -981,6 +984,7 @@ public partial class RoguelikeController
     IEnumerator EndRun()
     {
         leaving = true; endedHandled = true;
+        CloseRiskContractOffer();   // an unanswered risk contract question does not stay over the result screen
         RogueBodyShield.ReleaseAllLocal();   // QA-44: nobody leaves the run holding a body
         RecordElapsed();   // the result counts the whole run's play time
         Broadcast();
@@ -988,7 +992,7 @@ public partial class RoguelikeController
         if (IsAuthority)
         {
             var meta = RogueSaveStore.ReadMeta();
-            previousBestDepth = meta.deepestDepth;
+            previousBestDepth = Mathf.Max(meta.deepestDepth, RogueMetaStore.Current.records.deepestDepth);
             if (RogueSave.RecordRunEnd(meta, state, localKey)) RogueSaveStore.WriteMeta(meta);
             RogueSaveStore.ClearCheckpoint();
             // nobody rejoins a finished run: the room closes until the squad is back in the lobby (Menu.RogueRoom.ReopenReturnedRoom)
@@ -1049,8 +1053,7 @@ public partial class RoguelikeController
         if (Menu.network != 0) return;
         if (FindLocalPlayer() == null && spawnPoints != null)
         {
-            foreach (var cam in FindObjectsOfType<WatchCamera>()) Destroy(cam.gameObject);
-            foreach (var pending in FindObjectsOfType<Respawn>()) Destroy(pending);   // an old ragdoll must not spawn a spectator over the new player
+            ClearDeathView();   // the spectator camera and the old ragdoll with its respawn camera (RoguelikeController.Lifecycle)
             Instantiate(Resources.Load("Flatman"), spawnPoints.GetChild(UnityEngine.Random.Range(0, spawnPoints.childCount)).position, Quaternion.identity);
             RestoreHud();
         }
@@ -1060,11 +1063,17 @@ public partial class RoguelikeController
     public void EnsureLocalPlayerAlive()
     {
         var me = LocalPlayer;
-        if (me == null || me.life != PlayerLife.Alive || FindLocalPlayer() != null || spawnPoints == null || Menu.network == 0) return;
-        foreach (var cam in FindObjectsOfType<WatchCamera>()) Destroy(cam.gameObject);
-        foreach (var pending in FindObjectsOfType<Respawn>()) Destroy(pending);
+        if (spawnPoints == null || Menu.network == 0) return;
+        if (FindLocalPlayer() != null) { localSpawnSeen = true; return; }
+        // The first Flatman of a scene belongs to Multiplayer.Start. A player rejoining a running squad receives the run state
+        // seconds before that spawn; respawning here as well gave the rejoiner two characters on every screen.
+        if (me == null || me.life != PlayerLife.Alive || !localSpawnSeen) return;
+        // "Just died": the ragdoll's Respawn was still counting towards the spectator camera. Removing only that component left
+        // the body and its camera in the scene for good, and its fade kept fighting the one below.
+        bool pendingDeathView = ClearDeathView();
         PhotonNetwork.Instantiate("Flatman", spawnPoints.GetChild(UnityEngine.Random.Range(0, spawnPoints.childCount)).position, Quaternion.identity, 0, null);
-        if (menu != null) menu.StartCoroutine("BackgroundColor", "FadeOut");
+        NoteLocalSpawned();   // Multiplayer.Start, if it is still waiting for its roster sync, must not add a second character
+        if (menu != null) { if (pendingDeathView) menu.StopCoroutine("BackgroundColor"); menu.StartCoroutine("BackgroundColor", "FadeOut"); }
         RestoreHud();
     }
 }

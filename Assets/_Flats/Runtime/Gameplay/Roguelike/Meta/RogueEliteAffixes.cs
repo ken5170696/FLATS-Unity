@@ -54,6 +54,8 @@ public sealed class RogueEliteAffixes : MonoBehaviour
     /// <summary>A hit from <paramref name="shooter"/> on a player (runs on the player's owner, where the legacy code resolves it).</summary>
     public static float OnHitPlayer(Transform shooter, DamageReceiver player, float damage)
     {
+        // a Rogue Operative's build on its hit, and its mark on the player (more damage from every enemy), before the affixes
+        damage = RogueEnemyOperative.OnHitPlayer(shooter, player, damage);
         var a = Of(shooter);
         if (a == null || player == null || damage <= 0) return damage;
         var rp = player.GetComponent<RoguePlayer>();
@@ -81,6 +83,10 @@ public sealed class RogueEliteAffixes : MonoBehaviour
         if (enemy == null) return false;
         var self = Of(enemy);
         if (self != null && self.enabled) return false;
+        // a carried riot shield or a deflecting katana (RogueEnemyMelee) and an operative's shield or Assault buff change the hit as well
+        var melee = RogueEnemyMelee.Of(enemy);
+        if (melee != null && melee.ChangesIncoming) return false;
+        if (RogueEnemyOperative.Of(enemy) != null) return false;
         var auraDef = EliteAffixes.Def("af.shield_aura");
         foreach (var other in live)
         {

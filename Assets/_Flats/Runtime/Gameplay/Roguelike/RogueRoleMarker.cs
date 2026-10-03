@@ -44,6 +44,8 @@ public sealed class RogueRoleMarker : MonoBehaviour
             case "Shield": return new Color(0.45f, 0.72f, 1f);     // shield bearer: steel blue
             case "Dash": return new Color(0.5f, 0.95f, 0.5f);      // flanker: green
             case "Settings5": return new Color(1f, 0.9f, 0.3f);    // jammer: yellow
+            case "Skull": return new Color(1f, 0.32f, 0.28f);      // brawler: red
+            case "Multiplayer4": return new Color(0.92f, 0.96f, 1f); // rogue operative: cold white
         }
         return new Color(0.95f, 0.95f, 0.95f);
     }

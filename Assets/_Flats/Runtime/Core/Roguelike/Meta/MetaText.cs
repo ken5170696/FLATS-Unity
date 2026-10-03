@@ -67,19 +67,12 @@ namespace Flats.Core.Roguelike
         public static List<TextLine> Skill(SkillDef n)
         {
             var list = new List<TextLine>();
-            bool damage = false, reduction = false;
-            foreach (var e in n.Effects)
-            {
-                list.Add(Effect(e));
-                damage |= IsConditionalDamage(e.Kind); reduction |= IsConditionalReduction(e.Kind);
-            }
-            // the envelope of BuildStats.MetaDamageMul / MetaDamageTakenMul: a player who learns two of these must not expect the sum
-            if (damage) list.Add(ConditionalDamageNote());
-            if (reduction) list.Add(ConditionalReductionNote());
+            // 2026-10-04: conditional skills have no shared envelope any more (they multiply), so no extra note line follows the effects
+            foreach (var e in n.Effects) list.Add(Effect(e));
             return list;
         }
 
-        /// <summary>Skills whose damage bonus goes through BuildStats.MetaDamageMul (one shared envelope).</summary>
+        /// <summary>Skills whose damage bonus goes through BuildStats.MetaDamageMul (they multiply; there is no shared cap).</summary>
         public static bool IsConditionalDamage(SkillEffectKind kind)
         {
             return kind == SkillEffectKind.Berserker || kind == SkillEffectKind.HeadshotRhythm || kind == SkillEffectKind.Shredder
@@ -89,24 +82,22 @@ namespace Flats.Core.Roguelike
         /// <summary>Skills whose damage reduction goes through BuildStats.MetaDamageTakenMul.</summary>
         public static bool IsConditionalReduction(SkillEffectKind kind) { return kind == SkillEffectKind.Juggernaut || kind == SkillEffectKind.HoldTheLine; }
 
-        /// <summary>Lowest envelope of BuildStats.MetaDamageMul (its `cap` starts here); Tests_TextAudit checks it against the rule.</summary>
-        public const double MetaDamageFloor = 0.15;
-
-        public static TextLine ConditionalDamageNote()
-        {
-            return new TextLine("Conditional damage skills do not add up: together they give at most the largest active stack bonus (at least +{0}%, never more than +{1}%).", P(MetaDamageFloor), P(BuildStats.MaxMetaDamageBonus));
-        }
-
-        public static TextLine ConditionalReductionNote()
-        {
-            return new TextLine("Conditional damage reduction from skills is capped at -{0}% in total.", P(1 - BuildStats.MinMetaDamageTakenMul));
-        }
-
         /// <summary>The weapon's positive line: a shotgun's close-range bonus (QA-49) first, then its trait. Arguments keep the trait's first.</summary>
         public static TextLine Trait(RangedWeaponDef w)
         {
+            if (w != null && w.Class == WeaponClass.Handgun) return OwnLineFirst(TraitOnly(w), HandgunClass(w));   // the trait keeps the first line and the first numbers
             var p = WeaponRules.Profile(w);
             return p == null ? TraitOnly(w) : ClassLineFirst(TraitOnly(w), RangeClose(p));
+        }
+
+        /// <summary>Handgun class: semi-automatic fire with its cap (WeaponRules.HandgunShotsPerSecond) and the near-instant swap.</summary>
+        public static TextLine HandgunClass(RangedWeaponDef w)
+        {
+            int burst = RogueArmory.Resolve(w).Burst;
+            string swap = P(1 - WeaponRules.HandgunSwapTimeMul), cap = WeaponRules.HandgunShotsPerSecond.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return burst > 1
+                ? new TextLine("Semi-automatic: one {2}-round burst per trigger pull, up to {0} rounds per second. Weapon swaps take {1}% less time.", cap, swap, burst.ToString(System.Globalization.CultureInfo.InvariantCulture))
+                : new TextLine("Semi-automatic: one shot per trigger pull, up to {0} per second. Weapon swaps take {1}% less time.", cap, swap);
         }
 
         /// <summary>Shotgun class, close band: the multiplier within CloseEnd and where it eases back to x1.</summary>
@@ -145,6 +136,17 @@ namespace Flats.Core.Roguelike
             var args = new string[own.Args.Length + classLine.Args.Length];
             own.Args.CopyTo(args, 0); classLine.Args.CopyTo(args, own.Args.Length);
             return new TextLine(shifted + "\n" + own.Template, args);
+        }
+
+        // As ClassLineFirst, with the weapon's own line on top: the handgun class line follows the trait.
+        static TextLine OwnLineFirst(TextLine own, TextLine classLine)
+        {
+            if (string.IsNullOrEmpty(own.Template)) return classLine;
+            int shift = own.Args.Length;
+            string shifted = System.Text.RegularExpressions.Regex.Replace(classLine.Template, @"\{(\d+)\}", m => "{" + (int.Parse(m.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) + shift).ToString(System.Globalization.CultureInfo.InvariantCulture) + "}");
+            var args = new string[own.Args.Length + classLine.Args.Length];
+            own.Args.CopyTo(args, 0); classLine.Args.CopyTo(args, own.Args.Length);
+            return new TextLine(own.Template + "\n" + shifted, args);
         }
 
         static TextLine TraitOnly(RangedWeaponDef w)
@@ -210,7 +212,7 @@ namespace Flats.Core.Roguelike
             switch (m.Special)
             {
                 case MeleeSpecial.Backstab: return new TextLine("Strikes from behind deal x{0} damage.", N(m.S1));
-                case MeleeSpecial.Knockback: return new TextLine("Knocks enemies back {0} m.", N(m.S1));
+                case MeleeSpecial.Knockback: return new TextLine("Knocks enemies back {0} m (elites and bosses less).", N(m.S1));
                 case MeleeSpecial.GroundSlam: return new TextLine("Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s (elites and bosses {3} s).", N(m.S1), N(MeleeRules.SlamKnockbackMeters), N(MeleeRules.SlamStunSeconds), N(MeleeRules.SlamEliteStunSeconds));
                 case MeleeSpecial.Combo: return new TextLine("{0}-hit combo; the finisher deals x{1}. Deflects bullets during the middle {3}% of each {2} s swing.", N(m.S1), N(m.S2), N(m.S3), P(MeleeRules.DeflectShare));
                 case MeleeSpecial.Throw: return new TextLine("Hold melee to throw it up to {0} m. Walk over it to pick it up.", N(m.S1));

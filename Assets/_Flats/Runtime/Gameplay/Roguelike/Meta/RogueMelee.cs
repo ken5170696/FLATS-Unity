@@ -22,7 +22,7 @@ public sealed class RogueMelee : MonoBehaviour
     bool remoteHeld, oldHeld, touchHeld;
     bool remoteLanding;
     Vector3 landingPosition;
-    float swingStart = -100, lastDeflect = -100;
+    float swingStart = -100, lastDeflect = -100, swingTimeMul = 1f;
     Vector3 bob;
     Transform skinnedPrimary, skinnedSecondary;
     RangedWeaponDef primaryDef, secondaryDef;
@@ -161,6 +161,10 @@ public sealed class RogueMelee : MonoBehaviour
         int token = ++generation; var sequence = state;
         Busy = true; LastSwingTime = swingStart = Time.time;
         var swing = sequence.Begin(Time.time);
+        // Quick Swing (mod.quick_swing): windup and recovery shrink together. Every copy runs this from the same Smash RPC and the
+        // same replicated build, so the swing, its pose (driven by these two clocks) and the deflect window stay in step.
+        swingTimeMul = player.Stats != null ? Mathf.Clamp((float)player.Stats.MeleeSwingTimeMul, (float)BuildStats.MinMeleeSwingTimeMul, 1f) : 1f;
+        swing = MeleeRules.Hasten(swing, swingTimeMul);
         poseStep = swing.ComboIndex;
         fc.MeleeAnimation(true, false); Show(def);
         RogueAudio.PlayAt("melee_swing", fc.MeleeEye.position, Mine ? 0.8f : 0.5f);
@@ -349,7 +353,8 @@ public sealed class RogueMelee : MonoBehaviour
         // clock. The katana's S3 equals its whole swing (Windup + Recovery) and only the middle of it deflects
         // (MeleeRules.DeflectShare); the frames a swing overruns its nominal length (the waits end on a frame boundary) count as
         // the swing's last moment, which is outside the window.
-        double intoSwing = Time.time - m.swingStart, swingLength = m.Def.Windup + m.Def.Recovery;
+        // a Quick Swing swing runs the same motion on a shorter clock: measure it on the weapon's own (nominal) clock
+        double intoSwing = (Time.time - m.swingStart) / Mathf.Max(0.1f, m.swingTimeMul), swingLength = m.Def.Windup + m.Def.Recovery;
         if (intoSwing >= swingLength) intoSwing = swingLength - 1e-4;
         if (bullet && m.Busy && MeleeRules.Deflects(m.Def, intoSwing))
         {

@@ -108,6 +108,7 @@ namespace Flats.Core.Roguelike
             if (p.records == null) p.records = new RogueMetaDocument();
             if (p.records.seenItems == null) p.records.seenItems = new string[0];
             if (p.records.clearedFinales == null) p.records.clearedFinales = new string[0];
+            if (p.records.seenEnemies == null) p.records.seenEnemies = new string[0];
             if (p.unlocked == null) p.unlocked = new string[0];
             if (p.rewardedRuns == null) p.rewardedRuns = new string[0];
             if (p.firstTimes == null) p.firstTimes = new string[0];
@@ -349,8 +350,11 @@ namespace Flats.Core.Roguelike
                 var seen = new List<string>(p.rewardedRuns) { reward.runId }; if (seen.Count > RewardRing) seen.RemoveRange(0, seen.Count - RewardRing); p.rewardedRuns = seen.ToArray();
                 if (p.pendingRunId == reward.runId) p.pendingRunId = "";
                 reward.lines = new[] { MetaProgression.IneligibleLine(facts) }; reward.xp = 0; reward.merits = 0; reward.levelBefore = reward.levelAfter = p.Level;
+                // a run that earns nothing was still played: the statistics and the codex count it (a wipe in the first stage is a wipe)
+                if (ValidForRecords(facts)) { RecordRun(p, facts); RecordTotals(p, facts); }
                 return true;
             }
+            RecordRun(p, facts);
             var lines = new List<RewardLine>(reward.lines);
             var first = new List<string>(); var mastery = new List<string>(); var done = new List<string>();
 
@@ -421,14 +425,109 @@ namespace Flats.Core.Roguelike
             // heat: finishing a chapter at the highest unlocked heat opens the next one
             if (facts.Heat >= p.heatUnlocked && facts.FinalesCleared > 0 && p.heatUnlocked < RogueHeat.MaxHeat) { p.heatUnlocked++; lines.Add(new RewardLine { source = "Heat {0} unlocked", arg = p.heatUnlocked.ToString() }); }
 
-            p.totalKills += facts.Kills; p.totalHeadshots += facts.Headshots; p.totalMeleeKills += facts.MeleeKills; p.totalRescues += facts.Rescues;
-            p.totalSeconds += Math.Max(0, Math.Min(facts.Seconds, 86400));
+            RecordTotals(p, facts);
 
             reward.lines = lines.ToArray();
             reward.xp = xpGain; reward.merits = totalMerits; reward.levelUpMerits = levelMerits;
             reward.levelBefore = levelBefore; reward.levelAfter = levelAfter;
             reward.pointsGained = MetaProgression.PointsForLevel(levelAfter) - MetaProgression.PointsForLevel(levelBefore);
             reward.firstTimes = first.ToArray(); reward.mastery = mastery.ToArray(); reward.challenges = done.ToArray();
+            return true;
+        }
+
+        // ------------------------------------------------------------------ lifetime records and codex
+        // The statistics and codex pages read MetaProfile.records. Until 2026-10-04 only the schema-1 file was updated at a run's
+        // end, so the profile's copy stayed as it was at migration: evacuations, wipes, the deepest stage and every codex entry
+        // never changed. The profile now records them itself, once per run id (ApplyRunReward), and takes over what the
+        // schema-1 file counted in the meantime (MergeRecords at load).
+
+        static bool ValidForRecords(RunFacts f)
+        {
+            return f != null && f.End != RunEnd.None && !double.IsNaN(f.Seconds) && !double.IsInfinity(f.Seconds) && f.Seconds >= 0;
+        }
+
+        static void RecordTotals(MetaProfile p, RunFacts facts)
+        {
+            p.totalKills += Math.Max(0, facts.Kills); p.totalHeadshots += Math.Max(0, facts.Headshots);
+            p.totalMeleeKills += Math.Max(0, facts.MeleeKills); p.totalRescues += Math.Max(0, facts.Rescues);
+            p.totalSeconds += Math.Max(0, Math.Min(facts.Seconds, 86400));
+        }
+
+        /// <summary>One finished run in the lifetime records: the outcome counters (an abandoned run is neither an evacuation nor
+        /// a wipe), the deepest stage, the personal bests, the cleared finales and the build's items for the codex.</summary>
+        static void RecordRun(MetaProfile p, RunFacts f)
+        {
+            var r = p.records;
+            if (f.End == RunEnd.Evacuated) r.runsEvacuated++; else if (f.End == RunEnd.Wiped) r.runsWiped++;
+            if (f.DeepestDepth > r.deepestDepth) r.deepestDepth = f.DeepestDepth;
+            if (f.EarnedMinor > r.mostEarnedMinor) r.mostEarnedMinor = f.EarnedMinor;
+            if (f.Kills > r.mostKills) r.mostKills = f.Kills;
+            if (f.Headshots > r.mostHeadshots) r.mostHeadshots = f.Headshots;
+            r.lastRunId = f.RunId ?? "";
+            NoteSeen(p, f.Items, null);
+            Union(ref r.clearedFinales, f.Finales, id => RogueCatalog.Encounter(id) != null);
+        }
+
+        /// <summary>Codex: items the player owned (cores, mods, tacticals, ultimates) and enemy roles met. Unknown ids are
+        /// ignored. True when something new was added.</summary>
+        public static bool NoteSeen(MetaProfile p, IList<string> items, IList<string> enemies)
+        {
+            if (p == null) return false;
+            EnsureShape(p);
+            bool changed = Union(ref p.records.seenItems, items, IsCodexItem);
+            changed |= Union(ref p.records.seenEnemies, enemies, id => RogueCatalog.Role(id) != null);
+            return changed;
+        }
+
+        /// <summary>Whether NoteSeen would add anything (so a caller can skip the copy and the save).</summary>
+        public static bool HasUnseen(MetaProfile p, IList<string> items, IList<string> enemies)
+        {
+            if (p == null || p.records == null) return false;
+            if (items != null) foreach (var id in items) if (IsCodexItem(id) && Array.IndexOf(p.records.seenItems ?? new string[0], id) < 0) return true;
+            if (enemies != null) foreach (var id in enemies) if (RogueCatalog.Role(id) != null && Array.IndexOf(p.records.seenEnemies ?? new string[0], id) < 0) return true;
+            return false;
+        }
+
+        /// <summary>The kinds the codex lists: what makes a build (stat upgrades, supplies and guns are not codex entries).</summary>
+        public static bool IsCodexItem(string id)
+        {
+            var def = RogueCatalog.Item(id);
+            return def != null && (def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod || def.Kind == ItemKind.Tactical || def.Kind == ItemKind.Ultimate);
+        }
+
+        /// <summary>Takes over what the schema-1 record file holds beyond the profile's copy: the larger of each counter and best,
+        /// and the union of the lists. Both files count the same runs, so this never adds a run twice. True when the profile changed.</summary>
+        public static bool MergeRecords(MetaProfile p, RogueMetaDocument v1)
+        {
+            if (p == null || v1 == null) return false;
+            EnsureShape(p);
+            var r = p.records; bool changed = false;
+            if (v1.runsStarted > r.runsStarted) { r.runsStarted = v1.runsStarted; changed = true; }
+            if (v1.runsEvacuated > r.runsEvacuated) { r.runsEvacuated = v1.runsEvacuated; changed = true; }
+            if (v1.runsWiped > r.runsWiped) { r.runsWiped = v1.runsWiped; changed = true; }
+            if (v1.deepestDepth > r.deepestDepth) { r.deepestDepth = v1.deepestDepth; changed = true; }
+            if (v1.mostEarnedMinor > r.mostEarnedMinor) { r.mostEarnedMinor = v1.mostEarnedMinor; changed = true; }
+            if (v1.mostKills > r.mostKills) { r.mostKills = v1.mostKills; changed = true; }
+            if (v1.mostHeadshots > r.mostHeadshots) { r.mostHeadshots = v1.mostHeadshots; changed = true; }
+            changed |= Union(ref r.seenItems, v1.seenItems, IsCodexItem);
+            changed |= Union(ref r.clearedFinales, v1.clearedFinales, id => RogueCatalog.Encounter(id) != null);
+            changed |= Union(ref r.seenEnemies, v1.seenEnemies, id => RogueCatalog.Role(id) != null);
+            return changed;
+        }
+
+        static bool Union(ref string[] target, IList<string> add, Func<string, bool> known)
+        {
+            if (add == null || add.Count == 0) return false;
+            List<string> list = null;
+            foreach (var id in add)
+            {
+                if (string.IsNullOrEmpty(id) || (known != null && !known(id))) continue;
+                if (list == null) { if (target != null && Array.IndexOf(target, id) >= 0) continue; list = new List<string>(target ?? new string[0]); }
+                else if (list.Contains(id)) continue;
+                list.Add(id);
+            }
+            if (list == null) return false;
+            target = list.ToArray();
             return true;
         }
 

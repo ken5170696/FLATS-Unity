@@ -29,6 +29,10 @@ namespace Flats.Core.Roguelike
         public long eventBudgetMinor;   // separate cap for event/emergency success rewards
         public long eventPaidMinor;
         public string[] resolvedEvents = new string[0];   // event ids already settled this encounter
+        /// <summary>Event and emergency ids of this encounter that are over, whatever the outcome (resolvedEvents only holds the ones
+        /// that paid). A client that joins later reads it from the snapshot and does not build their props again. Missing in an
+        /// older save or snapshot: read as empty (<see cref="RogueEconomy.EventFinished"/>).</summary>
+        public string[] finishedEvents = new string[0];
         public int nextInstanceId = 1;
         public List<BountySlot> slots = new List<BountySlot>();
 
@@ -162,6 +166,22 @@ namespace Flats.Core.Roguelike
             ledger.objectiveMinor = minor; ledger.objectivePaid = true;
             foreach (var m in validMembers) payout.Minor[m] = minor;
             return payout;
+        }
+
+        /// <summary>The authority settled this event or emergency (success, failure or cancellation): recorded once per encounter.</summary>
+        public static void NoteEventFinished(EncounterLedger ledger, string encounterId)
+        {
+            if (ledger == null || string.IsNullOrEmpty(encounterId) || EventFinished(ledger, encounterId)) return;
+            var finished = new List<string>(ledger.finishedEvents ?? new string[0]) { encounterId };
+            ledger.finishedEvents = finished.ToArray();
+        }
+
+        /// <summary>True when this event of the encounter is over: settled (any outcome) or paid.</summary>
+        public static bool EventFinished(EncounterLedger ledger, string encounterId)
+        {
+            if (ledger == null || string.IsNullOrEmpty(encounterId)) return false;
+            if (ledger.finishedEvents != null && Array.IndexOf(ledger.finishedEvents, encounterId) >= 0) return true;
+            return ledger.resolvedEvents != null && Array.IndexOf(ledger.resolvedEvents, encounterId) >= 0;
         }
 
         /// <summary>Event/emergency success reward: once per event id per encounter, only for events the plan contains, from the event budget.</summary>

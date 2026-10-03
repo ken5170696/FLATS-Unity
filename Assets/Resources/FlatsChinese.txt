@@ -108,7 +108,7 @@ Kill {0} enemies with shotguns	以霰彈槍擊殺 {0} 名敵人
 Enemies deal +{0}% damage.	敵人傷害 +{0}%。
 Enemies have +{0}% health.	敵人生命 +{0}%。
 Kill {0} enemies with SMGs	以衝鋒槍擊殺 {0} 名敵人
-Knocks enemies back {0} m.	將敵人擊退 {0} m。
+Knocks enemies back {0} m (elites and bosses less).	將敵人擊退 {0} m（菁英與首領較不受擊退）。
 Level {0} · +{1} skill points	等級 {0}・獲得 {1} 技能點
 Revive teammates {0} times	救起隊友 {0} 次
 Clear {0} chapter finales	完成 {0} 場章節終戰
@@ -217,7 +217,7 @@ Point blank hits knock enemies back. Falls apart at range.	貼身命中能擊退
 When you are revived: you get up with most of your health.	被救起時：恢復大部分生命。
 Hold melee to throw it; walk over it to pick it up again.	按住近戰投擲，走過武器即可撿回。
 Every revive: you and your teammate get a shield bubble.	每次救援：你與獲救隊友都得到護盾。
-Three-round bursts while you keep moving. Weak at range.	移動中三連發，遠距離威力較低。
+Every trigger pull fires a three-round burst while you keep moving. Weak at range.	每扣一次扳機就三連發，移動不受影響，但遠距離威力較低。
 Wild at first, laser-straight once you hold the trigger.	起初散亂，持續扣住扳機後彈道筆直。
 Ignores shields and hits elites harder. Slows you down.	無視護盾且對菁英傷害更高，但會減慢移速。
 Select a node to inspect its effects and prerequisites.	選取節點查看效果與前置條件。
@@ -259,7 +259,7 @@ Clear two chapter finales in one run	單局完成兩場章節終戰
 LB / RB: tabs   A: select   B: back	LB／RB 切頁・A 確認・B 返回
 Revive teammates 5 times in one run	單局救起隊友 5 次
 Rewards clean aim with free rounds.	精準瞄準可獲得免費子彈。
-Out in a heartbeat. Weak at range.	迅速拔槍，但遠距離威力較低。
+A headshot hands the round back. Weak at range.	爆頭會把那發子彈退回彈匣，但遠距離威力較低。
 Dash and shield come back sooner.	衝刺與護盾的冷卻更快結束。
 Every hit in a row swings faster.	連續命中時，出手越來越快。
 Headshots stagger. Recoil climbs.	爆頭使敵人踉蹌，連射時後座力上升。
@@ -362,7 +362,7 @@ Fresh Magazine	首發爆頭
 Guardian Angel	守護天使
 Hip Spread Mul	腰射散布倍率
 Learned skills	已學技能
-Machine Pistol	自動手槍
+Burst Pistol	三連發手槍
 Marksman Rifle	精準射手步槍
 Next milestone	下一個里程碑
 Primary weapon	主武器
@@ -1726,9 +1726,14 @@ Vitality	體力
 Firepower	火力
 +{0}% weapon damage per tier (max {1} tiers).	每階武器傷害 +{0}%（最多 {1} 階）。
 Magazine	彈匣
-+{0}% magazine capacity per tier (max {1} tiers), at least +1 round. Total magazine bonus from all sources is capped at +{2}%.	每階彈匣容量 +{0}%（最多 {1} 階），至少 +1 發。所有來源合計的彈匣加成上限為 +{2}%。
++{0}% magazine capacity per tier (max {1} tiers), at least +1 round.	每階彈匣容量 +{0}%（最多 {1} 階），至少 +1 發。
 Agility	敏捷
-+{0}% movement speed per tier (max {1} tiers). Total speed bonus from all sources is capped at +{2}%.	每階移動速度 +{0}%（最多 {1} 階）。所有來源合計的移速加成上限為 +{2}%。
++{0}% movement speed per tier (max {1} tiers).	每階移動速度 +{0}%（最多 {1} 階）。
+Regeneration	生命回復
+Regenerate {0}% of maximum health every second per tier (max {1} tiers). Not while downed.	每階每秒回復最大生命的 {0}%（最多 {1} 階）。倒地時不回復。
+Heal over time	持續回復生命
++{0}%/s	+{0}%/秒
+Regeneration T{0}	回復 {0} 階
 Precision	精準
 Headshots deal +{0}% damage. Bullets pierce enemies (up to {1}) at {2}% damage. Body shots deal x{3} damage.	爆頭傷害 +{0}%。子彈可穿透敵人（最多 {1} 名），穿透後傷害為 {2}%。身體命中傷害 x{3}。
 Assault	突擊
@@ -1748,14 +1753,14 @@ Mobility	機動
 Long Barrel	長槍管
 Headshots deal +{0}% damage.	爆頭傷害 +{0}%。
 Piercing Rounds	穿甲彈
-Bullets pierce one more enemy (maximum two).	子彈多穿透一名敵人（最多兩名）。
+Bullets pierce one more enemy (maximum {0}).	子彈多穿透一名敵人（最多 {0} 名）。
 Calm Hands	穩定雙手
 Weapon spread reduced by {0}% while aiming.	瞄準時武器散布 -{0}%。
 Close Quarters	近身
 Adrenaline	腎上腺素
 Kills heal {0}% of maximum health (at most 3 heals per second).	擊殺回復 {0}% 最大生命（每秒最多 3 次）。
 Choke	縮口
-Shotguns fire one extra pellet.	霰彈槍多射出一顆彈丸。
+Pellet shotguns fire {0} more pellets per shell at no ammunition cost (not the Slug Gun).	霰彈槍每發多射出 {0} 顆彈丸，不多耗彈藥（獨頭彈槍除外）。
 Extended Magazine	加長彈匣
 +{0}% magazine capacity.	彈匣容量 +{0}%。
 Heavy Rounds	重彈
@@ -1770,13 +1775,13 @@ Reload Burst lasts {0} s longer.	換彈爆發延長 {0} 秒。
 Rubber Rounds	橡膠彈
 Ricochets keep 100% damage.	反彈保留 100% 傷害。
 Double Bounce	二次反彈
-Bullets bounce one more time (maximum two).	子彈多反彈一次（最多兩次）。
+Bullets bounce one more time (maximum {0}).	子彈多反彈一次（最多 {0} 次）。
 Angle Finder	角度儀
 Ricochet hits mark the enemy for {0} s.	反彈命中標記敵人 {0} 秒。
 Bigger Boom	更大爆炸
-Kill explosions (Demolition): radius +{0}%.	擊殺爆炸（爆破核心）：半徑 +{0}%。
-Frag Grenades	破片手榴彈
-Grenade damage +{0}%.	手榴彈傷害 +{0}%。
+Explosion radius +{0}%: grenades, grenade-launcher rounds and kill explosions.	爆炸半徑 +{0}%：手榴彈、榴彈發射器與擊殺爆炸都適用。
+Explosive Payload	爆炸強化
+Explosion damage +{0}%: grenades, grenade-launcher rounds and kill explosions.	爆炸傷害 +{0}%：手榴彈、榴彈發射器與擊殺爆炸都適用。
 Shockwave	震波
 Kill explosions (Demolition) slow enemies by {0}% for {1} s.	擊殺爆炸（爆破核心）使敵人減速 {0}%，持續 {1} 秒。
 Spotter	觀測手
@@ -1785,12 +1790,22 @@ Bounty Hunter	賞金獵人
 Marked kills pay +{0}% bounty to the whole squad (bounded per stage).	擊殺被標記者全隊賞金 +{0}%（每關有上限）。
 Team Radio	隊伍無線電
 A teammate hitting your marked enemy charges your ultimate.	隊友命中你標記的敵人時為你的絕招充能。
-Double Dash	雙重衝刺
-Dash has two charges.	衝刺有兩次充能。
+Dash Charges	衝刺充能
+Dash holds {0} charges.	衝刺可儲存 {0} 格充能。
+Triple Jump	三段跳
+Double Jump gives {0} more jump in the air. Needs the Double Jump tactical.	二段跳在空中可再多跳 {0} 次。需要裝備戰術「二段跳」。
+Shield Boost	護盾提升
+The Shield tactical absorbs +{0}% damage and lasts {1} s longer. Needs the Shield tactical.	戰術護盾可吸收的傷害 +{0}%，持續時間延長 {1} 秒。需要裝備戰術「護盾」。
+Ultimate Cooldown	絕招冷卻
+Your ultimate charges {0}% faster. Total charge speed from all sources is capped at x{1}.	絕招充能速度 +{0}%。所有來源合計的充能速度上限為 x{1}。
+Superconductor	超導
+Chain Bullets: each hit arcs to {0} more enemies and the chain jumps {1} more time(s). Needs the Chain Bullets ultimate.	閃電連鎖子彈：每次命中多連鎖 {0} 名敵人，連鎖再多跳 {1} 次。需要裝備絕招「閃電連鎖子彈」。
+Static Mark	靜電標記
+Chain Bullets: every enemy a chain hits is marked for {0} s (marked enemies take +{1}% damage, more with the Marker core). Needs the Chain Bullets ultimate.	閃電連鎖子彈：被連鎖擊中的敵人會被標記 {0} 秒（被標記的敵人受到的傷害 +{1}%，有「標記」核心時更高）。需要裝備絕招「閃電連鎖子彈」。
 Spring Legs	彈簧腿
 Jump {0}% higher.	跳躍高度 +{0}%。
 Quick Revive	快速救援
-Revive teammates {0}% faster. Total revive speed is capped at x{1}.	救援隊友快 {0}%。救援速度合計上限為 x{1}。
+Revive teammates {0}% faster.	救援隊友快 {0}%。
 Ammo Belt	彈帶
 +{0}% reserve ammunition.	備用彈藥 +{0}%。
 Thick Skin	厚皮
@@ -1809,9 +1824,9 @@ Invincible	無敵
 Emergency Revive	緊急復甦
 At full charge: instantly revive downed or dead teammates with their build. Solo: at full charge a lethal hit is survived automatically at 50% health. It recharges and works again.	需充能全滿：立即復活倒地或死亡的隊友並保留其 Build。單人：充能全滿時，受到致命傷害會自動存活並回到 50% 生命。用過後重新充滿可以再用。
 Enemy Sight	敵人透視
-12 s: outlines of every spawned enemy within 200 m.	12 秒內顯示 200 m 內所有已生成敵人的輪廓。
+20 s: every enemy on the map is marked and outlined, also the ones that arrive meanwhile. Marked enemies take +12% damage from everyone (more with the Marker core), and mark mods work on them.	20 秒內標記並顯示全地圖所有敵人的輪廓，期間新出現的敵人也會被標記。被標記的敵人受到所有人的傷害 +12%（有「標記」核心時更高），標記類改件對這些標記同樣有效。
 Chain Bullets	閃電連鎖子彈
-12 s: hits arc to up to 3 enemies within 12 m at 50% damage. Chains do not count as headshots.	12 秒內命中會連鎖至 12 m 內最多 3 名敵人（50% 傷害）。連鎖不算爆頭。
+20 s: hits arc to up to 8 enemies within 25 m at 100% damage, then jump on 1 more time to 2 enemies each at 75%. Chains do not count as headshots.	20 秒內命中會連鎖至 25 m 內最多 8 名敵人（100% 傷害），之後每名被連鎖的敵人再跳 1 次、各連到 2 名敵人（75% 傷害）。連鎖不算爆頭。
 Homing Bullets	子彈追蹤
 12 s: bullets steer toward the most aligned visible enemy within 60 m and 15 degrees.	12 秒內子彈會朝 60 m、15 度內最對準的可見敵人轉向。
 Replace your primary weapon. Ammunition is refilled.	更換主武器，並補滿彈藥。
@@ -1821,46 +1836,51 @@ Marksman	神射手
 Shield Bearer	盾衛
 Flanker	側翼者
 Jammer	干擾者
+Bruiser	近戰兵
+Rogue Operative	傭兵
+Charges in with a random melee weapon. Watch its wind-up, then dash, jump or back away before the hit lands.	拿著隨機近戰武器衝上來。看準它的出手前搖，在打中前衝刺、跳開或後退。
+Fights like a player: strafes, takes cover to reload, dodges your aim and switches to melee up close. Its icons show its cores. High bounty.	打法像玩家：左右橫移對槍、躲進掩體換彈、閃避你的準星，貼身時改用近戰。頭上的圖示是它的核心。賞金很高。
+Marked by a Rogue Operative: enemies deal +{0}% damage to you for {1} s	被傭兵標記：{1} 秒內敵人對你造成的傷害 +{0}%
 Clear Out	清剿
 Eliminate every enemy in the area.	消滅區域內所有敵人。
 Hold the Zone	佔領區域
-Stand inside the marked zone until it is secured. More players secure it faster.	站在標記區域內直到佔領完成。人越多越快。
+Stand inside the marked zone until it is secured. More players secure it faster. Entering it draws an attack, and enemies keep coming until it is held.	站在標記區域內直到佔領完成。人越多越快。一踏進去就會引來敵人進攻，佔領完成前敵人會不斷增援。
 Deliver the Crate	運送補給箱
-Carry the supply crate to the drop point. The carrier cannot shoot.	把補給箱搬到投放點。搬運者不能開火。
+Carry the supply crate to the drop point. The carrier cannot shoot, and picking it up calls an ambush.	把補給箱搬到投放點。搬運者不能開火，而且一撿起來就會引來伏擊。
 Protect the Repair	保護修復
-Keep the repair device alive until it reaches 100%.	保護修復裝置直到進度 100%。
+Keep the repair device alive until it reaches 100%. Starting the repair calls enemies to it.	保護修復裝置直到進度 100%。一開始修理，敵人就會朝裝置殺過來。
 Break Out	突圍
 Fight to the extraction point. When everyone is inside, extraction is called: hold the zone against reinforcements until the countdown ends.	殺到撤離點。全員進入後呼叫撤離：守住撤離區抵擋增援，直到倒數結束。
 Moving Supply	移動補給
 A supply drone crosses the map. Shoot it down before it leaves to claim the crate.	補給無人機橫越地圖。在它離開前擊落以取得補給箱。
 Alarm Cache	警報寶箱
-Open the cache for a high bounty. Opening it calls a reinforcement wave.	打開寶箱獲得高額賞金。開啟會召來增援波。
+Open the cache for a high bounty. Touching it calls an ambush at once, and a reinforcement wave when it opens.	打開寶箱獲得高額賞金。一碰它就會立刻引來伏擊，開啟完成時還會再來一波增援。
 Low Gravity	低重力
 Gravity is halved in the marked area for this stage.	本關標記區域內重力減半。
 Power Reroute	供電改道
 Flip the breaker: doors change, opening a shortcut for 60 s.	切換斷路器：門路改變，開啟 60 秒捷徑。
 Repair Device	修復裝置
-An optional device can be repaired while enemies attack it. Reward on completion.	可選修復的裝置，修復時敵人會攻擊它。完成有獎勵。
+An optional device can be repaired while enemies attack it. Starting the repair calls an ambush. Reward on completion.	可選修復的裝置，修復時敵人會攻擊它。一開始修理就會引來伏擊。完成有獎勵。
 Risk Contract	風險合約
-Accept: enemies deal +25% damage this stage, bounty +40%. Decline at no cost.	接受：本關敵人傷害 +25%，賞金 +40%。拒絕無代價。
+Accept: enemies deal +25% damage this stage, bounty +40%, and a squad comes for you at once. Decline at no cost.	接受：本關敵人傷害 +25%，賞金 +40%，而且會立刻有一隊敵人衝著你來。拒絕無代價。
 Elite Hunt	菁英獵殺
-A marked elite roams the map. Killing it pays a large bounty.	一名被標記的菁英在地圖遊走。擊殺可得高額賞金。
+A marked elite roams the map with bodyguards. Killing it pays a large bounty.	一名被標記的菁英帶著護衛在地圖遊走。擊殺可得高額賞金。
 Lure Crate	誘敵箱
-A beacon crate attracts enemies while carried. Plant it to pull the wave away from an objective.	搬運時信標箱會吸引敵人。放置它把敵人引離目標。
+A beacon crate attracts enemies while carried, and picking it up calls a squad. Plant it to pull the wave away from an objective.	搬運時信標箱會吸引敵人，而且一撿起來就會引來一隊敵人。放置它把敵人引離目標。
 Gas Leak	毒霧外洩
-Activate 2 of 3 vent switches before the countdown ends or gas spreads zone by zone.	在倒數結束前啟動 3 個排風開關中的 2 個，否則毒霧逐區擴散。
+Activate 2 of 3 vent switches before the countdown ends or gas spreads zone by zone. Each switch you touch draws an ambush.	在倒數結束前啟動 3 個排風開關中的 2 個，否則毒霧逐區擴散。每碰一個開關都會引來伏擊。
 Power Outage	供電中斷
-Lights out. Restart the generator: hold the switch for 8 s while enemies close in.	燈光熄滅。重啟發電機：在敵人逼近時按住開關 8 秒。
+Lights out. Restart the generator: hold the switch for 8 s while an ambush closes in.	燈光熄滅。重啟發電機：在伏兵逼近時按住開關 8 秒。
 Mobile Bomb	移動炸彈
-A bomb is armed. Carry it to the disposal point before it explodes.	炸彈已啟動。在爆炸前把它搬到處理點。
+A bomb is armed. Carry it to the disposal point before the countdown ends, or the whole squad takes massive damage: every player on the map loses 85% of maximum health (never below 1 health). Picking it up calls an ambush.	炸彈已啟動。在倒數結束前把它搬到處理點，否則全隊受到巨大傷害：地圖上每一位玩家不管在哪裡都會失去 85% 最大生命（最多只剩 1 滴血）。一撿起來就會引來伏擊。
 Reinforcement Signal	增援信號
-A signal device is calling waves. Destroy it to stop the reinforcements.	信號裝置正在召喚敵人。摧毀它以停止增援。
+A heavily armoured signal device is calling waves. Destroy it to stop the reinforcements.	重裝甲的訊號裝置正在召喚敵人。摧毀它以停止增援。
 Commander	指揮官
-The commander is shielded while its guard lives. Kill the guard wave to expose it, then strike.	指揮官在護衛存活時受保護。殺光護衛波使其暴露，再出手。
+The commander is shielded while its guard lives. Kill the guard wave to expose it, then strike before a larger guard arrives.	指揮官在護衛存活時受保護。殺光護衛波使其暴露，趁更大批的護衛趕到前出手。
 Vault	金庫
-Three power cells must be charged in order; each charge opens a window to damage the vault core.	三個電池必須依序充能；每次充能開啟一段可攻擊金庫核心的時間。
+Three power cells must be charged in order; each charge calls an ambush and opens a window to damage the heavily armoured vault core.	三個電池必須依序充能；每次充能都會引來伏擊，並開啟一段可攻擊重裝甲金庫核心的時間。
 Convoy	護衛車隊
-An escorted carrier moves along a route. Break the escort and destroy the carrier before it reaches the exit.	受護衛的載具沿路線移動。突破護衛並在它抵達出口前摧毀。
+An escorted, heavily armoured carrier moves along a route. Break the escort and destroy the carrier before it reaches the exit. Each stop calls a relief squad.	受護衛的重裝甲載具沿路線移動。突破護衛並在它抵達出口前摧毀。它每次停下都會呼叫一隊援軍。
 Quiet Route	安靜路線
 Fewer elites, no events or emergencies. Bounty -10%.	菁英較少，沒有事件與緊急事件。賞金 -10%。
 Hot Route	熱區路線
@@ -1922,8 +1942,8 @@ Low gravity zone	低重力區
 Breaker: optional	斷路器：可選
 Power rerouted {0} s	供電改道 {0} 秒
 Power rerouted: enemy shields and jammers are down, their sight is halved.	供電改道：敵人護盾與干擾器失效，視野減半。
-Flip the breaker: for 60 s enemy shields and jammers lose power and enemies see half as far.	切換斷路器：60 秒內敵人護盾與干擾器斷電，敵人視野減半。
-Optional repair {0}%	可選修復 {0}%
+Flip the breaker: for 60 s enemy shields and jammers lose power and enemies see half as far. Flipping it draws a squad.	切換斷路器：60 秒內敵人護盾與干擾器斷電，敵人視野減半。切換時會引來一隊敵人。
+Optional repair {0}%  Device {1}%	可選修復 {0}%　裝置 {1}%
 Risk contract active	風險合約生效中
 Risk contract accepted: +25% enemy damage, +40% bounty.	已接受風險合約：敵人傷害 +25%，賞金 +40%。
 Accept	接受
@@ -1943,11 +1963,20 @@ Gas contained	毒霧已遏止
 Power outage! Restart the generator.	供電中斷！重啟發電機。
 Generator {0}/8 s  Outage {1} s	發電機 {0}/8 秒　斷電 {1} 秒
 The generator failed: bounty -25% this stage.	發電機失敗：本關賞金 -25%。
-A bomb is armed! Carry it to the disposal point.	炸彈已啟動！把它搬到處理點。
+A bomb is armed! Dispose of it in {0} s or the whole squad takes massive damage.	炸彈已啟動！{0} 秒內搬到處理點，否則全隊受到巨大傷害。
+BOMB {0} s! {1} m to disposal	炸彈剩 {0} 秒！距處理點 {1} m
+The bomb explodes in {0} s! The whole squad will take massive damage.	炸彈 {0} 秒後爆炸！全隊都會受到巨大傷害。
+The bomb exploded: the squad took heavy damage.	炸彈爆炸了：全隊受到重創。
+Ambush! Enemies are closing in.	有埋伏！敵人正在包圍過來。
+The commander is shielded again: kill the new guard!	指揮官重新獲得護盾：消滅新的護衛！
+The vault core sealed itself: charge the cells again!	金庫核心重新封閉：再把電池充能一次！
+The carrier called a relief squad!	運輸車呼叫了援軍！
+Fight off the ambush on the carrier	擊退衝著搬運者來的伏兵
+Teammates fight off the ambush	隊友負責擊退伏兵
 Bomb {0} s  {1} m to disposal	炸彈 {0} 秒　距處理點 {1} m
 Bomb disposed!	炸彈已處理！
-A signal device is calling reinforcements. Destroy it!	信號裝置正在召喚增援。摧毀它！
-Signal device: waves {0}/4	信號裝置：增援波 {0}/4
+A signal device is calling reinforcements. Destroy it!	訊號裝置正在召喚增援。摧毀它！
+Signal device: waves {0}/4	訊號裝置：增援波 {0}/4
 {0} complete!	{0} 完成！
 {0} failed.	{0} 失敗。
 Host changed: waiting for the new host...	主機更換：等待新主機…
@@ -2076,7 +2105,7 @@ This run was saved by a different version of the game and cannot be continued.	�
 The saved run is damaged and cannot be continued.	存檔已損壞，無法繼續。
 Start Run sets it aside (the file is kept) and begins a new run.	按「開始新局」會把它移到一旁（檔案保留）並開始新的一局。
 Run started: {0}	本局開始：{0}
-Health T{0}  Damage T{1}  Magazine T{2}  Speed T{3}	生命 {0} 階　傷害 {1} 階　彈匣 {2} 階　速度 {3} 階
+Health T{0}  Damage T{1}  Magazine T{2}  Speed T{3}  Regen T{4}	生命 {0} 階　傷害 {1} 階　彈匣 {2} 階　速度 {3} 階　回復 {4} 階
 You fell	你倒下了
 the chapter target	章節目標
 an enemy	敵人
@@ -2202,6 +2231,8 @@ Paused, teammate down: {0}s left ({1}%)	暫停：隊友倒地，剩 {0} 秒（{1
 Paused, all into the zone: {0}s left ({1}%)	暫停：全員進入撤離區，剩 {0} 秒（{1}%）
 Extraction called! Hold the zone for {0} s	已呼叫撤離！守住區域 {0} 秒
 No room to dash	沒有空間可衝刺
+Out of bounds! Returned to safe ground.	掉出地圖！已送回安全位置。
+Enemy	敵人
 Sprint Mode	奔跑方式
 Keyboard and mouse: hold the Sprint key, or press it once to start and again to stop. Aiming or firing ends a sprint.	鍵盤與滑鼠：按住奔跑鍵，或按一下開始、再按一下停止。開鏡或開火會結束奔跑。
 Click while moving forward to sprint. Sprint stops when you stop moving forward, aim or fire. Holding also works.	向前移動時按一下開始奔跑；停止前進、開鏡或開火時結束。按住也可以。
@@ -2245,7 +2276,7 @@ Melee (Roguelike)	近戰（Roguelike）
 Tap to swing, hold to guard or throw	點按揮擊，按住格擋或投擲
 Immune	免疫
 Shoot down the drone: {0}% health, {1} s left	擊落無人機：剩 {0}% 耐久，{1} 秒
-Destroy the signal device: {0}% health, waves {1}/4	摧毀訊號裝置：剩 {0}% 耐久，增援 {1}/4 波
+Destroy the signal device: {0}% health, waves {1}/{2}	摧毀訊號裝置：剩 {0}% 耐久，增援 {1}/{2} 波
 {0} or {1} closes   {2} or {3} switches tabs   Wallet ${4}	{0} 或 {1} 關閉　{2} 或 {3} 切換分頁　錢包 ${4}
 Picked up: {0}	已拿起：{0}
 Put down: {0}	已放下：{0}
@@ -2288,7 +2319,7 @@ Stand in the zone until it fills	站在區域內直到進度填滿
 Go to the blue capture zone	前往藍色佔領區
 Stay inside to fill the bar	待在區域內填滿進度條
 Kill enemies that enter the zone	擊殺進入區域的敵人
-Enemies inside stop it; an empty zone drains	區域內有敵人會暫停；沒人時進度會倒退
+Stepping in calls an ambush; enemies inside stop it	一踏進去就會引來伏擊；區域內有敵人會暫停
 Solo {0} s; four players only {1} s	單人 {0} 秒；四人只要 {1} 秒
 Carry the crate to the drop zone	把補給箱搬到投放區
 Pick up the supply crate	撿起補給箱
@@ -2301,7 +2332,7 @@ Go to the device	前往裝置
 Hold near it to repair	在旁邊按住修理
 Keep enemies away from it	別讓敵人靠近
 If it breaks, clear the area for half the reward	裝置被毀就改為清除區域，獎勵減半
-Solo {0} s; repairing together is faster	單人 {0} 秒；一起修更快
+Repairing calls enemies; solo it takes {0} s	修理會引來敵人；單人要修 {0} 秒
 Reach the exit, then hold it	抵達撤離點並守住
 Get the whole squad into the exit zone	讓全隊進入撤離區
 Hold the zone for {0} s	守住區域 {0} 秒
@@ -2312,30 +2343,30 @@ Kill the guards, then the commander	先殺護衛，再殺指揮官
 Kill the guard wave around it	擊殺周圍的護衛
 Its shield drops for {0} s	護盾會解除 {0} 秒
 Shoot the commander while exposed	趁暴露時射擊指揮官
-When the window ends, new guards arrive	時間一到會出現新的護衛
+When the window ends, a larger guard arrives	時間一到會出現更大批的護衛
 From window {0} on, it stays exposed	第 {0} 次起護盾不再恢復
 Charge the cells, then shoot the core	充能電池，再射擊金庫核心
 Charge the power cells in order	依序為電池充能
 Each charge exposes the core {0} s	每次充能讓核心暴露 {0} 秒
 Shoot the vault core while exposed	趁暴露時射擊金庫核心
 Firing, aiming or reloading cancels a charge	開火、瞄準或換彈會中斷充能
-One player charges while the others cover	一人充能，其他人掩護
+Each charge calls an ambush: cover the charger	每次充能都會引來伏擊：掩護充能的人
 Destroy the carrier before it escapes	在運輸車逃脫前摧毀它
 Kill the escorts near the carrier	擊殺運輸車附近的護衛
 Unescorted, it stops for {0} s	失去護衛時會停車 {0} 秒
 Shoot it while it is stopped	趁停車時攻擊
 If it reaches the exit: {0}% reward	抵達出口則只拿 {0}% 獎勵
-Escorts still on the way keep it moving	還在路上的護衛也會讓它繼續前進
+Each stop calls a relief squad to it	它每次停下都會呼叫一隊援軍
 Shoot down the supply drone	擊落補給無人機
 Find the drone marker	找到無人機標記
 Shoot it before it flies off	在它飛走前擊落
 It leaves after {0} s	{0} 秒後離開
-Everyone's damage adds up	全隊的傷害會累加
+It is armoured; shooting it calls enemies	它有裝甲；對它開火會引來敵人
 Open the cache for a big bounty	打開物資箱換取高額賞金
 Open the cache	打開物資箱
 It opens after {0} s	{0} 秒後開啟
 Then beat the reinforcements	接著擊退增援
-Opening calls enemies, including an elite	開箱會引來敵人，包含一名菁英
+Touching it calls an ambush, then an elite wave	一碰就引來伏擊，開啟後還有菁英增援
 Optional: skip it if the squad is hurt	可選：隊伍狀況差就跳過
 Use the low-gravity zone	利用低重力區
 The blue ring has half gravity	藍色圈內重力減半
@@ -2346,49 +2377,49 @@ Flip the breaker to weaken enemies	切換斷路器削弱敵人
 Enemy shields and jammers go down	敵人的護盾與干擾器失效
 Enemies see half as far	敵人視野減半
 It lasts {0} s and works once	持續 {0} 秒，只能用一次
-Flip it right before a big fight	在大戰前一刻切換
+Flipping it draws a squad: be ready	切換會引來一隊敵人：先做好準備
 Repair the side device for a bounty	修理支線裝置換取賞金
-Enemies near it can destroy it	附近的敵人會把它破壞
+Repairing calls an ambush; enemies can destroy it	修理會引來伏擊；敵人會把它破壞
 Repairing together is faster	一起修理更快
 Choose: harder enemies, bigger bounty	選擇：敵人更強、賞金更高
 Enemies deal +{0}% damage	敵人傷害 +{0}%
 Bounties pay +{0}% this stage	本關賞金 +{0}%
-It lasts until the stage ends	效果持續到本關結束
+Accepting calls a squad; it lasts all stage	接受會引來一隊敵人；效果持續整關
 Declining costs nothing	拒絕沒有任何代價
 Hunt down the marked elite	獵殺被標記的菁英
 It appears a few seconds in	開始後幾秒出現
 Follow its gold marker	跟著金色標記
 Kill it for a big bounty	擊殺可得高額賞金
-It is a marksman: it hits hard from range	它是神射手：遠距離傷害很高
+A marksman with bodyguards: it hits hard from range	帶著護衛的神射手：遠距離傷害很高
 Break line of sight, then flank it	先脫離它的視線，再繞到側面
 Plant the lure to pull enemies away	放置誘餌引開敵人
 Pick up the lure crate	撿起誘餌箱
 Carry it away from the objective	把它搬離目標
 Plant it	放置
-Enemies chase the carrier, who cannot shoot	敵人會追搬運者，而搬運者無法射擊
+Picking it up calls a squad; the carrier cannot shoot	撿起來會引來一隊敵人；搬運者無法射擊
 Planted, it draws enemies for {0} s	放置後吸引敵人 {0} 秒
 Activate 2 of the 3 vent switches	啟動 3 個通風開關中的 2 個
 Go to a vent switch	前往通風開關
 Hold it for {0} s	按住 {0} 秒
 Then do a second one	再啟動第二個
 At zero, gas spreads and hurts everyone in it	倒數歸零時毒氣擴散，區內所有人受傷
-Split up: two players, two switches	分頭行動：兩人各開一個
+Each switch calls an ambush when touched	每碰一個開關都會引來伏擊
 Restart the generator	重新啟動發電機
 Go to the generator	前往發電機
 Hold for {0} s without letting go	連續按住 {0} 秒不要放開
 After {0} s it fails: bounty -{1}%	{0} 秒後失敗：賞金 -{1}%
-Teammates cover the one holding it	隊友掩護正在操作的人
+Holding it calls an ambush: cover the holder	按住會引來伏擊：掩護操作的人
 Carry the bomb to the disposal zone	把炸彈搬到處置區
 Walk it into the green ring	搬進綠色圈
-It explodes after {0} s ({1} m blast)	{0} 秒後爆炸（半徑 {1} m）
+At zero everyone, anywhere, loses {0}% health (min 1)	倒數歸零時，全隊不管在哪都會受到巨大傷害：失去 {0}% 生命（最多只剩 1 滴血）
 The carrier cannot shoot: escort them	搬運者無法射擊：要護送
-Destroy the signal device	摧毀信號裝置
-Find the signal device	找到信號裝置
+Destroy the signal device	摧毀訊號裝置
+Find the signal device	找到訊號裝置
 Shoot it until it breaks	持續射擊直到損毀
 It calls a wave every {0} s, up to {1}	每 {0} 秒呼叫一波，最多 {1} 波
 Destroy it early to face fewer enemies	越早摧毀，敵人越少
 Low gravity	低重力
-A supply drone crosses the map. Shoot it down before it leaves for a bounty.	補給無人機正飛越地圖。在它離開前擊落即可領取賞金。
+An armoured supply drone crosses the map. Shoot it down before it leaves for a bounty. Shooting it calls enemies.	裝甲補給無人機正飛越地圖。在它離開前擊落即可領取賞金。對它開火會引來敵人。
 Floating	浮動
 Stacked	疊加
 Stacked: rapid hits on one enemy add up. Floating: one number per hit. Also shown through scopes.	疊加：連續命中同一敵人時合計成一個數字。浮動：每次命中各顯示一個。開鏡時也會顯示。
@@ -2461,8 +2492,6 @@ Legacy play time estimated ({0} min)	舊存檔遊玩時間估算（{0} 分鐘）
 Run experience limit	單局經驗上限
 Run merit safety limit	單局功績安全上限
 After a full reload: the next fired round converts its first direct hit. A miss consumes it; swapping preserves it on that weapon.	完整換彈後：下一發子彈的第一次直接命中會算成爆頭。沒打中就會消耗掉；切換武器時會保留在該武器上。
-Conditional damage skills do not add up: together they give at most the largest active stack bonus (at least +{0}%, never more than +{1}%).	條件式傷害技能不會相加：同時生效時，合計最多等於其中最大的疊層加成（至少 +{0}%，最高 +{1}%）。
-Conditional damage reduction from skills is capped at -{0}% in total.	技能的條件式減傷合計上限為 -{0}%。
 Movement speed -{0}% while in hand.	手持時移速 -{0}%。
 A headshot puts {0} rounds back into the magazine.	爆頭會補回 {0} 發子彈至彈匣。
 A kill puts {0} round back into the magazine.	擊殺會補回 {0} 發子彈至彈匣。
@@ -2516,7 +2545,7 @@ Pierce one more enemy	多穿透一人
 Tighter aim	瞄準更穩
 More damage up close	近距離更痛
 Kills heal you	擊殺回血
-One more shotgun pellet	霰彈多一顆
+More shotgun pellets	霰彈彈丸更多
 Bigger magazine	彈匣更大
 Hit harder, move slower	更痛但更慢
 Higher Suppression cap	壓制上限更高
@@ -2526,13 +2555,18 @@ Longer Reload Burst	換彈爆發更久
 Ricochets keep full damage	反彈不減傷
 One more bounce	多反彈一次
 Ricochets mark enemies	反彈命中會標記
-Bigger kill explosions	擊殺爆炸更大
-Stronger grenades	榴彈更痛
+Bigger explosions	爆炸範圍更大
+Stronger explosions	爆炸更痛
 Kill explosions slow enemies	擊殺爆炸會緩速
 Marks last longer	標記更久
 Marked kills pay more	標記擊殺賞金更多
 Marks charge your ultimate	隊友打標記幫你充能
-Dash twice	衝刺兩次
+More dash charges	更多衝刺充能
+A third jump in the air	空中再多跳一次
+A bigger, longer shield	護盾更厚、更持久
+Ultimate charges faster	絕招更快充滿
+Chains reach more enemies	連鎖打到更多敵人
+Chains mark enemies	連鎖會標記敵人
 Jump higher	跳更高
 Revive faster	救人更快
 More reserve ammo	備彈更多
@@ -2544,7 +2578,7 @@ Unlimited ammo, no reloads	無限子彈，不用換彈
 Hits kill non-boss enemies	命中即殺（首領除外）
 Take no damage	暫時無敵
 A second chance for the squad	全隊多一次機會
-See every enemy nearby	看見附近所有敵人
+Mark every enemy on the map	標記全地圖的敵人
 Hits chain to nearby enemies	命中會連鎖跳電
 Bullets seek enemies	子彈自動追蹤
 Refill ammo	補滿彈藥
@@ -2618,7 +2652,6 @@ Build tiers: health {0}, damage {1}, magazine {2}, speed {3}	屬性階級：生�
 Combat	戰鬥
 Mods {0}/{1} · Health T{2} · Damage T{3}	改件 {0}/{1} · 生命 {2} 階 · 傷害 {3} 階
 Magazine T{0} · Speed T{1}	彈匣 {0} 階 · 速度 {1} 階
-At the total cap: one more tier adds nothing	已達加成上限，再升一階也沒有效果
 HQ home	總部
 Deploy	出擊
 Fight through changing stages, alone or with friends.	獨自或與朋友並肩，挑戰變化的關卡。
@@ -2700,3 +2733,16 @@ Starting the run...	正在開始…
 Open squad	公開小隊
 New mode: Roguelike Survival.	新模式：Roguelike 生存。
 - New mode: Roguelike Survival, solo or co-op for 1-4 players.\n- Clear stages, pick upgrades, shop between stages, choose routes.\n- Headquarters: loadouts, skill tree, armory, challenges and Heat.\n- Gunplay: recoil, hit feedback, footsteps and new sounds.\n- New screens for rewards, shop, combat, overview and pause.\n\nPlatform validation: see release notes.	- 新模式：Roguelike 生存，單人或 1–4 人合作。\n- 清關、選強化、關卡之間逛商店、選路線。\n- 總部：配置、技能樹、軍械庫、挑戰與 Heat。\n- 射擊手感：後座力、命中回饋、腳步聲與新音效。\n- 獎勵、商店、戰鬥、總覽與暫停都是新畫面。\n\n平台驗證範圍請見發布說明。
+Rapid Fire	快速射擊
+Weapon fire rate +{0}%. Handguns already fire as fast as you pull the trigger (up to {1} rounds per second).	武器射速 +{0}%。手槍本來就是扣多快射多快（每秒最多 {1} 發），不受這項加成影響。
+Heavy Swing	重擊
+Melee damage +{0}% (swings and thrown weapons).	近戰傷害 +{0}%（揮擊與投擲都算）。
+Quick Swing	快速揮擊
+Melee windup and recovery take {0}% less time.	近戰揮擊的前搖與後搖時間縮短 {0}%。
+Fire faster	射得更快
+Melee hits harder	近戰更痛
+Swing faster	揮得更快
+Semi-automatic: one shot per trigger pull, up to {0} per second. Weapon swaps take {1}% less time.	半自動：扣一次扳機射一發，每秒最多 {0} 發。切槍時間縮短 {1}%。
+Semi-automatic: one {2}-round burst per trigger pull, up to {0} rounds per second. Weapon swaps take {1}% less time.	半自動：扣一次扳機 {2} 連發，每秒最多 {0} 發。切槍時間縮短 {1}%。
+Melee damage	近戰傷害
+Melee swing time	近戰揮擊時間

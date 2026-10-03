@@ -50,17 +50,15 @@ namespace Flats.Core.Roguelike
         public MeleeDef MeleeWeaponDef;
         public SightDef PrimarySightDef, SecondarySightDef;
 
-        public const double MaxAdsSpeedup = 0.4, MinSwapTimeMul = 0.3;
+        /// <summary>Safety floors only (2026-10-04: no stacking caps): a time or a spread multiplier never reaches zero.</summary>
+        public const double MinAdsTimeMul = 0.1, MinSwapTimeMul = 0.1, MinShieldCooldownMul = 0.1, MinHipSpreadMul = 0.05, MinUltimateChargeMul = 0.1;
         // rule constants of the mechanic skills (read by the adapter and by MetaText)
         public const int MaxSkillStacks = 6;
         public const double AdrenalThreshold = 0.35, AdrenalCooldown = 10, BerserkerWindow = 5, SquadLinkSoloThreshold = 0.25;
 
-        /// <summary>
-        /// Envelope of the design rule: whatever combination of conditional skills is active at once,
-        /// meta skills add at most +30% damage (six stacks), and cut incoming damage to no less
-        /// than 80%. No meta health bonus is granted. Run items (cores, mods) are separate.
-        /// </summary>
-        public const double MaxMetaDamageBonus = 0.30, MinMetaDamageTakenMul = 0.80;
+        // Owner request 2026-10-04: conditional skills have no shared envelope any more. Their damage bonuses multiply with each
+        // other and with the run items, and their damage reductions multiply down to the common floor (BuildStats.MinDamageTakenMul).
+        // MaxSkillStacks stays: it is the number of stacks Berserker and Marksman's Rhythm can hold, part of each skill's own rule.
         /// <summary>Fresh Magazine: a forced headshot never deals more than this multiple of the body shot (handgun and sniper headshot bonuses are x5).</summary>
         public const double FreshMagazineMaxMul = 2.0;
 
@@ -70,7 +68,7 @@ namespace Flats.Core.Roguelike
             public bool Shredding, OpeningShot, SquadLinked, BelowHalfHealth, HoldingLine;
         }
 
-        /// <summary>Outgoing damage multiplier of the conditional meta skills, clamped to the envelope.</summary>
+        /// <summary>Outgoing damage multiplier of the conditional meta skills: every active one multiplies in, without a cap.</summary>
         public double MetaDamageMul(MetaCombat c)
         {
             double m = 1;
@@ -79,22 +77,16 @@ namespace Flats.Core.Roguelike
             if (ShredderBonus > 0 && c.Shredding) m *= 1 + ShredderBonus;
             if (OpeningShotBonus > 0 && c.OpeningShot) m *= 1 + OpeningShotBonus;
             if (SquadLinkBonus > 0 && c.SquadLinked) m *= 1 + SquadLinkBonus;
-            // The strongest active declared bonus sets the envelope. At <=3 stacks the old
-            // 15% envelope remains; Squad Link permits 20%, six stacks permit 30%.
-            double cap = 0.15;
-            cap = Math.Max(cap, BerserkerStep * Math.Max(0, Math.Min(MaxSkillStacks, c.BerserkerStacks)));
-            cap = Math.Max(cap, RhythmStep * Math.Max(0, Math.Min(MaxSkillStacks, c.RhythmStacks)));
-            if (c.SquadLinked) cap = Math.Max(cap, SquadLinkBonus);
-            return Math.Min(1 + Math.Min(MaxMetaDamageBonus, cap), m);
+            return m;
         }
 
-        /// <summary>Incoming damage multiplier of the conditional meta skills, clamped to the envelope.</summary>
+        /// <summary>Incoming damage multiplier of the conditional meta skills; only the safety floor bounds it.</summary>
         public double MetaDamageTakenMul(MetaCombat c)
         {
             double m = 1;
             if (JuggernautReduction > 0 && c.BelowHalfHealth) m *= 1 - JuggernautReduction;
             if (HoldLineReduction > 0 && c.HoldingLine) m *= 1 - HoldLineReduction;
-            return Math.Max(MinMetaDamageTakenMul, m);
+            return Math.Max(MinDamageTakenMul, m);
         }
 
         /// <summary>Folds the meta loadout in. Called by Compute after run items and before the clamps.</summary>
@@ -113,12 +105,14 @@ namespace Flats.Core.Roguelike
 
         static void ClampMeta(BuildStats s)
         {
-            s.AdsTimeMul = Math.Max(MaxAdsSpeedup, Math.Min(2.5, s.AdsTimeMul));
-            s.SwapTimeMul = Math.Max(MinSwapTimeMul, Math.Min(2.5, s.SwapTimeMul));
-            s.UltimateChargeMul = Math.Max(0.5, Math.Min(1.5, s.UltimateChargeMul));
-            s.ShieldCooldownMul = Math.Max(0.5, Math.Min(1.5, s.ShieldCooldownMul));
-            s.MeleeDamageMul = Math.Max(0.5, Math.Min(2.0, s.MeleeDamageMul));
-            s.HipSpreadMul = Math.Max(0.4, Math.Min(2.0, s.HipSpreadMul));
+            // floors only: no bonus is capped here, except the ultimate charge speed (the one total cap the owner asked for)
+            s.AdsTimeMul = Math.Max(MinAdsTimeMul, s.AdsTimeMul);
+            s.SwapTimeMul = Math.Max(MinSwapTimeMul, s.SwapTimeMul);
+            s.UltimateChargeMul = Math.Max(MinUltimateChargeMul, Math.Min(MaxUltimateChargeMul, s.UltimateChargeMul));
+            s.ShieldCooldownMul = Math.Max(MinShieldCooldownMul, s.ShieldCooldownMul);
+            s.MeleeDamageMul = Math.Max(0.5, s.MeleeDamageMul);
+            ClampWeapons(s);   // BuildStats.Weapons.cs: fire rate, melee swing time, extra pellets
+            s.HipSpreadMul = Math.Max(MinHipSpreadMul, s.HipSpreadMul);
             s.ReviveHealthFraction = Math.Max(0.1, Math.Min(1.0, s.ReviveHealthFraction));
         }
 

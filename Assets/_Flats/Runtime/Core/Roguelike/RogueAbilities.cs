@@ -30,15 +30,27 @@ namespace Flats.Core.Roguelike
         public double CooldownSeconds { get; private set; }
         public int MaxCharges { get; private set; }
         public const double ShieldCapacity = 900, ShieldDurationSeconds = 10;
+        /// <summary>Most dash charges a runtime holds (Dash Charges tier 3 gives 4; the bound only guards the HUD's pip row).</summary>
+        public const int MaxDashCharges = 8;
+        /// <summary>The tactical shield's points and seconds for a build (Shield Boost raises both); the adapter raises the shield with these.</summary>
+        public static double ShieldPointsFor(BuildStats stats) { return ShieldCapacity * (stats == null ? 1 : Math.Max(1, stats.ShieldCapacityMul)); }
+        public static double ShieldSecondsFor(BuildStats stats) { return ShieldDurationSeconds + (stats == null ? 0 : Math.Max(0, stats.ShieldExtraSeconds)); }
+        /// <summary>Jumps in the air between two landings: one for Double Jump plus the build's extra ones (Triple Jump).</summary>
+        public int MaxAirJumps { get; private set; }
+        public double ShieldPoints { get; private set; }
+        public double ShieldSeconds { get; private set; }
         private readonly List<double> recharge = new List<double>();
         private double shield, shieldUntil, observedNow;
-        private bool secondJumpUsed, committing;
+        private int airJumpsUsed;
+        private bool committing;
         private double lastDash = double.NegativeInfinity;
         public TacticalRuntime(string id, BuildStats stats = null)
         {
             var item = RogueCatalog.Item(id); if (item == null || item.Kind != ItemKind.Tactical) throw new ArgumentException("tactical id");
             Id = id; stats = stats ?? new BuildStats();
-            MaxCharges = id == "tactical.dash" ? Math.Max(1, Math.Min(2, stats.DashCharges)) : 1;
+            MaxCharges = id == "tactical.dash" ? Math.Max(1, Math.Min(MaxDashCharges, stats.DashCharges)) : 1;
+            MaxAirJumps = id == "tactical.doublejump" ? 1 + Math.Max(0, stats.ExtraAirJumps) : 0;
+            ShieldPoints = ShieldPointsFor(stats); ShieldSeconds = ShieldSecondsFor(stats);
             CooldownSeconds = id == "tactical.dash" ? RogueCatalog.DashCooldownSeconds * RogueStateBag.Positive(stats.DashCooldownMul) : id == "tactical.shield" ? RogueCatalog.ShieldCooldownSeconds * RogueStateBag.Positive(stats.ShieldCooldownMul) : 0;
         }
         public void Tick(double now) { RogueStateBag.NonNegative(now); if (now < observedNow) throw new ArgumentOutOfRangeException("now", "時間不可倒退"); observedNow = now; recharge.RemoveAll(t => t <= now); if (now >= shieldUntil) shield = 0; }
@@ -65,15 +77,17 @@ namespace Flats.Core.Roguelike
             if (!started) return false;
             recharge.Add((recharge.Count == 0 ? now : recharge[recharge.Count - 1]) + CooldownSeconds);
             if (Id == "tactical.dash") lastDash = now;
-            if (Id == "tactical.shield") { shield = ShieldCapacity; shieldUntil = now + ShieldDurationSeconds; }
+            if (Id == "tactical.shield") { shield = ShieldPoints; shieldUntil = now + ShieldSeconds; }
             return true;
         }
         // 適配器每幀先 Tick(now)，或直接使用帶 now 的 overload，過期護盾不再吸收。
         public double Absorb(double damage) { RogueStateBag.NonNegative(damage); double absorbed = Math.Min(shield, damage); shield -= absorbed; return damage - absorbed; }
         public double Absorb(double damage, double now) { Tick(now); return Absorb(damage); }
         public double ShieldRemaining { get { return shield; } }
-        public bool OnJumpPressed(bool grounded) { if (grounded) { secondJumpUsed = false; return false; } if (Id != "tactical.doublejump" || secondJumpUsed) return false; secondJumpUsed = true; return true; }
-        public void Reset() { secondJumpUsed = false; shield = 0; shieldUntil = 0; }
+        /// <summary>A jump press: on the ground it resets the count; in the air it is a jump while one of MaxAirJumps is left.</summary>
+        public bool OnJumpPressed(bool grounded) { if (grounded) { airJumpsUsed = 0; return false; } if (Id != "tactical.doublejump" || airJumpsUsed >= MaxAirJumps) return false; airJumpsUsed++; return true; }
+        public int AirJumpsLeft { get { return Math.Max(0, MaxAirJumps - airJumpsUsed); } }
+        public void Reset() { airJumpsUsed = 0; shield = 0; shieldUntil = 0; }
         public void Cancel() { Reset(); }
     }
 
@@ -161,14 +175,33 @@ namespace Flats.Core.Roguelike
     }
     public sealed class EffectChainRules
     {
-        public const int MaxDepth = 2, MaxChainInFlightPerPlayer = 6, MaxExplosionsPerSecond = 4;
+        // MaxDepth follows the most pierces / bounces a build can reach (RogueCatalog.MaxPierce / MaxBounces: core tier 7+ gives three, the mod one more)
+        public const int MaxDepth = 4, MaxChainInFlightPerPlayer = 16, MaxExplosionsPerSecond = 4;
         public const int MaxHomingInFlightPerPlayer = 32, MaxRicochetInFlightPerPlayer = 32, MaxPenetrateInFlightPerPlayer = 32;
-        public const double ChainDamageFraction = .5;
+        /// <summary>Chain Bullets (2026-10-04): the first arcs carry the full damage of the hit; every further jump keeps RogueCatalog.ChainJumpFalloff.</summary>
+        public const double ChainDamageFraction = 1;
+        /// <summary>Performance bound of Chain Bullets: chained hits (damage and one arc effect each) one player may cause in any second.
+        /// A fast weapon in a crowd reaches it; the hits beyond it are simply not chained. A performance and network bound (each
+        /// chained hit is one hit report to the host in co-op), not a balance value.</summary>
+        public const int MaxChainHitsPerSecond = 40;
         private readonly int penetrate, ricochet;
         private readonly Dictionary<string, HashSet<string>> hits = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
         private readonly Dictionary<string, int> inFlight = new Dictionary<string, int>(StringComparer.Ordinal);
         private readonly Dictionary<string, Queue<double>> explosions = new Dictionary<string, Queue<double>>(StringComparer.Ordinal);
-        public EffectChainRules(BuildStats stats = null) { stats = stats ?? new BuildStats(); penetrate = Math.Max(0, Math.Min(2, stats.PenetrateDepth)); ricochet = Math.Max(0, Math.Min(2, stats.RicochetBounces)); }
+        private readonly Dictionary<string, Queue<double>> chainHits = new Dictionary<string, Queue<double>>(StringComparer.Ordinal);
+        public EffectChainRules(BuildStats stats = null) { stats = stats ?? new BuildStats(); penetrate = Math.Max(0, Math.Min(RogueCatalog.MaxPierce, stats.PenetrateDepth)); ricochet = Math.Max(0, Math.Min(RogueCatalog.MaxBounces, stats.RicochetBounces)); }
+
+        /// <summary>Damage share of a chained hit at <paramref name="jump"/> (1 = the arcs leaving the enemy the bullet hit).</summary>
+        public static double ChainJumpFraction(int jump) { return ChainDamageFraction * Math.Pow(RogueCatalog.ChainJumpFalloff, Math.Max(0, jump - 1)); }
+
+        /// <summary>Takes one chained hit from the player's per-second budget; false when the budget of this second is spent.</summary>
+        public bool TryTakeChainHit(string sourceKey, double now)
+        {
+            RogueStateBag.NonNegative(now); if (string.IsNullOrEmpty(sourceKey)) throw new ArgumentException("sourceKey");
+            Queue<double> times; if (!chainHits.TryGetValue(sourceKey, out times)) chainHits[sourceKey] = times = new Queue<double>();
+            while (times.Count > 0 && (times.Peek() <= now - 1 || times.Peek() > now)) times.Dequeue();   // older than a second, or from a clock that restarted
+            if (times.Count >= MaxChainHitsPerSecond) return false; times.Enqueue(now); return true;
+        }
         // kind/depth 描述「預計產生」的傷害。source overload 再套用來源不可自我連鎖規則。
         public bool CanTrigger(DamageKind kind, int depth)
         {
@@ -184,13 +217,14 @@ namespace Flats.Core.Roguelike
         public static string[] ChainTargets(IEnumerable<ChainCandidate> candidates, ISet<string> alreadyHit = null, int maxTargets = RogueCatalog.ChainMaxTargets, double maxDistance = RogueCatalog.ChainRange)
         {
             if (candidates == null) throw new ArgumentNullException("candidates"); RogueStateBag.NonNegative(maxDistance);
-            return candidates.Where(c => c.Visible && !string.IsNullOrEmpty(c.Id) && !double.IsNaN(c.Distance) && c.Distance >= 0 && c.Distance <= maxDistance && (alreadyHit == null || !alreadyHit.Contains(c.Id))).OrderBy(c => c.Distance).ThenBy(c => c.Id, StringComparer.Ordinal).Select(c => c.Id).Distinct().Take(Math.Max(0, Math.Min(RogueCatalog.ChainMaxTargets, maxTargets))).ToArray();
+            return candidates.Where(c => c.Visible && !string.IsNullOrEmpty(c.Id) && !double.IsNaN(c.Distance) && c.Distance >= 0 && c.Distance <= maxDistance && (alreadyHit == null || !alreadyHit.Contains(c.Id))).OrderBy(c => c.Distance).ThenBy(c => c.Id, StringComparer.Ordinal).Select(c => c.Id).Distinct().Take(Math.Max(0, Math.Min(RogueCatalog.ChainTargetsCap, maxTargets))).ToArray();   // ChainTargetsCap: the base targets plus the most a mod adds
         }
         public static bool HomingSteer(double currentDirDot, double maxAngleDeg = RogueCatalog.HomingAngleDegrees) { if (double.IsNaN(currentDirDot) || double.IsInfinity(currentDirDot) || currentDirDot < -1 || currentDirDot > 1 || double.IsNaN(maxAngleDeg) || maxAngleDeg < 0 || maxAngleDeg > 180) return false; return currentDirDot + 1e-12 >= Math.Cos(maxAngleDeg * Math.PI / 180); }
         private static string ShotKey(DamageContext c) { if (string.IsNullOrEmpty(c.sourceKey) || string.IsNullOrEmpty(c.rootShotId)) throw new ArgumentException("source/rootShotId"); return c.sourceKey.Length + ":" + c.sourceKey + c.rootShotId; }
         public bool TryRegisterDerivedHit(DamageContext context, string targetId)
         {
             if (context.kind == DamageKind.Direct || !CanTrigger(context.kind, context.depth) || string.IsNullOrEmpty(targetId)) return false;
+            if (hits.Count > 256) hits.Clear();   // one entry per round that chained; nothing releases them, so a long fight must not grow the table forever
             string key = ShotKey(context); HashSet<string> targets; if (!hits.TryGetValue(key, out targets)) hits[key] = targets = new HashSet<string>(StringComparer.Ordinal);
             return targets.Add(targetId);
         }
@@ -205,11 +239,11 @@ namespace Flats.Core.Roguelike
             while (times.Count > 0 && times.Peek() <= now - 1) times.Dequeue();
             if (times.Count >= MaxExplosionsPerSecond) return false; times.Enqueue(now); return true;
         }
-        public void Clear() { hits.Clear(); inFlight.Clear(); explosions.Clear(); }
+        public void Clear() { hits.Clear(); inFlight.Clear(); explosions.Clear(); chainHits.Clear(); }
     }
     public static class TriggerCoefficients
     {
-        public const double ShotgunPellet = .35, PenetrateSecondTarget = .6, Ricochet = .8, RubberRicochet = 1, Explosion = .4, Chain = .5;
+        public const double ShotgunPellet = .35, PenetrateSecondTarget = .6, Ricochet = .8, RubberRicochet = 1, Explosion = .4, Chain = EffectChainRules.ChainDamageFraction;
         public static double For(DamageKind kind, bool shotgunPellet = false, bool rubberRicochet = false) { double coefficient; switch (kind) { case DamageKind.Penetrate: coefficient = PenetrateSecondTarget; break; case DamageKind.Ricochet: coefficient = rubberRicochet ? RubberRicochet : Ricochet; break; case DamageKind.Explosion: coefficient = Explosion; break; case DamageKind.Chain: coefficient = Chain; break; default: coefficient = 1; break; } return coefficient * (shotgunPellet ? ShotgunPellet : 1); }
     }
 }

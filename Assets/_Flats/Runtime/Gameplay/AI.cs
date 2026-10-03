@@ -123,6 +123,20 @@ public class AI : MonoBehaviour
 	[System.NonSerialized] public int rogueRole = -1;
 	[System.NonSerialized] public int rogueInstance;
 	[System.NonSerialized] public int rogueElite;
+	// Roguelike enemies with their own brain (RogueEnemyMelee, RogueEnemyOperative), set on the authority: rogueHoldFire keeps the
+	// attack loop from starting a burst (a brawler never fires; an operative fires after its reaction time and between pauses),
+	// rogueOwnsMovement stops the legacy "back off to a waypoint" step from replacing the brain's destination every frame, and
+	// rogueAimOffset shifts every round of a burst (same units as the spread: sideways and up, per 1500 forward).
+	[System.NonSerialized] public bool rogueHoldFire;
+	[System.NonSerialized] public bool rogueOwnsMovement;
+	[System.NonSerialized] public Vector2 rogueAimOffset;
+	/// <summary>The aim offset on the copy that decides the shot; the other copies receive it inside the RogueShoot aim error.</summary>
+	private Vector2 RogueAimShift { get { return RoguelikeMode.Active && Menu.isMaster() ? rogueAimOffset : Vector2.zero; } }
+	private Quaternion RogueAimShiftRotation()
+	{
+		Vector2 shift = RogueAimShift;
+		return Quaternion.Euler(-Mathf.Atan2(shift.y, 1500f) * Mathf.Rad2Deg, Mathf.Atan2(shift.x, 1500f) * Mathf.Rad2Deg, 0f);
+	}
 
 	// Attack and Search reach every copy as RPCs, and Photon starts an RPC's IEnumerator with StartCoroutine(IEnumerator), which
 	// StopCoroutine("Attack") cannot stop (X004): the loops stacked and fired extra shots. They are owned here by handle instead;
@@ -842,7 +856,7 @@ public class AI : MonoBehaviour
 								attackRestartAt = Time.time + 1f;
 								BeginAttack();
 							}
-							if (Vector3.Distance(targets[0].position, mt.position) < runAwayDistance)
+							if (!rogueOwnsMovement && Vector3.Distance(targets[0].position, mt.position) < runAwayDistance)
 							{
 								closest = null;
 								Transform[] array3 = points;
@@ -1171,7 +1185,7 @@ public class AI : MonoBehaviour
             if (RoguelikeMode.Active && RogueEnemyStatus.Stunned(this)) { yield return null; continue; }
 			if (Menu.isMaster())
 			{
-				if (canShoot && enableFire && targets.Count > 0 && IsValidTarget(targets[0]))
+				if (canShoot && enableFire && !rogueHoldFire && targets.Count > 0 && IsValidTarget(targets[0]))
 				{
 					if (Menu.network == 0)
 					{
@@ -1184,7 +1198,7 @@ public class AI : MonoBehaviour
 						// lagged replicated rotation, so the host was hit accurately while other players were missed)
 						// with the master's current aim error relative to that target, so every client misses and hits alike
 						var aimView = RoguelikeMode.Coop ? targets[0].GetComponent<PhotonView>() : null;
-						if (aimView != null) base.gameObject.GetPhotonView().RPC("RogueShoot", PhotonTargets.All, aimView.viewID, (Quaternion.Inverse(RogueExactAim(targets[0].position)) * ct.rotation).eulerAngles);
+						if (aimView != null) base.gameObject.GetPhotonView().RPC("RogueShoot", PhotonTargets.All, aimView.viewID, (Quaternion.Inverse(RogueExactAim(targets[0].position)) * ct.rotation * RogueAimShiftRotation()).eulerAngles);
 						else base.gameObject.GetPhotonView().RPC("Shoot", PhotonTargets.All);
 					}
 				}
@@ -1207,7 +1221,10 @@ public class AI : MonoBehaviour
 		tt = trailTime;
 		canShoot = false;
 		inSight = false;
-		if (agent.isActiveAndEnabled && Menu.isMaster() && targets.Count > 0)
+		// an enemy whose own brain steers it (RogueEnemyMelee, RogueEnemyOperative) or that walks to a vantage (RogueEnemyTactics) is
+		// not sent to the target's live position on entry either: this pulled a lurking brawler and an operative in cover to the
+		// player's feet every time the search began
+		if (agent.isActiveAndEnabled && Menu.isMaster() && targets.Count > 0 && !rogueOwnsMovement && !rogueVantage)
 		{
 			StartCoroutine("SetDestination", targets[0].position);
 		}
@@ -1223,18 +1240,27 @@ public class AI : MonoBehaviour
 				// Roguelike (A04): the destination was set once, on entry, so the enemy walked to where the target had been and waited
 				// there for the timeout. Follow the live target, once per pass (about a second). An enemy on a link is left alone: its
 				// crossing belongs to RogueEnemyLinkTraversal.
-				if (RoguelikeMode.Active && !rogueVantage && IsValidTarget(targets[0]) && agent.isActiveAndEnabled && agent.isOnNavMesh && !agent.isOnOffMeshLink)
+				if (RoguelikeMode.Active && !rogueVantage && !rogueOwnsMovement && IsValidTarget(targets[0]) && agent.isActiveAndEnabled && agent.isOnNavMesh && !agent.isOnOffMeshLink)
 				{
 					SetDestination(targets[0].position);
 				}
-				agent.speed = defaultSpeed * 1.5f;
-				tt -= 1f;
+				// its own brain sets the speed of each of its states, and decides how long it keeps after a target it cannot see
+				// (a brawler lurking under a rooftop): the search neither speeds it up nor sends it back to its patrol route
+				if (rogueOwnsMovement)
+				{
+					tt = trailTime;
+				}
+				else
+				{
+					agent.speed = defaultSpeed * 1.5f;
+					tt -= 1f;
+				}
 				Vector3 dir = mt.forward - mt.up * 0.2f;
 				Quaternion camRot = Quaternion.LookRotation(dir);
 				camRot.eulerAngles = new Vector3(camRot.eulerAngles.x + 1f, camRot.eulerAngles.y, camRot.eulerAngles.z);
 				ct.rotation = Quaternion.Slerp(ct.rotation, camRot, Time.deltaTime * 15f);
 				yield return new WaitForSeconds(1f);
-				if (tt <= 0f)
+				if (tt <= 0f && !rogueOwnsMovement)
 				{
 					closest = null;
 					Transform[] array = points;
@@ -1421,6 +1447,7 @@ public class AI : MonoBehaviour
 				AimAtRogueTarget();
 				float x = RogueSpreadSample();
 				float y = RogueSpreadSample();
+				x += RogueAimShift.x; y += RogueAimShift.y;
 				Vector3 velocity = ((currentGun.id != 15) ? ct.TransformDirection(x, y, 1500f) : ct.TransformDirection(x, y, 800f));
 				Rigidbody rigidbody = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 				Bullet component = rigidbody.GetComponent<Bullet>();
@@ -1482,7 +1509,7 @@ public class AI : MonoBehaviour
 			AimAtRogueTarget();
 			float ram1 = RogueSpreadSample();
 			float ram2 = RogueSpreadSample();
-			Vector3 dir = ct.TransformDirection(ram1, ram2, 1500f);
+			Vector3 dir = ct.TransformDirection(ram1 + RogueAimShift.x, ram2 + RogueAimShift.y, 1500f);
 			Rigidbody b = UnityEngine.Object.Instantiate(bullet, ct.position + ct.forward, ct.rotation) as Rigidbody;
 			Bullet bb = b.GetComponent<Bullet>();
 			bb.shooter = mt;
@@ -1638,7 +1665,7 @@ public class AI : MonoBehaviour
 			{
 				CreateList();
 			}
-			if (targets.Count > 0 && Menu.gameState == "Singleplayer" && Singleplayer.enemy <= 2 && !lessEnemy)
+			if (targets.Count > 0 && Menu.gameState == "Singleplayer" && Singleplayer.enemy <= 2 && !lessEnemy && !rogueOwnsMovement)
 			{
 				StartCoroutine("SetDestination", targets[0].position);
 				lessEnemy = true;

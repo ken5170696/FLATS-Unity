@@ -169,6 +169,9 @@ namespace Flats.Core.Roguelike
             f.Objectives = Math.Max(f.Objectives, run.totalObjectives);
             f.Events = Math.Max(f.Events, run.totalEvents);
             f.FinalesCleared = Math.Max(f.FinalesCleared, run.totalFinales);
+            var finales = new List<string>();
+            foreach (var h in run.history ?? new EncounterHistory[0]) if (!string.IsNullOrEmpty(h.finaleId) && !finales.Contains(h.finaleId)) finales.Add(h.finaleId);
+            f.Finales = finales.ToArray();
             int players = 0; foreach (var p in run.players) if (p.connected) players++;
             f.Players = Math.Max(1, players);
             if (me != null)
@@ -178,6 +181,16 @@ namespace Flats.Core.Roguelike
                 f.Primary = me.build != null && me.build.meta != null ? me.build.meta.primary : "";
                 f.Secondary = me.build != null && me.build.meta != null ? me.build.meta.secondary : "";
                 f.Melee = me.build != null && me.build.meta != null ? me.build.meta.melee : "";
+                f.EarnedMinor = me.earnedMinor;
+                if (me.build != null)
+                {
+                    var items = new List<string>();
+                    foreach (var id in me.build.cores ?? new string[0]) if (!string.IsNullOrEmpty(id) && !items.Contains(id)) items.Add(id);
+                    foreach (var id in me.build.mods ?? new string[0]) if (!string.IsNullOrEmpty(id) && !items.Contains(id)) items.Add(id);
+                    if (!string.IsNullOrEmpty(me.build.tactical)) items.Add(me.build.tactical);
+                    if (!string.IsNullOrEmpty(me.build.ultimate)) items.Add(me.build.ultimate);
+                    f.Items = items.ToArray();
+                }
             }
             f.MeleeKills = Math.Max(0, Math.Min(meleeKills, f.Kills));
             f.WeaponKills = ClampKills(weaponKills, f.Kills);

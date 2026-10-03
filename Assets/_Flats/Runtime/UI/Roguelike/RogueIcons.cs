@@ -104,6 +104,10 @@ public class RogueIcons : MonoBehaviour
             case "stat.damage": return "Fire";
             case "stat.magazine": return "Ammo";
             case "stat.speed": return "Jump";
+            case "stat.regen": return "Plus";         // the medical cross: health coming back over time
+            case "mod.rapid_fire": return "Fire";      // agent-b 2026-10-04: fire rate
+            case "mod.heavy_swing": return "Skull";      // melee damage
+            case "mod.quick_swing": return "Dash";      // melee speed
         }
         if (def.Kind == Flats.Core.Roguelike.ItemKind.Ultimate) { WarnOnce("FLATS_ROGUE_ICON no icon mapped for ultimate '" + def.Id + "'; using the generic Ultimate icon"); return "Ultimate"; }
         if (def.Kind == Flats.Core.Roguelike.ItemKind.Tactical) { WarnOnce("FLATS_ROGUE_ICON no icon mapped for tactical '" + def.Id + "'; using the generic Dash icon"); return "Dash"; }

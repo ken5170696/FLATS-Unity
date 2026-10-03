@@ -384,12 +384,21 @@ public class RogueMetaHub : MonoBehaviour
             string pick = id; var w = RogueArmory.Weapon(id); var m = RogueArmory.MeleeWeapon(id);
             bool owned = Profile.Owns(id), equipped = IsEquipped(id), afford = Profile.merits >= RogueArmory.PriceOf(id);
             string state = RogueMetaUI.T(equipped ? "Equipped" : owned ? "Owned" : afford ? "Available to purchase" : "Not enough merits");
+            // One owned sight can sit on both weapons (owner feedback 2026-10-04). The card used to lock as "Equipped" as soon as either
+            // weapon carried it, so it could never be put on the other one. A sight's card now says which weapons carry it and stays
+            // usable until both do; MetaProfiles.Equip never made the two slots exclusive.
+            bool sightCard = RogueArmory.Sight(id) != null;
+            bool onPrimary = sightCard && Profile.Active.primarySight == id, onSecondary = sightCard && Profile.Active.secondarySight == id;
+            bool sightFree = sightCard && owned && !(onPrimary && onSecondary);
+            if (sightCard && equipped)
+                state = RogueMetaUI.T("Equipped") + " · " + (onPrimary && onSecondary ? RogueMetaUI.T("Primary weapon") + " + " + RogueMetaUI.T("Secondary weapon") : RogueMetaUI.T(onPrimary ? "Primary weapon" : "Secondary weapon"));
             if(!owned&&!afford)state=string.Format(RogueMetaUI.T("{0} Merits short"),RogueArmory.PriceOf(id)-Profile.merits);
             int tier = MetaProfiles.MasteryTier(Profile, id);
             if (tier >= 0) state += " · " + RogueMetaUI.T(MetaProfiles.MasteryNames[tier]);
             var card = Card(2, index++);
             card.Bind(id, MetaProfiles.ArmoryName(id), w != null ? w.Flavor : m != null ? m.Flavor : "Sight", Trait(id), Drawback(id), state, owned ? "" : RogueMetaUI.L(MetaText.Price(id)), RogueMetaUI.Icon(id), () => ArmoryDetails(pick), equipped ? 3 : owned ? 2 : afford ? 1 : 0);
-            card.SetAction(!owned&&!afford?state:equipped?"Equipped":owned?"Equip":"Unlock weapon",!owned&&!afford||equipped?null:(Action)(()=>ArmoryDetails(pick)));
+            if (sightFree) card.SetAction("Equip", () => ArmoryDetails(pick));   // carried by one weapon at most: it can still go on the other
+            else card.SetAction(!owned&&!afford?state:equipped?"Equipped":owned?"Equip":"Unlock weapon",!owned&&!afford||equipped?null:(Action)(()=>ArmoryDetails(pick)));
             if (w != null) card.SetBars(RogueArmory.Bars(w)); else if (m != null) card.SetBars(RogueArmory.Bars(m));
             if (tier >= 0) { card.badge.sprite = medal; card.badge.enabled = true; }
         }
@@ -477,13 +486,20 @@ public class RogueMetaHub : MonoBehaviour
         long[] values = { Profile.totalRuns, Profile.records.runsEvacuated, Profile.records.runsWiped, Profile.records.deepestDepth, Profile.totalKills, Profile.totalHeadshots, Profile.totalMeleeKills, Profile.totalRescues };
         for (int j = 0; j < titles.Length; j++) Card(5, i++).Bind(titles[j], titles[j], "Lifetime record", "", "", "", RogueMetaUI.L(MetaText.Value("{0}", values[j])), RogueIcons.Get("List"), null);
         Card(5, i++).Bind("time", "Play time", "Lifetime record", "", "", "", ((long)Profile.totalSeconds/3600).ToString("00")+":"+TimeSpan.FromSeconds(Profile.totalSeconds).ToString(@"mm\:ss"), RogueIcons.Get("Timer"), null);
-        foreach(var kind in new[]{ItemKind.Core,ItemKind.Mod,ItemKind.Ultimate}){
+        // every list comes from the catalogue, so new cores, mods, tacticals, ultimates and enemy roles appear here by themselves
+        foreach(var kind in new[]{ItemKind.Core,ItemKind.Mod,ItemKind.Tactical,ItemKind.Ultimate}){
             var entries=RogueCatalog.AllItems().Where(x=>x.Kind==kind).ToArray();int discovered=entries.Count(x=>Array.IndexOf(Profile.records.seenItems,x.Id)>=0);
             Card(5,i++).Bind("section."+kind,kind==ItemKind.Mod?"Mods":kind.ToString(),"", "", "", "",RogueMetaUI.T("Discovered")+" "+discovered+" / "+entries.Length,null,null);
-            foreach(var def in entries){bool seen=Array.IndexOf(Profile.records.seenItems,def.Id)>=0;var c=Card(5,i++);c.Bind(def.Id,seen?def.Name:"Undiscovered",def.Kind.ToString(),"","",seen?"Discovered":"Not seen yet","",seen?RogueIcons.Get(RogueIcons.ForItem(def)):null,null,seen?3:0);c.SetCodex(seen,kind==ItemKind.Core?FlatsUiTheme.Token.Core:kind==ItemKind.Mod?FlatsUiTheme.Token.Mod:FlatsUiTheme.Token.Ultimate);}
+            foreach(var def in entries){bool seen=Array.IndexOf(Profile.records.seenItems,def.Id)>=0;var c=Card(5,i++);c.Bind(def.Id,seen?def.Name:"Undiscovered",def.Kind.ToString(),"","",seen?"Discovered":"Not seen yet","",seen?RogueIcons.Get(RogueIcons.ForItem(def)):null,null,seen?3:0);c.SetCodex(seen,kind==ItemKind.Core?FlatsUiTheme.Token.Core:kind==ItemKind.Mod?FlatsUiTheme.Token.Mod:kind==ItemKind.Tactical?FlatsUiTheme.Token.Tactical:FlatsUiTheme.Token.Ultimate);}
+        }
+        {
+            // enemy roles met in a run (recorded when a role first appears on the field); the card's good line is how to fight it
+            var roles=RogueCatalog.EnemyRoles;var met=Profile.records.seenEnemies??new string[0];int known=roles.Count(x=>Array.IndexOf(met,x.Id)>=0);
+            Card(5,i++).Bind("section.enemies","Enemies","","","","",RogueMetaUI.T("Discovered")+" "+known+" / "+roles.Length,null,null);
+            foreach(var role in roles){bool seen=Array.IndexOf(met,role.Id)>=0;var c=Card(5,i++);c.Bind(role.Id,seen?role.Name:"Undiscovered","Enemy",seen?role.Brief:"","",seen?"Discovered":"Not seen yet","",seen?RogueIcons.Get(role.Marker):null,null,seen?3:0);c.SetCodex(seen,FlatsUiTheme.Token.Weapon);}
         }
         if (Profile.records.clearedFinales.Length > 0) Card(5, i++).Bind("section.finales", "Cleared finales", "", "", "", "", Profile.records.clearedFinales.Length.ToString(), null, null);
-        foreach (var id in Profile.records.clearedFinales) Card(5, i++).Bind(id, id, "Cleared finale", "", "", "Completed", "", RogueIcons.Get("Check"), null, 3);
+        foreach (var id in Profile.records.clearedFinales) { var finale = RogueCatalog.Encounter(id); Card(5, i++).Bind(id, finale != null ? finale.Name : id, "Cleared finale", "", "", "Completed", "", RogueIcons.Get("Check"), null, 3); }
         content[5].GetComponent<RogueMetaLayout>().Invalidate();
     }
     static readonly string[] tutorialKeys = { "hub", "points", "unlock" };

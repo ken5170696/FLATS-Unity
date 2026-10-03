@@ -261,7 +261,17 @@ public class Multiplayer : MonoBehaviour
 		}
 		else if (Menu.network != 1)
 		{
-			PhotonNetwork.Instantiate("Flatman", spawnPoint, Quaternion.identity, 0, null);
+			// Roguelike: the controller may already have created this scene's local character (the wait above took too long);
+			// otherwise spawn it and tell the controller at once. Classic modes: unchanged.
+			if (!RoguelikeMode.Active)
+			{
+				PhotonNetwork.Instantiate("Flatman", spawnPoint, Quaternion.identity, 0, null);
+			}
+			else if (!RoguelikeController.LocalSpawnedThisScene && RoguelikeController.FindLocalPlayer() == null)
+			{
+				PhotonNetwork.Instantiate("Flatman", spawnPoint, Quaternion.identity, 0, null);
+				RoguelikeController.NoteLocalSpawned();
+			}
 		}
 		if ((bool)GetComponent<AudioListener>())
 		{

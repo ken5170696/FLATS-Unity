@@ -264,7 +264,10 @@ public partial class RoguelikeController : MonoBehaviour
 
         // Wait for the local player: legacy Singleplayer/Multiplayer Start spawns Flatman.
         float wait = 0;
-        while (FindLocalPlayer() == null && wait < 30f) { wait += Time.deltaTime; yield return null; }
+        // Multiplayer.Start reports its spawn (NoteLocalSpawned); if it is held up (its roster sync never completes after a chapter
+        // travel or a rejoin), EnsureLocalPlayerAlive takes over after LocalSpawnWaitSeconds and Multiplayer.Start then spawns nothing.
+        while (FindLocalPlayer() == null && !LocalSpawnedThisScene && wait < LocalSpawnWaitSeconds) { wait += Time.deltaTime; yield return null; }
+        localSpawnSeen = true;   // from here on a missing local player is a death, and EnsureLocalPlayerAlive may respawn it
 
         if (IsAuthority)
         {
@@ -288,7 +291,7 @@ public partial class RoguelikeController : MonoBehaviour
                 if (Time.realtimeSinceStartup >= askAt) { askAt = Time.realtimeSinceStartup + 2f; Command(new RogueCommandMessage { kind = "resync" }); }
                 yield return null;
             }
-            metaRunStartedAt = Time.time; MetaSendLocalLoadout(); // client
+            metaRunStartedAt = Time.time; MetaSendLocalLoadout(); MetaNoteRunJoined(); // client
         }
         runStarted = true;
         if (Menu.network != 0)
@@ -390,6 +393,13 @@ public partial class RoguelikeController : MonoBehaviour
     }
 
     [PunRPC]
+    void RogueSnapshotBytes(byte[] data, PhotonMessageInfo info)   // bytes: a string parameter is limited to 32767 bytes (PhotonRogueTransport.SendSnapshot); RogueSnapshot checks the sender
+    {
+        if (data == null || (info.sender != null && !info.sender.IsMasterClient)) return;
+        RogueSnapshot(System.Text.Encoding.UTF8.GetString(data), info);
+    }
+
+    [PunRPC]
     void RogueSnapshot(string json, PhotonMessageInfo info)
     {
         if (info.sender != null && !info.sender.IsMasterClient) return;      // only the authority publishes state
@@ -475,10 +485,13 @@ public partial class RoguelikeController : MonoBehaviour
                 else if (!hostOnly) Notify(new RogueEventMessage { kind = "denied", playerKey = cmd.playerKey, text = "Only the host can continue or evacuate." });
                 break;
             case "downed":
-                if (machine.PlayerDowned(cmd.playerKey)) { pacing.OnPlayerDowned(state.stageSeconds); Notify(new RogueEventMessage { kind = "downed", playerKey = cmd.playerKey, text = player.name, index = cmd.index }); Broadcast(); CheckWipe(); }
+                if (machine.PlayerDowned(cmd.playerKey)) { NoteDown(cmd.playerKey, cmd.index); pacing.OnPlayerDowned(state.stageSeconds); Notify(new RogueEventMessage { kind = "downed", playerKey = cmd.playerKey, text = player.name, index = cmd.index }); Broadcast(); CheckWipe(); }
                 else Notify(new RogueEventMessage { kind = "downrefused", playerKey = cmd.playerKey, index = cmd.index });
                 break;
             case "died":
+                // a bleed-out that lost the race against a revive the authority had already ruled: the revive stands, and the
+                // owner (whose body is already gone) is respawned by the next snapshot (EnsureLocalPlayerAlive)
+                if (BleedOutSuperseded(cmd.playerKey, cmd.index)) { BroadcastSoon(); break; }
                 if (machine.PlayerDied(cmd.playerKey)) { Notify(new RogueEventMessage { kind = "died", playerKey = cmd.playerKey, text = player.name }); Broadcast(); CheckWipe(); }
                 break;
             case "revive":
@@ -489,6 +502,7 @@ public partial class RoguelikeController : MonoBehaviour
                 {
                     if (player.build.ultimate == "ult.emergency_revive")
                     {
+                        foreach (var p in state.players) if (p.connected && p.life == PlayerLife.Downed) NoteRevivedFromDown(p.key);
                         var revived = machine.ReviveAll(cmd.playerKey);
                         foreach (var key in revived) Notify(new RogueEventMessage { kind = "revived", playerKey = key, text = player.name, flag = true });
                     }
@@ -534,6 +548,7 @@ public partial class RoguelikeController : MonoBehaviour
         if (state != null && state.phase != RunPhase.ChapterEnd) chapterDecisionSent = false;
         if (state != null && state.phase != RunPhase.Combat && !IsAuthority) ExtraEnemyDamageMul = 1f;   // the stage's contract ended
         ApplyLives();
+        MetaNoteSeen();   // codex: what the local build holds now, saved when an entry is new
         HandleEndedOnClient();
         RefreshHud();
         RefreshScreens();
@@ -605,6 +620,7 @@ public partial class RoguelikeController : MonoBehaviour
             case "fx": RogueWorldFx.ApplyFxEvent(e, localKey); break;   // QA-45 a teammate's kill explosion
             case "iprog": RogueInteractable.ApplyProgressEvent(e); break;
             case "dmghp": RogueDamageable.ApplyHealthEvent(e); break;
+            case "evdone": ClientEventFinished(e.text); break;   // the authority settled an event or emergency: its props and prompts go on every client
             case "equip": OnEquipEvent(e); break;
             case "revprog":
                 if (e.playerKey == localKey && hudView != null) hudView.SetRevive((float)e.value, T("{0} is reviving you", e.text));

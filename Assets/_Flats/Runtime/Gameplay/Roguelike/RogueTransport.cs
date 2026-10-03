@@ -36,12 +36,15 @@ public sealed class PhotonRogueTransport : IRogueTransport
     public void SendSnapshot(string json, int targetId)
     {
         if (!PhotonNetwork.inRoom) return;
+        // A string RPC parameter is limited to 32767 UTF-8 bytes (Protocol16.SerializeString); the run state
+        // passes that once a stage has spawned about 290 enemies (ledger.slots). Bytes have no such limit.
+        byte[] data = System.Text.Encoding.UTF8.GetBytes(json);
         if (targetId >= 0)
         {
             var player = PhotonPlayer.Find(targetId);
-            if (player != null) view.RPC("RogueSnapshot", player, json);
+            if (player != null) view.RPC("RogueSnapshotBytes", player, data);
         }
-        else view.RPC("RogueSnapshot", PhotonTargets.Others, json);
+        else view.RPC("RogueSnapshotBytes", PhotonTargets.Others, data);
     }
 
     public void SendEvent(int seq, string json)

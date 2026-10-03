@@ -147,6 +147,7 @@ namespace Flats.Core.Roguelike
     {
         public ProtectObjective(double deviceMaxHp = 1000, double repairFractionPerSecond = .02) : base("obj.protect") { Data.Put("maxhp", RogueStateBag.Positive(deviceMaxHp)); Data.Put("hp", deviceMaxHp); Data.Put("rate", RogueStateBag.Positive(repairFractionPerSecond)); }
         public double DeviceHp { get { return Data.Number("hp"); } }
+        public double DeviceMaxHp { get { return Data.Number("maxhp"); } }
         public void OnRepair(int players, double dt) { RogueStateBag.NonNegative(dt); if (players < 0) throw new ArgumentOutOfRangeException("players"); if (Status != ObjectiveStatus.Active || players == 0) return; Progress += dt * Data.Number("rate") * Math.Min(2, 1 + .5 * (players - 1)); if (Progress >= 1) Status = ObjectiveStatus.Succeeded; }
         public void OnDeviceDamaged(double amount) { RogueStateBag.NonNegative(amount); if (Status != ObjectiveStatus.Active) return; Data.Put("hp", Math.Max(0, DeviceHp - amount)); if (DeviceHp == 0) Status = ObjectiveStatus.Failed; }
         public ClearObjective FallbackToClear(int plannedEnemies = -1) { if (Status != ObjectiveStatus.Failed) throw new InvalidOperationException("裝置尚未失敗"); return new ClearObjective(plannedEnemies); }

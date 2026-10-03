@@ -5,8 +5,9 @@ using System.Globalization;
 namespace Flats.Core.Roguelike
 {
     /// <summary>
-    /// Authoring table: each group of <see cref="Count"/> numbers is one parameter at T1..T5. T4 and T5 continue the T2 to T3 step with
-    /// diminishing returns; integer parameters (pierce, bounces) stay at their T3 value. Single-tier items repeat one value. Two rows are
+    /// Authoring table. A core row holds groups of <see cref="Count"/> (8) numbers, one parameter at T1..T8; a mod row holds groups of
+    /// <see cref="ModCount"/> (5), one parameter at T1..T5. Core tiers keep growing to T8 and integer parameters (pierce, bounces) gain one
+    /// more at T7. Single-tier items repeat one value. Two rows are
     /// ADDED to their core by RogueBuild (mod.sustained_fire: cap bonus, mod.burst_extender: seconds), so the mod is never a no-op at a
     /// high core tier. mod.spring_legs stops at T3 (RogueCatalog.MaxTier): the jump clamp is x1.5 and maps are built for it.
     /// </summary>
@@ -14,20 +15,25 @@ namespace Flats.Core.Roguelike
     {
         private static readonly Dictionary<string, double[]> Values = new Dictionary<string, double[]>(StringComparer.Ordinal)
         {
-            { "core.precision", new double[] { 1.25, 1.35, 1.45, 1.53, 1.6,  0.9, 0.95, 1, 1, 1,  1, 1, 2, 2, 2 } },
-            { "core.assault", new double[] { 1.15, 1.22, 1.3, 1.36, 1.4,  0.3, 0.35, 0.4, 0.43, 0.45,  2, 2.5, 3, 3.5, 4 } },
-            { "core.suppression", new double[] { 0.4, 0.5, 0.6, 0.65, 0.7,  1.2, 1.25, 1.3, 1.33, 1.35,  1.2, 1.15, 1.1, 1.07, 1.05 } },
-            { "core.reloadburst", new double[] { 1.35, 1.45, 1.55, 1.62, 1.68,  3, 3.5, 4, 4.5, 5,  0.6, 0.5, 0.4, 0.35, 0.3 } },
-            { "core.ricochet", new double[] { 1, 1, 2, 2, 2,  1.3, 1.4, 1.5, 1.58, 1.65 } },
-            { "core.demolition", new double[] { 0.4, 0.55, 0.7, 0.8, 0.9,  6, 7, 8, 8.5, 9 } },
-            { "core.marker", new double[] { 1.12, 1.16, 1.2, 1.23, 1.25,  4, 5, 6, 6.5, 7 } },
-            { "core.mobility", new double[] { 1.12, 1.15, 1.18, 1.2, 1.22,  1.4, 1.5, 1.6, 1.68, 1.75,  0.7, 0.6, 0.5, 0.45, 0.4,  0.2, 0.25, 0.3, 0.33, 0.35 } },
+            // cores: eight tiers (owner request 2026-10-04); T6..T8 keep growing by a full step, and pierce / bounce gain one more at T7
+            { "core.precision", new double[] { 1.25, 1.35, 1.45, 1.53, 1.6, 1.7, 1.8, 1.9,  0.9, 0.95, 1, 1, 1, 1, 1, 1,  1, 1, 2, 2, 2, 2, 3, 3 } },
+            { "core.assault", new double[] { 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2,  0.3, 0.35, 0.4, 0.43, 0.45, 0.47, 0.49, 0.5,  2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5 } },
+            { "core.suppression", new double[] { 0.4, 0.5, 0.6, 0.65, 0.7, 0.8, 0.9, 1,  1.2, 1.25, 1.3, 1.33, 1.35, 1.4, 1.45, 1.5,  1.2, 1.15, 1.1, 1.07, 1.05, 1.03, 1.01, 1 } },
+            { "core.reloadburst", new double[] { 1.35, 1.45, 1.55, 1.62, 1.68, 1.76, 1.84, 1.92,  3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5,  0.6, 0.5, 0.4, 0.35, 0.3, 0.27, 0.24, 0.2 } },
+            { "core.ricochet", new double[] { 1, 1, 2, 2, 2, 2, 3, 3,  1.3, 1.4, 1.5, 1.58, 1.65, 1.75, 1.85, 1.95 } },
+            { "core.demolition", new double[] { 0.4, 0.55, 0.7, 0.8, 0.9, 1, 1.1, 1.2,  6, 7, 8, 8.5, 9, 9.5, 10, 11 } },
+            { "core.marker", new double[] { 1.12, 1.16, 1.2, 1.23, 1.25, 1.3, 1.35, 1.4,  4, 5, 6, 6.5, 7, 8, 9, 10 } },
+            { "core.mobility", new double[] { 1.12, 1.15, 1.18, 1.2, 1.22, 1.25, 1.28, 1.32,  1.4, 1.5, 1.6, 1.68, 1.75, 1.82, 1.9, 2,  0.7, 0.6, 0.5, 0.45, 0.4, 0.36, 0.33, 0.3,  0.2, 0.25, 0.3, 0.33, 0.35, 0.4, 0.45, 0.5 } },
+            // mods: groups of ModCount (5) values, as before; a mod's own top tier is RogueCatalog.MaxTier
             { "mod.long_barrel", new double[] { 1.1, 1.16, 1.2, 1.23, 1.25 } },
             { "mod.piercing_rounds", new double[] { 1, 1, 1, 1, 1 } },
             { "mod.calm_hands", new double[] { 0.75, 0.65, 0.6, 0.55, 0.5 } },
             { "mod.close_quarters", new double[] { 1.1, 1.16, 1.2, 1.23, 1.25 } },
             { "mod.adrenaline", new double[] { 0.05, 0.08, 0.1, 0.11, 0.12 } },
-            { "mod.choke", new double[] { 1, 1, 1, 1, 1 } },
+            { "mod.choke", new double[] { 2, 4, 6, 8, 10 } },                           // extra pellets per shell of a pellet shotgun (five tiers)
+            { "mod.rapid_fire", new double[] { 1.15, 1.3, 1.5, 1.5, 1.5 } },            // fire rate multiplier (three tiers); handguns are semi-automatic and ignore it
+            { "mod.heavy_swing", new double[] { 1.3, 1.6, 2, 2, 2 } },                  // melee damage multiplier (three tiers)
+            { "mod.quick_swing", new double[] { 0.8, 0.65, 0.5, 0.5, 0.5 } },           // melee windup and recovery time multiplier (three tiers)
             { "mod.extended_mag", new double[] { 1.25, 1.4, 1.5, 1.58, 1.65 } },
             { "mod.heavy_rounds", new double[] { 1.06, 1.1, 1.12, 1.14, 1.15,  0.97, 0.96, 0.95, 0.95, 0.95 } },
             { "mod.sustained_fire", new double[] { 0.2, 0.25, 0.3, 0.33, 0.35 } },
@@ -43,27 +49,38 @@ namespace Flats.Core.Roguelike
             { "mod.spotter", new double[] { 3, 5, 6, 6.5, 7 } },
             { "mod.bounty_hunter", new double[] { 0.1, 0.16, 0.2, 0.23, 0.25 } },
             { "mod.team_radio", new double[] { 1, 1, 1, 1, 1 } },
-            { "mod.double_dash", new double[] { 2, 2, 2, 2, 2 } },
+            { "mod.double_dash", new double[] { 2, 3, 4, 4, 4 } },                      // "Dash Charges": 2 / 3 / 4 charges (three tiers)
+            { "mod.triple_jump", new double[] { 1, 1, 1, 1, 1 } },                      // extra mid-air jumps on top of Double Jump's one
+            { "mod.shield_boost", new double[] { 1.5, 2, 2.5, 2.5, 2.5,  4, 7, 10, 10, 10 } },   // tactical shield: capacity multiplier, seconds added (three tiers)
+            { "mod.ult_cooldown", new double[] { 1.15, 1.3, 1.5, 1.5, 1.5 } },          // ultimate charge speed (three tiers; BuildStats.MaxUltimateChargeMul caps the total)
+            { "mod.superconductor", new double[] { 2, 4, 6, 6, 6,  1, 1, 2, 2, 2 } },   // Chain Bullets: more targets per hit, more jumps (three tiers)
+            { "mod.static_mark", new double[] { 4, 6, 8, 8, 8 } },                      // Chain Bullets: seconds a chained enemy stays marked (three tiers)
             { "mod.spring_legs", new double[] { 1.3, 1.4, 1.5, 1.5, 1.5 } },
             { "mod.quick_revive", new double[] { 1.4, 1.55, 1.7, 1.8, 1.9 } },
             { "mod.ammo_belt", new double[] { 1.3, 1.48, 1.6, 1.7, 1.8 } },
             { "mod.thick_skin", new double[] { 0.92, 0.87, 0.84, 0.82, 0.8 } },
         };
 
-        /// <summary>Values per parameter (the highest tier any item can reach).</summary>
-        public const int Count = 5;
+        /// <summary>Values per parameter of a core row (the highest tier any item can reach).</summary>
+        public const int Count = 8;
+        /// <summary>Values per parameter of a mod row.</summary>
+        public const int ModCount = 5;
+
+        /// <summary>Values per parameter in the row of <paramref name="id"/>: cores hold Count, every other row ModCount.</summary>
+        public static int Width(string id) { return id != null && id.StartsWith("core.", StringComparison.Ordinal) ? Count : ModCount; }
 
         public static double Value(string id, int tier, int parameter = 0)
         {
             double[] values;
-            if (!Values.TryGetValue(id, out values) || parameter < 0 || parameter >= values.Length / Count) throw new ArgumentException("tier parameter");
-            return values[parameter * Count + Math.Max(0, Math.Min(Count - 1, tier - 1))];
+            int width = Width(id);
+            if (!Values.TryGetValue(id, out values) || parameter < 0 || parameter >= values.Length / width) throw new ArgumentException("tier parameter");
+            return values[parameter * width + Math.Max(0, Math.Min(width - 1, tier - 1))];
         }
 
-        /// <summary>Authoring guard: every row holds whole groups of <see cref="Count"/> values.</summary>
+        /// <summary>Authoring guard: every row holds whole groups of its width (Count for cores, ModCount for mods).</summary>
         internal static void Validate(List<string> errors)
         {
-            foreach (var pair in Values) if (pair.Value.Length == 0 || pair.Value.Length % Count != 0) errors.Add("tier row is not groups of " + Count + ": " + pair.Key);
+            foreach (var pair in Values) if (pair.Value.Length == 0 || pair.Value.Length % Width(pair.Key) != 0) errors.Add("tier row is not groups of " + Width(pair.Key) + ": " + pair.Key);
         }
 
         internal static void Hash(Action<string> mix)

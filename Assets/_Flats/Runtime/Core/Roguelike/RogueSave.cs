@@ -27,6 +27,7 @@ namespace Flats.Core.Roguelike
         public int mostKills, mostHeadshots;
         public string[] seenItems = new string[0];       // codex: which cores/mods/ultimates were ever owned
         public string[] clearedFinales = new string[0];
+        public string[] seenEnemies = new string[0];     // codex: enemy role ids met in a run (profile copy only; older files have none)
         public string lastRunId = "";
     }
 

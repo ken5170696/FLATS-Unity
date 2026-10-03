@@ -19,6 +19,13 @@ namespace Flats.Core.Roguelike
         {
             { "stat.health", new Entry(0, "+{0}%") }, { "stat.damage", new Entry(0, "+{0}%") },
             { "stat.magazine", new Entry(0, "+{0}%") }, { "stat.speed", new Entry(0, "+{0}%") },
+            { "stat.regen", new Entry(0, "+{0}%/s") },         // share of maximum health per second
+            { "mod.double_dash", new Entry(0, "{0}") },        // dash charges
+            { "mod.triple_jump", new Entry(0, "+{0}") },       // jumps in the air
+            { "mod.shield_boost", new Entry(0, "+{0}%") },     // shield capacity
+            { "mod.ult_cooldown", new Entry(0, "+{0}%") },     // charge speed
+            { "mod.superconductor", new Entry(0, "+{0}") },    // enemies per chain hit
+            { "mod.static_mark", new Entry(0, "{0} s") },      // seconds marked
             { "core.precision", new Entry(0, "+{0}%") },      // headshot damage
             { "core.assault", new Entry(0, "+{0}%") },        // close-range damage
             { "core.suppression", new Entry(1, "+{0}%") },    // the damage cap, not the per-hit step
@@ -34,6 +41,8 @@ namespace Flats.Core.Roguelike
             { "mod.tactical_reload", new Entry(0, "+{0}") }, { "mod.burst_extender", new Entry(0, "+{0} s") },
             { "mod.rubber_rounds", new Entry(-1, "{0}%") }, { "mod.angle_finder", new Entry(0, "{0} s") },
             { "mod.bigger_boom", new Entry(0, "+{0}%") }, { "mod.frag_grenades", new Entry(0, "+{0}%") },
+            { "mod.choke", new Entry(0, "+{0}") },             // pellets per shell
+            { "mod.rapid_fire", new Entry(0, "+{0}%") }, { "mod.heavy_swing", new Entry(0, "+{0}%") }, { "mod.quick_swing", new Entry(0, "-{0}%") },
             { "mod.shockwave", new Entry(1, "{0} s") },       // the slow's seconds grow with the tier; its strength does not
             { "mod.spotter", new Entry(0, "+{0} s") }, { "mod.bounty_hunter", new Entry(0, "+{0}%") },
             { "mod.spring_legs", new Entry(0, "+{0}%") }, { "mod.quick_revive", new Entry(0, "+{0}%") },

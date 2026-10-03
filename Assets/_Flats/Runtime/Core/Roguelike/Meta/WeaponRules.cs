@@ -74,11 +74,42 @@ namespace Flats.Core.Roguelike
 
         public static bool CanAim(RangedWeaponDef d) { return d == null || d.Drawback != DrawbackKind.NoAds; }
 
+        // ------------------------------------------------------------------ handguns (Roguelike players)
+        /// <summary>A handgun is semi-automatic: one trigger pull fires once (the Burst Pistol: one burst), holding the trigger does
+        /// not repeat, and two rounds are never closer than <see cref="HandgunMinInterval"/>. This replaces the rpm gap.</summary>
+        public const int HandgunShotsPerSecond = 15;
+        public const double HandgunMinInterval = 1.0 / HandgunShotsPerSecond;
+        /// <summary>The pull rate the stat bars and the DPS/TTK estimates assume for a handgun (six pulls a second), not the cap.</summary>
+        public const double HandgunPracticalInterval = 1.0 / 6;
+        /// <summary>Swap time multiplier of any swap that draws or stows a handgun (the whole swap, about 0.1 s of the plain 1 s).</summary>
+        public const double HandgunSwapTimeMul = 0.1;
+
+        /// <summary>Catalog models that are handguns (the rule follows the gun model, so a handgun without an armory row has it too).</summary>
+        public static bool IsHandgunModel(int baseModel)
+        {
+            return baseModel >= 0 && baseModel < WeaponCatalog.Count && WeaponCatalog.GetDefault(baseModel).handgun;
+        }
+
+        /// <summary>Seconds between two rounds of a player's weapon for the Shoot coroutine: a handgun's fixed minimum interval (no
+        /// fire-rate bonus shortens it: the trigger finger sets the pace), else the rpm gap times the round's interval multiplier.</summary>
+        public static double RoundInterval(bool handgun, double rpm, double intervalMul)
+        {
+            return handgun ? HandgunMinInterval : 60.0 / Math.Max(1, rpm) * intervalMul;
+        }
+
+        /// <summary>The fixed part of every round's wait in the Shoot coroutine (the legacy 0.1 s recoil step). It shrinks with a
+        /// fire-rate bonus and never exceeds the round interval, so a bonus is not swallowed on weapons that sit on the step.</summary>
+        public static double RoundStep(bool handgun, double intervalMul)
+        {
+            return handgun ? HandgunMinInterval : 0.1 * Math.Min(1, Math.Max(0, intervalMul));
+        }
+
         public static double SwapTimeMul(RangedWeaponDef d)
         {
             if (d == null) return 1;
             double m = 1;
             if (d.Trait == TraitKind.QuickDraw) m *= 1 - d.T1;
+            if (d.Class == WeaponClass.Handgun) m = Math.Min(m, HandgunSwapTimeMul);
             if (d.Drawback == DrawbackKind.SlowSwap) m *= 1 + d.D1;
             return m;
         }
@@ -93,6 +124,22 @@ namespace Flats.Core.Roguelike
         public static double SwapTimeMul(RangedWeaponDef a, RangedWeaponDef b)
         {
             double quick = 1, slow = 1;
+            foreach (var d in new[] { a, b })
+            {
+                if (d == null) continue;
+                if (d.Trait == TraitKind.QuickDraw) quick = Math.Min(quick, 1 - d.T1);
+                if (d.Drawback == DrawbackKind.SlowSwap) slow = Math.Max(slow, 1 + d.D1);
+            }
+            return quick * slow;
+        }
+
+        /// <summary>As <see cref="SwapTimeMul(RangedWeaponDef, RangedWeaponDef)"/>, with the handgun rule: when either weapon of the
+        /// swap is a handgun (<paramref name="handgunInvolved"/>, decided from the gun models) the swap takes at most
+        /// <see cref="HandgunSwapTimeMul"/> of the plain time; a Slow Swap partner still multiplies it.</summary>
+        public static double SwapTimeMul(RangedWeaponDef a, RangedWeaponDef b, bool handgunInvolved)
+        {
+            if (!handgunInvolved) return SwapTimeMul(a, b);
+            double quick = HandgunSwapTimeMul, slow = 1;
             foreach (var d in new[] { a, b })
             {
                 if (d == null) continue;
@@ -133,8 +180,10 @@ namespace Flats.Core.Roguelike
         /// <summary>Extra enemies a round passes through.</summary>
         public static int Pierce(RangedWeaponDef d) { return d != null && d.Trait == TraitKind.Pierce ? (int)d.T1 : 0; }
 
-        /// <summary>The most enemies one round may pass through: the build's two (EffectChainRules) plus the deepest Pierce weapon (2).</summary>
-        public const int MaxPenetrateDepth = 4;
+        /// <summary>The deepest Pierce trait of an armory weapon (the Slug Gun).</summary>
+        public const int MaxWeaponPierce = 2;
+        /// <summary>The most enemies one round may pass through: the build's most (RogueCatalog.MaxPierce) plus the deepest Pierce weapon.</summary>
+        public const int MaxPenetrateDepth = RogueCatalog.MaxPierce + MaxWeaponPierce;
 
         /// <summary>
         /// Enemies a round fired from <paramref name="d"/> passes through: the build's depth (Precision core, Piercing Rounds; bounded

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Flats.Core.Roguelike;
 using UnityEngine;
@@ -279,7 +279,7 @@ public partial class RoguelikeController
         hudView.SetAbility(true, RogueIcons.ForAbility(me.build.ultimate), RogueIcons.KeyHint("Ultimate"), ultFill, rp.UltimateActive ? "" : me.ultimateCharge + "%", rp.UltimateActive, hasUlt);
         bool hasTac = !string.IsNullOrEmpty(me.build.tactical);
         int charges = 0, maxCharges = 0; float recharge = -1f;
-        // a multi-charge tactical (Double Dash) shows one pip per charge instead of an "n/m" text (QA-15)
+        // a multi-charge tactical (Dash Charges: 2, 3 or 4) shows one pip per charge instead of an "n/m" text (QA-15)
         bool segmented = hasTac && TacticalCharges(rp, out charges, out maxCharges, out recharge) && maxCharges > 1;
         if (!segmented) { charges = maxCharges = 0; recharge = -1f; }
         hudView.SetAbility(false, hasTac ? RogueIcons.ForAbility(me.build.tactical) : "", RogueIcons.KeyHint("Tactical"), downed ? Mathf.Min(rp.TacticalReadiness, 0.99f) : rp.TacticalReadiness, segmented ? "" : rp.TacticalValue, rp.TacticalActive, hasTac);
@@ -728,8 +728,9 @@ public partial class RoguelikeController
         if (!string.IsNullOrEmpty(b.tactical)) parts.Add(ItemName(b.tactical));
         if (!string.IsNullOrEmpty(b.ultimate)) parts.Add(ItemName(b.ultimate));
         parts.Add(T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods));
+        if (b.regenTier > 0) parts.Add(T("Regeneration T{0}", b.regenTier));
         if (b.healthTier + b.damageTier + b.magazineTier + b.speedTier > 0)
-            parts.Add(T("Health T{0}  Damage T{1}  Magazine T{2}  Speed T{3}", b.healthTier, b.damageTier, b.magazineTier, b.speedTier));   // tiers, not percentages
+            parts.Add(T("Health T{0}  Damage T{1}  Magazine T{2}  Speed T{3}  Regen T{4}", b.healthTier, b.damageTier, b.magazineTier, b.speedTier, b.regenTier));   // tiers, not percentages
         return string.Join("  ", parts.ToArray());
     }
 
@@ -772,6 +773,8 @@ public partial class RoguelikeController
             case "stat.health": return Pct(s.HealthMul);
             case "stat.damage": return Pct(s.DamageMul);
             case "stat.magazine": return Pct(s.MagazineMul);
+            // regeneration is a rate, not a multiplier: the share of maximum health healed every second
+            case "stat.regen": return T("+{0}%/s", Math.Round(s.RegenPerSecond * 100, 1).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture));
             default: return Pct(s.SpeedMul);
         }
     }

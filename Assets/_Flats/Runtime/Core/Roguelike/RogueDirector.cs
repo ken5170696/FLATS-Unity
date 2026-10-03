@@ -162,8 +162,11 @@ namespace Flats.Core.Roguelike
                 if (depth < r.MinDepth) continue;
                 double w = r.Id == "role.rifleman" ? 3.0 : 1.0;
                 if (r.Id == "role.jammer" || r.Id == "role.shieldbearer") w = 0.6;
+                if (r.Melee) w = EnemyKits.BrawlerSampleWeight;
+                if (r.Operative) w = EnemyKits.OperativeSampleWeight;   // a rare, high-value target (bounded per stage below)
                 roles.Add(r); roleWeights.Add(w);
             }
+            int operativesLeft = EnemyKits.OperativeStageCap(depth, players);
             double eliteFraction = Math.Min(0.6, RogueDepth.EliteFraction(depth, difficulty) * route.EliteMul);
             var waves = new WavePlan[waveCount];
             int remaining = budget;
@@ -173,12 +176,17 @@ namespace Flats.Core.Roguelike
                 count = Math.Min(count, remaining);
                 remaining -= count;
                 var rolesOut = new List<string>(); var elite = new List<bool>(); var weights = new List<int>();
-                int shieldCount = 0, jammerCount = 0;
+                int shieldCount = 0, jammerCount = 0, brawlerCount = 0;
                 for (int k = 0; k < count; k++)
                 {
                     var role = roles[rng.WeightedIndex(roleWeights)];
                     if (role.Id == "role.shieldbearer" && shieldCount >= 2) role = roles[0];
                     if (role.Id == "role.jammer" && jammerCount >= 1) role = roles[0];
+                    // brawlers come a few at a time; an operative never opens a stage and the whole stage holds one or two
+                    if (role.Melee && brawlerCount >= EnemyKits.BrawlerWaveCap(depth)) role = roles[0];
+                    if (role.Operative && (i == 0 || operativesLeft <= 0)) role = roles[0];
+                    if (role.Melee) brawlerCount++;
+                    if (role.Operative) operativesLeft--;
                     if (role.Id == "role.shieldbearer") shieldCount++;
                     if (role.Id == "role.jammer") jammerCount++;
                     bool isElite = i > 0 && rng.Chance(eliteFraction);

@@ -290,7 +290,11 @@ public class RoguePlayer : MonoBehaviour
         {
             Downed = false;
             var ctrl = RoguelikeController.Instance;
-            if (ctrl != null && authorityLife != PlayerLife.Dead) ctrl.Command(new RogueCommandMessage { kind = "died" });
+            // The request number says which down bled out: a revive the authority ruled for this very down in the same moment
+            // (a teammate's Emergency Revive, a finished hold) stands, and this player respawns instead of turning Dead again.
+            // OnDied (called from the Die below) must not follow with a second, unnumbered "died".
+            bleedOutReported = true;
+            if (ctrl != null && authorityLife != PlayerLife.Dead) ctrl.Command(new RogueCommandMessage { kind = "died", index = downRequest });
             if (receiver != null) receiver.RogueForceDie();   // bleed-out: an adjudicated death, never a simulated hit (F03)
         }
     }
@@ -351,8 +355,9 @@ public class RoguePlayer : MonoBehaviour
         shieldHp = 0; overshield.Clear();
         { var meta = RogueMetaRuntime.Of(this); if (meta != null) meta.ClearRescueShield(); }
         var ctrl = RoguelikeController.Instance;
-        if (ctrl != null && isMine) ctrl.Command(new RogueCommandMessage { kind = "died" });
+        if (ctrl != null && isMine && !bleedOutReported) ctrl.Command(new RogueCommandMessage { kind = "died" });
     }
+    bool bleedOutReported;   // owner: the bleed-out already told the authority about this death (with its down request number)
 
     // ---------------------------------------------------------------- damage out and movement
     /// <summary>Fire-time multiplier: everything known when the shot leaves the barrel (damage tiers, suppression stacks, reload burst,
@@ -362,7 +367,8 @@ public class RoguePlayer : MonoBehaviour
         bool burst = Time.time < reloadBurstUntil;
         int stacks = suppression != null ? suppression.Stacks(Time.time) : 0;
         bool momentum = ConsumeMomentum();
-        return (float)(Stats.DirectDamage(false, 20, stacks, burst, momentum, false, false) / Stats.BodyDamageMul);
+        // a neutral distance: the Assault range bands are applied once, at hit time (HitDamageMul), from the real distance
+        return (float)(Stats.DirectDamage(false, Stats.NeutralRange, stacks, burst, momentum, false, false) / Stats.BodyDamageMul);
     }
 
     /// <summary>Hit-time multiplier for a bullet this player fired: Precision/Long Barrel on the head, Precision's body penalty, and the
@@ -370,7 +376,7 @@ public class RoguePlayer : MonoBehaviour
     public float HitDamageMul(bool headshot, float distance)
     {
         double m = headshot ? Stats.HeadshotDamageMul : Stats.BodyDamageMul;
-        if (distance <= (float)Stats.AssaultCloseRange) m *= Stats.CloseRangeDamageMul; else if (distance >= 30f) m *= Stats.FarRangeDamageMul;
+        if (distance <= (float)Stats.AssaultCloseRange) m *= Stats.CloseRangeDamageMul; else if (distance >= (float)BuildStats.AssaultFarRange) m *= Stats.FarRangeDamageMul;
         return (float)m;
     }
 
@@ -420,7 +426,9 @@ public class RoguePlayer : MonoBehaviour
         return true;
     }
 
-    public void OnLanded() { airJumpsLeft = Stats.DoubleJump ? 1 : 0; }
+    /// <summary>Jumps in the air between two landings: Double Jump's one plus the build's extra ones (Triple Jump).</summary>
+    public int MaxAirJumps { get { return Stats.DoubleJump ? 1 + Mathf.Max(0, Stats.ExtraAirJumps) : 0; } }
+    public void OnLanded() { airJumpsLeft = MaxAirJumps; }
 
     public float MaxHealth() { return 1000f * (1f + Menu.myCharacter.defense * 0.1f) * (float)Stats.HealthMul; }
 
@@ -498,7 +506,11 @@ public class RoguePlayer : MonoBehaviour
         // every copy of this player runs the ultimate (RoguelikeController.OnUltimateConfirmed), so every copy must end it: a guest's
         // Lethal Shot and enemy outlines used to stay on forever on the host because the expiry sat behind the owner-only return
         if (ultimateActive != "" && Time.time >= ultimateUntil) EndUltimate();
-        if (isMine) { SendVitals(); ReportOvershield(); }
+        // Enemy Sight: every copy of this player marks every live enemy while the ultimate runs (the authority's "ult" event starts it
+        // on every client at once), so the mark, its damage bonus and the mark mods agree everywhere; enemies that arrive meanwhile
+        // are caught by the next pass
+        if (ultimateActive == "ult.enemy_sight" && Time.time >= sightMarkNext) MarkAllEnemies();
+        if (isMine) { SendVitals(); ReportOvershield(); TickRegeneration(); }
         if (!isMine) { SyncWaypoint(); if (receiver != null && receiver.hitPoints > observedMaxHealth) observedMaxHealth = receiver.hitPoints; }   // teammates' copies carry the revive marker; my own is never shown
         if (!isMine || controller == null) return;
         // a shot, reload or weapon change already under way when the player went down re-enables fire when it ends;
@@ -550,7 +562,41 @@ public class RoguePlayer : MonoBehaviour
         if (ctrl != null && isMine) ctrl.Banner(RoguelikeController.ItemName(id) + "!", 2f);   // every copy runs the effect; only its owner gets the banner
         // outlines are keyed by this player, so one player's Enemy Sight ending never clears another's. The area follows this player
         // and every enemy is tested again each frame (RogueEnemyRole.LateUpdate), so enemies that come within range later show too (QA-12).
-        if (id == "ult.enemy_sight") RogueEnemyRole.SetOutlines(this, true, transform.position, (float)RogueCatalog.EnemySightRange);
+        // Enemy Sight (2026-10-04): the whole map, and every enemy is marked as well as outlined (Update keeps marking new arrivals)
+        if (id == "ult.enemy_sight") { RogueEnemyRole.SetOutlines(this, true, transform.position, EnemySightWholeMap); sightMarkNext = 0f; MarkAllEnemies(); }
+    }
+
+    /// <summary>Outline range of Enemy Sight: larger than any map, so every spawned enemy is inside it.</summary>
+    const float EnemySightWholeMap = 100000f;
+    /// <summary>Seconds between two marking passes of Enemy Sight (new arrivals are marked within this time).</summary>
+    const float SightMarkInterval = 0.5f;
+    float sightMarkNext;
+
+    /// <summary>Enemy Sight: marks every live enemy until the ultimate ends, plus the Spotter seconds of this build. The mark is the
+    /// ordinary one (RogueEnemyRole.Mark): its damage bonus is this player's Marker tier, or tier 1 without the core.</summary>
+    void MarkAllEnemies()
+    {
+        sightMarkNext = Time.time + SightMarkInterval;
+        float until = ultimateUntil + (float)Stats.MarkExtraSeconds;
+        var all = RogueEnemyRole.All;
+        for (int i = 0; i < all.Count; i++)
+        {
+            var role = all[i]; if (role == null || role.Dead) continue;
+            // a teammate's own mark keeps its owner (their Marker tier, their charge and bounty mods); this one only makes it last
+            var owner = role.MarkedBy;
+            if (owner != null && owner != this) role.ExtendMark(until); else role.Mark(until, this);
+        }
+    }
+
+    // Regeneration stat (owner's copy, like every other change of the player's own health; teammates read it from RogueVitals):
+    // a share of maximum health every second while alive and not downed. It does not touch shields, and gas or any other damage
+    // still applies on top; the legacy flat regeneration (DamageReceiver) keeps running beside it.
+    void TickRegeneration()
+    {
+        if (Stats == null || Stats.RegenPerSecond <= 0 || receiver == null || Downed || receiver.Dead) return;
+        if (authorityLife != PlayerLife.Alive || !(receiver.hitPoints > 0f)) return;
+        float max = MaxHealth();
+        if (receiver.hitPoints < max) receiver.hitPoints = Mathf.Min(max, receiver.hitPoints + max * (float)Stats.RegenPerSecond * Time.deltaTime);
     }
 
     void EndUltimate()
@@ -591,6 +637,7 @@ public class RoguePlayer : MonoBehaviour
         {
             if (Stats.Dash) return TacticalCharges + "/" + TacticalMaxCharges;
             if (Stats.Shield) return Time.time < shieldUntil ? Mathf.CeilToInt(shieldUntil - Time.time) + "s" : "";
+            if (Stats.DoubleJump && MaxAirJumps > 1) return airJumpsLeft + "/" + MaxAirJumps;   // Triple Jump: air jumps left
             return "";
         }
     }
@@ -717,7 +764,8 @@ public class RoguePlayer : MonoBehaviour
             });
             if (noRoom) RoguelikeController.Instance?.Banner(RoguelikeController.T("No room to dash"), 0.8f);
         }
-        else if (Stats.Shield && Time.time >= shieldCooldownUntil) { shieldHp = (float)TacticalRuntime.ShieldCapacity; shieldUntil = Time.time + (float)TacticalRuntime.ShieldDurationSeconds; shieldCooldownUntil = Time.time + ShieldCooldown; RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f); RogueAudio.Play("shield_up"); }
+        // capacity and duration come from the build (Shield Boost); the cooldown starts at the activation, as before
+        else if (Stats.Shield && Time.time >= shieldCooldownUntil) { shieldHp = (float)TacticalRuntime.ShieldPointsFor(Stats); shieldUntil = Time.time + (float)TacticalRuntime.ShieldSecondsFor(Stats); shieldCooldownUntil = Time.time + ShieldCooldown; RoguelikeController.Instance?.Banner(RoguelikeController.T("Shield up"), 1f); RogueAudio.Play("shield_up"); }
     }
 
     float ShieldCooldown { get { return Mathf.Max(0.1f, (float)(RogueCatalog.ShieldCooldownSeconds * Stats.ShieldCooldownMul)); } }
@@ -797,6 +845,15 @@ public class RoguePlayer : MonoBehaviour
     const float DashSubstep = 1f, DashBlockedProgress = 0.35f, DashQueueSeconds = 0.25f;
     float dashQueuedUntil = -10f, dashUntil = -10f;
     int dashesRunning;
+    int dashEpoch;   // raised by CancelDash: running dash routines end at their next step
+
+    /// <summary>Owner: ends any dash in progress and a queued press (the player was moved elsewhere, e.g. returned from outside the map).</summary>
+    public void CancelDash()
+    {
+        dashEpoch++;
+        dashQueuedUntil = -10f;
+        dashUntil = -10f;
+    }
 
     /// <summary>A dash is moving this player (owner): aiming, taking a ground weapon and the sprint wait for it.</summary>
     public bool Dashing { get { return dashesRunning > 0 && Time.time < dashUntil; } }
@@ -844,7 +901,8 @@ public class RoguePlayer : MonoBehaviour
         bool startedAirborne = !Flats.Gameplay.PlayerMovementMotor.IsGrounded(cc, transform);
         dashesRunning++;
         dashUntil = Mathf.Max(dashUntil, Time.time + total / speed + 0.1f);
-        while (travelled < total && cc != null && cc.enabled && !Downed)
+        int epoch = dashEpoch;
+        while (travelled < total && cc != null && cc.enabled && !Downed && epoch == dashEpoch)
         {
             // distance by time, in sub-steps, so the dash covers the same ground in the same time at any frame rate
             float frame = Mathf.Min(speed * Time.deltaTime, total - travelled);

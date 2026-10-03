@@ -41,6 +41,12 @@ public abstract class RogueEventRunner
     }
 
     protected bool Authority { get { return Controller.IsAuthority; } }
+    /// <summary>Authority: the enemy answer to this event's interaction (an ambush when it starts, squads while it goes on).</summary>
+    protected readonly RogueMissionPressure Pressure = new RogueMissionPressure();
+    /// <summary>The stage's plan (depth, difficulty, squad size at the start of the stage), the same on every client.</summary>
+    protected EncounterPlan Stage { get { return Controller.State.encounter; } }
+    /// <summary>Authority: a squad of extras on the arrival ring around a place, with the stage's elite share; never past the cap.</summary>
+    protected int Squad(Vector3 focus, int size) { return RogueMissionPressure.Spawn(Controller, focus, size, RogueMissionRules.EliteCount(size, Stage.depth, Stage.difficulty)); }
     protected Vector3 Point(int i) { return Controller.PlanPoint(PointBase + i); }
     // status lines travel to every client in English; each client translates them for its own language (ObjectivePart)
     protected string N(string key, params object[] args) { return RoguelikeController.F(key, args); }
@@ -56,14 +62,21 @@ public abstract class RogueEventRunner
     public virtual void OnEnemyKilled(RogueEnemyRole role) { }
     public virtual void Dispose() { }
     protected void Settle(EventStatus status) { if (status == EventStatus.Succeeded) Succeeded = true; else if (status == EventStatus.Failed || status == EventStatus.Cancelled) Failed = true; }
+    /// <summary>A hit on an event object counts only when a player fired it: an enemy's stray round (RogueHooks.OnBulletHitWorld passes
+    /// every bullet's shooter) neither wears the object down nor calls its ambush. A guest's forwarded hit whose player is no longer
+    /// found arrives without a shooter and still counts: only players send those.</summary>
+    protected static bool HitByPlayer(Transform shooter) { return shooter == null || shooter.GetComponent<AI>() == null; }
 }
 
 // ---------------------------------------------------------------- general events
 public sealed class MovingSupplyRunner : RogueEventRunner
 {
-    MovingSupplyEvent machine; GameObject drone; RogueDamageable dmg; Vector3 a, b; float t, sendTimer, dealt; RogueDroneMover mover;
-    /// <summary>Damage that shoots the drone down (MovingSupplyEvent's threshold, mirrored for the health shown to players, QA-37).</summary>
-    public const float DroneHealth = 600f;
+    MovingSupplyEvent machine; GameObject drone; RogueDamageable dmg; Vector3 a, b; float t, sendTimer, dealt, lastHitAt = -10f; RogueDroneMover mover;
+    /// <summary>Damage that shoots the drone down (MovingSupplyEvent's threshold, mirrored for the health shown to players, QA-37):
+    /// RogueMissionRules.SupplyDroneHealth for the stage (5000 at depth 1 solo, was a fixed 600), set by the authority in Begin.</summary>
+    float droneHealth = (float)RogueMissionRules.SupplyDroneBaseHealth;
+    /// <summary>Seconds after a hit during which the drone still counts as under attack (squads keep arriving).</summary>
+    public const float UnderFireSeconds = 3f;
     /// <summary>Radius of the shoot-down blast (QA-45).</summary>
     public static float DroneBlastRadius = 4f;
     public override void Begin()
@@ -72,11 +85,23 @@ public sealed class MovingSupplyRunner : RogueEventRunner
         drone = RogueWorld.Cube("SupplyDrone", a + Vector3.up * (6f - 0.4f * RogueWorld.PropScale("SupplyDrone")), new Vector3(2f, 0.8f, 2f), RogueWorld.Gold, true);   // centre at 6 m, where RogueDroneMover flies it (QA-38)
         RogueWaypoint.Attach(drone, "Coin", "Supply drone", RogueWorld.Gold, RogueWorld.WaypointHeight(drone), 1);
         dmg = drone.AddComponent<RogueDamageable>(); dmg.DisplayName = "Supply drone";
-        dmg.OnHit = (d, s) => { if (machine != null && machine.Status == EventStatus.Active) { dealt += d; machine.OnDamaged(d); Controller.ObjectiveTextChanged(); Debug.Log("FLATS_ROGUE_DRONE hit damage=" + d.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " health=" + Mathf.CeilToInt(Mathf.Clamp01(1f - dealt / DroneHealth) * 100f) + "%"); } };
+        dmg.OnHit = (d, s) =>
+        {
+            if (machine == null || machine.Status != EventStatus.Active || !HitByPlayer(s)) return;
+            dealt += d; lastHitAt = Time.time; machine.OnDamaged(d); Controller.ObjectiveTextChanged();
+            // shooting the drone gives the squad away: an ambush under it on the first hit, squads while it stays under fire (Tick)
+            if (drone != null) Pressure.Ambush(Controller, GroundUnder(drone.transform.position));
+            Debug.Log("FLATS_ROGUE_DRONE hit damage=" + d.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " health=" + Mathf.CeilToInt(Mathf.Clamp01(1f - dealt / droneHealth) * 100f) + "%");
+        };
         // clients never tick event runners: the drone flies there from the authority's replicated progress ("drone" events)
         mover = drone.AddComponent<RogueDroneMover>(); mover.A = a; mover.B = b;
-        if (Authority) { machine = new MovingSupplyEvent(DroneHealth); Banner("Moving Supply: shoot the drone down before it leaves!", 3); }
+        if (Authority)
+        {
+            droneHealth = (float)RogueMissionRules.SupplyDroneHealth(Stage.depth, Stage.difficulty, Stage.players);
+            machine = new MovingSupplyEvent(droneHealth); Banner("Moving Supply: shoot the drone down before it leaves!", 3);
+        }
     }
+    static Vector3 GroundUnder(Vector3 p) { Vector3 g; return RogueWorld.Ground(p, out g) ? g : p; }
     public override void Tick(float dt)
     {
         if (machine == null) return;
@@ -85,7 +110,8 @@ public sealed class MovingSupplyRunner : RogueEventRunner
         machine.Tick(dt);
         sendTimer -= dt;
         if (sendTimer <= 0f && Menu.network != 0) { sendTimer = 0.5f; Controller.Notify(new RogueEventMessage { kind = "drone", value = t }); }
-        float health = Mathf.Clamp01(1f - dealt / DroneHealth);
+        float health = Mathf.Clamp01(1f - dealt / droneHealth);
+        if (drone != null) Pressure.Sustain(Controller, GroundUnder(drone.transform.position), machine.Status == EventStatus.Active && Time.time - lastHitAt < UnderFireSeconds, dt);
         dmg.SetState(health, machine.Status != EventStatus.Active);   // the drone's health on every client and its waypoint (QA-37)
         StatusText = N("Shoot down the drone: {0}% health, {1} s left", Mathf.CeilToInt(health * 100f), Mathf.CeilToInt((float)machine.Countdown));
         if (machine.Status == EventStatus.Succeeded && drone != null)
@@ -136,7 +162,13 @@ public sealed class AlarmCacheRunner : RogueEventRunner
         machine.Tick(dt);
         StatusText = machine.Status == EventStatus.Pending ? N("Alarm cache: optional") : machine.Status == EventStatus.Active ? N("Cache opening {0} s", Mathf.CeilToInt((float)machine.Countdown)) : "";
         int weight = machine.TakeReinforcementWeight();
-        if (weight > 0) for (int i = 0; i < 3; i++) Controller.SpawnExtraEnemy(i == 1 ? "role.rusher" : "role.rifleman", i == 0, cache.transform.position);
+        if (weight > 0)
+        {
+            // the alarm's own wave when the cache opens (was three): sized for the squad, always led by an elite, within the cap
+            int size = Mathf.Min(RogueMissionRules.AlarmWaveSize(Controller.State.ConnectedPlayers), Stage.concurrentCap - Controller.AliveEnemies);
+            int elites = Mathf.Max(1, RogueMissionRules.EliteCount(size, Stage.depth, Stage.difficulty));
+            for (int i = 0; i < size; i++) Controller.SpawnExtraEnemy(RogueMissionRules.PressureRole(i + 1, Stage.depth), i < elites, cache.transform.position);
+        }
         if (machine.Status == EventStatus.Succeeded) it.Enabled = false;
         Settle(machine.Status);
     }
@@ -144,7 +176,11 @@ public sealed class AlarmCacheRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "cache:open") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, cache.GetComponent<Collider>(), 4.5f) && machine.Accept()) { Banner("Alarm! Reinforcements incoming.", 2.5f); it.SetProgress(1f, true); }   // every copy drops the prompt
+        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, cache.GetComponent<Collider>(), 4.5f) && machine.Accept())
+        {
+            Banner("Alarm! Reinforcements incoming.", 2.5f); it.SetProgress(1f, true);   // every copy drops the prompt
+            Squad(cache.transform.position, RogueMissionRules.AmbushSize(Controller.State.ConnectedPlayers, Stage.depth));   // the first squad arrives while it opens
+        }
     }
     public override void Dispose() { RogueWorld.Destroy(cache); }
 }
@@ -189,7 +225,11 @@ public sealed class PowerRerouteRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "breaker:flip") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, breaker.GetComponent<Collider>(), 4.5f) && machine.Flip()) { Banner("Power rerouted: enemy shields and jammers are down, their sight is halved.", 3); it.SetProgress(1f, true); Controller.Notify(new RogueEventMessage { kind = "power", flag = true }); }
+        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, breaker.GetComponent<Collider>(), 4.5f) && machine.Flip())
+        {
+            Banner("Power rerouted: enemy shields and jammers are down, their sight is halved.", 3); it.SetProgress(1f, true); Controller.Notify(new RogueEventMessage { kind = "power", flag = true });
+            Squad(breaker.transform.position, RogueMissionRules.AmbushSize(Controller.State.ConnectedPlayers, Stage.depth));   // the breaker gives the squad away
+        }
     }
     public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "power") Controller.PowerRerouted = e.flag; }
     public override void Dispose() { Controller.PowerRerouted = false; RogueWorld.Destroy(breaker); }
@@ -203,16 +243,19 @@ public sealed class RepairDeviceRunner : RogueEventRunner
         device = RogueWorld.Cube("SideDevice", Point(0), new Vector3(1.6f, 2f, 1.6f), RogueWorld.White, true);
         RogueWaypoint.Attach(device, "Settings5", "Repair device", RogueWorld.Blue, RogueWorld.WaypointHeight(device), 1);
         it = device.AddComponent<RogueInteractable>(); it.Action = "sidedevice"; it.Prompt = "Repair (optional)";
-        if (Authority) machine = new RepairDeviceEvent(800, 0.025);
+        // sized for the squad (2000 solo, was 800): the repair calls enemies to it, and at most MaxDrainingEnemies wear it down at once
+        if (Authority) machine = new RepairDeviceEvent(RogueMissionRules.DeviceHealth(RogueMissionRules.RepairDeviceBaseHealth, Stage.players), 0.025);
     }
     public override void Tick(float dt)
     {
         if (machine == null) return;
         int players = 0; foreach (var kv in new List<KeyValuePair<string, float>>(repairing)) { if (kv.Value > 0) players++; repairing[kv.Key] = Mathf.Max(0, kv.Value - dt); }
         machine.OnRepair(players, dt);
+        Pressure.Sustain(Controller, device.transform.position, players > 0, dt);   // squads keep coming while somebody repairs
         int near = RogueWorld.EnemiesWithin(device.transform.position, 12f);
-        if (near > 0) { accum += near * 20f * dt; if (accum >= 5f) { machine.OnDeviceDamaged(accum); accum = 0; } }
-        StatusText = N("Optional repair {0}%", Mathf.RoundToInt((float)machine.Progress * 100));
+        if (near > 0) { accum += (float)RogueMissionRules.DeviceDrain(RogueMissionRules.RepairDrainPerEnemy, near) * dt; if (accum >= 5f) { machine.OnDeviceDamaged(accum); accum = 0; } }
+        // the device's own health is on the line too: it could be lost without the squad ever seeing it wear down
+        StatusText = N("Optional repair {0}%  Device {1}%", Mathf.RoundToInt((float)machine.Progress * 100), Mathf.CeilToInt((float)(machine.DeviceHp / RogueMissionRules.DeviceHealth(RogueMissionRules.RepairDeviceBaseHealth, Stage.players)) * 100f));
         it.SetProgress((float)machine.Progress, machine.Status == EventStatus.Succeeded);
         if (machine.Status == EventStatus.Failed) it.SetUnavailable();
         Settle(machine.Status);
@@ -221,7 +264,9 @@ public sealed class RepairDeviceRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "sidedevice") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, device.GetComponent<Collider>(), 5f)) repairing[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        if (!RogueInteraction.AuthorityCanAct(p) || !RogueInteraction.AuthorityInReach(p, device.GetComponent<Collider>(), 5f)) return;
+        repairing[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        Pressure.Ambush(Controller, device.transform.position);   // the first repair calls an ambush on the device
     }
     public override void Dispose() { RogueWorld.Destroy(device); }
 }
@@ -243,6 +288,9 @@ public sealed class RiskContractRunner : RogueEventRunner
                 // enemy shots are simulated on every client: each needs the same multiplier (it used to exist on the host only)
                 Controller.Notify(new RogueEventMessage { kind = "enemymul", value = machine.EnemyDamageMul });
                 Banner("Risk contract accepted: +25% enemy damage, +40% bounty.", 3);
+                // signing it is the interaction: a squad comes for the nearest signer at once
+                var signer = NearestPlayerObject(Point(0));
+                if (signer != null) Squad(signer.transform.position, RogueMissionRules.AmbushSize(Controller.State.ConnectedPlayers, Stage.depth));
                 Controller.Broadcast();
             }
             else machine.Decline();
@@ -255,7 +303,12 @@ public sealed class RiskContractRunner : RogueEventRunner
         if (machine.Status == EventStatus.Active && Controller.StageObjectiveDone) machine.OnStageCompleted();
         Settle(machine.Status);
     }
-    public override void Dispose() { Controller.ExtraEnemyDamageMul = 1f; }
+    public override void Dispose()
+    {
+        Controller.ExtraEnemyDamageMul = 1f;
+        // the question was never answered and the stage (or the run) is over: close it, as a decline
+        if (machine != null && !asked) { asked = true; machine.Decline(); Controller.CloseRiskContractOffer(); }
+    }
 }
 
 public sealed class EliteHuntRunner : RogueEventRunner
@@ -265,7 +318,16 @@ public sealed class EliteHuntRunner : RogueEventRunner
     public override void Tick(float dt)
     {
         if (machine == null) return;
-        if (elite == null && spawnDelay > 0) { spawnDelay -= dt; if (spawnDelay <= 0) { elite = Controller.SpawnExtraEnemy("role.marksman", true, Point(0)); if (elite != null) { Controller.MarkHuntTarget(elite.InstanceId); Controller.Notify(new RogueEventMessage { kind = "hunt", index = elite.InstanceId }); Banner("Elite Hunt: a marked elite is on the map.", 3); } } }
+        if (elite == null && spawnDelay > 0) { spawnDelay -= dt; if (spawnDelay <= 0) { elite = Controller.SpawnExtraEnemy("role.marksman", true, Point(0)); if (elite != null)
+                {
+                    Controller.MarkHuntTarget(elite.InstanceId); Controller.Notify(new RogueEventMessage { kind = "hunt", index = elite.InstanceId }); Banner("Elite Hunt: a marked elite is on the map.", 3);
+                    // it no longer walks alone: bodyguards arrive at the same place (extras, within the cap)
+                    int guards = Mathf.Min(RogueMissionRules.HuntEscortSize(Controller.State.ConnectedPlayers), Stage.concurrentCap - Controller.AliveEnemies);
+                    for (int i = 0; i < guards; i++) Controller.SpawnExtraEnemy(RogueMissionRules.PressureRole(i, Stage.depth), false, Point(0));
+                }
+                else spawnDelay = 2f;   // nothing could be placed this time: try again shortly instead of leaving the event without a target
+            }
+        }
         StatusText = elite != null ? N("Hunt the marked elite") : "";
         Settle(machine.Status);
     }
@@ -302,7 +364,14 @@ public sealed class LureCrateRunner : RogueEventRunner
     {
         if (machine == null) return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (cmd.text == "lure:pickup") { if (RogueCarryable.AuthorizePickup(Controller, carry, p, cmd.playerKey, machine.Holder) && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey); }
+        if (cmd.text == "lure:pickup")
+        {
+            if (RogueCarryable.AuthorizePickup(Controller, carry, p, cmd.playerKey, machine.Holder) && machine.OnPickup(cmd.playerKey))
+            {
+                SetHolder(cmd.playerKey);
+                if (p != null) Pressure.Ambush(Controller, p.transform.position);   // switching the beacon on calls a squad to its carrier
+            }
+        }
         else if (cmd.text == "lure:drop" && machine.Holder == cmd.playerKey && machine.OnPlanted()) { SetHolder(""); Banner("Lure planted: enemies are drawn to it.", 2); }
     }
     public override void OnClientEvent(RogueEventMessage e) { if (e.kind == "carry" && e.text.StartsWith("LureCrate|") && carry != null) { carry.HolderKey = e.text.Substring(10); ApplyLureCarrying(carry.HolderKey); Controller.LureTarget = crate != null ? crate.transform : null; } }
@@ -333,9 +402,10 @@ public sealed class GasLeakRunner : RogueEventRunner
         }
         if (Authority)
         {
-            // countdown from walking distance at base speed (15 u/s) plus interaction and fighting slack; never below 45 s
+            // countdown from walking distance at base speed (15 u/s) plus interaction and fighting slack; never below 40 s
+            // (was 45 s with more slack: every switch now draws an ambush, so the walk itself is the time that counts)
             float walk = 0; foreach (var go in RogueWorld.AlivePlayers()) { walk = Mathf.Max(walk, Vector3.Distance(go.transform.position, Point(0)) + Vector3.Distance(Point(0), Point(1))); }
-            float countdown = Mathf.Max(45f, walk / 15f * 1.6f + 2 * 2.5f + 12f);
+            float countdown = Mathf.Max(40f, walk / 15f * 1.4f + 2 * 2.5f + 10f);
             machine = new GasLeakEvent(Mathf.Max(30f, countdown));
             Banner("Gas leak in {0} s! Activate 2 of 3 vent switches.|" + Mathf.CeilToInt(countdown), 4);
         }
@@ -424,7 +494,9 @@ public sealed class GasLeakRunner : RogueEventRunner
         if (!RogueInteraction.AuthorityCanAct(p) || !RogueInteraction.AuthorityInReach(p, switches[i].GetComponent<Collider>(), VentReach)) return;
         Dictionary<string, float> byPlayer; if (!held.TryGetValue(i, out byPlayer)) held[i] = byPlayer = new Dictionary<string, float>();
         byPlayer[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        ventPressure[i].Ambush(Controller, switches[i].transform.position);   // the first hold on each switch calls an ambush on it
     }
+    readonly RogueMissionPressure[] ventPressure = { new RogueMissionPressure(), new RogueMissionPressure(), new RogueMissionPressure() };
 }
 
 public sealed class PowerOutageRunner : RogueEventRunner
@@ -455,6 +527,7 @@ public sealed class PowerOutageRunner : RogueEventRunner
         foreach (var kv in new List<KeyValuePair<string, float>>(held)) { if (kv.Value > best) { best = kv.Value; holder = kv.Key; } held[kv.Key] = Mathf.Max(0, kv.Value - dt); }
         if (best > 0) machine.OnSwitchProgress(holder, Mathf.Min(dt, best));
         machine.Tick(dt);
+        if (generator != null) Pressure.Sustain(Controller, generator.transform.position, best > 0 && machine.Status == EventStatus.Active, dt);   // squads while it is held
         StatusText = machine.Status == EventStatus.Active ? N("Generator {0}/8 s  Outage {1} s", Mathf.FloorToInt((float)machine.Progress), Mathf.CeilToInt((float)machine.Countdown)) : "";
         if (it != null) { if (machine.Status == EventStatus.Failed) it.SetUnavailable(); else it.SetProgress((float)machine.Progress / 8f, machine.Status == EventStatus.Succeeded); }
         if (machine.Status == EventStatus.Succeeded) { SetDark(false); Controller.Notify(new RogueEventMessage { kind = "power", flag = false, index = 1 }); }
@@ -466,14 +539,22 @@ public sealed class PowerOutageRunner : RogueEventRunner
     {
         if (machine == null || cmd.text != "generator") return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (RogueInteraction.AuthorityCanAct(p) && RogueInteraction.AuthorityInReach(p, generator.GetComponent<Collider>(), GeneratorReach)) held[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        if (!RogueInteraction.AuthorityCanAct(p) || !RogueInteraction.AuthorityInReach(p, generator.GetComponent<Collider>(), GeneratorReach)) return;
+        held[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
+        Pressure.Ambush(Controller, generator.transform.position);   // the first hold on the generator calls an ambush on it
     }
     public override void Dispose() { SetDark(false); RogueWorld.Destroy(generator); }
 }
 
 public sealed class MobileBombRunner : RogueEventRunner
 {
-    MobileBombEvent machine; GameObject bomb, ring, beacon; RogueCarryable carry; Vector3 disposal;
+    // The bomb's countdown never stops. At zero it hits every player on the map for MobileBombEvent.SquadBlastFraction of their
+    // maximum health, wherever they are: each client applies it to its own player through the normal player damage path (the way
+    // enemy fire and gas already resolve on the owner), so the Invincible ultimate blocks it, a shield absorbs its capacity first,
+    // damage reduction applies. The blast alone never takes a player down or kills: what is left after all of that is held to the
+    // player's health minus 1 (RogueHooks.NonLethalHit), so the worst case is 1 health, no lethal hit is resolved and a once-per-stage
+    // save (Guardian Angel, a solo Emergency Revive) is not spent on it. Solo has no downed state: 85% used to end a run outright.
+    MobileBombEvent machine; GameObject bomb, ring, beacon; RogueCarryable carry; Vector3 disposal; int warnedSecond = -1;
     public override void Begin()
     {
         disposal = Point(1);
@@ -483,7 +564,15 @@ public sealed class MobileBombRunner : RogueEventRunner
         carry = bomb.AddComponent<RogueCarryable>(); carry.DisplayName = "Bomb"; carry.Action = "bomb"; carry.Prompt = "Pick up the bomb";
         ring = RogueWorld.Ring("DisposalZone", disposal, 4f, RogueWorld.Green); beacon = RogueWorld.Beacon("DisposalBeacon", disposal, RogueWorld.Green);
         RogueWaypoint.Attach(beacon, "Check", "Disposal zone", RogueWorld.Green, 2.5f, 1);
-        if (Authority) { machine = new MobileBombEvent(75, 15); Banner("A bomb is armed! Carry it to the disposal point.", 3); }
+        if (Authority)
+        {
+            // countdown from this stage's distances (was a fixed 75 s on every map): the farthest player's run to the bomb, the carry
+            // at the default carry speed with slack, and time for the ambush (MobileBombEvent.CountdownFor, 40 to 150 s)
+            float walk = 0f; foreach (var go in RogueWorld.AlivePlayers()) walk = Mathf.Max(walk, Vector3.Distance(go.transform.position, Point(0)));
+            double countdown = MobileBombEvent.CountdownFor(walk, Vector3.Distance(Point(0), disposal), new BuildStats().CarrySpeedMul);
+            machine = new MobileBombEvent(countdown, 15);
+            Banner("A bomb is armed! Dispose of it in {0} s or the whole squad takes massive damage.|" + Mathf.CeilToInt((float)countdown), 4);
+        }
     }
     public override void Tick(float dt)
     {
@@ -496,27 +585,46 @@ public sealed class MobileBombRunner : RogueEventRunner
             if (rp != null && rp.Downed) { machine.OnPlayerDowned(machine.Holder); SetHolder(""); }
             else { float d = Vector3.Distance(holder.transform.position, disposal); machine.OnDistance(d); if (d <= 4f && machine.OnDisposed()) { SetHolder(""); Banner("Bomb disposed!", 2); } }
         }
+        // the bomb is hunted while somebody carries it: a squad around the carrier every few seconds
+        if (machine.Status == EventStatus.Active && holder != null && !string.IsNullOrEmpty(machine.Holder)) Pressure.Sustain(Controller, holder.transform.position, true, dt);
         machine.Tick(dt);
-        StatusText = machine.Status == EventStatus.Active ? N("Bomb {0} s  {1} m to disposal", Mathf.CeilToInt((float)machine.Countdown), Mathf.RoundToInt((float)machine.RemainingDistance)) : "";
+        int left = Mathf.CeilToInt((float)machine.Countdown);
+        bool final = machine.Status == EventStatus.Active && left > 0 && left <= (int)MobileBombEvent.FinalWarningSeconds;
+        StatusText = machine.Status != EventStatus.Active ? "" : N(final ? "BOMB {0} s! {1} m to disposal" : "Bomb {0} s  {1} m to disposal", left, Mathf.RoundToInt((float)machine.RemainingDistance));
+        if (final && left != warnedSecond)
+        {
+            // the last seconds on every client: a beep and a red pulse each second, and one banner that says what is at stake
+            bool first = warnedSecond < 0;
+            warnedSecond = left;
+            Controller.ObjectiveTextChanged();
+            Controller.Notify(new RogueEventMessage { kind = "bombtick", index = left });
+            if (first) Banner("The bomb explodes in {0} s! The whole squad will take massive damage.|" + left, 2.5f);
+        }
         if (machine.Exploded && bomb != null)
         {
-            Controller.Notify(new RogueEventMessage { kind = "boom", value = machine.DamageRadius });
-            Explode((float)machine.DamageRadius);
+            Controller.Notify(new RogueEventMessage { kind = "log", text = "The bomb exploded: the squad took heavy damage." });
+            Controller.Notify(new RogueEventMessage { kind = "boom", value = MobileBombEvent.SquadBlastFraction });   // every copy, this one included, detonates in OnClientEvent
+            Explode((float)MobileBombEvent.SquadBlastFraction);   // no-op when the event above already ran here
         }
         Settle(machine.Status);
     }
-    void Explode(float radius)
+    /// <summary>Every client: the detonation (RogueBombFx) and the blast on this client's own player, wherever it stands.</summary>
+    void Explode(float fraction)
     {
         if (bomb == null) return;
-        RogueWorldFx.Burst(bomb.transform.position, radius, new Color(1f, 0.35f, 0.35f));   // the bomb's own damage radius (QA-45)
+        Vector3 at = bomb.transform.position;
+        RogueBombFx.Detonate(at);
         var local = RoguelikeController.FindLocalPlayer();
-        if (local != null && Vector3.Distance(local.transform.position, bomb.transform.position) <= radius)
+        var dr = local != null ? local.GetComponent<DamageReceiver>() : null;
+        var victim = local != null ? local.GetComponent<RoguePlayer>() : null;
+        // a downed or dead player is not hit again: its state is already the authority's to rule
+        if (dr != null && !dr.Dead && (victim == null || !victim.Downed))
         {
-            var dr = local.GetComponent<DamageReceiver>();
-            float blast = dr != null ? RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * 0.7f : 0f;
+            float blast = RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * Mathf.Clamp01(fraction);
             // the blast is applied as self damage (no source to point at), so the hit-direction indicator gets the bomb's position here (QA-35)
-            if (dr != null && !dr.Dead && !DamageReceiver.invincibility) DamageDirectionIndicator.Report(bomb.transform.position, blast);
-            if (dr != null) dr.ApplyDamage(blast, -1, local.transform);
+            if (!DamageReceiver.invincibility) DamageDirectionIndicator.Report(at, blast);
+            try { RogueHooks.NonLethalHit = true; dr.ApplyDamage(blast, -1, local.transform); }
+            finally { RogueHooks.NonLethalHit = false; }
         }
         RogueWorld.Destroy(bomb); bomb = null;
         if (carry != null) carry.HolderKey = ""; RogueCarryable.RefreshCarryingFlags();   // the bomb is gone: nobody carries it
@@ -530,13 +638,22 @@ public sealed class MobileBombRunner : RogueEventRunner
     {
         if (machine == null || bomb == null) return;
         var p = RogueWorld.PlayerByKey(cmd.playerKey);
-        if (cmd.text == "bomb:pickup") { if (RogueCarryable.AuthorizePickup(Controller, carry, p, cmd.playerKey, machine.Holder) && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey); }
+        if (cmd.text == "bomb:pickup")
+        {
+            if (RogueCarryable.AuthorizePickup(Controller, carry, p, cmd.playerKey, machine.Holder) && machine.OnPickup(cmd.playerKey))
+            {
+                SetHolder(cmd.playerKey);
+                if (p != null) Pressure.Ambush(Controller, p.transform.position);   // the first pickup calls an ambush on the carrier
+            }
+        }
         else if (cmd.text == "bomb:drop" && machine.Holder == cmd.playerKey) { machine.OnDrop(); SetHolder(""); }
     }
     public override void OnClientEvent(RogueEventMessage e)
     {
         if (e.kind == "carry" && e.text.StartsWith("MobileBomb|") && carry != null) { carry.HolderKey = e.text.Substring(11); RogueCarryable.RefreshCarryingFlags(); }
-        if (e.kind == "boom") Explode((float)e.value);
+        if (e.kind == "bombtick" && bomb != null) RogueBombFx.Warn(e.index);
+        // an older authority build sent the blast radius here (15); the share of health is never above 1
+        if (e.kind == "boom") Explode(e.value > 0 && e.value <= 1 ? (float)e.value : (float)MobileBombEvent.SquadBlastFraction);
     }
     public override void Dispose() { if (carry != null) carry.HolderKey = ""; RogueCarryable.RefreshCarryingFlags(); RogueWorld.Destroy(bomb); RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon); }
 }
@@ -544,25 +661,37 @@ public sealed class MobileBombRunner : RogueEventRunner
 public sealed class ReinforcementSignalRunner : RogueEventRunner
 {
     ReinforcementSignalEvent machine; GameObject device; RogueDamageable dmg; float dealt;
-    /// <summary>The signal device's health (ReinforcementSignalEvent's hp, mirrored for the health shown to players, QA-37).</summary>
-    public const float DeviceHealth = 1500f;
+    /// <summary>The signal device's health (ReinforcementSignalEvent's hp, mirrored for the health shown to players, QA-37):
+    /// RogueMissionRules.SignalDeviceHealth for the stage (12000 at depth 1 solo, was a fixed 1500), set by the authority in Begin.</summary>
+    float deviceHealth = (float)RogueMissionRules.SignalDeviceBaseHealth;
     public override void Begin()
     {
         device = RogueWorld.Cube("SignalDevice", Point(0), new Vector3(1.4f, 3f, 1.4f), RogueWorld.Pink2, true);
         RogueWaypoint.Attach(device, "Warning", "Signal device", RogueWorld.Pink2, RogueWorld.WaypointHeight(device), 2).Pulse = true;
         RogueWorld.Beacon("SignalBeacon", Point(0), RogueWorld.Pink2).transform.SetParent(device.transform, true);
         dmg = device.AddComponent<RogueDamageable>(); dmg.DisplayName = "Signal device";
-        dmg.OnHit = (d, s) => { if (machine != null && machine.Status == EventStatus.Active) { dealt += d; machine.OnDamaged(d); Controller.ObjectiveTextChanged(); } };
-        if (Authority) { machine = new ReinforcementSignalEvent(DeviceHealth, 100); Banner("A signal device is calling reinforcements. Destroy it!", 3); }
+        dmg.OnHit = (d, s) =>
+        {
+            if (machine == null || machine.Status != EventStatus.Active || !HitByPlayer(s)) return;
+            dealt += d; machine.OnDamaged(d); Controller.ObjectiveTextChanged();
+            if (device != null) Pressure.Ambush(Controller, device.transform.position);   // the first hit on the device calls its guard at once
+        };
+        if (Authority)
+        {
+            deviceHealth = (float)RogueMissionRules.SignalDeviceHealth(Stage.depth, Stage.difficulty, Stage.players);
+            machine = new ReinforcementSignalEvent(deviceHealth, 100); Banner("A signal device is calling reinforcements. Destroy it!", 3);
+        }
     }
     public override void Tick(float dt)
     {
         if (machine == null) return;
         machine.Tick(dt);
-        foreach (var w in machine.TakeReinforcements()) Controller.SpawnExtraEnemy("role.rifleman", false, device.transform.position);
-        float health = Mathf.Clamp01(1f - dealt / DeviceHealth);
+        // each wave is a squad sized for the players (was a single rifleman), with elites from chapter 2, within the concurrent cap
+        foreach (var w in machine.TakeReinforcements())
+            if (device != null && Squad(device.transform.position, RogueMissionRules.SignalWaveSize(Controller.State.ConnectedPlayers)) > 0) Banner("Reinforcements!", 1.5f);
+        float health = Mathf.Clamp01(1f - dealt / deviceHealth);
         if (dmg != null) dmg.SetState(health, machine.Status != EventStatus.Active);
-        StatusText = machine.Status == EventStatus.Active ? N("Destroy the signal device: {0}% health, waves {1}/4", Mathf.CeilToInt(health * 100f), machine.SpawnCount) : "";
+        StatusText = machine.Status == EventStatus.Active ? N("Destroy the signal device: {0}% health, waves {1}/{2}", Mathf.CeilToInt(health * 100f), machine.SpawnCount, ReinforcementSignalEvent.MaxWaves) : "";
         if (machine.Status == EventStatus.Succeeded && device != null) { RogueWorldFx.Burst(device.transform.position, SignalBlastRadius, RogueWorld.Pink2); Controller.Notify(new RogueEventMessage { kind = "signal" }); RogueWorld.Destroy(device); device = null; }
         Settle(machine.Status);
     }

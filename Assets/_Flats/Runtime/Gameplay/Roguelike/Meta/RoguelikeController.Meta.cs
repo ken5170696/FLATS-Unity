@@ -80,6 +80,7 @@ public partial class RoguelikeController
     {
         if (metaRewarded || state == null || state.phase != RunPhase.Ended) return;
         metaRewarded = true;
+        MetaNoteSeen();   // enemy roles met since the last state change
         var runtime = LocalRuntime();
         var facts = MetaRun.Facts(state, localKey, Time.time - metaRunStartedAt, runtime != null ? runtime.MeleeKills : 0, runtime != null ? runtime.WeaponKillEntries() : new string[0], state.heat);
         LastContributions = runtime != null ? runtime.Ledger.Top(3) : new Contribution[0];
@@ -174,9 +175,62 @@ public partial class RoguelikeController
             () => { var m = Menu.Current; if (m != null) m.ContinueFromRogueStats(); });
     }
 
+    // ---------------------------------------------------------------- statistics and codex (local profile)
+    /// <summary>A co-op client learned the run: its own profile counts the run once. NoteRunStarted used to run on the authority
+    /// only, so a player who never hosted kept "Total runs" at zero. The pending run id makes it once per run across chapter
+    /// travel and a rejoin.</summary>
+    void MetaNoteRunJoined()
+    {
+        if (state == null || IsAuthority || string.IsNullOrEmpty(state.runId)) return;
+        var profile = RogueMetaStore.Current;
+        if (profile.pendingRunId == state.runId || MetaProfiles.AlreadyRewarded(profile, state.runId)) return;
+        RogueMetaStore.NoteRunStarted(state.runId);
+    }
+
+    readonly HashSet<string> metaSeen = new HashSet<string>();          // what this controller already handed to the profile
+    readonly List<string> metaSeenItems = new List<string>(), metaSeenEnemies = new List<string>();
+    const float MetaSeenRetrySeconds = 5f;
+    float metaSeenRetryAt;
+
+    /// <summary>Every state change: the local build's cores, mods, tactical and ultimate enter the codex the moment they are
+    /// owned (bought, picked as a reward, granted by Starter Kit), not only when they are still in the build at the run's end;
+    /// enemy roles met since the last call go with them. The profile is saved only when an entry is new.</summary>
+    void MetaNoteSeen(bool force = false)
+    {
+        var me = LocalPlayer;
+        if (me != null && me.build != null)
+        {
+            foreach (var id in me.build.cores ?? new string[0]) if (!string.IsNullOrEmpty(id) && metaSeen.Add(id)) metaSeenItems.Add(id);
+            foreach (var id in me.build.mods ?? new string[0]) if (!string.IsNullOrEmpty(id) && metaSeen.Add(id)) metaSeenItems.Add(id);
+            if (!string.IsNullOrEmpty(me.build.tactical) && metaSeen.Add(me.build.tactical)) metaSeenItems.Add(me.build.tactical);
+            if (!string.IsNullOrEmpty(me.build.ultimate) && metaSeen.Add(me.build.ultimate)) metaSeenItems.Add(me.build.ultimate);
+        }
+        if (metaSeenItems.Count == 0 && metaSeenEnemies.Count == 0) return;
+        // a failed save keeps both lists: the entries go again with a later state change (metaSeen would never offer them twice).
+        // State changes can come several times a second, so a failed save is retried at most every few seconds (always when leaving).
+        if (!force && Time.unscaledTime < metaSeenRetryAt) return;
+        bool keep = false;
+        try
+        {
+            RogueMetaStore.NoteSeen(metaSeenItems, metaSeenEnemies);
+            keep = RogueMetaStore.SeenStillUnsaved(metaSeenItems, metaSeenEnemies);
+        }
+        catch (Exception e) { Debug.LogException(e); keep = !RogueMetaStore.ReadOnly; }
+        if (keep) { metaSeenRetryAt = Time.unscaledTime + MetaSeenRetrySeconds; return; }
+        metaSeenRetryAt = 0f;
+        metaSeenItems.Clear(); metaSeenEnemies.Clear();
+    }
+
+    /// <summary>Every client: an enemy of this role is on the field (RegisterEnemy). Written with the next state change or at the run's end.</summary>
+    void MetaNoteEnemy(string roleId)
+    {
+        if (!string.IsNullOrEmpty(roleId) && metaSeen.Add("enemy:" + roleId)) metaSeenEnemies.Add(roleId);
+    }
+
     /// <summary>A co-op client leaving before the end keeps the reduced "left early" reward of what it played.</summary>
     void MetaLeftEarly()
     {
+        if (runStarted && state != null) MetaNoteSeen(true);   // solo and co-op: a quit run keeps its codex discoveries
         if (metaRewarded || state == null || state.phase == RunPhase.Ended || travelling || Menu.network == 0) return;
         metaRewarded = true;
         var runtime = LocalRuntime();

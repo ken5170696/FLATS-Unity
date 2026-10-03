@@ -31,13 +31,16 @@ public sealed class RogueEnemyTactics : MonoBehaviour
     {
         if (!RoguelikeMode.Active || Time.time < next) return;
         next = Time.time + Interval;
-        if (!(Menu.network == 0 || PhotonNetwork.isMasterClient)) { steering = false; return; }
+        if (!(Menu.network == 0 || PhotonNetwork.isMasterClient)) { steering = false; HoldingVantage = false; return; }
         if (ai == null || agent == null || !agent.enabled || !agent.isOnNavMesh || agent.isOnOffMeshLink) return;
         if (receiver != null && receiver.Dead) return;
         if (role == null) role = GetComponent<RogueEnemyRole>();
         if (links == null) links = GetComponent<RogueEnemyLinkTraversal>();
         if (role == null || role.Def == null || role.RoleId == "role.finale") return;
         if (RogueEnemyStatus.Stunned(ai) || (links != null && links.Traversing)) return;
+        // "role.brawler" has no gun to find a firing spot for: RogueEnemyMelee owns all of its movement, unreachable targets included.
+        // "role.operative" keeps only the shared rooftop rule below; everything else it does comes from RogueEnemyOperative.
+        if (role.Def.Melee) { HoldingVantage = false; return; }
         // a target standing where no path leads (a rooftop): every role, the rifleman included, goes to a spot it can shoot from
         // (an enemy still on patrol walks its waypoints away from a squad it cannot reach: it takes the nearest player instead)
         if (Vantage(ai.RoguePursuedTarget ?? NearestPlayer())) return;
@@ -82,19 +85,23 @@ public sealed class RogueEnemyTactics : MonoBehaviour
         }
         if (!outOfReach) { Release(); return false; }
         bool canFire = ai.RogueCanFireAt(target);
-        if (canFire && (!hasVantage || (transform.position - vantage).sqrMagnitude < 16f)) { ai.rogueVantage = true; Hold(); return true; }
+        if (canFire && (!hasVantage || (transform.position - vantage).sqrMagnitude < 16f)) { ai.rogueVantage = true; HoldingVantage = true; Hold(); return true; }
         if (!hasVantage || Time.time >= vantageAt)
         {
             vantageAt = Time.time + VantageInterval;
             hasVantage = FindVantage(target.position, out vantage);
         }
         if (!hasVantage) { Release(); return false; }
-        ai.rogueVantage = true;
+        ai.rogueVantage = true; HoldingVantage = true;
         Go(vantage);
         return true;
     }
 
-    void Release() { if (ai != null && ai.rogueVantage) ai.rogueVantage = false; hasVantage = false; }
+    /// <summary>This component is walking the enemy to (or holding it at) a firing spot for a target it cannot reach. An enemy with its
+    /// own brain (RogueEnemyOperative) leaves the movement alone while this is true.</summary>
+    public bool HoldingVantage { get; private set; }
+
+    void Release() { if (ai != null && ai.rogueVantage) ai.rogueVantage = false; hasVantage = false; HoldingVantage = false; }
 
     /// <summary>The nearest player this enemy could fight (alive, not downed), from the list the AI keeps.</summary>
     Transform NearestPlayer()

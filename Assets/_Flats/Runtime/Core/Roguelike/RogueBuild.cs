@@ -13,7 +13,8 @@ namespace Flats.Core.Roguelike
         public long[] corePaidMinor = new long[0], modPaidMinor = new long[0];
         public string tactical = "";
         public string ultimate = "";
-        public int healthTier, damageTier, magazineTier, speedTier;   // 0..StatTiers
+        public int healthTier, damageTier, magazineTier, speedTier;   // 0..the stat's own top tier (RogueCatalog.MaxTier: 100 / 100 / 20 / 20)
+        public int regenTier;                                         // stat.regen, 0..20; a plain field, so JsonUtility carries it in saves and state broadcasts (0 in older data)
         public int primaryWeapon = -1, secondaryWeapon = -1;          // WeaponCatalog indices; -1 = character default
         public MetaLoadout meta = new MetaLoadout();                  // out-of-run skills and armory (Meta/BuildStats.Meta.cs)
 
@@ -24,7 +25,7 @@ namespace Flats.Core.Roguelike
                 cores = cores == null ? null : (string[])cores.Clone(), mods = mods == null ? null : (string[])mods.Clone(), tactical = tactical, ultimate = ultimate,
                 coreTiers = coreTiers == null ? null : (int[])coreTiers.Clone(), modTiers = modTiers == null ? null : (int[])modTiers.Clone(),
                 corePaidMinor = corePaidMinor == null ? null : (long[])corePaidMinor.Clone(), modPaidMinor = modPaidMinor == null ? null : (long[])modPaidMinor.Clone(),
-                healthTier = healthTier, damageTier = damageTier, magazineTier = magazineTier, speedTier = speedTier,
+                healthTier = healthTier, damageTier = damageTier, magazineTier = magazineTier, speedTier = speedTier, regenTier = regenTier,
                 primaryWeapon = primaryWeapon, secondaryWeapon = secondaryWeapon,
                 meta = meta != null ? meta.Clone() : new MetaLoadout(),
             };
@@ -76,19 +77,21 @@ namespace Flats.Core.Roguelike
                 case "stat.damage": return damageTier;
                 case "stat.magazine": return magazineTier;
                 case "stat.speed": return speedTier;
+                case "stat.regen": return regenTier;
             }
             return 0;
         }
 
         public void SetStatTier(string statId, int tier)
         {
-            tier = Math.Max(0, Math.Min(RogueCatalog.StatTiers, tier));
+            tier = Math.Max(0, Math.Min(RogueCatalog.MaxTier(statId), tier));   // each stat has its own top tier
             switch (statId)
             {
                 case "stat.health": healthTier = tier; break;
                 case "stat.damage": damageTier = tier; break;
                 case "stat.magazine": magazineTier = tier; break;
                 case "stat.speed": speedTier = tier; break;
+                case "stat.regen": regenTier = tier; break;
             }
         }
 
@@ -121,22 +124,13 @@ namespace Flats.Core.Roguelike
         }
 
         /// <summary>
-        /// False when the next tier of a stat would change nothing because the build already sits on the total cap of that stat
-        /// (magazine x2.5 with Extended Magazine, speed x1.6 with Mobility): the shop neither samples nor sells such a tier.
+        /// True while the stat has a tier left. There are no total caps any more (2026-10-04), so every remaining tier adds its full
+        /// step; the shop still asks this before it samples or sells a stat.
         /// </summary>
         public bool StatTierHasEffect(string statId)
         {
-            if (StatTier(statId) >= RogueCatalog.StatTiers) return false;
-            var next = Clone(); next.SetStatTier(statId, StatTier(statId) + 1);
-            var now = BuildStats.Compute(this); var then = BuildStats.Compute(next);
-            switch (statId)
-            {
-                case "stat.health": return then.HealthMul > now.HealthMul;
-                case "stat.damage": return then.DamageMul > now.DamageMul;
-                case "stat.magazine": return then.MagazineMul > now.MagazineMul;
-                case "stat.speed": return then.SpeedMul > now.SpeedMul;
-            }
-            return true;
+            var def = RogueCatalog.Item(statId);
+            return def != null && def.Kind == ItemKind.Stat && StatTier(statId) < def.MaxStacks;
         }
 
         /// <summary>Applies an item. Returns the replaced item id (tactical/ultimate/weapon swaps) or null.</summary>
@@ -204,7 +198,7 @@ namespace Flats.Core.Roguelike
             foreach (var m in mods) { var d = RogueCatalog.Item(m); if (d == null || d.Kind != ItemKind.Mod) errors.Add("bad mod " + m); if (!seen.Add(m)) errors.Add("duplicate " + m); }
             if (!string.IsNullOrEmpty(tactical) && (RogueCatalog.Item(tactical) == null || RogueCatalog.Item(tactical).Kind != ItemKind.Tactical)) errors.Add("bad tactical " + tactical);
             if (!string.IsNullOrEmpty(ultimate) && (RogueCatalog.Item(ultimate) == null || RogueCatalog.Item(ultimate).Kind != ItemKind.Ultimate)) errors.Add("bad ultimate " + ultimate);
-            foreach (var t in new[] { healthTier, damageTier, magazineTier, speedTier }) if (t < 0 || t > RogueCatalog.StatTiers) errors.Add("stat tier out of range");
+            foreach (var stat in RogueCatalog.Stats) if (StatTier(stat.Id) < 0 || StatTier(stat.Id) > stat.MaxStacks) errors.Add("stat tier out of range: " + stat.Id);
             if (primaryWeapon < -1 || primaryWeapon >= WeaponCatalog.Count) errors.Add("bad primary weapon");
             if (secondaryWeapon < -1 || secondaryWeapon >= WeaponCatalog.Count) errors.Add("bad secondary weapon");
             return errors;
@@ -230,7 +224,7 @@ namespace Flats.Core.Roguelike
     {
         public double HealthMul = 1, DamageMul = 1, MagazineMul = 1, ReserveMul = 1, SpeedMul = 1, ReloadTimeMul = 1;
         public double HeadshotDamageMul = 1, BodyDamageMul = 1, DamageTakenMul = 1, JumpHeightMul = 1, SpreadMul = 1;
-        public double CloseRangeDamageMul = 1, FarRangeDamageMul = 1, GrenadeDamageMul = 1;
+        public double CloseRangeDamageMul = 1, FarRangeDamageMul = 1, ExplosionDamageMul = 1;   // ExplosionDamageMul: every explosion the player causes (was GrenadeDamageMul)
         public int PenetrateDepth, RicochetBounces, ExtraPellets, DashCharges, ReserveReturnOnReload;
         public double RicochetDamageMul = 0.8, RicochetHitBonus = 1, ExplosionRadiusMul = 1, ExplosionSlow, ExplodeOnKillFraction;
         public double MarkDuration, MarkDamageMul = 1, MarkedKillBountyBonus;
@@ -238,26 +232,42 @@ namespace Flats.Core.Roguelike
         public double AssaultKillReduction, AssaultKillSeconds, AssaultKillSpeed, KillHealFraction, MomentumShotBonus;
         public double ReviveSpeedMul = 1, CarrySpeedMul = 0.6, DashCooldownMul = 1;
         public bool DoubleJump, Dash, Shield, TeamRadio;
-        public double AssaultCloseRange = 12, MomentumShotWindowSeconds = 1.5, SuppressionWindowSeconds = 2.5;
+        // Assault: "close" reaches 30 m (owner request 2026-10-04); the far penalty starts at AssaultFarRange, well beyond it
+        public double AssaultCloseRange = 30, MomentumShotWindowSeconds = 1.5, SuppressionWindowSeconds = 2.5;
         public double DemolitionRadius, ShockwaveSeconds;
-        public const double MaxReviveSpeedMul = 2.0;
+        // 2026-10-04 round (agent-a): regeneration stat, Triple Jump, Shield Boost, the Chain Bullets mods, marks from Enemy Sight
+        /// <summary>Fraction of maximum health regenerated every second (stat.regen).</summary>
+        public double RegenPerSecond;
+        /// <summary>Mid-air jumps on top of Double Jump's one (mod.triple_jump); 0 without the tactical.</summary>
+        public int ExtraAirJumps;
+        /// <summary>Tactical shield: capacity multiplier and seconds added to its duration (mod.shield_boost).</summary>
+        public double ShieldCapacityMul = 1, ShieldExtraSeconds;
+        /// <summary>Chain Bullets: enemies added to each hit's arcs, jumps added to the chain (mod.superconductor), and the seconds a
+        /// chained enemy stays marked (mod.static_mark; 0 = chains do not mark).</summary>
+        public int ChainExtraTargets, ChainExtraJumps;
+        public double ChainMarkSeconds;
+        /// <summary>Spotter's seconds on their own: added to marks that do not come from the Marker core (Enemy Sight, Static Mark).</summary>
+        public double MarkExtraSeconds;
         // rule constants the item descriptions print (RogueCatalog), so text and rule cannot drift
-        public const double AssaultFarRange = 30, AssaultFarDamageMul = 0.9, AssaultKillSpeedBonus = 0.15, ShockwaveSlow = 0.4;
+        public const double AssaultFarRange = 60, AssaultFarDamageMul = 0.9, AssaultKillSpeedBonus = 0.15, ShockwaveSlow = 0.4;
 
-        // tier envelopes: RogueCatalog.StatTiers steps of the per-tier value (7 x 12%, 7 x 8%, 7 x 15%, 7 x 6%)
-        public const double HealthPerTier = 0.12, DamagePerTier = 0.08, MagazinePerTier = 0.15, SpeedPerTier = 0.06;
-        public const double MaxHealthBonus = 0.84, MaxDamageBonus = 0.56, MaxMagazineBonus = 1.05, MaxSpeedBonus = 0.42;
-        public const double MaxTotalDamageMul = 3.0, MaxTotalSpeedMul = 1.6, MaxTotalHealthMul = 2.5, MaxTotalMagazineMul = 2.5, MinDamageTakenMul = 0.5;
+        // per-tier steps of the stats; each stat's own top tier is its ItemDef.MaxStacks (RogueCatalog: 100 / 100 / 20 / 20 / 20)
+        public const double HealthPerTier = 0.12, DamagePerTier = 0.08, MagazinePerTier = 0.15, SpeedPerTier = 0.06, RegenPerTier = 0.005;
+        // No stacking caps (owner request 2026-10-04): bonuses from every source multiply without a ceiling. What is left are
+        // safety floors, so a number can never reach zero or turn negative and break the game, the jump height the maps are built
+        // for, and the one cap the owner asked for (ultimate charge speed).
+        public const double MinDamageTakenMul = 0.05, MinSpeedMul = 0.5, MinReloadTimeMul = 0.1, MaxJumpHeightMul = 1.5, MaxUltimateChargeMul = 2.0;
 
         public static BuildStats Compute(PlayerBuild b)
         {
             var s = new BuildStats();
             if (b == null) return s;
-            // additive tiers (clamped by tier count)
-            s.HealthMul = 1 + Math.Min(MaxHealthBonus, HealthPerTier * b.healthTier);
-            s.DamageMul = 1 + Math.Min(MaxDamageBonus, DamagePerTier * b.damageTier);
-            s.MagazineMul = 1 + Math.Min(MaxMagazineBonus, MagazinePerTier * b.magazineTier);
-            s.SpeedMul = 1 + Math.Min(MaxSpeedBonus, SpeedPerTier * b.speedTier);
+            // additive tiers: every tier adds its full step (the tier count is bounded by PlayerBuild.SetStatTier and Validate)
+            s.HealthMul = 1 + HealthPerTier * Math.Max(0, b.healthTier);
+            s.DamageMul = 1 + DamagePerTier * Math.Max(0, b.damageTier);
+            s.MagazineMul = 1 + MagazinePerTier * Math.Max(0, b.magazineTier);
+            s.SpeedMul = 1 + SpeedPerTier * Math.Max(0, b.speedTier);
+            s.RegenPerSecond = RegenPerTier * Math.Max(0, b.regenTier);
 
             // Tier effects are absolute table values, never repeated multiplication by rank.
             if (b.Tier("core.precision") > 0) { s.HeadshotDamageMul *= RogueTiers.Value("core.precision", b.Tier("core.precision"), 0); s.BodyDamageMul *= RogueTiers.Value("core.precision", b.Tier("core.precision"), 1); s.PenetrateDepth = (int)RogueTiers.Value("core.precision", b.Tier("core.precision"), 2); }
@@ -269,11 +279,14 @@ namespace Flats.Core.Roguelike
             if (b.Tier("core.marker") > 0) { s.MarkDamageMul = RogueTiers.Value("core.marker", b.Tier("core.marker"), 0); s.MarkDuration = RogueTiers.Value("core.marker", b.Tier("core.marker"), 1); }
             if (b.Tier("core.mobility") > 0) { s.SpeedMul *= RogueTiers.Value("core.mobility", b.Tier("core.mobility"), 0); s.ReviveSpeedMul *= RogueTiers.Value("core.mobility", b.Tier("core.mobility"), 1); s.CarrySpeedMul = 1; s.DashCooldownMul *= RogueTiers.Value("core.mobility", b.Tier("core.mobility"), 2); s.MomentumShotBonus = RogueTiers.Value("core.mobility", b.Tier("core.mobility"), 3); }
             if (b.Tier("mod.long_barrel") > 0) { s.HeadshotDamageMul *= RogueTiers.Value("mod.long_barrel", b.Tier("mod.long_barrel"), 0); }
-            if (b.Tier("mod.piercing_rounds") > 0) { s.PenetrateDepth = Math.Min(2, s.PenetrateDepth + 1); }
+            if (b.Tier("mod.piercing_rounds") > 0) { s.PenetrateDepth = Math.Min(RogueCatalog.MaxPierce, s.PenetrateDepth + 1); }
             if (b.Tier("mod.calm_hands") > 0) { s.SpreadMul *= RogueTiers.Value("mod.calm_hands", b.Tier("mod.calm_hands"), 0); }
             if (b.Tier("mod.close_quarters") > 0) { s.CloseRangeDamageMul *= RogueTiers.Value("mod.close_quarters", b.Tier("mod.close_quarters"), 0); }
             if (b.Tier("mod.adrenaline") > 0) { s.KillHealFraction = RogueTiers.Value("mod.adrenaline", b.Tier("mod.adrenaline"), 0); }
-            if (b.Tier("mod.choke") > 0) { s.ExtraPellets = 1; }
+            if (b.Tier("mod.choke") > 0) { s.ExtraPellets = (int)RogueTiers.Value("mod.choke", b.Tier("mod.choke"), 0); }
+            if (b.Tier("mod.rapid_fire") > 0) { s.FireRateMul *= RogueTiers.Value("mod.rapid_fire", b.Tier("mod.rapid_fire"), 0); }
+            if (b.Tier("mod.heavy_swing") > 0) { s.MeleeDamageMul *= RogueTiers.Value("mod.heavy_swing", b.Tier("mod.heavy_swing"), 0); }
+            if (b.Tier("mod.quick_swing") > 0) { s.MeleeSwingTimeMul *= RogueTiers.Value("mod.quick_swing", b.Tier("mod.quick_swing"), 0); }
             if (b.Tier("mod.extended_mag") > 0) { s.MagazineMul *= RogueTiers.Value("mod.extended_mag", b.Tier("mod.extended_mag"), 0); }
             if (b.Tier("mod.heavy_rounds") > 0) { s.DamageMul *= RogueTiers.Value("mod.heavy_rounds", b.Tier("mod.heavy_rounds"), 0); s.SpeedMul *= RogueTiers.Value("mod.heavy_rounds", b.Tier("mod.heavy_rounds"), 1); }
             // added to the core's own cap (it used to replace it, which made the mod a no-op once the core's tier reached the same number)
@@ -283,15 +296,20 @@ namespace Flats.Core.Roguelike
             // seconds added to the core's own duration: 3+2, 3.5+2.5 and 4+3 are the old 5/6/7 s, and it can never shorten a higher core tier
             if (b.Tier("mod.burst_extender") > 0) { if (s.ReloadBurstSeconds > 0) s.ReloadBurstSeconds += RogueTiers.Value("mod.burst_extender", b.Tier("mod.burst_extender"), 0); }
             if (b.Tier("mod.rubber_rounds") > 0) { s.RicochetDamageMul = 1; }
-            if (b.Tier("mod.double_bounce") > 0) { s.RicochetBounces = Math.Min(2, s.RicochetBounces + 1); }
+            if (b.Tier("mod.double_bounce") > 0) { s.RicochetBounces = Math.Min(RogueCatalog.MaxBounces, s.RicochetBounces + 1); }
             if (b.Tier("mod.angle_finder") > 0) { if (s.RicochetBounces > 0 && s.MarkDuration <= 0) { s.MarkDuration = RogueTiers.Value("mod.angle_finder", 1, 0); s.MarkDamageMul = RogueTiers.Value("core.marker", 1, 0); } }
             if (b.Tier("mod.bigger_boom") > 0) { s.ExplosionRadiusMul *= RogueTiers.Value("mod.bigger_boom", b.Tier("mod.bigger_boom"), 0); }
-            if (b.Tier("mod.frag_grenades") > 0) { s.GrenadeDamageMul *= RogueTiers.Value("mod.frag_grenades", b.Tier("mod.frag_grenades"), 0); }
+            if (b.Tier("mod.frag_grenades") > 0) { s.ExplosionDamageMul *= RogueTiers.Value("mod.frag_grenades", b.Tier("mod.frag_grenades"), 0); }
             if (b.Tier("mod.shockwave") > 0) { s.ExplosionSlow = ShockwaveSlow; s.ShockwaveSeconds = RogueTiers.Value("mod.shockwave", b.Tier("mod.shockwave"), 0); }
-            if (b.Tier("mod.spotter") > 0) { if (s.MarkDuration > 0) s.MarkDuration += RogueTiers.Value("mod.spotter", b.Tier("mod.spotter"), 0); }
+            if (b.Tier("mod.spotter") > 0) { s.MarkExtraSeconds = RogueTiers.Value("mod.spotter", b.Tier("mod.spotter"), 0); if (s.MarkDuration > 0) s.MarkDuration += s.MarkExtraSeconds; }
             if (b.Tier("mod.bounty_hunter") > 0) { s.MarkedKillBountyBonus = RogueTiers.Value("mod.bounty_hunter", b.Tier("mod.bounty_hunter"), 0); }
             if (b.Tier("mod.team_radio") > 0) { s.TeamRadio = true; }
-            if (b.Tier("mod.double_dash") > 0) { s.DashCharges = 2; }
+            if (b.Tier("mod.double_dash") > 0) { s.DashCharges = (int)RogueTiers.Value("mod.double_dash", b.Tier("mod.double_dash"), 0); }   // "Dash Charges": 2 / 3 / 4
+            if (b.Tier("mod.triple_jump") > 0) { s.ExtraAirJumps = (int)RogueTiers.Value("mod.triple_jump", b.Tier("mod.triple_jump"), 0); }
+            if (b.Tier("mod.shield_boost") > 0) { s.ShieldCapacityMul *= RogueTiers.Value("mod.shield_boost", b.Tier("mod.shield_boost"), 0); s.ShieldExtraSeconds += RogueTiers.Value("mod.shield_boost", b.Tier("mod.shield_boost"), 1); }
+            if (b.Tier("mod.ult_cooldown") > 0) { s.UltimateChargeMul *= RogueTiers.Value("mod.ult_cooldown", b.Tier("mod.ult_cooldown"), 0); }
+            if (b.Tier("mod.superconductor") > 0) { s.ChainExtraTargets = (int)RogueTiers.Value("mod.superconductor", b.Tier("mod.superconductor"), 0); s.ChainExtraJumps = (int)RogueTiers.Value("mod.superconductor", b.Tier("mod.superconductor"), 1); }
+            if (b.Tier("mod.static_mark") > 0) { s.ChainMarkSeconds = RogueTiers.Value("mod.static_mark", b.Tier("mod.static_mark"), 0); }
             if (b.Tier("mod.spring_legs") > 0) { s.JumpHeightMul *= RogueTiers.Value("mod.spring_legs", b.Tier("mod.spring_legs"), 0); }
             if (b.Tier("mod.quick_revive") > 0) { s.ReviveSpeedMul *= RogueTiers.Value("mod.quick_revive", b.Tier("mod.quick_revive"), 0); }
             if (b.Tier("mod.ammo_belt") > 0) { s.ReserveMul *= RogueTiers.Value("mod.ammo_belt", b.Tier("mod.ammo_belt"), 0); }
@@ -303,29 +321,29 @@ namespace Flats.Core.Roguelike
             s.Shield = b.tactical == "tactical.shield";
             if (s.Dash && s.DashCharges < 1) s.DashCharges = 1;
             if (!s.Dash) s.DashCharges = 0;
+            // mods of a tactical or an ultimate do nothing without it (the shop does not offer them then, RogueShop.MissingPrerequisite)
+            if (!s.DoubleJump) s.ExtraAirJumps = 0;
+            if (!s.Shield) { s.ShieldCapacityMul = 1; s.ShieldExtraSeconds = 0; }
+            if (b.ultimate != "ult.chain_bullets") { s.ChainExtraTargets = 0; s.ChainExtraJumps = 0; s.ChainMarkSeconds = 0; }
 
-            ApplyMeta(s, b);   // out-of-run skills and armory, bounded by SkillTree's design rule
+            ApplyMeta(s, b);   // out-of-run skills and armory
 
-            // clamps: hard envelope regardless of stacking
-            s.DamageMul = Math.Min(MaxTotalDamageMul, s.DamageMul);
-            s.SpeedMul = Math.Min(MaxTotalSpeedMul, Math.Max(0.5, s.SpeedMul));
-            s.HealthMul = Math.Min(MaxTotalHealthMul, s.HealthMul);
-            s.MagazineMul = Math.Min(MaxTotalMagazineMul, s.MagazineMul);
-            s.ReloadTimeMul = Math.Max(0.4, Math.Min(2.0, s.ReloadTimeMul));
+            // No stacking caps: only floors that keep a number from reaching zero (damage taken, speed, reload time), the jump
+            // height the maps are built for, and the owner's one cap (ultimate charge speed, in ClampMeta).
+            s.SpeedMul = Math.Max(MinSpeedMul, s.SpeedMul);
+            s.ReloadTimeMul = Math.Max(MinReloadTimeMul, s.ReloadTimeMul);
             s.DamageTakenMul = Math.Max(MinDamageTakenMul, s.DamageTakenMul);
-            s.HeadshotDamageMul = Math.Min(2.0, s.HeadshotDamageMul);
-            s.JumpHeightMul = Math.Min(1.5, s.JumpHeightMul);
+            s.JumpHeightMul = Math.Min(MaxJumpHeightMul, s.JumpHeightMul);
             ClampMeta(s);
-            s.ReviveSpeedMul = Math.Min(MaxReviveSpeedMul, s.ReviveSpeedMul);
             return s;
         }
 
-        /// <summary>Magazine capacity after the multiplier: integer, at least base+1 when any capacity bonus is active.</summary>
+        /// <summary>Magazine capacity after the multiplier: integer, at least base+1 when any capacity bonus is active. No upper cap.</summary>
         public int Magazine(int baseCapacity, int magazineTier)
         {
-            int cap = (int)Math.Floor(baseCapacity * MagazineMul);
+            int cap = (int)Math.Floor(Math.Min(100000.0, baseCapacity * MagazineMul));   // the bound only keeps the cast inside int
             if ((magazineTier > 0 || MagazineMul > 1) && cap < baseCapacity + 1) cap = baseCapacity + 1;
-            return Math.Max(1, Math.Min(cap, baseCapacity * 3));
+            return Math.Max(1, cap);
         }
 
         public double ExplosionRadius { get { return (DemolitionRadius > 0 ? DemolitionRadius : RogueCatalog.ExplosionRadius) * ExplosionRadiusMul; } }
@@ -334,7 +352,11 @@ namespace Flats.Core.Roguelike
 
         public int Reserve(int baseReserve) { return Math.Max(0, (int)Math.Floor(baseReserve * ReserveMul)); }
 
-        /// <summary>Final direct-hit damage multiplier for one bullet, with every conditional applied and clamped.</summary>
+        /// <summary>A distance that is neither "close" nor "far" for the Assault bands: fire-time callers pass it so the range factor is
+        /// applied once, at hit time, from the real distance.</summary>
+        public double NeutralRange { get { return (AssaultCloseRange + Math.Max(AssaultCloseRange, AssaultFarRange)) * 0.5 + 0.001; } }
+
+        /// <summary>Final direct-hit damage multiplier for one bullet, with every conditional applied. Factors multiply; there is no cap.</summary>
         public double DirectDamage(bool headshot, double distance, int suppressionStacks, bool reloadBurstActive, bool momentumShot, bool targetMarked, bool ricochet)
         {
             double m = DamageMul * (headshot ? HeadshotDamageMul : BodyDamageMul);
@@ -344,7 +366,7 @@ namespace Flats.Core.Roguelike
             if (momentumShot) m *= 1 + MomentumShotBonus;
             if (targetMarked) m *= MarkDamageMul;
             if (ricochet) m *= RicochetDamageMul * RicochetHitBonus;
-            return Math.Min(MaxTotalDamageMul * 2.0, m);   // even with every conditional stacked the envelope is bounded
+            return m;
         }
     }
 }

@@ -94,7 +94,9 @@ public static class RogueAudio
         else if (key.StartsWith("Start cancelled")) Play("ui_cancel");
         else if (key.StartsWith("{0} complete!")) Play("objective_done");
         else if (key.StartsWith("{0} failed.")) Play("objective_fail");
-        else if (key.StartsWith("Gas is leaking")) Play("gas_alarm");
+        else if (key.StartsWith("Gas is leaking") || key.StartsWith("The bomb explodes in")) Play("gas_alarm");
+        else if (key.StartsWith("Ambush!") || key.StartsWith("The carrier called") || key.StartsWith("The commander is shielded again")) Play("wave");
+        else if (key.StartsWith("The vault core sealed")) Play("objective_fail", 0.7f);
         else if (key.StartsWith("Gas leak in") || key.StartsWith("A bomb is armed") || key.StartsWith("Power outage") || key.StartsWith("Alarm! Reinforcements") || key.StartsWith("A signal device")) Play("alarm");
         else if (key.StartsWith("Reinforcements!")) Play("wave");
         else if (key.StartsWith("Elite Hunt")) Play("elite_spawn");

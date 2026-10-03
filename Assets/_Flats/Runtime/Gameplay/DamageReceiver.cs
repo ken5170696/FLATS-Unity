@@ -457,6 +457,17 @@ public class DamageReceiver : MonoBehaviour
 		else if (Menu.network != 1 && base.gameObject.GetPhotonView().isMine) base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, 0);
 	}
 
+	/// <summary>Roguelike authority (solo, or the master in co-op): an enemy that left the map dies at once, with no shooter and
+	/// past every mitigation (shield front, Guardian, invulnerable cores), so its slot, the objective and the stage can close.</summary>
+	public void RogueKillOutOfBounds()
+	{
+		if (died || userIsPlayer) return;
+		command = "normal";
+		killer = null;
+		if (Menu.network == 0) Die(0);
+		else if (Menu.network != 1 && PhotonNetwork.isMasterClient) base.gameObject.GetPhotonView().RPC("Die", PhotonTargets.All, 0);
+	}
+
 	public void ApplyDamage(float damage, int headshot, Transform shooter)
 	{
 		ApplyDamageInternal(damage, headshot, shooter, false);
@@ -846,7 +857,7 @@ public class DamageReceiver : MonoBehaviour
 						else if (Menu.network != 1)
 						{
 							text = "Suicide:" + OwnerName(base.gameObject);
-							if (matchView != null)
+							if (matchView != null && !RoguelikeMode.Active)   // the Roguelike run log already reports the death, translated
 							{
 								matchView.RPC("Log", PhotonTargets.All, text);
 							}

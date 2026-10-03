@@ -80,7 +80,7 @@ public partial class RoguelikeController
             var b = me.build;
             foreach (var id in b.cores) sb.Append('|').Append(id).Append(b.Tier(id));
             foreach (var id in b.mods) sb.Append('|').Append(id).Append(b.Tier(id));
-            sb.Append('|').Append(b.tactical).Append('|').Append(b.ultimate).Append('|').Append(b.healthTier).Append(b.damageTier).Append(b.magazineTier).Append(b.speedTier)
+            sb.Append('|').Append(b.tactical).Append('|').Append(b.ultimate).Append('|').Append(b.healthTier).Append(',').Append(b.damageTier).Append(',').Append(b.magazineTier).Append(',').Append(b.speedTier).Append(',').Append(b.regenTier)   // separated: tiers reach 100
               .Append('|').Append(me.ultimateCharge).Append('|').Append(me.kills).Append(me.headshots).Append(me.deaths).Append(me.rescues);
             var rp = LocalRoguePlayer(); var dr = rp != null ? rp.GetComponent<DamageReceiver>() : null;
             sb.Append('|').Append(dr != null ? Mathf.RoundToInt(dr.hitPoints / 25f) : 0);
@@ -98,7 +98,7 @@ public partial class RoguelikeController
             {
                 sb.Append('|').Append(p.key).Append((int)p.life).Append(p.connected ? 1 : 0).Append(p.ready ? 1 : 0).Append(p.walletMinor).Append('k').Append(p.kills).Append(p.headshots).Append(p.deaths).Append(p.rescues)
                   .Append('e').Append(p.earnedMinor).Append(p.spentMinor).Append(p.build.cores.Length).Append(p.build.mods.Length).Append(p.build.tactical).Append(p.build.ultimate)
-                  .Append(p.build.healthTier).Append(p.build.damageTier).Append(p.build.magazineTier).Append(p.build.speedTier);
+                  .Append(p.build.healthTier).Append(',').Append(p.build.damageTier).Append(',').Append(p.build.magazineTier).Append(',').Append(p.build.speedTier).Append(',').Append(p.build.regenTier).Append(',');
                 var pgo = RogueWorld.PlayerByKey(p.key); var prp = pgo != null ? pgo.GetComponent<RoguePlayer>() : null;
                 sb.Append(prp != null ? Mathf.RoundToInt(prp.HealthFraction() * 20) : -1).Append(prp != null ? Mathf.RoundToInt(prp.ShieldFraction * 20) : -1);
             }
@@ -143,7 +143,7 @@ public partial class RoguelikeController
         else overview.AddTile("empty-tactical", "Dash", T("Tactical"), "", T("Empty tactical slot"), "", theme.supply, T("The shop opens between stages.")).Empty(theme.tactical);
         if (!string.IsNullOrEmpty(b.ultimate)) OverviewItem(me, b.ultimate, false);
         else overview.AddTile("empty-ultimate", "Ultimate", T("Ultimate"), "", T("Empty ultimate slot"), "", theme.supply, T("Buy one in the shop; it charges from kills.")).Empty(theme.ultimate);
-        OverviewItem(me, "stat.health", false); OverviewItem(me, "stat.damage", false); OverviewItem(me, "stat.magazine", false); OverviewItem(me, "stat.speed", false);
+        OverviewItem(me, "stat.health", false); OverviewItem(me, "stat.damage", false); OverviewItem(me, "stat.magazine", false); OverviewItem(me, "stat.speed", false); OverviewItem(me, "stat.regen", false);
         var go = FindLocalPlayer(); var fc = go != null ? go.GetComponent<FPSController>() : null;
         if (fc == null) overview.AddTile("no-weapon", "Fire", T("Weapons"), "", T("No weapon data"), "", theme.weapon, T("Spawn first."), "", "", true);
         else { OverviewWeapon(fc.primaryWeaponIndex, fc.primaryWeapon, "primary", T("Primary"), stats); OverviewWeapon(fc.secondaryWeaponIndex, fc.secondaryWeapon, "secondary", T("Secondary"), stats); }
@@ -151,8 +151,8 @@ public partial class RoguelikeController
         float max = rp != null ? rp.MaxHealth() : 1000, hp = dr != null ? Mathf.Max(0, dr.hitPoints) : max;
         var total = overview.AddTile("totals", "List", T("Player"), "", T("Total stats"), "", theme.ink, "", "", "", false);
         total.Stats = new[] {
-            T("Survivability"), T("Health") + "\t" + Mathf.RoundToInt(hp) + " / " + Mathf.RoundToInt(max), T("Health bonus") + "\t" + Pct(stats.HealthMul), T("Damage taken") + "\t" + Pct(stats.DamageTakenMul),
-            T("Firepower"), T("Damage") + "\t" + Pct(stats.DamageMul), T("Body damage") + "\t×" + Round(stats.BodyDamageMul), T("Headshot") + "\t×" + Round(stats.HeadshotDamageMul), T("Accuracy") + "\t" + Pct(1 / Math.Max(.01, stats.SpreadMul)), T("Spread") + "\t×" + Round(stats.SpreadMul), T("Penetration") + "\t" + stats.PenetrateDepth, T("Ricochet") + "\t" + stats.RicochetBounces, T("Extra pellets") + "\t" + stats.ExtraPellets, T("Explosives") + "\t" + Pct(stats.GrenadeDamageMul), T("Explosion radius") + "\t×" + Round(stats.ExplosionRadiusMul),
+            T("Survivability"), T("Health") + "\t" + Mathf.RoundToInt(hp) + " / " + Mathf.RoundToInt(max), T("Health bonus") + "\t" + Pct(stats.HealthMul), T("Damage taken") + "\t" + Pct(stats.DamageTakenMul), T("Regeneration") + "\t" + StatPct("stat.regen", stats),
+            T("Firepower"), T("Damage") + "\t" + Pct(stats.DamageMul), T("Body damage") + "\t×" + Round(stats.BodyDamageMul), T("Headshot") + "\t×" + Round(stats.HeadshotDamageMul), T("Accuracy") + "\t" + Pct(1 / Math.Max(.01, stats.SpreadMul)), T("Spread") + "\t×" + Round(stats.SpreadMul), T("Penetration") + "\t" + stats.PenetrateDepth, T("Ricochet") + "\t" + stats.RicochetBounces, T("Extra pellets") + "\t" + stats.ExtraPellets, T("Explosives") + "\t" + Pct(stats.ExplosionDamageMul), T("Explosion radius") + "\t×" + Round(stats.ExplosionRadiusMul), T("Fire rate") + "\t" + Pct(stats.FireRateMul), T("Melee damage") + "\t" + Pct(stats.MeleeDamageMul), T("Melee swing time") + "\t×" + Round(stats.MeleeSwingTimeMul),
             T("Ammunition"), T("Magazine") + "\t" + Pct(stats.MagazineMul), T("Reserve ammo") + "\t" + Pct(stats.ReserveMul), T("Reload time") + "\t×" + Round(stats.ReloadTimeMul),
             T("Mobility"), T("Speed") + "\t" + Pct(stats.SpeedMul), T("Jump height") + "\t×" + Round(stats.JumpHeightMul) };
         total.Extra = T("Kills {0}   Headshots {1}   Deaths {2}   Rescues {3}", me.kills, me.headshots, me.deaths, me.rescues);
@@ -164,7 +164,7 @@ public partial class RoguelikeController
         var def = RogueCatalog.Item(id); if (def == null) return;
         if (def.Kind == ItemKind.Ultimate) wide = true;
         int tier = me.build.Owned(id);
-        int max = def.Kind == ItemKind.Stat ? RogueCatalog.StatTiers : RogueCatalog.MaxTier(id);
+        int max = RogueCatalog.MaxTier(id);   // a stat's own top tier (100 / 100 / 20 / 20 / 20), a core's 8, a mod's own
         bool tiers = def.Kind == ItemKind.Stat || def.Kind == ItemKind.Core || def.Kind == ItemKind.Mod;
         string number = tiers ? tier.ToString() : "";
         string next = tiers ? tier < max ? OverviewChanges(EffectText(def, Math.Max(1, tier), tier + 1)) : T("Max tier") : "";
@@ -184,18 +184,15 @@ public partial class RoguelikeController
         if (def.Kind == ItemKind.Stat)
         {
             var current = overviewStats ?? BuildStats.Compute(me.build);
-            double now = id == "stat.health" ? current.HealthMul : id == "stat.damage" ? current.DamageMul : id == "stat.magazine" ? current.MagazineMul : current.SpeedMul;
-            tile.Extra = T("Total stats") + " " + Pct(now);
-            // a tier the total cap would swallow cannot be bought (PlayerBuild.Apply throws on it): say so instead of previewing it
-            string blocked = tier < max ? me.build.RejectReason(def) : null;
-            if (tier < max && blocked == null)
+            // StatPct (RoguelikeController.Ui) reads the stat's own number: a multiplier for four of them, a rate for Regeneration
+            string now = StatPct(id, current);
+            tile.Extra = T("Total stats") + " " + now;
+            // there are no total caps any more: every tier below the stat's top tier can be bought and previews its real change
+            if (tier < max && me.build.RejectReason(def) == null)
             {
                 var upgraded = me.build.Clone(); upgraded.Apply(def);
-                var after = BuildStats.Compute(upgraded);
-                double later = id == "stat.health" ? after.HealthMul : id == "stat.damage" ? after.DamageMul : id == "stat.magazine" ? after.MagazineMul : after.SpeedMul;
-                tile.Next = Pct(now) + " → " + Pct(later);
+                tile.Next = now + " → " + StatPct(id, BuildStats.Compute(upgraded));
             }
-            else if (blocked != null) tile.Next = T("At the total cap: one more tier adds nothing");
         }
     }
     static string OverviewChanges(string effect)
@@ -213,7 +210,12 @@ public partial class RoguelikeController
         var gun = weapon != null ? weapon.GetComponent<Gun>() : null;
         int magazine = gun != null ? Mathf.Max(1, Mathf.RoundToInt((float)(def.limitAmmo * stats.MagazineMul))) : def.limitAmmo;
         string ammo = gun != null ? gun.currentAmmo + " / " + gun.maxAmmo : "";
-        string effect = T("Damage {0}   Magazine {1}   RPM {2}   Reload {3}s   Headshot x{4}", Mathf.RoundToInt((float)(def.damage * stats.DamageMul)), magazine, Mathf.RoundToInt(def.rpm), Math.Round((.5f + def.reloadTime) * stats.ReloadTimeMul, 1), Round(def.headshotBonus * stats.HeadshotDamageMul));
+        // what actually fires (2026-10-04): a pellet shotgun shows its pellets per shell (doubled, plus Choke), a handgun its
+        // semi-automatic cap instead of the unused catalog rpm, every other gun its rpm with Rapid Fire
+        int shellPellets = stats.ShellPellets(def.oneShot, def.grenade, def.burstCount);
+        string shownDamage = Mathf.RoundToInt((float)(def.damage * stats.DamageMul)) + (shellPellets > 1 ? " x " + shellPellets : "");
+        int shownRpm = def.handgun ? WeaponRules.HandgunShotsPerSecond * 60 : Mathf.RoundToInt(def.rpm * (float)stats.FireRateMul);
+        string effect = T("Damage {0}   Magazine {1}   RPM {2}   Reload {3}s   Headshot x{4}", shownDamage, magazine, shownRpm, Math.Round((.5f + def.reloadTime) * stats.ReloadTimeMul, 1), Round(def.headshotBonus * stats.HeadshotDamageMul));
         Sprite sprite = null;
         foreach (var model in RogueArmory.Ranged) if (model.BaseModel == index) { sprite = Resources.Load<Sprite>("UI/Roguelike/Tiles/Weapons/" + model.Id) ?? RogueMetaUI.Icon(model.Id); break; }
         overview.AddTile("weapon-" + key, "Fire", slot, "", RogueItemKinds.WeaponDisplayName(def.gunName), ammo, FlatsUiTheme.Rogue.weapon, effect, RogueHooks.MetaWeaponRangeText(index, "\n"), ammo, true, sprite: sprite);
@@ -238,7 +240,8 @@ public partial class RoguelikeController
             if (!string.IsNullOrEmpty(p.build.ultimate)) buildNames.Add(ItemName(p.build.ultimate));
             playerTile.Extra = (buildNames.Count > 0 ? string.Join(" · ", buildNames.ToArray()) + "\n" : "")
                 + T("Mods {0}/{1} · Health T{2} · Damage T{3}", p.build.mods.Length, RogueCatalog.MaxMods, p.build.healthTier, p.build.damageTier)
-                + "\n" + T("Magazine T{0} · Speed T{1}", p.build.magazineTier, p.build.speedTier);
+                + "\n" + T("Magazine T{0} · Speed T{1}", p.build.magazineTier, p.build.speedTier)
+                + (p.build.regenTier > 0 ? " · " + T("Regeneration T{0}", p.build.regenTier) : "");
             var renderer = go != null ? go.GetComponentInChildren<SkinnedMeshRenderer>() : null;
             Color playerColor = renderer != null && renderer.sharedMaterial != null ? renderer.sharedMaterial.color : FlatsUiTheme.Rogue.tactical;
             playerTile.BindSquad(p.build, T("Kills"), playerColor);

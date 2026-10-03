@@ -43,33 +43,86 @@ public static partial class RogueHooks
             role.Mark(Time.time + (float)rp.Stats.MarkDuration, rp);
         if (bullet.rogueKind != (int)DamageKind.Direct) return;   // derived hits never trigger more effects of the same family beyond the rules below
 
-        // chain bullets: arc to up to ChainTargets other living enemies within ChainRange in sight of the hit one, at the chain share of the damage, never counted as headshots
+        // chain bullets: arcs to other living enemies in sight of the hit one, then jumps on from those (ChainFrom); never counted as headshots
         if (rp.ChainBullets && rp.Chain.CanTrigger(new DamageContext(rp.Key, bullet.rogueRootShot), DamageKind.Chain) && rp.Chain.TryStartChain(rp.Key))
         {
-            var candidates = new List<ChainCandidate>();
-            var byId = new Dictionary<string, RogueEnemyRole>();
-            foreach (var other in LiveEnemies())
+            try { ChainFrom(rp, bullet, target, damage); }
+            finally { rp.Chain.FinishChain(rp.Key); }
+        }
+    }
+
+    // scratch collections of ChainFrom (it never re-enters: chained damage goes through ApplyDamage, not through a bullet)
+    static readonly List<ChainCandidate> chainCandidates = new List<ChainCandidate>();
+    static readonly Dictionary<string, RogueEnemyRole> chainById = new Dictionary<string, RogueEnemyRole>();
+    static readonly HashSet<string> chainHit = new HashSet<string>();
+    static readonly List<Transform> chainFrontierA = new List<Transform>(), chainFrontierB = new List<Transform>();
+
+    /// <summary>
+    /// Chain Bullets (2026-10-04, much stronger): the enemy the bullet hit arcs to up to ChainMaxTargets (+Superconductor) others
+    /// within ChainRange at the full damage of the hit; each of those jumps on to ChainBranchTargets more, ChainJumps times in all
+    /// (+Superconductor), every further jump at ChainJumpFalloff of the one before. An enemy is hit once per round. Static Mark
+    /// marks each chained enemy. Bounds: ChainMaxHitsPerShot per round and EffectChainRules.MaxChainHitsPerSecond per player, so a
+    /// fast weapon in a crowd cannot spawn hundreds of arcs. Runs on every copy that simulates the bullet, like the old single arc.
+    /// </summary>
+    static void ChainFrom(RoguePlayer rp, Bullet bullet, DamageReceiver target, float damage)
+    {
+        // every arc is its own hit report in co-op: they go out together, in one forced send when the whole chain is done
+        RogueMeleeAuthority.BeginBatch();
+        try { ChainFromBatched(rp, bullet, target, damage); }
+        finally { RogueMeleeAuthority.EndBatch(); }
+    }
+
+    static void ChainFromBatched(RoguePlayer rp, Bullet bullet, DamageReceiver target, float damage)
+    {
+        int firstTargets = Mathf.Min(RogueCatalog.ChainTargetsCap, ChainTargets + Mathf.Max(0, rp.Stats.ChainExtraTargets));
+        int jumps = RogueCatalog.ChainJumps + Mathf.Max(0, rp.Stats.ChainExtraJumps);
+        int budget = RogueCatalog.ChainMaxHitsPerShot;
+        var ctx = new DamageContext(rp.Key, bullet.rogueRootShot).Derived(DamageKind.Chain);
+        chainById.Clear(); chainHit.Clear(); chainFrontierA.Clear(); chainFrontierB.Clear();
+        foreach (var other in LiveEnemies())
+        {
+            // a dying enemy (its AI goes at the end of the frame, its body stays five seconds) is no chain target (QA-11)
+            var enemy = other.gameObject;
+            if (enemy == target.gameObject || !Targetable(enemy)) continue;
+            chainById[enemy.GetInstanceID().ToString()] = other;
+        }
+        List<Transform> frontier = chainFrontierA, next = chainFrontierB;
+        frontier.Add(target.transform);
+        float markSeconds = rp.Stats.ChainMarkSeconds > 0 ? (float)(rp.Stats.ChainMarkSeconds + rp.Stats.MarkExtraSeconds) : 0f;   // Static Mark, plus Spotter
+        for (int jump = 1; jump <= jumps && budget > 0 && frontier.Count > 0; jump++)
+        {
+            float jumpDamage = damage * (float)EffectChainRules.ChainJumpFraction(jump);
+            int perLink = jump == 1 ? firstTargets : RogueCatalog.ChainBranchTargets;
+            next.Clear();
+            for (int f = 0; f < frontier.Count && budget > 0; f++)
             {
-                // a dying enemy (its AI goes at the end of the frame, its body stays five seconds) is no chain target (QA-11)
-                var enemy = other.gameObject;
-                if (enemy == target.gameObject || !Targetable(enemy)) continue;
-                float d = Vector3.Distance(target.transform.position, enemy.transform.position);
-                bool visible = d <= ChainRange && !Physics.Linecast(target.transform.position + Vector3.up * 2f, enemy.transform.position + Vector3.up * 2f, WorldMask);
-                string id = enemy.GetInstanceID().ToString();
-                byId[id] = other;
-                candidates.Add(new ChainCandidate(id, d, visible));
+                var from = frontier[f]; if (from == null) continue;
+                Vector3 origin = from.position + Vector3.up * 2f;
+                chainCandidates.Clear();
+                foreach (var pair in chainById)
+                {
+                    if (pair.Value == null || chainHit.Contains(pair.Key)) continue;
+                    float d = Vector3.Distance(from.position, pair.Value.transform.position);
+                    if (d > ChainRange) continue;
+                    chainCandidates.Add(new ChainCandidate(pair.Key, d, !Physics.Linecast(origin, pair.Value.transform.position + Vector3.up * 2f, WorldMask)));
+                }
+                var chosen = EffectChainRules.ChainTargets(chainCandidates, chainHit, perLink, ChainRange);
+                foreach (var id in chosen)
+                {
+                    if (budget <= 0) break;
+                    RogueEnemyRole hit;
+                    if (!chainById.TryGetValue(id, out hit) || hit == null || !rp.Chain.TryRegisterDerivedHit(ctx, id)) continue;
+                    if (!rp.Chain.TryTakeChainHit(rp.Key, Time.timeAsDouble)) { budget = 0; break; }   // this second's budget is spent
+                    chainHit.Add(id); budget--;
+                    Vector3 end = hit.transform.position + Vector3.up * 2f;
+                    var dr = hit.GetComponent<DamageReceiver>();
+                    if (dr != null) dr.ApplyDamage(jumpDamage, -1, bullet.shooter);
+                    if (markSeconds > 0f) hit.Mark(Time.time + markSeconds, rp);   // after the hit, like a Marker hit: the mark helps what follows
+                    RogueWorldFx.Arc(origin, end, bullet.shooter);
+                    next.Add(hit.transform);
+                }
             }
-            var chosen = EffectChainRules.ChainTargets(candidates, null, ChainTargets, ChainRange);
-            var ctx = new DamageContext(rp.Key, bullet.rogueRootShot).Derived(DamageKind.Chain);
-            foreach (var id in chosen)
-            {
-                RogueEnemyRole hit;
-                if (!byId.TryGetValue(id, out hit) || !rp.Chain.TryRegisterDerivedHit(ctx, id)) continue;
-                var dr = hit.GetComponent<DamageReceiver>();
-                if (dr != null) dr.ApplyDamage(damage * (float)TriggerCoefficients.Chain, -1, bullet.shooter);
-                RogueWorldFx.Arc(target.transform.position + Vector3.up * 2f, hit.transform.position + Vector3.up * 2f, bullet.shooter);
-            }
-            rp.Chain.FinishChain(rp.Key);
+            var swap = frontier; frontier = next; next = swap;
         }
     }
 
@@ -209,7 +262,7 @@ public static partial class RogueHooks
         if (rp == null || rp.Stats.ExplodeOnKillFraction <= 0 || !rp.IsMine) return;
         if (!rp.Chain.TryStartExplosion(rp.Key, Time.time)) return;
         float radius = (float)rp.Stats.ExplosionRadius;   // the Demolition tier radius (6/7/8 m) times Bigger Boom, as the rules state (it was a fixed 6 m)
-        float damage = Mathf.Max(50f, killingDamage) * (float)rp.Stats.ExplodeOnKillFraction;
+        float damage = Mathf.Max(50f, killingDamage) * (float)rp.Stats.ExplodeOnKillFraction * (float)rp.Stats.ExplosionDamageMul;   // Explosive Payload acts on every explosion the player causes
         RogueWorldFx.KillBlast(victim.position + Vector3.up, radius, killer);   // QA-45: the original grenade blast at this radius, on every client
         foreach (var hit in Physics.OverlapSphere(victim.position, radius, LayerMask.GetMask("BlueTeam")))
         {

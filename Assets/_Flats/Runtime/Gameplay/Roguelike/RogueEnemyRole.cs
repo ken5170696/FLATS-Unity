@@ -83,6 +83,13 @@ public class RogueEnemyRole : MonoBehaviour
         markVisual.SetActive(!Gone);
     }
 
+    /// <summary>Makes a running mark last until <paramref name="until"/> without changing who owns it (Enemy Sight over a teammate's mark).</summary>
+    public void ExtendMark(float until)
+    {
+        if (Dead || !Marked) return;
+        markedUntil = Mathf.Max(markedUntil, until);
+    }
+
     public void Slow(float until, float scale)
     {
         if (RoguelikeMode.Active && RogueEnemyStatus.MergeSlow(this, until, scale)) return;
@@ -131,6 +138,8 @@ public class RogueEnemyRole : MonoBehaviour
             case "role.shieldbearer": return new Color(0.45f, 0.52f, 0.6f);
             case "role.flanker": return new Color(0.2f, 0.78f, 0.62f);
             case "role.jammer": return new Color(0.98f, 0.86f, 0.25f);
+            case "role.brawler": return new Color(0.85f, 0.18f, 0.16f);
+            case "role.operative": return new Color(0.94f, 0.94f, 0.98f);
             case "role.finale": return new Color(1f, 0.2f, 0.6f);
             default: return Color.clear;   // rifleman: the team colour
         }
@@ -199,8 +208,20 @@ public class RogueEnemyRole : MonoBehaviour
             ai.roleDamageScale = (float)Def.DamageMul;
             ai.rolePreferredRange = (float)Def.PreferredRange;
             ai.roleFlanker = roleId == "role.flanker";
+            // a kit (the brawler's melee weapon, the operative's build) sets the gun model and the speed. The authority configures
+            // before AI.Start, with the run state at hand; the gun reaches the other copies through SyncTeam like every weapon.
+            var carried = Kit;
+            if (carried != null)
+            {
+                var gun = carried.Ranged;
+                if (gun != null && System.Array.IndexOf(Def.Weapons, gun.BaseModel) >= 0) ai.forcedPrimaryWeapon = gun.BaseModel;
+                ai.roleSpeedScale *= (float)carried.SpeedMul;
+            }
         }
         if (roleId == "role.finale") { ai.roleSpeedScale = 0.8f; ai.roleDamageScale = 1.3f; }
+        // every copy: the melee weapon in its hand and the operative's brain and build (their RPCs need the components early)
+        if (Def != null && (Def.Melee || Def.Operative)) melee = RogueEnemyMelee.Attach(gameObject, Def.Melee);
+        if (Def != null && Def.Operative) operative = RogueEnemyOperative.Attach(gameObject);
         BuildMarker();
         if (Def != null && Def.FrontReduction > 0) BuildRiotShield();
         if (!all.Contains(this)) all.Add(this);
@@ -208,11 +229,43 @@ public class RogueEnemyRole : MonoBehaviour
 
     void OnDestroy() { all.Remove(this); }
 
+    // ---------------------------------------------------------------- kit (role.brawler, role.operative)
+    RogueEnemyMelee melee; RogueEnemyOperative operative;
+    EnemyKit kit; bool kitResolved;
+    /// <summary>What this enemy carries besides its role (Flats.Core.Roguelike.EnemyKits): derived from the run id, its instance id
+    /// and the replicated stage plan, so every copy holds the same weapon and build. Null for a role without a kit, and until the
+    /// stage plan is known on this copy (it is asked again later).</summary>
+    public EnemyKit Kit
+    {
+        get
+        {
+            if (kitResolved) return kit;
+            if (Def == null || (!Def.Melee && !Def.Operative)) { kitResolved = true; return null; }
+            var ctrl = RoguelikeController.Instance;
+            var run = ctrl != null ? ctrl.State : null;
+            if (run == null || run.encounter == null || run.encounter.depth < 1) return null;
+            // the stage is part of the seed: instance ids start again at 1 on every stage
+            kit = EnemyKits.For(run.runId, InstanceId, RoleId, run.encounter.depth, run.encounter.players, run.encounter.depth + ":" + run.encounter.encounterId);
+            kitResolved = true;
+            return kit;
+        }
+    }
+
+    /// <summary>Boss scale of the finale target by finale (Flats.Core.Roguelike.RogueMissionRules: vault core x24, commander x20, each
+    /// growing by chapter; the convoy's escort leader stays x8). Read from the replicated plan, so every copy agrees.</summary>
+    static float FinaleHealthMul()
+    {
+        var ctrl = RoguelikeController.Instance;
+        var enc = ctrl != null && ctrl.State != null ? ctrl.State.encounter : null;
+        return enc != null ? (float)Flats.Core.Roguelike.RogueMissionRules.FinaleTargetHealthMul(enc.finaleId, enc.depth) : (float)Flats.Core.Roguelike.RogueMissionRules.DefaultFinaleHealthMul;
+    }
+
     public float MaxHealth(float baseHitPoints)
     {
-        float mul = Def != null ? (float)Def.HealthMul : (RoleId == "role.finale" ? 8f : 1f);
-        // the finale target carries the elite flag for its marker and bounty weight; its x8 already is the boss scale (x16 was a sponge)
+        float mul = Def != null ? (float)Def.HealthMul : (RoleId == "role.finale" ? FinaleHealthMul() : 1f);
+        // the finale target carries the elite flag for its marker and bounty weight; its own multiplier already is the boss scale
         if (Elite && RoleId != "role.finale") mul *= 2f;
+        var carried = Kit; if (carried != null) mul *= (float)carried.HealthMul;   // an operative's Vitality tiers
         var ctrl = RoguelikeController.Instance;
         if (ctrl != null && ctrl.State != null) mul *= (float)ctrl.State.encounter.enemyHealthMul;
         return baseHitPoints * mul;
@@ -245,8 +298,21 @@ public class RogueEnemyRole : MonoBehaviour
     {
         if (Invulnerable) return 0f;
         if (Marked) damage *= MarkDamageMul();
-        if (ShieldFacing(shooter)) return damage * (1f - (float)Def.FrontReduction);
+        if (ShieldFacing(shooter)) damage *= 1f - FrontReductionNow;
+        if (operative != null) damage = operative.ModifyIncoming(damage);   // its shield and Assault buff, ruled by the authority
         return damage;
+    }
+
+    /// <summary>The frontal reduction in force right now: the role's own (shield bearer), or a carried melee weapon's (a brawler's
+    /// riot shield, a katana's deflecting swing).</summary>
+    float FrontReductionNow
+    {
+        get
+        {
+            float reduction = Def != null ? (float)Def.FrontReduction : 0f;
+            if (melee != null) reduction = Mathf.Max(reduction, melee.FrontReduction);
+            return Mathf.Clamp01(reduction);
+        }
     }
 
     /// <summary>Half-angle (degrees) of the shield bearer's protected front.</summary>
@@ -258,9 +324,12 @@ public class RogueEnemyRole : MonoBehaviour
     /// <summary>A shot from <paramref name="shooter"/> meets this role's front reduction (the shield bearer, seen from the front).</summary>
     public bool ShieldFacing(Transform shooter)
     {
-        if (Def == null || Def.FrontReduction <= 0 || shooter == null || PowerDown) return false;   // "Power rerouted: enemy shields ... are down"
+        if (FrontReductionNow <= 0f || shooter == null || PowerDown) return false;   // "Power rerouted: enemy shields ... are down"
         Vector3 toShooter = shooter.position - transform.position; toShooter.y = 0;
-        return Vector3.Angle(transform.forward, toShooter) <= ShieldHalfAngle;
+        bool facing = Vector3.Angle(transform.forward, toShooter) <= ShieldHalfAngle;
+        // a melee weapon's block is heard on the copy that saw the hit (the shield bearer's plate has its own blocked reaction)
+        if (facing && melee != null && (Def == null || Def.FrontReduction <= 0)) melee.NoteBlocked();
+        return facing;
     }
 
     /// <summary>The marking player's Marker tier (1.12 / 1.16 / 1.2, RogueTiers core.marker); Angle Finder marks use tier 1.

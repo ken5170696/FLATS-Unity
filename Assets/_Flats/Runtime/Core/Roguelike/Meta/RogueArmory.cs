@@ -122,6 +122,18 @@ namespace Flats.Core.Roguelike
     public static class RogueArmory
     {
         public const double SniperHeadshotCap = 3.5;
+        /// <summary>Roguelike players only: a pellet shotgun fires this many pellets per round its shell spends (Shotgun 1: 3 rounds, 6
+        /// pellets). The shell still costs its catalog burst count in rounds, so magazines and reserves hold as many shells as before.
+        /// Enemies and Classic modes keep the catalog pellet count. A one-pellet shell (Slug Gun, sniper rifles) is never multiplied.</summary>
+        public const int ShotgunPelletMul = 2;
+        /// <summary>Pellets one shell of a player's weapon fires, before Choke: <paramref name="burst"/> is the shell's cost in rounds.</summary>
+        public static int ShellPellets(bool oneShot, bool grenade, int burst)
+        {
+            if (!oneShot) return 1;
+            return !grenade && burst > 1 ? burst * ShotgunPelletMul : Math.Max(1, burst);
+        }
+        /// <summary>Whether Choke adds pellets to this shell: pellet shotguns only (not the Slug Gun, sniper rifles or the launcher).</summary>
+        public static bool IsPelletShell(bool oneShot, bool grenade, int burst) { return oneShot && !grenade && burst > 1; }
         // ------------------------------------------------------------------ ranged weapons (30)
 
         public static readonly RangedWeaponDef[] Ranged =
@@ -178,13 +190,13 @@ namespace Flats.Core.Roguelike
             new RangedWeaponDef { Id = "rw.sr_scout", Name = "Scout Rifle", Class = WeaponClass.Sniper, BaseModel = 10, Price = 380, Flavor = "A light rifle that aims in a blink. Headshots hit less hard.", Visual = "Armory/ShortStock",
                 DamageMul = 0.8, RpmMul = 1.5, ReloadMul = 0.7, ReserveMul = 0.75, Trait = TraitKind.SnapAim, T1 = 0.40, Drawback = DrawbackKind.WeakHeadshot, D1 = 0.40 },
             // Handguns
-            new RangedWeaponDef { Id = "rw.hg1", Name = "Handgun 1", Class = WeaponClass.Handgun, BaseModel = 12, Starter = true, Flavor = "Out in a heartbeat. Weak at range.",
-                Trait = TraitKind.QuickDraw, T1 = 0.60, Drawback = DrawbackKind.DamageFalloff, D1 = 0.25, D2 = 20 },
+            new RangedWeaponDef { Id = "rw.hg1", Name = "Handgun 1", Class = WeaponClass.Handgun, BaseModel = 12, Starter = true, Flavor = "A headshot hands the round back. Weak at range.",   // every handgun now swaps almost instantly (WeaponRules.HandgunSwapTimeMul), so Quick Draw would do nothing here
+                Trait = TraitKind.HeadshotRefund, T1 = 1, Drawback = DrawbackKind.DamageFalloff, D1 = 0.25, D2 = 20 },
             new RangedWeaponDef { Id = "rw.hg2", Name = "Handgun 2", Class = WeaponClass.Handgun, BaseModel = 13, Price = 160, Flavor = "Headshots stagger. Recoil climbs.",
                 Trait = TraitKind.StaggerOnHeadshot, T1 = 0.4, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.10, D2 = 0.50 },
             new RangedWeaponDef { Id = "rw.hg_magnum", Name = "Magnum", Class = WeaponClass.Handgun, BaseModel = 13, Price = 360, Flavor = "Six heavy rounds; the last one hits twice as hard. Brutal recoil.", Visual = "Armory/LongBarrel",
                 DamageMul = 2.0, Magazine = 6, Trait = TraitKind.LastRoundDouble, T1 = 2.0, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.18, D2 = 0.72 },
-            new RangedWeaponDef { Id = "rw.hg_machine", Name = "Machine Pistol", Class = WeaponClass.Handgun, BaseModel = 12, Price = 300, Flavor = "Three-round bursts while you keep moving. Weak at range.", Visual = "Armory/ExtendedMag",
+            new RangedWeaponDef { Id = "rw.hg_machine", Name = "Burst Pistol", Class = WeaponClass.Handgun, BaseModel = 12, Price = 300, Flavor = "Every trigger pull fires a three-round burst while you keep moving. Weak at range.", Visual = "Armory/ExtendedMag",
                 Burst = 3, RpmMul = 4.0, Magazine = 21, DamageMul = 0.5, Trait = TraitKind.RunAndGun, T1 = 0.10, Drawback = DrawbackKind.DamageFalloff, D1 = 0.30, D2 = 20 },
             // Heavy
             new RangedWeaponDef { Id = "rw.lmg", Name = "Light Machine Gun", Class = WeaponClass.LMG, BaseModel = 14, Price = 300, Flavor = "Grows deadlier the longer it fires. Slow to aim.",
@@ -199,15 +211,15 @@ namespace Flats.Core.Roguelike
         public static readonly MeleeDef[] Melee =
         {
             new MeleeDef { Id = "mw.knife", Name = "Knife", Starter = true, Flavor = "Quick and quiet. Strikes from behind are lethal.", Model = "Armory/Melee/Knife",
-                Damage = 380, Windup = 0.08, Recovery = 0.22, Range = 3.0, Radius = 1.2, Special = MeleeSpecial.Backstab, S1 = 2.5, Drawback = DrawbackKind.None },
+                Damage = 380, Windup = 0.08, Recovery = 0.22, Range = 3.0, Radius = 1.2, Special = MeleeSpecial.Backstab, S1 = 10, Drawback = DrawbackKind.None },
             new MeleeDef { Id = "mw.bat", Name = "Bat", Price = 150, Flavor = "Sends enemies flying.", Model = "Armory/Melee/Bat",
-                Damage = 460, Windup = 0.16, Recovery = 0.34, Range = 3.4, Radius = 1.6, Special = MeleeSpecial.Knockback, S1 = 6 },
+                Damage = 460, Windup = 0.16, Recovery = 0.34, Range = 3.4, Radius = 1.6, Special = MeleeSpecial.Knockback, S1 = 15 },
             new MeleeDef { Id = "mw.sledge", Name = "Sledgehammer", Price = 380, Flavor = "Slams the ground and hits everything around. Heavy to carry, slow to swing.", Model = "Armory/Melee/Sledgehammer",
                 Damage = 950, Windup = 0.45, Recovery = 0.55, Range = 3.6, Radius = 2.0, MoveMul = 0.80, Special = MeleeSpecial.GroundSlam, S1 = 5.5, Drawback = DrawbackKind.MoveSlow, D1 = 0.20 },
             new MeleeDef { Id = "mw.katana", Name = "Katana", Price = 420, Flavor = "Three-strike combo with a finishing cut. Every swing deflects bullets.", Model = "Armory/Melee/Katana",
                 Damage = 420, Windup = 0.08, Recovery = 0.20, Range = 5.6, Radius = 1.8, Special = MeleeSpecial.Combo, S1 = 3, S2 = 1.6, S3 = 0.28 },   // a quick blade (playtest 2026-10-01); S3 is the whole swing
             new MeleeDef { Id = "mw.axe", Name = "Axe", Price = 300, Flavor = "Hold melee to throw it; walk over it to pick it up again.", Model = "Armory/Melee/Axe",
-                Damage = 620, Windup = 0.22, Recovery = 0.38, Range = 3.2, Radius = 1.4, Special = MeleeSpecial.Throw, S1 = 22 },
+                Damage = 1800, Windup = 0.22, Recovery = 0.38, Range = 3.2, Radius = 1.4, Special = MeleeSpecial.Throw, S1 = 22 },   // swing and throw share this number (RogueMelee.Damage)
             new MeleeDef { Id = "mw.shield", Name = "Riot Shield", Price = 350, Flavor = "Hold melee to raise it: everything from the front is blocked, but you cannot shoot and you move very slowly.", Model = "Armory/Melee/Shield",
                 Damage = 260, Windup = 0.12, Recovery = 0.30, Range = 3.0, Radius = 1.8, MoveMul = 0.90, Special = MeleeSpecial.Guard, S1 = 1, S2 = 3, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
             new MeleeDef { Id = "mw.baton", Name = "Stun Baton", Price = 260, Flavor = "Stuns on hit. Elites shake it off faster.", Model = "Armory/Melee/Baton",
@@ -287,15 +299,19 @@ namespace Flats.Core.Roguelike
                 MaxSightIndex = b.zoom,
                 OneShot = b.oneShot, Handgun = b.handgun, Grenade = b.grenade,
             };
-            // A shotgun's burst count is its pellet count; a slug gun fires one pellet.
-            r.Pellets = b.oneShot ? r.Burst : 1;
+            // A shotgun shell costs its burst count in rounds and fires ShotgunPelletMul pellets per round; a slug gun fires one pellet.
+            r.Pellets = ShellPellets(b.oneShot, b.grenade, r.Burst);
             if (def.Drawback == DrawbackKind.WeakHeadshot) r.HeadshotBonus = 1 + (r.HeadshotBonus - 1) * (1 - def.D1);
             return r;
         }
 
-        /// <summary>Seconds of one trigger cycle as the legacy Shoot coroutine runs it (0.1 s per burst round plus the rpm gap).</summary>
+        /// <summary>Seconds of one trigger cycle as the legacy Shoot coroutine runs it (0.1 s per burst round plus the rpm gap).
+        /// The 0.1 s step shrinks with a fire-rate bonus (Shoot scales it by the interval multiplier), so Rapid Fire and Kill Frenzy
+        /// act in full on weapons that already sit on the step. A handgun is semi-automatic: its rounds are
+        /// <see cref="WeaponRules.HandgunMinInterval"/> apart at the fastest, and this estimate uses the practical pull rate.</summary>
         public static double CycleSeconds(ResolvedWeapon r)
         {
+            if (r.Handgun) return Math.Max(1, r.Burst) * WeaponRules.HandgunMinInterval + Math.Max(0, WeaponRules.HandgunPracticalInterval - WeaponRules.HandgunMinInterval);
             double gap = Math.Max(0.1, 60.0 / Math.Max(1, r.Rpm));
             if (r.OneShot) return gap;
             // burst: each round waits 0.1 s, rounds are (gap-0.1) apart and the trigger waits (gap-0.1) after the last
@@ -309,7 +325,7 @@ namespace Flats.Core.Roguelike
         public static double SustainedDps(RangedWeaponDef def)
         {
             var r = Resolve(def);
-            double perCycle = r.Damage * r.Burst;
+            double perCycle = r.Damage * (r.OneShot ? r.Pellets : r.Burst);
             int cyclesPerMag = Math.Max(1, (int)Math.Ceiling(r.Magazine / (double)Math.Max(1, RoundsPerCycle(r))));
             double magTime = cyclesPerMag * CycleSeconds(r) + 0.5 + r.Reload + 0.75;   // legacy reload adds ~1.25 s around reloadTime
             return perCycle * cyclesPerMag / magTime;
@@ -319,13 +335,13 @@ namespace Flats.Core.Roguelike
         public static double TimeToKill(RangedWeaponDef def, double hp)
         {
             var r = Resolve(def);
-            double gap = Math.Max(0.1, 60.0 / Math.Max(1, r.Rpm));
+            double gap = r.Handgun ? WeaponRules.HandgunPracticalInterval : Math.Max(0.1, 60.0 / Math.Max(1, r.Rpm));
             double perRound = r.Damage * (r.OneShot ? r.Pellets : 1);
             double t = 0, dealt = 0; int mag = r.Magazine;
             while (true)
             {
                 if (mag <= 0) { t += 1.25 + r.Reload; mag = r.Magazine; }
-                dealt += perRound; mag -= r.OneShot ? r.Pellets : 1;
+                dealt += perRound; mag -= r.OneShot ? RoundsPerCycle(r) : 1;   // a shell costs its burst count in rounds, not its pellet count
                 if (dealt >= hp) return t;
                 t += r.OneShot ? gap : gap;   // a shotgun's pellets leave together; every other round is one gap apart
                 if (t > 600) return t;
@@ -334,6 +350,9 @@ namespace Flats.Core.Roguelike
 
         // ------------------------------------------------------------------ stat bars (0..1), all derived from data
         public struct StatBars { public double Damage, FireRate, Accuracy, Handling, Mobility, Range; }
+        /// <summary>Full Damage bar: one trigger pull of a ranged weapon (all pellets; pellet shotguns fill it), one swing of a melee
+        /// weapon (the Axe's 1800 sits below the top, so the bar still tells the melee weapons apart).</summary>
+        public const double RangedDamageBarMax = 600, MeleeDamageBarMax = 2000;
 
         /// <summary>Engagement band the Range bar averages over (m): typical Roguelike fights run from 8 to 60 m.</summary>
         public const double RangeBarSpan = 60;
@@ -363,7 +382,7 @@ namespace Flats.Core.Roguelike
             var r = Resolve(def);
             var bars = new StatBars();
             bars.Range = RangeReach(def);
-            bars.Damage = Clamp01(r.Damage * r.Pellets / 600.0);
+            bars.Damage = Clamp01(r.Damage * r.Pellets / RangedDamageBarMax);
             bars.FireRate = Clamp01((RoundsPerCycle(r) / CycleSeconds(r)) / 12.0);
             double acc = r.Accuracy / 100.0;
             if (def.Drawback == DrawbackKind.HeavyRecoil) acc *= 1 - def.D2 * 0.4;
@@ -380,7 +399,7 @@ namespace Flats.Core.Roguelike
         {
             return new StatBars
             {
-                Damage = Clamp01(def.Damage / 1000.0),
+                Damage = Clamp01(def.Damage / MeleeDamageBarMax),
                 FireRate = Clamp01(1.0 / (def.Windup + def.Recovery + 0.1) / 3.0),
                 Accuracy = Clamp01(def.Radius / 2.5),
                 Handling = Clamp01(1 - def.Windup / 0.6),

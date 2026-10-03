@@ -189,6 +189,7 @@ public partial class FPSController
 	private IEnumerator Shoot()
 	{
         if (RoguelikeMode.Active && RogueMelee.BlocksFire(this)) yield break;
+		if (MyView(base.gameObject)) rogueTriggerQueued = false;   // this trigger pull is spent (semi-automatic handguns, RogueTriggerPulled)
 		if (RogueEntryRefused(RogueAction.Fire)) yield break;   // carrying, downed, menu open (F39)
 		// one id for every pellet and burst round of this trigger pull: suppression adds one stack per pull (F43)
 		string rogueTrigger = RoguelikeMode.Active ? GetInstanceID() + ":" + (++rogueTriggerSerial) : null;
@@ -238,7 +239,7 @@ public partial class FPSController
 				}
 				yield break;
 			}
-			float rogueInterval = 1f;
+			float rogueInterval = 1f, rogueStep = 0.1f, rogueCycle = 60f / currentGun.rpm;
 			if (RoguelikeMode.Active) { float rogueWarm = RogueHooks.MetaPreFireDelay(this); if (rogueWarm > 0f) yield return new WaitForSeconds(rogueWarm); }
 			if (currentGun.oneShot)
 			{
@@ -248,7 +249,8 @@ public partial class FPSController
 				// Roguelike, the owner's rounds (the ones that deal damage): never exactly zero, so spread traits act on every weapon.
 				// A remote copy does not know whether its owner aims, so its cosmetic rounds keep the legacy spread.
 				float inaccuracy = RoguelikeMode.Active && MyView(base.gameObject) ? (float)Flats.Core.Roguelike.RecoilRules.Inaccuracy(currentGun.accuracy, Aiming) : 100f - currentGun.accuracy;
-				int pellets = currentGun.burstCount + (RoguelikeMode.Active ? RogueHooks.ExtraPellets(this, currentGun.id) : 0);
+				// Roguelike: a player's pellet shotgun fires twice its catalog pellets plus Choke; the shell still costs burstCount rounds
+				int pellets = RoguelikeMode.Active ? RogueHooks.ShellPellets(this, currentGun) : currentGun.burstCount;
 				float spreadScale = RoguelikeMode.Active && Aiming ? RogueHooks.AimSpreadMul(this) : 1f;
 				long rogueRound = RoguelikeMode.Active ? RogueNextRound() : 0;   // one shell: every pellet shares this round (Fresh Magazine, QA-32)
 				for (int i = 0; i < pellets; i++)
@@ -271,14 +273,16 @@ public partial class FPSController
 					}
 					else
 					{
-						component.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) * (currentGun.grenade ? RogueHooks.GrenadeDamageMul(this) : 1f) : 1f) * (float)rogueShot.DamageMul;
+						component.damage = currentGun.damage * (1f + (float)Menu.myCharacter.attack * 0.1f) * (RoguelikeMode.Active ? RogueHooks.PlayerDamageMul(this) * (currentGun.grenade ? RogueHooks.ExplosionDamageMul(this) : 1f) : 1f) * (float)rogueShot.DamageMul;
 					}
 					rigidbody.gameObject.layer = base.gameObject.layer + 2;
 					rigidbody.linearVelocity = velocity;
 					if (RoguelikeMode.Active) RogueStampBullet(component, rogueRound);
-					if (i >= currentGun.burstCount) continue;   // Choke's extra pellet rides on the same shell
-					if (!(RoguelikeMode.Active && (RogueHooks.InfiniteAmmo(this) || rogueShot.FreeRound))) currentGun.currentAmmo--;
-					if (currentGun.currentAmmo == 0)
+					if (i >= currentGun.burstCount) continue;   // the doubled pellets and Choke's ride on the same shell: no ammunition
+					if (!(RoguelikeMode.Active && (RogueHooks.InfiniteAmmo(this) || rogueShot.FreeRound)) && currentGun.currentAmmo > 0) currentGun.currentAmmo--;
+					// Classic: the shell ends with the magazine. Roguelike: a shell always fires all its pellets (the last shell of a
+					// magazine used to lose its extra pellets), it only stops costing rounds once the magazine is empty.
+					if (currentGun.currentAmmo == 0 && !RoguelikeMode.Active)
 					{
 						break;
 					}
@@ -289,6 +293,7 @@ public partial class FPSController
 				}
 				if (RoguelikeMode.Active) { RogueHooks.MetaNoteInterval(this, 60f / currentGun.rpm * rogueInterval); }
 				anim.SetInteger("Burst", 1);
+				// the 0.1 s step shrinks with a fire-rate bonus (Rapid Fire, Kill Frenzy), so the bonus is never swallowed by it
 				yield return new WaitForSeconds(0.1f * Mathf.Min(1f, rogueInterval));
 				anim.SetInteger("Burst", 0);
 				yield return new WaitForSeconds(Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)));
@@ -310,7 +315,12 @@ public partial class FPSController
 			{
 				var rogueShot = RoguelikeMode.Active ? RogueHooks.MetaShot(this, Aiming, currentBurstCount == currentGun.burstCount) : Flats.Core.Roguelike.ShotModifiers.Neutral;
 				rogueInterval = (float)rogueShot.IntervalMul;
-				if (RoguelikeMode.Active) RogueHooks.MetaNoteInterval(this, 60f / currentGun.rpm * rogueInterval);
+				// Roguelike: the wait after a round and the round-to-round interval come from the rules (WeaponRules.RoundStep /
+				// RoundInterval). A handgun is semi-automatic: its rounds are 1/15 s apart whatever its rpm; every other gun keeps
+				// the legacy 0.1 s step (scaled by a fire-rate bonus) inside its rpm interval.
+				rogueStep = RoguelikeMode.Active ? RogueHooks.RoundStep(this, currentGun, rogueInterval) : 0.1f;
+				rogueCycle = RoguelikeMode.Active ? RogueHooks.RoundInterval(this, currentGun, rogueInterval) : 60f / currentGun.rpm;
+				if (RoguelikeMode.Active) RogueHooks.MetaNoteInterval(this, rogueCycle);
 				GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 				if (RoguelikeMode.Active) FlatsFeel.Fire(this, base.GetComponent<AudioSource>(), currentGun, mf2); else base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
@@ -344,17 +354,19 @@ public partial class FPSController
 				anim.SetInteger("Burst", currentBurstCount);
 				currentBurstCount--;
 				if (!(RoguelikeMode.Active && (RogueHooks.InfiniteAmmo(this) || rogueShot.FreeRound))) currentGun.currentAmmo--;
-				yield return new WaitForSeconds(0.1f * Mathf.Min(1f, rogueInterval));
+				yield return new WaitForSeconds(rogueStep);
 				if (currentBurstCount == 0 || currentGun.currentAmmo == 0 || (RoguelikeMode.Active && rogueShotAtStart != rogueShotToken))
 				{
 					break;
 				}
-				{ float rogueGap = Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)); if (rogueGap > 0f || !RoguelikeMode.Active) yield return new WaitForSeconds(rogueGap); }
+				{ float rogueGap = Mathf.Max(0f, rogueCycle - rogueStep); if (rogueGap > 0f || !RoguelikeMode.Active) yield return new WaitForSeconds(rogueGap); }
 				if (!RoguelikeMode.Active) yield return new WaitForSeconds(0f);
 				if (RoguelikeMode.Active && rogueShotAtStart != rogueShotToken) break;
 			}
 			anim.SetInteger("Burst", 0);
-			yield return new WaitForSeconds(Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)));
+			// Roguelike: no empty wait when the step already covered the interval (a zero wait costs a whole frame, which would
+			// pull a semi-automatic handgun and every step-bound gun below its rate)
+			{ float rogueTail = Mathf.Max(0f, rogueCycle - rogueStep); if (rogueTail > 0f || !RoguelikeMode.Active) yield return new WaitForSeconds(rogueTail); }
 			enableFire = true; firing = false;
 			if (currentGun.currentAmmo <= 0)
 			{
@@ -474,9 +486,12 @@ public partial class FPSController
 			reticle.SetVisible(false);
 		}
 		enableFire = false; firing = false;
-		float rogueSwap = RoguelikeMode.Active ? RogueHooks.MetaSwapTimeMul(this) : 1f;   // Quick Draw, Quick Hands, heavy weapons
+		float rogueSwap = RoguelikeMode.Active ? RogueHooks.MetaSwapTimeMul(this) : 1f;   // handguns (near-instant), Quick Hands, heavy weapons
+		// a faster swap shortens the fixed waits too (they were a quarter of the plain second and kept a handgun swap above 0.3 s);
+		// a slower swap leaves them as they were
+		float rogueSwapFixed = Mathf.Min(1f, rogueSwap);
 		anim.SetBool("Change", true);
-		yield return new WaitForSeconds(0.1f);
+		yield return new WaitForSeconds(0.1f * rogueSwapFixed);
 		ikc.leftIK = false;
 		yield return new WaitForSeconds(0.4f * rogueSwap);
 		primaryWeapon.gameObject.SetActive(false);
@@ -517,12 +532,12 @@ public partial class FPSController
 		}
 		primaryWeapon.gameObject.SetActive(true);
 		secondaryWeapon.gameObject.SetActive(true);
-		yield return new WaitForSeconds(0.05f);
+		yield return new WaitForSeconds(0.05f * rogueSwapFixed);
 		anim.SetBool("Change", false);
 		yield return new WaitForSeconds(0.35f * rogueSwap);
 		ikc.leftIK = true;
 		currentGun = primaryWeapon.GetComponent<Gun>();
-		yield return new WaitForSeconds(0.1f);
+		yield return new WaitForSeconds(0.1f * rogueSwapFixed);
 		enableFire = true; firing = false;
 		if (MyView(base.gameObject))
 		{
@@ -575,7 +590,7 @@ public partial class FPSController
 		b.GetComponent<Bullet>().shooter = mt;
 		// the thrower's attack is applied once, here, as for every fired round; the blast (Bullet.Explode) no longer adds the local attack
 		b.GetComponent<Bullet>().damage *= 1f + (float)Menu.myCharacter.attack * 0.1f;
-		if (RoguelikeMode.Active) b.GetComponent<Bullet>().damage *= RogueHooks.GrenadeDamageMul(this);
+		if (RoguelikeMode.Active) b.GetComponent<Bullet>().damage *= RogueHooks.ExplosionDamageMul(this);   // Explosive Payload
 		b.gameObject.layer = base.gameObject.layer + 2;
 		b.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 		b.linearVelocity = dir;
@@ -615,6 +630,22 @@ public partial class FPSController
 	public bool RogueWeaponBusy => firing || Time.time < rogueReloadingUntil || (anim != null && (anim.GetBool("Change") || anim.GetBool("Grenade")));
 
 	private int rogueShotToken;
+
+	// ---- Roguelike handguns are semi-automatic (WeaponRules.HandgunShotsPerSecond). Every held-fire send site (mouse, pad trigger,
+	// touch Fire button) asks RogueTriggerPulled once per frame while Fire is held: for a handgun it is true only for a new press
+	// (Fire was not held on the previous frame), kept until that pull's Shoot starts, so holding never repeats and a press made
+	// while the previous round still cycles fires as soon as the gun is ready. Every other gun, zombies and Classic modes: always true.
+	private int rogueFireHeldFrame = -10;
+	private bool rogueTriggerQueued;
+
+	private bool RogueTriggerPulled()
+	{
+		bool newPress = Time.frameCount - rogueFireHeldFrame > 1;
+		rogueFireHeldFrame = Time.frameCount;
+		if (!RogueHooks.SemiAuto(this, currentGun)) { rogueTriggerQueued = false; return true; }
+		if (newPress) rogueTriggerQueued = true;
+		return rogueTriggerQueued;
+	}
 
 	// ---- Fresh Magazine (QA-32): a round number per round actually fired, and a weapon identity per weapon instance. Every copy
 	// counts the same Shoot and ExchangeWeapons calls, so their numbers agree; only the owner's hits deal Roguelike damage.

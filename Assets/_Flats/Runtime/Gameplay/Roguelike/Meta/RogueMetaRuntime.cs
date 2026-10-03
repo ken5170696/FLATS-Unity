@@ -192,6 +192,9 @@ public class RogueMetaRuntime : MonoBehaviour
         };
         var state = HandState;
         var m = state != null ? state.NextRound(ctx) : ShotModifiers.Neutral;
+        // Rapid Fire (mod.rapid_fire): every round of every gun cycles faster; the Shoot coroutine scales its 0.1 s step with it too.
+        // A handgun is semi-automatic and takes its interval from WeaponRules.HandgunMinInterval instead.
+        if (Stats.FireRateMul > 1) m.IntervalMul /= Stats.FireRateMul;
         if (newTriggerPull && state != null && state.Def != null && state.Def.Trait == TraitKind.FollowUp) followUpArmed.Remove(HandModel);   // this pull spent it (Core: FollowUp)
         // skills that shape the round
         if (!aiming) m.SpreadMul *= Stats.HipSpreadMul;
@@ -436,20 +439,32 @@ public class RogueMetaRuntime : MonoBehaviour
     }
 
     // ------------------------------------------------------------------ movement, aim, swap, reload
+    // the slow in force right now, read from enemySlow (Flats.Core.Roguelike.EnemySlowState) by SyncAffixSlow
     float affixSlowUntil, affixSlowFactor = 1f;
-    /// <summary>An elite Suppressor's hit: the strongest active slow wins, the latest expiry wins.</summary>
+    readonly EnemySlowState enemySlow = new EnemySlowState();
+
+    void SyncAffixSlow()
+    {
+        float before = affixSlowUntil;
+        affixSlowFactor = (float)enemySlow.Factor(Time.time);
+        affixSlowUntil = (float)enemySlow.SegmentUntil(Time.time);
+        // the HUD ring starts full at every hit (QA-51), and again when a weaker slow takes over from a stronger one that ended
+        if (affixSlowUntil > Time.time && !Mathf.Approximately(before, affixSlowUntil)) affixSlowLength = Mathf.Max(0.1f, affixSlowUntil - Time.time);
+    }
+
+    /// <summary>A hit by an enemy that slows (an elite Suppressor, a melee weapon, an operative's gun). A weaker slow never extends a
+    /// stronger one, and after EnemySlowState.MaxContinuousSeconds of it the player is immune for a moment (the rules are in Core).</summary>
     public void ApplyAffixSlow(float fraction, float seconds)
     {
-        if (Time.time >= affixSlowUntil) affixSlowFactor = 1f;
-        affixSlowFactor = Mathf.Min(affixSlowFactor, 1f - Mathf.Clamp01(fraction));
-        affixSlowUntil = Mathf.Max(affixSlowUntil, Time.time + seconds);
-        affixSlowLength = Mathf.Max(0.1f, affixSlowUntil - Time.time);   // the HUD ring starts full at every hit (QA-51)
+        if (!enemySlow.Apply(Time.time, fraction, seconds)) return;
+        SyncAffixSlow();
         RogueMetaFeedback.Pulse(this, "af.suppressor");
     }
 
     /// <summary>Movement multiplier that depends on the moment: the gun in hand (Run and Gun / heavy), Adrenal Rush, Squad Link, an elite's slow.</summary>
     public float MoveSpeedMul()
     {
+        SyncAffixSlow();
         float m = (float)WeaponRules.MoveSpeedMul(HandDef);
         if (Time.time < affixSlowUntil) m *= affixSlowFactor;
         if (Time.time < adrenalUntil) m *= 1f + (float)Stats.AdrenalSpeed;
@@ -472,7 +487,10 @@ public class RogueMetaRuntime : MonoBehaviour
     {
         RangedWeaponDef other = null;
         if (fps != null) appliedDefs.TryGetValue(fps.secondaryWeaponIndex, out other);
-        return (float)(Stats.SwapTimeMul * WeaponRules.SwapTimeMul(HandDef, other));
+        // every swap that draws or stows a handgun is near-instant (WeaponRules.HandgunSwapTimeMul); the gun models decide, so a
+        // handgun without an armory row has the rule too
+        bool handgun = fps != null && (WeaponRules.IsHandgunModel(fps.primaryWeaponIndex) || WeaponRules.IsHandgunModel(fps.secondaryWeaponIndex));
+        return (float)(Stats.SwapTimeMul * WeaponRules.SwapTimeMul(HandDef, other, handgun));
     }
 
     /// <summary>Multiplier of the reload in progress, fixed when it started (RogueHooks.ReloadTimeMul reads it).</summary>
@@ -657,6 +675,7 @@ public class RogueMetaRuntime : MonoBehaviour
         row.SetState("sk.rescue_shield", shield > 0f, shield > 0f ? (float)PlayerEffects.Fraction(rescueShieldUntil - now, rescueShieldLength) : -1f, shield > 0f ? PlayerEffects.Count(Mathf.CeilToInt(shield)) : null);
 
         // debuffs and the world
+        SyncAffixSlow();
         bool slowed = up && now < affixSlowUntil && affixSlowFactor < 1f;
         row.SetState("af.suppressor", slowed, slowed ? (float)PlayerEffects.Fraction(affixSlowUntil - now, affixSlowLength) : -1f, slowed ? PlayerEffects.PercentOf(affixSlowFactor - 1f) : null);
         var ctrl = RoguelikeController.Instance;
@@ -678,7 +697,7 @@ public class RogueMetaRuntime : MonoBehaviour
     public void CancelAll()
     {
         berserkerStacks = 0; rhythmStacks = 0; adrenalUntil = 0; squadLinkUntil = 0; freshMagazine.Clear(); rescueShield.Clear(); firingSince = -1;
-        affixSlowUntil = 0; rescueShieldUntil = 0;
+        enemySlow.Clear(); affixSlowUntil = 0; affixSlowFactor = 1f; rescueShieldUntil = 0;
         foreach (var s in traitStates.Values) s.Reset();
         followUpArmed.Clear();
         if (effectRow != null) effectRow.Clear();

@@ -21,6 +21,7 @@ public static partial class RogueHooks
         }
         if (RoguelikeMode.Active) RogueMelee.Attach(player);
         if (player.GetComponent<RogueDownedPresentation>() == null) player.gameObject.AddComponent<RogueDownedPresentation>();
+        if (player.GetComponent<RogueFallRescue>() == null) player.gameObject.AddComponent<RogueFallRescue>();   // leaving the map never strands a player
     }
 
     public static RoguePlayer Local
@@ -51,10 +52,35 @@ public static partial class RogueHooks
             if (rp == null) return damage;
             var role = shooter != null ? shooter.GetComponent<RogueEnemyRole>() : null;
             if (role != null && damage > 0f) rp.NoteHitBy(role.RoleId, Vector3.Distance(shooter.position, receiver.transform.position));
-            if (role != null) damage = RogueEliteAffixes.OnHitPlayer(shooter, receiver, damage);
-            return rp.ModifyIncomingDamage(damage);
+            if (role != null)
+            {
+                damage = RogueEliteAffixes.OnHitPlayer(shooter, receiver, damage);
+                // the last word on an enemy's hit, after an operative's cores, its mark and the elite affixes multiplied it: a melee
+                // hit stays under its cap (it used to be clamped only before these), and so does one round of an operative's gun.
+                // A comparison, not Mathf.Min: NaN stays NaN and is thrown away by RoguePlayer.ModifyIncomingDamage.
+                float cap = EnemyHitCap(shooter);
+                if (damage > cap) damage = cap;
+            }
+            damage = rp.ModifyIncomingDamage(damage);
+            // a hit that must not take the player down (the Mobile Bomb's blast): after shields and reduction, never more than the
+            // health above 1. No lethal hit is resolved, so Guardian Angel and a solo Emergency Revive are not spent on it.
+            if (NonLethalHit && damage > 0f) damage = Mathf.Min(damage, Mathf.Max(0f, receiver.hitPoints - 1f));
+            return damage;
         }
         return ModifyIncomingEnemyDamage(receiver, damage, shooter);
+    }
+
+    /// <summary>Set by the caller around one DamageReceiver.ApplyDamage on a player (try/finally): the hit leaves at least 1 health.</summary>
+    public static bool NonLethalHit;
+
+    /// <summary>The most one hit by <paramref name="shooter"/> may take from a player before the player's own mitigation: the melee
+    /// cap of the hit being resolved (EnemyMeleeRules.HitCapShare), half the base health for a round of a Rogue Operative's gun
+    /// (EnemyOperativeRules.ShotCapShare), no limit for the other roles' bullets.</summary>
+    static float EnemyHitCap(Transform shooter)
+    {
+        if (RogueEnemyMelee.ResolvingMelee) return RogueEnemyMelee.ResolvingCap;
+        if (shooter != null && shooter.GetComponent<RogueEnemyOperative>() != null) return (float)(EnemyMeleeRules.PlayerBaseHealth * EnemyOperativeRules.ShotCapShare);
+        return float.PositiveInfinity;
     }
 
     public static void OnReloadStarted(FPSController player, int magazineBefore, int capacity)
@@ -91,6 +117,8 @@ public static partial class RogueHooks
     {
         var rp = Of(receiver);
         if (rp != null) rp.OnDied();
+        // co-op: the dead Flatman's cached instantiation must not reach a player who joins or rejoins later (a second character)
+        if (receiver != null) RoguelikeController.ForgetCachedPlayer(receiver.gameObject);
     }
 
     public static float PlayerDamageMul(FPSController player)
@@ -112,15 +140,10 @@ public static partial class RogueHooks
     public static float AimSpreadMul(FPSController player)
     {
         var rp = Of(player);
-        return rp == null ? 1f : Mathf.Clamp((float)rp.Stats.SpreadMul, 0.25f, 1f);
+        return rp == null ? 1f : Mathf.Clamp((float)rp.Stats.SpreadMul, 0.02f, 1f);   // no cap on the bonus (2026-10-04); the floor only keeps the spread a positive number
     }
 
-    /// <summary>Choke: extra pellets for the two shotguns (catalog 8 and 9). Extra pellets never cost ammunition.</summary>
-    public static int ExtraPellets(FPSController player, int weaponId)
-    {
-        var rp = Of(player);
-        return rp == null || (weaponId != 8 && weaponId != 9) ? 0 : Mathf.Clamp(rp.Stats.ExtraPellets, 0, 2);
-    }
+    // Choke and the doubled pellets of a player's shotgun: RogueHooks.ShellPellets (Meta/RogueHooks.Weapons.cs).
 
     /// <summary>Fast Hands / Suppression: reload wait multiplier (already clamped 0.4..2 by the rules).</summary>
     public static float ReloadTimeMul(FPSController player)
@@ -135,15 +158,10 @@ public static partial class RogueHooks
     public static int ReserveReturnOnReload(FPSController player)
     {
         var rp = Of(player);
-        return rp == null ? 0 : Mathf.Clamp(rp.Stats.ReserveReturnOnReload, 0, 10);
+        return rp == null ? 0 : Mathf.Max(0, rp.Stats.ReserveReturnOnReload);
     }
 
-    /// <summary>Frag Grenades: thrown grenades and grenade-launcher rounds.</summary>
-    public static float GrenadeDamageMul(FPSController player)
-    {
-        var rp = Of(player);
-        return rp == null ? 1f : (float)rp.Stats.GrenadeDamageMul;
-    }
+    // Explosive Payload (was Frag Grenades): RogueHooks.ExplosionDamageMul (Meta/RogueHooks.Weapons.cs).
 
     public static bool InfiniteAmmo(FPSController player)
     {

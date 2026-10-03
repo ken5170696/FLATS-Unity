@@ -160,7 +160,7 @@ public sealed class FlatsHqView : MonoBehaviour
         detailBody.text=string.Join("\n\n",new[]{card.subtitle.text,card.positive.text,card.negative.text}.Where(x=>!string.IsNullOrEmpty(x)).ToArray());
         if(detailState!=null)detailState.text=card.status.text;
         detailIcon.sprite=card.icon.sprite; detailIcon.enabled=detailIcon.sprite!=null;
-        if(hub.CurrentPage==5&&!card.IsSection&&!RogueCatalog.AllItems().Any(x=>x.Id==card.Id)){detailIcon.enabled=false;detailBody.text="<size=56>"+card.amount.text+"</size>\n\n"+RogueMetaUI.T("Deepest stage")+"  "+hub.Profile.records.deepestDepth+"\n"+RogueMetaUI.T("Total kills")+"  "+hub.Profile.totalKills+"\n"+RogueMetaUI.T("Evacuations")+"  "+hub.Profile.records.runsEvacuated+"\n\n"+card.subtitle.text;}
+        if(hub.CurrentPage==5&&!card.IsSection&&!RogueCatalog.AllItems().Any(x=>x.Id==card.Id)&&RogueCatalog.Role(card.Id)==null){detailIcon.enabled=false;detailBody.text="<size=56>"+card.amount.text+"</size>\n\n"+RogueMetaUI.T("Deepest stage")+"  "+hub.Profile.records.deepestDepth+"\n"+RogueMetaUI.T("Total kills")+"  "+hub.Profile.totalKills+"\n"+RogueMetaUI.T("Evacuations")+"  "+hub.Profile.records.runsEvacuated+"\n\n"+card.subtitle.text;}
         var weapon=RogueArmory.Weapon(card.Id);var melee=RogueArmory.MeleeWeapon(card.Id);
         weaponStats.SetActive(weapon!=null||melee!=null);
         if(weapon!=null||melee!=null)

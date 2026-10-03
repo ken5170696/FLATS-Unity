@@ -785,7 +785,24 @@ public partial class FPSController : MonoBehaviour
 						{
 							Y = mt.position.y;
 							jumping = true;
+							if (RogueVertical) rogueJumpStart = true;
 						}
+						else if (RogueVertical && !cc.isGrounded && !RogueJumpBlocked && !Physics.Raycast(mct.position, Vector2.up, 2f) && RogueHooks.AllowAirJump(this))
+						{
+							// Roguelike air jump while falling: one short tap (release edge) takes one air jump
+							Y = mt.position.y;
+							jumping = true;
+							rogueJumpStart = true;
+						}
+						jumpPressTime = 0f;
+					}
+					else if (jumpPressTime <= holdTime && RogueVertical && !cc.isGrounded && !RogueJumpBlocked
+						&& !Physics.Raycast(mct.position, Vector2.up, 2f) && RogueHooks.AllowAirJump(this))
+					{
+						// Roguelike air jump while still rising (jumping is true): same single-tap rule
+						Y = mt.position.y;
+						jumping = true;
+						rogueJumpStart = true;
 						jumpPressTime = 0f;
 					}
 					else
@@ -890,7 +907,7 @@ public partial class FPSController : MonoBehaviour
 							base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
 						}
 					}
-					else if (enableFire && RogueAllows(RogueAction.Fire) && SprintOutReady(1))
+					else if (RogueTriggerPulled() && enableFire && RogueAllows(RogueAction.Fire) && SprintOutReady(1))
 					{
 						if (Menu.network == 0)
 						{
@@ -927,10 +944,13 @@ public partial class FPSController : MonoBehaviour
 					{
 						// Controller jump fires on press. Sprint toggles with a click (holding also
 						// works) and ends when forward input stops, the player aims or fires (UpdateSprint).
-						if (FlatsControls.PadState("Jump", 1) && !jumping && isGrounded() && !RogueJumpBlocked && !Physics.Raycast(mct.position, Vector2.up, 2f))
+						// PadState(.., 1) is the press edge, so one press takes at most one air jump (same rule as the keyboard path).
+						if (FlatsControls.PadState("Jump", 1) && !RogueJumpBlocked && !Physics.Raycast(mct.position, Vector2.up, 2f)
+							&& ((!jumping && isGrounded()) || (RogueVertical && !cc.isGrounded && RogueHooks.AllowAirJump(this))))
 						{
 							Y = mt.position.y;
 							jumping = true;
+							if (RogueVertical) rogueJumpStart = true;
 						}
 						sprintMode = 2;
 						sprintHeld = FlatsControls.PadState("Sprint");
@@ -965,7 +985,7 @@ public partial class FPSController : MonoBehaviour
 									base.gameObject.GetPhotonView().RPC("Smash", PhotonTargets.All);
 								}
 							}
-							else if (enableFire && RogueAllows(RogueAction.Fire) && SprintOutReady(1))
+							else if (RogueTriggerPulled() && enableFire && RogueAllows(RogueAction.Fire) && SprintOutReady(1))
 							{
 								if (Menu.network == 0)
 								{
@@ -1119,7 +1139,7 @@ public partial class FPSController : MonoBehaviour
 						{
 							actions.Dispatch(Flats.Core.PlayerAction.Smash);
 						}
-						else if (enableFire && !(RoguelikeMode.Active && RogueHooks.CarryingBlocksFire(this)) && RogueAllows(RogueAction.Fire) && SprintOutReady(2))
+						else if (RogueTriggerPulled() && enableFire && !(RoguelikeMode.Active && RogueHooks.CarryingBlocksFire(this)) && RogueAllows(RogueAction.Fire) && SprintOutReady(2))
 						{
 							actions.Dispatch(Flats.Core.PlayerAction.Shoot);
 						}
@@ -1523,6 +1543,16 @@ public partial class FPSController : MonoBehaviour
 			jumping = false; isJump = false;
 		}
 		else jumping = rogueVy > 0f;   // the motor skips its ground snap only while rising
+	}
+
+	/// <summary>Roguelike: the owner was moved to another place (returned from outside the map). Falling speed and the jump in
+	/// progress are dropped so the player neither keeps falling at terminal speed nor goes on rising from the new place.</summary>
+	public void RogueResetVertical()
+	{
+		rogueVy = 0f;
+		rogueJumpStart = false;
+		jumping = false;
+		isJump = false;
 	}
 
 	private bool isGrounded()

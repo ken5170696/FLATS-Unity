@@ -79,6 +79,15 @@ namespace Flats.Core.Roguelike
             return d != null && d.Special == MeleeSpecial.Combo && secondsIntoSwing >= d.S3 * (1 - DeflectShare) / 2 && secondsIntoSwing <= d.S3 * (1 + DeflectShare) / 2;
         }
 
+        /// <summary>Quick Swing: a swing whose windup and recovery take <paramref name="timeMul"/> of their time (BuildStats.MeleeSwingTimeMul,
+        /// already clamped). Damage, combo step and finisher are untouched.</summary>
+        public static MeleeSwing Hasten(MeleeSwing swing, double timeMul)
+        {
+            if (!(timeMul > 0) || timeMul == 1) return swing;
+            swing.Windup *= timeMul; swing.Recovery *= timeMul;
+            return swing;
+        }
+
         public static bool BlocksFire(MeleeDef d, bool guarding) { return d != null && d.Special == MeleeSpecial.Guard && guarding; }
     }
 

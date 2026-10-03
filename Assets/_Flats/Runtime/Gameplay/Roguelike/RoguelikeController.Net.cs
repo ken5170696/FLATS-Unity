@@ -34,9 +34,23 @@ public partial class RoguelikeController
         // a returning or new player joins at the next safe node; the run adds them only in Prep (RunMachine.AddPlayer rule)
         string key = KeyOf(other);
         // a player back after a disconnect has a new actor number: they take back their own entry, build and wallet
-        AdoptKeys(MatchSavedPlayers(state, new List<string> { key }, true));
+        var adopted = MatchSavedPlayers(state, new List<string> { key }, true);
+        var formerKeys = new List<string>();
+        foreach (var pair in adopted) if (pair.Value != null && pair.Value.key != pair.Key) formerKeys.Add(pair.Value.key);
+        AdoptKeys(adopted);
         var existing = state.Player(key);
-        if (existing != null) { machine.SetConnected(key, true); Notify(new RogueEventMessage { kind = "log", text = "{0} rejoined.|" + existing.name }); }
+        // the returning player spawns a fresh, standing Flatman (Multiplayer.Start): the roster agrees, so the squad list, the revive
+        // prompt and the wipe check do not treat a player who is up and fighting as downed or dead
+        if (existing != null)
+        {
+            machine.SetConnected(key, true);
+            // what the down left behind (half-finished rescues, the rescuer's claim, the down's request number) belongs to the
+            // character that is gone: none of it may carry over to the new one, under the old key or the new
+            ClearReviveBookkeeping(key);
+            foreach (var former in formerKeys) ClearReviveBookkeeping(former);
+            if (existing.life != PlayerLife.Alive) existing.life = PlayerLife.Alive;
+            Notify(new RogueEventMessage { kind = "log", text = "{0} rejoined.|" + existing.name });
+        }
         else if (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) { var p = machine.AddPlayer(key, other.NickName, -1, -1); if (p != null) Notify(new RogueEventMessage { kind = "log", text = "{0} joined the squad.|" + p.name }); }
         else
         {
@@ -49,6 +63,21 @@ public partial class RoguelikeController
         StartCoroutine(SendSnapshotWhenReady(other.ID));
         Broadcast();
         ResendInvulnerable();
+    }
+
+    /// <summary>Authority: forgets every revive record of one player key, as victim and as rescuer (hold seconds, last reports,
+    /// the exclusive claim on the victim, and the request numbers of its last down).</summary>
+    void ClearReviveBookkeeping(string key)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        string asRescuer = key + "|", asVictim = "|" + key;
+        var stale = new List<string>();
+        foreach (var k in reviveHold.Keys) if (k.StartsWith(asRescuer, System.StringComparison.Ordinal) || k.EndsWith(asVictim, System.StringComparison.Ordinal)) stale.Add(k);
+        foreach (var k in reviveLastReport.Keys) if (!stale.Contains(k) && (k.StartsWith(asRescuer, System.StringComparison.Ordinal) || k.EndsWith(asVictim, System.StringComparison.Ordinal))) stale.Add(k);
+        foreach (var k in stale) { reviveHold.Remove(k); reviveLastReport.Remove(k); }
+        reviveLedger.Release("revive:" + key);
+        downIndex.Remove(key);
+        downRevived.Remove(key);
     }
 
     IEnumerator SendSnapshotWhenReady(int playerId)
@@ -137,6 +166,10 @@ public partial class RoguelikeController
         {
             var rp = go.GetComponent<RoguePlayer>();
             if (rp == null) continue;
+            // a dead body stays for five seconds with its components; a player revived or respawned meanwhile has a new object
+            // with the same key, and the body must not mirror that player's life (a second revive marker and prompt at the corpse)
+            var body = go.GetComponent<DamageReceiver>();
+            if (body != null && body.Dead) continue;
             var p = state.Player(RogueWorld.KeyOf(go));
             if (p != null) rp.ApplyLife(p.life, state.authorityEpoch);
         }
@@ -183,6 +216,7 @@ public partial class RoguelikeController
         if (held < needed) return;
         reviveHold.Remove(key);
         reviveLedger.Release("revive:" + victim);
+        NoteRevivedFromDown(victim);
         var pay = machine.Rescued(rescuer, victim);
         Notify(new RogueEventMessage { kind = "revived", playerKey = victim, text = r.name, minor = pay.Total });
         MetaRevived(rescuer, victim);
@@ -206,7 +240,7 @@ public partial class RoguelikeController
             case "supply.ammo": RogueHooks.RefillAmmo(fps); break;
             case "supply.medkit": rp.RestoreOvershield(1.0); break;   // the shop's shield worth the maximum health (F46); health is untouched
             case "supply.repair": RogueHooks.RefillAmmo(fps); if (dr != null) dr.hitPoints = RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)); break;
-            case "stat.health": if (dr != null) dr.hitPoints += 1000f * (1f + Menu.myCharacter.defense * 0.1f) * 0.12f; break;   // heals the added amount, once
+            case "stat.health": if (dr != null) dr.hitPoints += 1000f * (1f + Menu.myCharacter.defense * 0.1f) * (float)BuildStats.HealthPerTier; break;   // heals the added amount, once (the rule's own step, not a copy of it)
         }
         if (def.Kind == ItemKind.Weapon) StartCoroutine(RogueHooks.EquipWeapon(this, fps, RogueCatalog.WeaponIndexOf(def.Id)));
     }
@@ -226,6 +260,7 @@ public partial class RoguelikeController
         RogueAudio.Loop("gas_loop", false);
         RogueAudio.Play(state != null && state.end == RunEnd.Evacuated ? "run_evac" : "run_end");
         var meta = RogueSaveStore.ReadMeta();
+        previousBestDepth = Mathf.Max(meta.deepestDepth, RogueMetaStore.Current.records.deepestDepth);   // a client's result shows its own record too
         if (RogueSave.RecordRunEnd(meta, state, localKey)) RogueSaveStore.WriteMeta(meta);
         MetaRunEnded();
         CleanupSession();
@@ -271,6 +306,7 @@ public partial class RoguelikeController
     {
         if (role == null) return;
         BindEnemyMarkers(role);                       // idempotent; runs on the authority's own copy as well
+        MetaNoteEnemy(role.RoleId);                   // codex: this role has been met (every client, its own profile)
         if (liveEnemies.ContainsKey(role.InstanceId)) return;
         liveEnemies[role.InstanceId] = role;
         if (role.Elite && role.RoleId != "role.finale") RogueAudio.Play("elite_spawn", 0.8f);

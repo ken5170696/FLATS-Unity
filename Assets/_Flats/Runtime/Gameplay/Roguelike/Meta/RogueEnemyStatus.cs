@@ -7,9 +7,14 @@ using Flats.Core.Roguelike;
 public sealed class RogueEnemyStatus : MonoBehaviour
 {
     public const float EliteStunScale = 0.5f;
+    /// <summary>Share of a knockback's distance an elite and the chapter target (role.finale) are moved.</summary>
+    public const float EliteKnockbackScale = 0.5f, FinaleKnockbackScale = 0.2f;
     public float StunRemaining => Mathf.Max(0, stunUntil - Time.time);
     public Vector3 LastKnockback { get; private set; }
-    float stunUntil, slowUntil, slowScale = 1, pushLeft;
+    float stunUntil, slowUntil, slowScale = 1, pushLeft, pushTime = PushMinSeconds;
+    /// <summary>A knockback travels at this speed (m/s), never faster than <see cref="PushMinSeconds"/> nor slower than
+    /// <see cref="PushMaxSeconds"/> in all: the Bat's 15 m reads as a flight (0.4 s), a 3 m shove stays the old 0.12 s snap.</summary>
+    public const float PushSpeed = 38f, PushMinSeconds = 0.12f, PushMaxSeconds = 0.45f;
     Vector3 push;
     NavMeshAgent agent;
     bool stopped, savedStopped, savedRotation;
@@ -77,9 +82,12 @@ public sealed class RogueEnemyStatus : MonoBehaviour
         if (melee != null) stun = (float)MeleeRules.StunSeconds(melee, elite);
         else if (elite) stun *= EliteStunScale;
         stun = Mathf.Clamp(stun, 0, 10); duration = Mathf.Clamp(duration, 0, 30); slow = Mathf.Clamp01(slow);
+        // heavy targets are pushed less: the chapter target keeps its place (a 15 m shove moved the whole fight), elites go half way
+        if (role != null && role.RoleId == "role.finale") knockback *= FinaleKnockbackScale;
+        else if (role != null && role.Elite) knockback *= EliteKnockbackScale;
         Vector3 delta = ClampKnockback(knockback);
         LastKnockback = delta;
-        push = delta; pushLeft = delta.sqrMagnitude > 0 ? 0.12f : 0;
+        push = delta; pushTime = Mathf.Clamp(delta.magnitude / PushSpeed, PushMinSeconds, PushMaxSeconds); pushLeft = delta.sqrMagnitude > 0 ? pushTime : 0;
         if (Menu.network == 0) BeginVisual(stun, slow, duration, delta);
         else GetComponent<PhotonView>().RPC("RogueStatusBegin", PhotonTargets.All, stun, slow, duration, delta);
         // QA-40: the Stun Baton's stun is electric; every copy plays the shock for the stun's own length (shorter on elites)
@@ -109,8 +117,12 @@ public sealed class RogueEnemyStatus : MonoBehaviour
         Vector3 origin = agent.nextPosition;
         NavMeshHit hit;
         Vector3 target = origin + requested;
+        // The NavMesh ray walks the surface: it stops at a wall or the mesh's edge (an enemy is never pushed off the map or into
+        // geometry) and its end point carries the ground height there. The old flat target (the origin's height) failed the
+        // 0.15 m sample on any slope a few metres away, which silently cancelled long knockbacks (the Bat's 15 m).
         if (NavMesh.Raycast(origin, target, out hit, agent.areaMask)) target = hit.position - requested.normalized * 0.05f;
-        if (!NavMesh.SamplePosition(target, out hit, 0.15f, agent.areaMask)) return Vector3.zero;
+        else if (Finite(hit.position.sqrMagnitude) && new Vector2(hit.position.x - target.x, hit.position.z - target.z).sqrMagnitude < 0.25f) target = hit.position;
+        if (!NavMesh.SamplePosition(target, out hit, 0.5f, agent.areaMask)) return Vector3.zero;
         return hit.position - origin;
     }
     [PunRPC] void RogueStatusBegin(float stun, float slow, float duration, Vector3 delta, PhotonMessageInfo info)
@@ -182,7 +194,7 @@ public sealed class RogueEnemyStatus : MonoBehaviour
             if (pushLeft > 0)
             {
                 float dt = Mathf.Min(Time.deltaTime, pushLeft);
-                agent.Move(ClampKnockback(push * (dt / .12f))); pushLeft -= dt;
+                agent.Move(ClampKnockback(push * (dt / Mathf.Max(PushMinSeconds, pushTime)))); pushLeft -= dt;
             }
             if (slowUntil > 0)
             {

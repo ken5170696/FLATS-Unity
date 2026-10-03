@@ -151,12 +151,19 @@ namespace Flats.Core.Roguelike
         {
             if (def == null || build == null) return false;
             bool ricochet = build.HasCore("core.ricochet") || build.HasMod("mod.double_bounce");
-            bool marks = build.HasCore("core.marker") || (build.HasMod("mod.angle_finder") && ricochet);
+            bool chain = build.ultimate == "ult.chain_bullets";
+            // marks come from the Marker core, Angle Finder ricochets, the Enemy Sight ultimate (the whole map) and Static Mark chains
+            bool marks = build.HasCore("core.marker") || (build.HasMod("mod.angle_finder") && ricochet) || build.ultimate == "ult.enemy_sight" || (chain && build.HasMod("mod.static_mark"));
             switch (def.Id)
             {
                 case "mod.sustained_fire": return !build.HasCore("core.suppression");
                 case "mod.burst_extender": return !build.HasCore("core.reloadburst");
                 case "mod.double_dash": return build.tactical != "tactical.dash";
+                case "mod.triple_jump": return build.tactical != "tactical.doublejump";
+                case "mod.shield_boost": return build.tactical != "tactical.shield";
+                case "mod.ult_cooldown": return string.IsNullOrEmpty(build.ultimate);
+                case "mod.superconductor":
+                case "mod.static_mark": return !chain;
                 case "mod.rubber_rounds": return !ricochet;
                 case "mod.angle_finder": return !ricochet;
                 case "mod.spotter":
@@ -164,10 +171,14 @@ namespace Flats.Core.Roguelike
                 // marks are simulated on the shooter's client and not replicated, so "a teammate hits your mark" cannot be observed yet;
                 // the mod is kept for old checkpoints but no longer offered
                 case "mod.team_radio": return true;
-                case "mod.bigger_boom":
+                // Bigger Boom and Explosive Payload act on every explosion (hand grenades included), so they need no core;
+                // Shockwave still belongs to the Demolition kill explosion
                 case "mod.shockwave": return !build.HasCore("core.demolition");
-                case "mod.choke": return !CarriesWeapon(build, 8, 9);
-                // one more pierce or bounce, up to two: nothing is left to add once the core's tier already gives two
+                case "mod.choke": return !CarriesPelletShotgun(build);
+                // the melee mods need an armory melee weapon (the legacy smash of a build without a loadout reads neither number)
+                case "mod.heavy_swing":
+                case "mod.quick_swing": return build.meta == null || RogueArmory.MeleeWeapon(build.meta.melee) == null;
+                // one more pierce or bounce, up to RogueCatalog.MaxPierce / MaxBounces: offered only while it still adds one
                 case "mod.piercing_rounds": return !Changes(def, build, s => s.PenetrateDepth);
                 case "mod.double_bounce": return !Changes(def, build, s => s.RicochetBounces);
             }
@@ -192,6 +203,21 @@ namespace Flats.Core.Roguelike
             return (build.primaryWeapon >= first && build.primaryWeapon <= last) || (build.secondaryWeapon >= first && build.secondaryWeapon <= last);
         }
 
+        /// <summary>Choke adds pellets to pellet shotguns only: a carried shotgun model whose armory variant is the one-slug Slug Gun does not count.</summary>
+        static bool CarriesPelletShotgun(PlayerBuild build)
+        {
+            if (!CarriesWeapon(build, 8, 9)) return false;
+            if (build.primaryWeapon < 0 || build.meta == null) return true;
+            foreach (int model in new[] { build.primaryWeapon, build.secondaryWeapon })
+            {
+                if (model < 8 || model > 9) continue;
+                RangedWeaponDef variant = null;
+                foreach (var id in new[] { build.meta.primary, build.meta.secondary }) { var w = RogueArmory.Weapon(id); if (w != null && w.BaseModel == model) variant = w; }
+                if (variant == null || RogueArmory.Resolve(variant).Pellets > 1) return true;
+            }
+            return false;
+        }
+
         public static string[] AffinityTags(PlayerBuild build)
         {
             var tags = new List<string>();
@@ -208,7 +234,7 @@ namespace Flats.Core.Roguelike
             {
                 int tier = build.StatTier(s.Id);
                 if (tier >= s.MaxStacks || !build.StatTierHasEffect(s.Id)) continue;   // a tier that the total cap would swallow is not sold
-                candidates.Add(s); weights.Add(1.0 + Math.Min(5, RogueCatalog.StatTiers - tier) * 0.5);   // capped at the five-tier weight: more tiers must not crowd cores and mods out of the offers
+                candidates.Add(s); weights.Add(1.0 + Math.Min(5, s.MaxStacks - tier) * 0.5);   // capped at the five-tier weight: more tiers must not crowd cores and mods out of the offers
             }
             int i = rng.WeightedIndex(weights);
             return i < 0 ? null : candidates[i];

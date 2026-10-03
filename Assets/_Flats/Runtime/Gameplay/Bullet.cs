@@ -166,9 +166,13 @@ public class Bullet : MonoBehaviour
 		}
 		GameObject effect = UnityEngine.Object.Instantiate(grenadeHitEffect, center, Quaternion.identity) as GameObject;
 		if (effect != null) effect.GetComponent<ParticleSystem>().startColor = shooter.GetChild(0).GetComponent<Renderer>().material.color;
+		// Roguelike, a player's blast: Bigger Boom widens the radius and stretches the falloff with it (1 for enemies and Classic).
+		float rogueBlast = RoguelikeMode.Active ? RogueHooks.ExplosionRadiusMul(shooter) : 1f;
+		float blastRadius = radius * rogueBlast, blastFalloff = dist / rogueBlast;
+		if (rogueBlast > 1f) RogueHooks.ScaleBlastEffect(effect, rogueBlast);
 		LayerMask teams = (1 << LayerMask.NameToLayer("RedTeam")) + (1 << LayerMask.NameToLayer("BlueTeam"));
 		var nearest = new System.Collections.Generic.Dictionary<DamageReceiver, float>();
-		foreach (Collider collider in Physics.OverlapSphere(center, radius, teams))
+		foreach (Collider collider in Physics.OverlapSphere(center, blastRadius, teams))
 		{
 			if (collider == null) continue;
 			DamageReceiver receiver = collider.gameObject.name == "CameraTarget" ? collider.GetComponentInParent<DamageReceiver>() : collider.gameObject.GetComponent<DamageReceiver>();
@@ -184,10 +188,15 @@ public class Bullet : MonoBehaviour
 		foreach (var pair in nearest)
 		{
 			if (pair.Key == null) continue;
-			float amount = damage - pair.Value * dist;
-			if (!(amount > 0f)) continue;   // the edge of the blast deals nothing; a negative amount used to heal
-			pair.Key.ApplyDamage(amount, 0, shooter);
-			if (RoguelikeMode.Active && !pair.Key.userIsPlayer) RogueRangedStatus.OnHit(this, pair.Key, false);
+			float amount = damage - pair.Value * blastFalloff;
+			if (amount > 0f)   // the edge of the blast deals nothing; a negative amount used to heal
+			{
+				pair.Key.ApplyDamage(amount, 0, shooter);
+				if (RoguelikeMode.Active && !pair.Key.userIsPlayer) RogueRangedStatus.OnHit(this, pair.Key, false);
+			}
+			// Roguelike: a player's blast marks every enemy it catches (Marker core), even at the edge where it deals nothing.
+			// After the damage, as a bullet's mark is (OnBulletHitEnemy): the mark raises the hits that follow, not its own.
+			if (RoguelikeMode.Active && !pair.Key.userIsPlayer) RogueHooks.OnExplosionCaughtEnemy(this, pair.Key);
 		}
 		UnityEngine.Object.Destroy(base.gameObject);
 	}

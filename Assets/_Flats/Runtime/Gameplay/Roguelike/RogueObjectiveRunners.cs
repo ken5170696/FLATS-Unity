@@ -22,6 +22,7 @@ public sealed class CaptureRunner : RogueObjectiveRunner
         if (machine == null) return;
         List<string> inside; int players = RogueWorld.PlayersWithin(center, Radius, out inside);
         machine.OnOccupancy(players, RogueWorld.EnemiesWithin(center, Radius), dt);
+        if (players > 0) Pressure.Ambush(Controller, center);   // the first step into the zone is answered at once
         ProgressText = RoguelikeController.F("Hold {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) + (players == 0 ? "  " + RoguelikeController.F("Go to the zone") : "");
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
         KeepPressure(dt);   // the zone is contested until it is held: a cleared field brings a new squad
@@ -64,6 +65,8 @@ public sealed class CarryRunner : RogueObjectiveRunner
                 if (d <= 6f && machine.OnDelivered()) SetHolder("");
             }
         }
+        // the crate is hunted while somebody carries it: a squad around the carrier every few seconds
+        if (machine.Status == ObjectiveStatus.Active && holder != null && !string.IsNullOrEmpty(machine.Holder)) Pressure.Sustain(Controller, holder.transform.position, true, dt);
         ProgressText = machine.Status == ObjectiveStatus.Succeeded ? RoguelikeController.F("Delivered") : RoguelikeController.F("Crate {0} m from the drop", Mathf.RoundToInt((float)machine.RemainingDistance));
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
     }
@@ -80,7 +83,14 @@ public sealed class CarryRunner : RogueObjectiveRunner
         if (machine == null) return;
         var player = RogueWorld.PlayerByKey(cmd.playerKey);
         // the shared rule decides (alive, hands free, within reach plus tolerance); a refusal tells that player why
-        if (cmd.text == "carry:pickup") { if (RogueCarryable.AuthorizePickup(Controller, carry, player, cmd.playerKey, machine.Holder) && machine.OnPickup(cmd.playerKey)) SetHolder(cmd.playerKey); }
+        if (cmd.text == "carry:pickup")
+        {
+            if (RogueCarryable.AuthorizePickup(Controller, carry, player, cmd.playerKey, machine.Holder) && machine.OnPickup(cmd.playerKey))
+            {
+                SetHolder(cmd.playerKey);
+                if (player != null) Pressure.Ambush(Controller, player.transform.position);   // the first pickup calls an ambush on the carrier
+            }
+        }
         else if (cmd.text == "carry:drop" && machine.Holder == cmd.playerKey) { machine.OnDrop(); SetHolder(""); }
         else if (cmd.text == "carry:lost") { machine.OnLost(); SetHolder(""); }
     }
@@ -112,7 +122,9 @@ public sealed class ProtectRunner : RogueObjectiveRunner
         RogueWaypoint.Attach(device, "Shield", "Protect the device", RogueWorld.Blue, RogueWorld.WaypointHeight(device), 3);
         interact = device.AddComponent<RogueInteractable>(); interact.Action = "repair"; interact.Prompt = "Repair"; interact.Radius = 5.5f;
         beacon = RogueWorld.Beacon("RepairBeacon", center, RogueWorld.White);
-        if (c.IsAuthority) machine = new ProtectObjective(1000, 0.02);
+        // the device is sized for the squad (3000 solo, was 1000): the repair now calls enemies to it, and at most
+        // RogueMissionRules.MaxDrainingEnemies of them wear it down at once, so a larger attack is not a certain loss
+        if (c.IsAuthority) machine = new ProtectObjective(RogueMissionRules.DeviceHealth(RogueMissionRules.ProtectDeviceBaseHealth, plan.players), 0.02);
     }
     public override void Tick(float dt)
     {
@@ -121,10 +133,11 @@ public sealed class ProtectRunner : RogueObjectiveRunner
         int players = 0;
         foreach (var kv in new List<KeyValuePair<string, float>>(repairing)) { if (kv.Value > 0) players++; repairing[kv.Key] = Mathf.Max(0, kv.Value - dt); }
         machine.OnRepair(players, dt);
+        Pressure.Sustain(Controller, center, players > 0, dt);   // while somebody repairs, squads keep coming for the device
         // enemies close to the device wear it down (readable: they must be pushed off it)
         int near = RogueWorld.EnemiesWithin(center, 12f);
-        if (near > 0) { damageAccum += near * 25f * dt; if (damageAccum >= 5f) { machine.OnDeviceDamaged(damageAccum); damageAccum = 0; } }
-        ProgressText = RoguelikeController.F("Repair {0}%  Device {1}%", Mathf.RoundToInt((float)machine.Progress * 100), Mathf.RoundToInt((float)machine.DeviceHp / 10f));
+        if (near > 0) { damageAccum += (float)RogueMissionRules.DeviceDrain(RogueMissionRules.ProtectDrainPerEnemy, near) * dt; if (damageAccum >= 5f) { machine.OnDeviceDamaged(damageAccum); damageAccum = 0; } }
+        ProgressText = RoguelikeController.F("Repair {0}%  Device {1}%", Mathf.RoundToInt((float)machine.Progress * 100), Mathf.CeilToInt((float)(machine.DeviceHp / machine.DeviceMaxHp) * 100f));
         interact.SetProgress((float)machine.Progress, machine.Status == ObjectiveStatus.Succeeded);   // the HUD's progress ring on every client (QA-22)
         if (machine.Status == ObjectiveStatus.Failed)
         {
@@ -144,6 +157,7 @@ public sealed class ProtectRunner : RogueObjectiveRunner
         bool inUse; float granted = ledger.Credit(cmd.playerKey, "repair", (float)cmd.value, false, out inUse);
         float left; repairing.TryGetValue(cmd.playerKey, out left);
         repairing[cmd.playerKey] = Mathf.Min(0.6f, left + granted);
+        Pressure.Ambush(Controller, center);   // the first repair calls an ambush on the device
     }
     public override void Dispose() { RogueWorld.Destroy(device); RogueWorld.Destroy(beacon); }
     // losing the device falls back to clearing the area for half the objective reward, like the convoy's escape
@@ -208,10 +222,13 @@ public sealed class BreakoutRunner : RogueObjectiveRunner
         // the hold is a fight: every later arrival comes from a ring around the exit; when the plan is nearly spent, a small bounded
         // squad paid from the bonus pool (never the stage budget) tops the pressure up, within the concurrent cap
         Controller.SpawnRouteTarget = null; Controller.SpawnAnchor = exit;
+        var enc = Controller.State.encounter;
         int alive = Controller.AliveEnemies;
-        int wanted = Mathf.Clamp(2 + Controller.State.ConnectedPlayers, 3, 6) - alive - Controller.UnreleasedEnemies;
-        wanted = Mathf.Min(wanted, Controller.State.encounter.concurrentCap - alive);
-        for (int i = 0; i < wanted; i++) Controller.SpawnExtraEnemy(i % 2 == 0 ? "role.rifleman" : "role.rusher", false, Controller.PickSpawnPosition(), true);
+        // calling the extraction always brings a squad (at least an ambush's worth), and tops the field up to the pressure floor
+        int wanted = Mathf.Max(RogueMissionRules.AmbushSize(Controller.State.ConnectedPlayers, enc.depth), PressureFloor - alive - Controller.UnreleasedEnemies);
+        wanted = Mathf.Min(wanted, enc.concurrentCap - alive);
+        int elites = RogueMissionRules.EliteCount(wanted, enc.depth, enc.difficulty);
+        for (int i = 0; i < wanted; i++) Controller.SpawnExtraEnemy(RogueMissionRules.PressureRole(i, enc.depth), i < elites, Controller.PickSpawnPosition(), true);
     }
     public override void Dispose()
     {
@@ -237,7 +254,17 @@ public sealed class CommanderRunner : RogueObjectiveRunner
             guardCheck = 1f;
             int guards = Controller.AliveEnemies - (commander != null ? 1 : 0);
             if (guards <= 0 && Controller.WavesDone && !machine.Exposed && machine.OnGuardsCleared()) Controller.Notify(new RogueEventMessage { kind = "banner", text = "The commander is exposed!", value = 2 });
-            if (machine.SpawnGuardWave) { machine.AcknowledgeGuardWave(); Vector3 near = commander != null ? commander.transform.position : Controller.PlanPoint(0); for (int i = 0; i < 4; i++) Controller.SpawnExtraEnemy(i % 2 == 0 ? "role.rifleman" : "role.rusher", false, near); }
+            if (machine.SpawnGuardWave)
+            {
+                // the new guard: sized for the squad and the chapter (was four), with elites from chapter 2, never past the cap
+                machine.AcknowledgeGuardWave();
+                var enc = Controller.State.encounter;
+                Vector3 near = commander != null ? commander.transform.position : Controller.PlanPoint(0);
+                int size = Mathf.Min(RogueMissionRules.GuardWaveSize(Controller.State.ConnectedPlayers, enc.depth), enc.concurrentCap - Controller.AliveEnemies);
+                int elites = RogueMissionRules.EliteCount(size, enc.depth, enc.difficulty);
+                for (int i = 0; i < size; i++) Controller.SpawnExtraEnemy(RogueMissionRules.PressureRole(i, enc.depth), i < elites, near);
+                if (size > 0) Controller.Notify(new RogueEventMessage { kind = "banner", text = "The commander is shielded again: kill the new guard!", value = 2.5 });
+            }
         }
         if (commander != null && commander.gameObject == null) { machine.OnDamaged(99999); }
         // the machine hears only of the kill, so the exposed line reads the commander's real damage (A12)
@@ -252,6 +279,9 @@ public sealed class VaultRunner : RogueObjectiveRunner
 {
     VaultObjective machine; RogueEnemyRole core; bool coreKilled; readonly GameObject[] cells = new GameObject[3]; readonly float[] charge = new float[3];
     readonly RogueHoldLedger ledger = new RogueHoldLedger(); const float CellRadius = 5f, CellSeconds = 4f;
+    // each cell answers its first charge with an ambush and keeps squads coming while it is charged
+    readonly RogueMissionPressure[] cellPressure = { new RogueMissionPressure(), new RogueMissionPressure(), new RogueMissionPressure() };
+    int chargingCell = -1, lastCells; float lastChargeAt = -10f;
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
         for (int i = 0; i < 3; i++)
@@ -269,10 +299,29 @@ public sealed class VaultRunner : RogueObjectiveRunner
         if (core == null) core = Controller.FindFinaleEnemy();
         if (core != null) core.Invulnerable = !machine.Exposed;
         if (core != null || !machine.Exposed) machine.Tick(dt);   // a charged cell keeps the core exposed until it actually arrives with the last wave
+        // three windows spent with the core alive: the machine opens the sequence again (VaultObjective.Tick). The cells themselves
+        // stayed completed and disabled on every copy, so nobody could charge again and the finale could not be finished.
+        if (machine.CellsCharged < lastCells) ResetCells();
+        lastCells = machine.CellsCharged;
+        if (chargingCell >= 0 && cells[chargingCell] != null)
+            cellPressure[chargingCell].Sustain(Controller, cells[chargingCell].transform.position, Time.time - lastChargeAt < 0.6f, dt);
         ProgressText = machine.Exposed ? RoguelikeController.F("Vault core exposed! {0}%", RogueHooks.EnemyDamagePercent(core)) : RoguelikeController.F("Charge cell {0}/3", Mathf.Min(3, machine.CellsCharged + 1));
         // the core can die outside a window (a shot racing the shield, a kill volume): the target is dead, so the finale is won (A2),
         // as CommanderRunner does; the machine alone ignored that kill and the stage never ended
         Succeeded = machine.Status == ObjectiveStatus.Succeeded || coreKilled;
+    }
+    /// <summary>Authority: every cell can be charged again (progress, owner and ambush start over); every copy re-opens the cells.</summary>
+    void ResetCells()
+    {
+        chargingCell = -1;
+        for (int i = 0; i < 3; i++)
+        {
+            charge[i] = 0f; ledger.Release("cell:" + i); cellPressure[i] = new RogueMissionPressure();
+            var it = cells[i] != null ? cells[i].GetComponent<RogueInteractable>() : null;
+            if (it != null) it.SetProgress(0f, false);
+        }
+        Controller.Notify(new RogueEventMessage { kind = "cellreset" });
+        Controller.Notify(new RogueEventMessage { kind = "banner", text = "The vault core sealed itself: charge the cells again!", value = 3 });
     }
     public int CellsCharged { get { return machine != null ? machine.CellsCharged : -1; } }
     public override void OnCommand(RogueCommandMessage cmd)
@@ -285,6 +334,8 @@ public sealed class VaultRunner : RogueObjectiveRunner
         bool inUse; float granted = ledger.Credit(cmd.playerKey, "cell:" + i, (float)cmd.value, true, out inUse);
         if (inUse) { if (ledger.NoticeDue(cmd.playerKey)) Controller.Notify(new RogueEventMessage { kind = "denied", playerKey = cmd.playerKey, text = "Someone else is using it" }); return; }
         charge[i] += granted;
+        chargingCell = i; lastChargeAt = Time.time;
+        cellPressure[i].Ambush(Controller, cells[i].transform.position);   // the first charge of a cell calls an ambush on it
         var cellIt = cells[i].GetComponent<RogueInteractable>();
         if (charge[i] >= CellSeconds && machine.OnCellCharged(i))
         {
@@ -298,6 +349,19 @@ public sealed class VaultRunner : RogueObjectiveRunner
     }
     public override void OnClientEvent(RogueEventMessage e)
     {
+        if (e.kind == "cellreset")
+        {
+            // every copy: the cells look and behave as at the start (blue, marked, offering their prompt), the first one leading
+            for (int i = 0; i < 3; i++)
+            {
+                if (cells[i] == null) continue;
+                RogueWorld.SetStateColor(cells[i], RogueWorld.Blue);
+                RogueWaypoint.Hide(cells[i], false);
+                var mark = cells[i].GetComponent<RogueWaypoint>(); if (mark != null) mark.Priority = i == 0 ? 3 : 1;
+                var again = cells[i].GetComponent<RogueInteractable>(); if (again != null) again.Enabled = true;
+            }
+            return;
+        }
         if (e.kind != "cell" || e.index < 0 || e.index > 2 || cells[e.index] == null) return;
         RogueWorld.SetStateColor(cells[e.index], RogueWorld.Gold);
         RogueWaypoint.Hide(cells[e.index], true);
@@ -353,7 +417,8 @@ public sealed class ConvoyRunner : RogueObjectiveRunner
         mover.Configure(route, c.IsAuthority);
         beacon = RogueWorld.Beacon("ConvoyExit", end, RogueWorld.Pink2);
         RogueWaypoint.Attach(beacon, "Warning", "Carrier exit", RogueWorld.Pink2, 2.5f, 1);
-        if (c.IsAuthority) machine = new ConvoyObjective(3000);
+        // the carrier's health follows the stage (enemy health curve, chapter, squad size; 24000 at depth 1 solo, was a fixed 3000)
+        if (c.IsAuthority) machine = new ConvoyObjective(RogueMissionRules.ConvoyCarrierHealth(plan.depth, plan.difficulty, plan.players));
     }
     public override void Tick(float dt)
     {
@@ -366,7 +431,16 @@ public sealed class ConvoyRunner : RogueObjectiveRunner
         if (resumeLeft > 0f) { resumeLeft -= dt; reported = Mathf.Max(1, reported); }   // re-arms the machine so the next empty check opens a new window
         machine.OnEscortKilled(reported);
         bool stopped = machine.Stopped;
-        if (stopped && !wasStopped) windowStartedAt = Time.time;
+        if (stopped && !wasStopped)
+        {
+            windowStartedAt = Time.time;
+            // a stopped carrier calls for help: a relief squad arrives around it while the squad shoots it, and becomes its next
+            // escort when the window ends (extras: bonus pool, within the concurrent cap)
+            var enc = Controller.State.encounter;
+            int size = RogueMissionRules.SustainSize(Controller.State.ConnectedPlayers);
+            if (RogueMissionPressure.Spawn(Controller, carrier.transform.position, size, RogueMissionRules.EliteCount(size, enc.depth, enc.difficulty)) > 0)
+                Controller.Notify(new RogueEventMessage { kind = "banner", text = "The carrier called a relief squad!", value = 2 });
+        }
         if (!stopped && wasStopped && near + queued == 0) resumeLeft = ResumeSeconds;
         wasStopped = stopped;
         damageable.SetState(1f - (float)machine.Progress, !stopped);   // shootable only in the window; health and immunity on every client (QA-37)

@@ -180,7 +180,33 @@ public partial class RoguelikeController
             Broadcast();
         }
         else if (runner.Failed) Notify(new RogueEventMessage { kind = "banner", text = "{0} failed.|@" + RogueCatalog.Encounter(runner.Id).Name, value = 3 });
+        // in the replicated ledger whatever the outcome: a client that joins after this reads it from the snapshot ("evdone" below
+        // only reaches the clients that are here now) and does not build the props of an event that is over
+        if (state != null) RogueEconomy.NoteEventFinished(state.ledger, runner.Id);
         runner.Dispose();
+        // clients never settle event runners: without this their copy of the props stayed until the stage ended, still offering
+        // prompts for things that were over (the third vent switch, a disposed bomb, a planted lure, a spent cache)
+        Notify(new RogueEventMessage { kind = "evdone", text = runner.Id });
+    }
+
+    readonly HashSet<string> clientFinishedEvents = new HashSet<string>();
+
+    /// <summary>Clients: the authority settled this event or emergency ("evdone"); dispose this client's copy and do not rebuild it
+    /// for the rest of the stage.</summary>
+    void ClientEventFinished(string id)
+    {
+        if (IsAuthority || string.IsNullOrEmpty(id)) return;
+        clientFinishedEvents.Add(id);
+        if (eventRunner != null && eventRunner.Id == id) { eventRunner.Dispose(); eventRunner = null; }
+        if (emergencyRunner != null && emergencyRunner.Id == id) { emergencyRunner.Dispose(); emergencyRunner = null; }
+    }
+
+    /// <summary>Clients: an event of this stage that is already over (told by "evdone", or recorded in the replicated ledger for a
+    /// client that joined later: finished whatever the outcome, or paid) is not built again.</summary>
+    bool ClientEventOver(string id)
+    {
+        if (clientFinishedEvents.Contains(id)) return true;
+        return state != null && RogueEconomy.EventFinished(state.ledger, id);
     }
 
     void DisposeEvents()
@@ -189,7 +215,7 @@ public partial class RoguelikeController
         if (emergencyRunner != null) { emergencyRunner.Dispose(); emergencyRunner = null; }
         if (objectiveRunner != null) { objectiveRunner.Dispose(); objectiveRunner = null; }
         LureTarget = null; PowerRerouted = false; ClearGravityZones();
-        objectiveText = ""; lastSentObjectiveText = ""; clientWorldPending = false;
+        objectiveText = ""; lastSentObjectiveText = ""; clientWorldPending = false; clientFinishedEvents.Clear();
         huntInstance = -1; pendingInvulnerable.Clear();
         foreach (var world in GameObject.FindGameObjectsWithTag("Untagged")) { }   // world props are tracked by their runners
     }
@@ -203,8 +229,8 @@ public partial class RoguelikeController
         if (SpawnsHeld) { clientWorldPending = true; return; }
         var enc = state.encounter;
         if (objectiveRunner == null && state.phase == RunPhase.Combat) objectiveRunner = RogueObjectiveRunner.Create(this, enc);
-        if (eventRunner == null && !string.IsNullOrEmpty(enc.eventId)) { eventRunner = RogueEventRunner.Create(this, enc.eventId, 3); if (eventRunner != null) eventRunner.Begin(); }
-        if (emergencyRunner == null && !string.IsNullOrEmpty(enc.emergencyId)) { emergencyRunner = RogueEventRunner.Create(this, enc.emergencyId, 6); if (emergencyRunner != null) emergencyRunner.Begin(); }
+        if (eventRunner == null && !string.IsNullOrEmpty(enc.eventId) && !ClientEventOver(enc.eventId)) { eventRunner = RogueEventRunner.Create(this, enc.eventId, 3); if (eventRunner != null) eventRunner.Begin(); }
+        if (emergencyRunner == null && !string.IsNullOrEmpty(enc.emergencyId) && !ClientEventOver(enc.emergencyId)) { emergencyRunner = RogueEventRunner.Create(this, enc.emergencyId, 6); if (emergencyRunner != null) emergencyRunner.Begin(); }
     }
 
     /// <summary>Authority: a reinforcement or summoned enemy paid from the bonus pool (weight 0 slots never touch the stage budget).</summary>
@@ -328,7 +354,18 @@ public partial class RoguelikeController
     public void OfferRiskContract(Action<bool> decided)
     {
         if (menu == null) { decided(false); return; }
-        menu.ShowConfirm("Risk Contract", "Accept: enemies deal +25% damage this stage, bounty +40%. Decline at no cost.", new UnityEngine.Events.UnityAction<bool>(ok => decided(ok)), T("Accept"), T("Decline"));
+        riskOfferOpen = true;
+        menu.ShowConfirm("Risk Contract", RogueCatalog.Encounter("ev.risk_contract").Brief, new UnityEngine.Events.UnityAction<bool>(ok => { riskOfferOpen = false; decided(ok); }), T("Accept"), T("Decline"));
+    }
+
+    bool riskOfferOpen;
+    /// <summary>The stage or the run ended with the risk contract question still on screen: the question goes with it (unanswered
+    /// counts as declined). It used to stay open over the reward, the shop, later stages and the result screen.</summary>
+    public void CloseRiskContractOffer()
+    {
+        if (!riskOfferOpen) return;
+        riskOfferOpen = false;
+        if (menu != null) menu.OnClickedConfirm();
     }
 
     public float ExtraEnemyDamageMul { get; set; }   // risk contract, applied through RogueHooks.EnemyDamageMul

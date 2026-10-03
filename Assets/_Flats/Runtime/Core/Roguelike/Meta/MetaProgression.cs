@@ -40,6 +40,10 @@ namespace Flats.Core.Roguelike
         public string[] WeaponKills = new string[0];   // "weaponId|kills"
         public string Primary = "", Secondary = "", Melee = "";
         public bool UsedMeleeOnly;
+        // lifetime records (MetaProfiles.RecordRun): the build at the end, the finales cleared and the money earned
+        public string[] Items = new string[0];
+        public string[] Finales = new string[0];
+        public long EarnedMinor;
     }
 
     /// <summary>

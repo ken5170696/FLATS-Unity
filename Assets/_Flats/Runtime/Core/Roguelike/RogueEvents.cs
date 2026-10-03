@@ -165,11 +165,13 @@ namespace Flats.Core.Roguelike
     }
     public sealed class PowerOutageEvent : EventMachine
     {
-        public PowerOutageEvent() : base("em.power_outage", 120) { }
+        /// <summary>Seconds before the outage fails (was 120): the generator now draws an ambush, so the squad cannot wait it out.</summary>
+        public const double OutageSeconds = 90;
+        public PowerOutageEvent() : base("em.power_outage", OutageSeconds) { }
         public double Progress { get { return Data.Number("progress"); } }
         public double BountyMul { get { return Data.Number("penalty") == 1 ? .75 : 1; } }
         public override string[] CleanupHints { get { return new[] { "switches", "darkness", "bountymodifier" }; } }
-        public override string Conditions { get { return "同一玩家連續互動 8 秒恢復電力；120 秒失敗，賞金減少 25%。"; } }
+        public override string Conditions { get { return "同一玩家連續互動 8 秒恢復電力；90 秒失敗，賞金減少 25%。"; } }
         public override string Recovery { get { return "放手或更換操作者重新累積；取消或離場還原場景電力。"; } }
         public void OnSwitchProgress(string playerKey, double dt) { RogueStateBag.NonNegative(dt); if (string.IsNullOrEmpty(playerKey)) throw new ArgumentException("playerKey"); if (Status != EventStatus.Active) return; if (Data.Text("holder") != playerKey) { Data.Put("holder", playerKey); Data.Put("progress", 0); Data.Put("pending", 0); } Data.Put("pending", Math.Max(Data.Number("pending"), dt)); }
         public void OnRelease(string playerKey) { if (Data.Text("holder") != playerKey) return; Data.Put("holder", ""); Data.Put("progress", 0); Data.Put("pending", 0); }
@@ -186,13 +188,32 @@ namespace Flats.Core.Roguelike
     }
     public sealed class MobileBombEvent : EventMachine
     {
+        /// <summary>Share of each player's maximum health the blast deals to every player on the map, wherever they stand, when the
+        /// countdown reaches zero. It goes through the normal player damage path: the Invincible ultimate blocks it, a shield
+        /// absorbs its capacity first, damage reduction applies; a player at full health survives, a wounded one goes down.</summary>
+        public const double SquadBlastFraction = .85;
+        /// <summary>The last seconds of the countdown, when every client beeps and flashes once a second.</summary>
+        public const double FinalWarningSeconds = 10;
+        /// <summary>Bounds of the countdown, the run speed it assumes (metres per second) and the slack for the fight on the way.</summary>
+        public const double MinCountdownSeconds = 40, MaxCountdownSeconds = 150, AssumedRunSpeed = 15, CarrySlack = 1.35, FightSlackSeconds = 14;
+
+        /// <summary>Countdown from the real distances of the stage (was a fixed 75 s whatever the map): the walk to the bomb at run
+        /// speed, the carry at the carrier's speed with slack, and time for the ambush; within the bounds.</summary>
+        public static double CountdownFor(double walkToBombMeters, double carryMeters, double carrySpeedMul)
+        {
+            RogueStateBag.NonNegative(walkToBombMeters); RogueStateBag.NonNegative(carryMeters);
+            double carrySpeed = AssumedRunSpeed * Math.Max(0.2, Math.Min(1.0, carrySpeedMul));
+            double seconds = walkToBombMeters / AssumedRunSpeed + carryMeters / carrySpeed * CarrySlack + FightSlackSeconds;
+            return Math.Ceiling(Math.Max(MinCountdownSeconds, Math.Min(MaxCountdownSeconds, seconds)));
+        }
+
         public MobileBombEvent(double countdownSeconds = 75, double damageRadius = 15) : base("em.mobile_bomb", RogueStateBag.Positive(countdownSeconds)) { Data.Put("radius", RogueStateBag.Positive(damageRadius)); }
         public string Holder { get { return Data.Text("holder"); } }
         public double RemainingDistance { get { return Data.Number("distance"); } }
         public bool Exploded { get { return Data.Number("exploded") == 1; } }
         public double DamageRadius { get { return Exploded ? Data.Number("radius") : 0; } }
         public override string[] CleanupHints { get { return new[] { "bomb", "bombwarning", "carrymodifier" }; } }
-        public override string Conditions { get { return "搬運炸彈到處置點；處置成功，倒數歸零爆炸；未持有亦照常倒數。"; } }
+        public override string Conditions { get { return "搬運炸彈到處置點；處置成功，倒數歸零爆炸，全地圖每位玩家受到最大生命 85% 的傷害；未持有亦照常倒數。"; } }
         public override string Recovery { get { return "可放下交接，倒地自動放下；取消與離場移除炸彈。"; } }
         public bool OnPickup(string key) { if (string.IsNullOrEmpty(key) || Status != EventStatus.Active || Holder.Length > 0) return false; Data.Put("holder", key); return true; }
         public void OnDrop() { Data.Put("holder", ""); }
@@ -205,14 +226,18 @@ namespace Flats.Core.Roguelike
     }
     public sealed class ReinforcementSignalEvent : EventMachine
     {
-        public ReinforcementSignalEvent(double hp = 1000, int reinforcementWeight = 100) : base("em.reinforcement_signal", 25) { Data.Put("hp", RogueStateBag.Positive(hp)); if (reinforcementWeight < 0) throw new ArgumentOutOfRangeException(); Data.Put("weight", reinforcementWeight); }
+        /// <summary>Seconds between waves (was 25) and the most waves one device calls (was 4): the device is far sturdier now, so it
+        /// keeps calling for longer.</summary>
+        public const double WaveIntervalSeconds = 20;
+        public const int MaxWaves = 6;
+        public ReinforcementSignalEvent(double hp = 1000, int reinforcementWeight = 100) : base("em.reinforcement_signal", WaveIntervalSeconds) { Data.Put("hp", RogueStateBag.Positive(hp)); if (reinforcementWeight < 0) throw new ArgumentOutOfRangeException(); Data.Put("weight", reinforcementWeight); }
         public int SpawnCount { get { return (int)Data.Number("count"); } }
         public override string[] CleanupHints { get { return new[] { "signaldevice", "reinforcements", "signalmarker" }; } }
-        public override string Conditions { get { return "摧毀信號裝置成功；每 25 秒一波增援，上限四波。"; } }
+        public override string Conditions { get { return "摧毀信號裝置成功；每 20 秒一波增援，上限六波。"; } }
         public override string Recovery { get { return "離場未摧毀為失敗；取消或離場停止生成並清除提示。"; } }
         public void OnDamaged(double amount) { RogueStateBag.NonNegative(amount); if (Status != EventStatus.Active) return; Data.Put("hp", Math.Max(0, Data.Number("hp") - amount)); if (Data.Number("hp") == 0) { Status = EventStatus.Succeeded; Data.Put("pending", 0); } }
         public int[] TakeReinforcements() { int count = (int)Data.Number("pending"); Data.Put("pending", 0); return Enumerable.Repeat((int)Data.Number("weight"), count).ToArray(); }
-        public override void Tick(double dt) { base.Tick(dt); if (Status != EventStatus.Active || SpawnCount == 4) return; double elapsed = 25 - Countdown + dt; int count = (int)Math.Min(4 - SpawnCount, Math.Floor(elapsed / 25)); Data.Put("count", SpawnCount + count); Data.Put("pending", Data.Number("pending") + count); Countdown = SpawnCount == 4 ? 0 : 25 - (elapsed - count * 25); }
+        public override void Tick(double dt) { base.Tick(dt); if (Status != EventStatus.Active || SpawnCount == MaxWaves) return; double elapsed = WaveIntervalSeconds - Countdown + dt; int count = (int)Math.Min(MaxWaves - SpawnCount, Math.Floor(elapsed / WaveIntervalSeconds)); Data.Put("count", SpawnCount + count); Data.Put("pending", Data.Number("pending") + count); Countdown = SpawnCount == MaxWaves ? 0 : WaveIntervalSeconds - (elapsed - count * WaveIntervalSeconds); }
         public override void Cancel() { base.Cancel(); Data.Put("pending", 0); }
         public override void OnLeave() { base.OnLeave(); Data.Put("pending", 0); }
     }
