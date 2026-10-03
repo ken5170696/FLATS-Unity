@@ -207,13 +207,15 @@ public class RogueOverviewView : MonoBehaviour
         a.anchorMin = Vector2.zero; a.anchorMax = new Vector2(0,1); a.offsetMin = new Vector2(0,8); a.offsetMax = new Vector2(removeWidth,-8);
         s.anchorMin = Vector2.zero; s.anchorMax = new Vector2(0,1); s.offsetMin = new Vector2(removeWidth+actionGap,8); s.offsetMax = new Vector2(removeWidth+actionGap+shopWidth,-8);
     }
+    // "A / Cross" when the pad's family is unknown: the small key cap keeps the first name only (it showed a clipped "A /")
+    static string FirstName(string glyph) { int cut = glyph != null ? glyph.IndexOf(" / ") : -1; return cut > 0 ? glyph.Substring(0, cut) : glyph; }
     void UpdateHints()
     {
         var scheme = RogueInput.Current; var style = FlatsGamepad.DeviceStyle(InControl.InputManager.ActiveDevice);
         FlatsOverviewTile.Put(tabs[0].keycap, scheme == RogueInput.Scheme.Touch ? "" : scheme == RogueInput.Scheme.Gamepad ? FlatsGamepad.Glyph(InControl.InputControlType.LeftBumper, style) : RogueInput.TabPreviousKey);
         FlatsOverviewTile.Put(tabs[1].keycap, scheme == RogueInput.Scheme.Touch ? "" : scheme == RogueInput.Scheme.Gamepad ? FlatsGamepad.Glyph(InControl.InputControlType.RightBumper, style) : RogueInput.TabNextKey);
         FlatsOverviewTile.Put(closeKey, RogueIcons.KeyHint("Overview")); FlatsOverviewTile.Put(shopKey, RogueIcons.KeyHint("Shop"));
-        FlatsOverviewTile.Put(actionKey, scheme == RogueInput.Scheme.Touch ? "" : scheme == RogueInput.Scheme.Gamepad ? FlatsGamepad.Glyph(InControl.InputControlType.Action1, style) : "Enter");
+        FlatsOverviewTile.Put(actionKey, scheme == RogueInput.Scheme.Touch ? "" : scheme == RogueInput.Scheme.Gamepad ? FirstName(FlatsGamepad.Glyph(InControl.InputControlType.Action1, style)) : "Enter");
         FlatsOverviewTile.Put(closeLabel, RoguelikeController.T("Close"));
         foreach (var t in new[] { tabs[0].keycap, tabs[1].keycap, closeKey, shopKey, actionKey }) if (t != null && t.transform.parent.gameObject.activeSelf != !string.IsNullOrEmpty(t.text)) t.transform.parent.gameObject.SetActive(!string.IsNullOrEmpty(t.text));
     }

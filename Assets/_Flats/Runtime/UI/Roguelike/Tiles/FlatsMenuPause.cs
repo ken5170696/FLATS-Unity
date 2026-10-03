@@ -44,7 +44,30 @@ public partial class Menu
     }
     void HideRoguePause()
     {
-        if(roguePause==null)return;Destroy(roguePause.gameObject);roguePause=null;SetTilesHidden(false);FlatsMenuDialog.Guard();
+        if(roguePause==null)return;Destroy(roguePause.gameObject);roguePause=null;FlatsMenuDialog.Guard();
+        // The original pause closes through the page's fade-out, which ends with the six main tiles inactive, and its Back handler
+        // then hides the quit buttons. This pause closes at once, so both are put away here: the tiles stay transparent until the
+        // page animator has left its main state, are deactivated, and only then get their alpha back for the next page that uses them.
+        if(quitButton!=null)quitButton.SetActive(false);
+        StartCoroutine(RetireMainTilesAfterRoguePause());
+    }
+    IEnumerator RetireMainTilesAfterRoguePause()
+    {
+        float until=Time.realtimeSinceStartup+2f;
+        yield return null;
+        while(Time.realtimeSinceStartup<until&&anim!=null&&(anim.IsInTransition(0)||!anim.GetCurrentAnimatorStateInfo(0).IsName("None")))
+        {
+            if(pauseNavigation.IsOpen)yield break;   // paused again: the pause keeps the tiles hidden and the next close retires them
+            yield return null;
+        }
+        if(pauseNavigation.IsOpen||gameState=="Main"||buttons==null)yield break;
+        // The run ended meanwhile (abandon, squad wiped): the animator was stopped or has moved to the result page, so nothing here
+        // proves the tiles are inactive. They stay transparent; this Menu is replaced when the scene is left.
+        if(current=="Result"||anim==null||anim.IsInTransition(0)||!anim.GetCurrentAnimatorStateInfo(0).IsName("None"))yield break;
+        for(int i=0;i<buttons.Length;i++)
+            if(buttons[i]!=null&&buttons[i].transform.parent!=null)buttons[i].transform.parent.gameObject.SetActive(false);
+        SetTilesHidden(false);
+        if(quitButton!=null&&current!="Main")quitButton.SetActive(false);
     }
     void RestoreRoguePauseUnderlying()
     {

@@ -17,6 +17,9 @@ public static class FlatsControlPrompts
             if (action == "Join") return "Enter / " + FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label("Reload", true);
             if (pad && action == "Interact") return FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label("Change", true);
             if ((pad || FlatsControls.HoldToAim) && action == "Aim") return FlatsLocalization.Translate("Hold") + " " + FlatsControls.Label(action, pad);
+            // an action the pad has no binding for (the four movement keys, a keyboard-only action) keeps its keyboard name
+            // instead of throwing while a controller is the active device
+            if (pad && System.Array.IndexOf(FlatsControls.PadActions, action) < 0) pad = false;
             return FlatsControls.Label(action, pad);
         });
     }

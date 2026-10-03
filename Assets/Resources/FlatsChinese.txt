@@ -2433,9 +2433,9 @@ Sniped	遭狙擊
 Enraged Hit	狂暴重擊
 In Gas	身處毒霧
 Ultimate Jammed	絕招充能受阻
-ROGUELIKE	肉鴿
+ROGUELIKE	ROGUELIKE
 SURVIVAL	生存
-ROGUELIKE SURVIVAL	肉鴿生存
+ROGUELIKE SURVIVAL	ROGUELIKE 生存
 RUN #{0}	第 {0} 局
 CONTINUE RUN	繼續本局
 Chapter {0} · Stage {1}	第 {0} 章 · 第 {1} 關

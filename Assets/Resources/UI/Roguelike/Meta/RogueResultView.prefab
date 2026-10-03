@@ -5521,7 +5521,7 @@ MonoBehaviour:
     icon: {fileID: 9079016569380449965}
     value: {fileID: 3363535542712097688}
     label: {fileID: 3229484521711023571}
-  resultPageSeconds: 2.5
+  resultPageSeconds: 0
   mainPage: {fileID: 1642163732239086141}
   detailsPage: {fileID: 7648207796448777148}
   mainScrollbar: {fileID: 8846285378228297477}

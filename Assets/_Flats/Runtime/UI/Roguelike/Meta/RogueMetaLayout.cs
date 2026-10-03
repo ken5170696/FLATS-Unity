@@ -24,15 +24,18 @@ public class RogueMetaLayout : MonoBehaviour
     }
     void ArrangeInline()
     {
-        var content=(RectTransform)grid.transform;float width=content.rect.width-grid.padding.horizontal,y=grid.padding.top;
+        var content=(RectTransform)grid.transform;float width=VisibleWidth()-grid.padding.horizontal,y=grid.padding.top;
         foreach(Transform child in content){var card=child.GetComponent<RogueMetaCard>();if(card==null||!card.gameObject.activeSelf)continue;float height=card.IsSection?64:portraitCardHeight;Place((RectTransform)child,grid.padding.left,y,width,height);y+=height+grid.spacing.y;if(card==inlineCard){Place(inlineDetail,grid.padding.left,y,width,inlineHeight);y+=inlineHeight+grid.spacing.y;}}
         content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical,y-grid.spacing.y+grid.padding.bottom);
     }
     static void Place(RectTransform r,float x,float y,float w,float h){r.anchorMin=r.anchorMax=r.pivot=new Vector2(0,1);r.anchoredPosition=new Vector2(x,-y);r.sizeDelta=new Vector2(w,h);}
     public void Invalidate(){lastWidth=-1;}
+    // The content can be wider than the viewport that shows it (the viewport shrinks when its scrollbar appears): cards are laid out
+    // in the width that is actually visible, so the last column is never cut off.
+    float VisibleWidth(){var content=(RectTransform)grid.transform;var viewport=content.parent as RectTransform;float width=content.rect.width;if(viewport!=null&&viewport.rect.width>0)width=Mathf.Min(width,viewport.rect.width);return width;}
     void ArrangeSections(int count,bool portrait){
         grid.enabled=false;var fitter=grid.GetComponent<ContentSizeFitter>();if(fitter!=null)fitter.enabled=false;
-        var content=(RectTransform)grid.transform;float width=content.rect.width-grid.padding.horizontal,cw=(width-(count-1)*grid.spacing.x)/count,y=grid.padding.top;int col=0;
+        var content=(RectTransform)grid.transform;float width=VisibleWidth()-grid.padding.horizontal,cw=(width-(count-1)*grid.spacing.x)/count,y=grid.padding.top;int col=0;
         foreach(var card in grid.GetComponentsInChildren<RogueMetaCard>().Where(x=>x.transform.parent==grid.transform)){
             if(card.IsSection){if(col>0){y+=(portrait?portraitCardHeight:cardHeight)+grid.spacing.y;col=0;}Place((RectTransform)card.transform,grid.padding.left,y,width,64);y+=64+grid.spacing.y;}
             else{Place((RectTransform)card.transform,grid.padding.left+col*(cw+grid.spacing.x),y,cw,portrait?portraitCardHeight:cardHeight);if(++col==count){col=0;y+=(portrait?portraitCardHeight:cardHeight)+grid.spacing.y;}}
@@ -42,7 +45,7 @@ public class RogueMetaLayout : MonoBehaviour
     void LateUpdate()
     {
         if (grid == null) return;
-        float width = ((RectTransform)grid.transform).rect.width;
+        float width = VisibleWidth();
         bool portrait=Screen.height>Screen.width;
         if (Mathf.Abs(width - lastWidth) < .1f && lastPortrait==portrait) return;
         lastWidth = width;

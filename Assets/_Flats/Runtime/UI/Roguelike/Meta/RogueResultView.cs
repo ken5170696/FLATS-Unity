@@ -31,8 +31,8 @@ public class RogueResultView : MonoBehaviour
     public Color victoryColor, defeatColor, endedColor;
     public GameObject runStatsRoot;
     public StatTile[] runStats;
-    [Tooltip("Seconds the shared result page (outcome and reach) stays alone before these statistics open; Back opens them sooner.")]
-    [Min(0)] public float resultPageSeconds = 2.5f;
+    [Tooltip("Seconds the shared result page (outcome and reach) stays alone before these statistics open; Back opens them sooner. 0: the statistics replace it at once.")]
+    [Min(0)] public float resultPageSeconds = 0f;
     public bool Complete { get; private set; }
     [Header("Tile presentation")]
     public GameObject mainPage, detailsPage;

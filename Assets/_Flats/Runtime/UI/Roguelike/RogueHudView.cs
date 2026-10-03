@@ -675,6 +675,18 @@ public partial class RogueHudView : MonoBehaviour
         }
     }
 
+    // While the HUD canvas is off (run screen, TAB overview, pause) another screen can make the shared dynamic font rebuild its
+    // atlas; labels that are only rewritten when their value changes (the hint line) then came back as an empty plate. Every label
+    // is drawn again on the frame the canvas returns.
+    bool hudWasVisible = true;
+    void RedrawTextsWhenShownAgain()
+    {
+        bool visible = HudVisible;
+        if (visible && !hudWasVisible)
+            foreach (var label in GetComponentsInChildren<Text>(false)) label.SetAllDirty();
+        hudWasVisible = visible;
+    }
+
     string shownHintIcon;
     public void SetHint(string iconName, string text)
     {
@@ -770,6 +782,7 @@ public partial class RogueHudView : MonoBehaviour
         if (ctrl != null) ctrl.TickHudFrame(this);
         TickGuards();
         TickTileNotifications();   // QA-36 round 2: nothing on the HUD prints over another piece (RogueHudView.Layout.cs)
+        RedrawTextsWhenShownAgain();
         if (waypointRoot == null || waypointTemplate == null) return;
         if (canvas != null && !canvas.enabled) { HideMarkers(0); return; }   // hidden HUD (run screen, pause): no projection work
         var cam = Camera.main;
