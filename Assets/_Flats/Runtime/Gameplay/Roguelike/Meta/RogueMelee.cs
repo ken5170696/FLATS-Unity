@@ -346,8 +346,9 @@ public sealed class RogueMelee : MonoBehaviour
         var m = receiver.GetComponent<RogueMelee>();
         if (m == null || m.Def == null || !receiver.userIsPlayer) return damage;
         // One rule on every copy (the swing runs from the same Smash RPC everywhere): MeleeRules.Deflects with the weapon's S3
-        // window. The katana's S3 equals its whole swing (Windup + Recovery), so the frames a swing overruns its nominal length
-        // (the waits end on a frame boundary) count as the swing's last moment instead of dropping out of the window.
+        // clock. The katana's S3 equals its whole swing (Windup + Recovery) and only the middle of it deflects
+        // (MeleeRules.DeflectShare); the frames a swing overruns its nominal length (the waits end on a frame boundary) count as
+        // the swing's last moment, which is outside the window.
         double intoSwing = Time.time - m.swingStart, swingLength = m.Def.Windup + m.Def.Recovery;
         if (intoSwing >= swingLength) intoSwing = swingLength - 1e-4;
         if (bullet && m.Busy && MeleeRules.Deflects(m.Def, intoSwing))

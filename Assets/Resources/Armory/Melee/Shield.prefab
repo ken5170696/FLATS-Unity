@@ -205,7 +205,7 @@ MonoBehaviour:
   ThirdPersonScale: 2
   HandPosition: {x: 0, y: 0.18, z: -0.09}
   HandRotation: {x: 0, y: 0, z: 0}
-  GuardPosition: {x: -0.12, y: 0.55, z: 1.15}
+  GuardPosition: {x: -0.12, y: 0.12, z: 1.15}
   GuardRotation: {x: 90, y: 0, z: 0}
 --- !u!1 &4138794308598555158
 GameObject:

@@ -72,7 +72,7 @@ public partial class RogueHudView
     {
         if (healthFace != null) healthFace.color = downed ? hpDownedColor : fraction <= .35f ? hpLowColor : healthIdle;
         int state = downed ? 2 : fraction <= .35f ? 1 : 0;
-        if (state != lastHealthState) { lastHealthState = state; if (!downed && vitalsStatus != null) vitalsStatus.text = state == 1 ? RoguelikeController.T("Low health") : ""; }
+        if (state != lastHealthState) { lastHealthState = state; if (!downed && vitalsStatus != null && gasStacks < 0) vitalsStatus.text = state == 1 ? RoguelikeController.T("Low health") : ""; }
     }
     void TileReload()
     {
@@ -190,6 +190,9 @@ public partial class RogueHudView
         bool urgent = visible && bannerText != null && bannerText.enabled && bannerText.gameObject.activeInHierarchy && !string.IsNullOrEmpty(bannerText.text);
         // the same sentence is already on the objective line ("Press B to reopen the shop"): one place is enough
         if (urgent && objectiveTitle != null && objectivePanel != null && objectivePanel.activeInHierarchy && objectiveTitle.text == bannerText.text) urgent = false;
+        // the mission card (stage intro, event and emergency toasts) stands where the strip goes: the strip waits until the card is gone
+        // instead of being drawn across it
+        if (urgent && briefing != null && briefing.Visible) urgent = false;
         if (bannerTile != null && bannerTileText != null)
         {
             if (bannerTile.gameObject.activeSelf != urgent) bannerTile.gameObject.SetActive(urgent);

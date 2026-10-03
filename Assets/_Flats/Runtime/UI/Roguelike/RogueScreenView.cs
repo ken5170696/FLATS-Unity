@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -378,7 +378,11 @@ public class RogueScreenView : MonoBehaviour
         if (EventSystem.current != null) { var selected = EventSystem.current.currentSelectedGameObject; if (selected != null && selected.transform.IsChildOf(transform)) lastRunSelection = selected; }
         var pad = InControl.InputManager.ActiveDevice;
         if (Input.GetKeyDown(KeyCode.Escape) || pad != null && pad.Action2.WasPressed)
-        { if (inventoryRoot != null && inventoryRoot.activeSelf) { inventoryRoot.SetActive(false); RebuildNavigation(); return; } var ctrl = RoguelikeController.Instance; if (ctrl != null) ctrl.DismissScreen(); }
+        {
+            // Esc closes this screen only; the menu opens the pause on Esc key-up and must not act on the same press
+            RogueOverviewView.HoldEscapeUntilReleased();
+            if (inventoryRoot != null && inventoryRoot.activeSelf) { inventoryRoot.SetActive(false); RebuildNavigation(); return; } var ctrl = RoguelikeController.Instance; if (ctrl != null) ctrl.DismissScreen();
+        }
         var es = EventSystem.current;
         if (es != null && (es.currentSelectedGameObject == null || !es.currentSelectedGameObject.activeInHierarchy) && !RogueInput.IsTouch)
         { foreach (var tile in Tiles) if (tile.Available) { es.SetSelectedGameObject(tile.gameObject); return; } if (overview != null) es.SetSelectedGameObject(overview.gameObject); }

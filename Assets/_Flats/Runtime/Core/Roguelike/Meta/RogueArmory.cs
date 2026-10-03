@@ -208,8 +208,8 @@ namespace Flats.Core.Roguelike
                 Damage = 420, Windup = 0.08, Recovery = 0.20, Range = 5.6, Radius = 1.8, Special = MeleeSpecial.Combo, S1 = 3, S2 = 1.6, S3 = 0.28 },   // a quick blade (playtest 2026-10-01); S3 is the whole swing
             new MeleeDef { Id = "mw.axe", Name = "Axe", Price = 300, Flavor = "Hold melee to throw it; walk over it to pick it up again.", Model = "Armory/Melee/Axe",
                 Damage = 620, Windup = 0.22, Recovery = 0.38, Range = 3.2, Radius = 1.4, Special = MeleeSpecial.Throw, S1 = 22 },
-            new MeleeDef { Id = "mw.shield", Name = "Riot Shield", Price = 350, Flavor = "Hold melee to raise it: most frontal damage is blocked, but you cannot shoot and you move slower.", Model = "Armory/Melee/Shield",
-                Damage = 260, Windup = 0.12, Recovery = 0.30, Range = 3.0, Radius = 1.8, MoveMul = 0.90, Special = MeleeSpecial.Guard, S1 = 0.70, S2 = 3, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
+            new MeleeDef { Id = "mw.shield", Name = "Riot Shield", Price = 350, Flavor = "Hold melee to raise it: everything from the front is blocked, but you cannot shoot and you move very slowly.", Model = "Armory/Melee/Shield",
+                Damage = 260, Windup = 0.12, Recovery = 0.30, Range = 3.0, Radius = 1.8, MoveMul = 0.90, Special = MeleeSpecial.Guard, S1 = 1, S2 = 3, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
             new MeleeDef { Id = "mw.baton", Name = "Stun Baton", Price = 260, Flavor = "Stuns on hit. Elites shake it off faster.", Model = "Armory/Melee/Baton",
                 Damage = 300, Windup = 0.12, Recovery = 0.30, Range = 3.0, Radius = 1.3, Special = MeleeSpecial.Shock, S1 = 1.5, S2 = 0.5 },
             new MeleeDef { Id = "mw.gloves", Name = "Brass Knuckles", Price = 200, Flavor = "Every hit in a row swings faster.", Model = "Armory/Melee/Knuckles",

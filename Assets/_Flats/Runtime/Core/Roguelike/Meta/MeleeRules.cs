@@ -19,7 +19,9 @@ namespace Flats.Core.Roguelike
     {
         public const double ComboWindow = 0.8, FlurryWindow = 1.2, BackstabAngle = 70, EliteStunFloor = 0.25;
         public const double ThrowHoldSeconds = 0.45, ThrowSpeed = 28, PickupRadius = 2.2;
-        public const double GuardMoveMultiplier = 0.65;
+        public const double GuardMoveMultiplier = 0.35;
+        /// <summary>Share of a deflecting swing, centred on its middle, during which bullets are deflected (the first and last 5% are open).</summary>
+        public const double DeflectShare = 0.9;
         /// <summary>Ground slam: every enemy in the impact radius is thrown back and staggered, so the slam reads as a slam.</summary>
         public const double SlamKnockbackMeters = 3.5, SlamStunSeconds = 0.8, SlamEliteStunSeconds = 0.35;
 
@@ -71,10 +73,10 @@ namespace Flats.Core.Roguelike
             return 1 - d.S1;
         }
 
-        /// <summary>Katana: bullets that hit during the first S3 seconds of a swing are deflected (no damage).</summary>
+        /// <summary>Katana: bullets that hit during the middle <see cref="DeflectShare"/> of the S3 seconds of a swing are deflected (no damage).</summary>
         public static bool Deflects(MeleeDef d, double secondsIntoSwing)
         {
-            return d != null && d.Special == MeleeSpecial.Combo && secondsIntoSwing >= 0 && secondsIntoSwing <= d.S3;
+            return d != null && d.Special == MeleeSpecial.Combo && secondsIntoSwing >= d.S3 * (1 - DeflectShare) / 2 && secondsIntoSwing <= d.S3 * (1 + DeflectShare) / 2;
         }
 
         public static bool BlocksFire(MeleeDef d, bool guarding) { return d != null && d.Special == MeleeSpecial.Guard && guarding; }

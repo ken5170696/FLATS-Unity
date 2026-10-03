@@ -36,6 +36,27 @@ public abstract class RogueObjectiveRunner
         return runner;
     }
 
+    /// <summary>Seconds the field may stay below the floor before a reinforcement squad arrives.</summary>
+    public const float ReinforceDelay = 3f;
+    float thinFor;
+    /// <summary>
+    /// Authority, for objectives that are a fight over a place (Hold the Zone, Break Out): while the objective runs the field never
+    /// stays empty. When the enemies alive plus those still planned fall below a small floor (3 to 6 by squad size) for
+    /// <see cref="ReinforceDelay"/>, a squad paid from the bonus pool (never the stage budget) arrives, within the concurrent cap.
+    /// </summary>
+    protected void KeepPressure(float dt)
+    {
+        var c = Controller;
+        if (c == null || !c.IsAuthority || c.State == null || Succeeded || Failed) return;
+        int alive = c.AliveEnemies, floor = Mathf.Clamp(2 + c.State.ConnectedPlayers, 3, 6);
+        if (alive + c.UnreleasedEnemies >= floor) { thinFor = 0f; return; }
+        thinFor += dt;
+        if (thinFor < ReinforceDelay) return;
+        thinFor = 0f;
+        int wanted = Mathf.Min(floor - alive - c.UnreleasedEnemies, c.State.encounter.concurrentCap - alive);
+        for (int i = 0; i < wanted; i++) c.SpawnExtraEnemy(i % 2 == 0 ? "role.rifleman" : "role.rusher", false, c.PickSpawnPosition(), true);
+    }
+
     public abstract void Build(RoguelikeController controller, EncounterPlan plan);
     public virtual void Tick(float dt) { }
     public virtual void OnEnemyKilled(RogueEnemyRole role) { }

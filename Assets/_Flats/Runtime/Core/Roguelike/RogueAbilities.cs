@@ -18,7 +18,7 @@ namespace Flats.Core.Roguelike
             DurationSeconds = RogueCatalog.UltimateSeconds(id);
         }
         // 充能及跨裝備的一次／run 旗標由 RunMachine.SpendUltimate 持有；此物件只處理效果時效。
-        public bool Activate(double now) { RogueStateBag.NonNegative(now); if (IsActive(now) || (Id == "ult.emergency_revive" && ReviveUsed)) return false; started = now; activated = true; if (Id == "ult.emergency_revive") ReviveUsed = true; return true; }
+        public bool Activate(double now) { RogueStateBag.NonNegative(now); if (IsActive(now)) return false; started = now; activated = true; if (Id == "ult.emergency_revive") ReviveUsed = true; return true; }
         public bool IsActive(double now) { return RemainingSeconds(now) > 0; }
         public double RemainingSeconds(double now) { RogueStateBag.NonNegative(now); return activated && now >= started ? Math.Max(0, DurationSeconds - (now - started)) : 0; }
         public void Cancel() { activated = false; }
@@ -29,7 +29,7 @@ namespace Flats.Core.Roguelike
         public string Id { get; private set; }
         public double CooldownSeconds { get; private set; }
         public int MaxCharges { get; private set; }
-        public const double ShieldCapacity = 400, ShieldDurationSeconds = 6;
+        public const double ShieldCapacity = 900, ShieldDurationSeconds = 10;
         private readonly List<double> recharge = new List<double>();
         private double shield, shieldUntil, observedNow;
         private bool secondJumpUsed, committing;

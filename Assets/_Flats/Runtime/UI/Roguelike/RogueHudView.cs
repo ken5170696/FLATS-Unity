@@ -749,6 +749,17 @@ public partial class RogueHudView : MonoBehaviour
     [Header("Gas")] public Color gasTint = new Color(0.55f, 0.85f, 0.25f, 0.32f);
     /// <summary>0..1 how deep in the gas the local player is; the tint eases in and out and never blocks input.</summary>
     public void SetGasOverlay(float strength) { gasTarget = Mathf.Clamp01(strength); }
+    int gasStacks = -1;
+    /// <summary>Gas exposure stacks of the local player (each one makes the gas hurt more); below 0 hides the count. The count
+    /// takes the status line beside the health number, and the tint deepens with it.</summary>
+    public void SetGasStacks(int stacks)
+    {
+        if (stacks == gasStacks) return;
+        gasStacks = stacks;
+        if (vitalsStatus == null) return;
+        if (stacks >= 0) vitalsStatus.text = RoguelikeController.T("Gas x{0}", stacks);
+        else { vitalsStatus.text = ""; lastHealthState = -1; }   // the health state writes its own word again
+    }
     void TickGasOverlay()
     {
         if (gasTarget <= 0f && gasShown <= 0.001f) { if (gasOverlay != null && gasOverlay.enabled) gasOverlay.enabled = false; gasShown = 0f; return; }
@@ -761,7 +772,7 @@ public partial class RogueHudView : MonoBehaviour
             gasOverlay = go.GetComponent<Image>(); gasOverlay.raycastTarget = false;
         }
         gasShown = Mathf.MoveTowards(gasShown, gasTarget, Time.unscaledDeltaTime * 1.5f);
-        var c = gasTint; c.a *= gasShown;
+        var c = gasTint; c.a *= gasShown * (1f + Mathf.Max(0, gasStacks) / (float)Flats.Core.Roguelike.GasLeakEvent.GasMaxStacks);
         gasOverlay.color = c;
         if (!gasOverlay.enabled) gasOverlay.enabled = true;
     }

@@ -24,6 +24,7 @@ public sealed class CaptureRunner : RogueObjectiveRunner
         machine.OnOccupancy(players, RogueWorld.EnemiesWithin(center, Radius), dt);
         ProgressText = RoguelikeController.F("Hold {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) + (players == 0 ? "  " + RoguelikeController.F("Go to the zone") : "");
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
+        KeepPressure(dt);   // the zone is contested until it is held: a cleared field brings a new squad
     }
     public override void Dispose() { RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon); }
 }
@@ -196,6 +197,7 @@ public sealed class BreakoutRunner : RogueObjectiveRunner
                 : RoguelikeController.F(machine.PauseReason == "downed" ? "Paused, teammate down: {0}s left ({1}%)" : "Paused, all into the zone: {0}s left ({1}%)", left, percent);
         }
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
+        KeepPressure(dt);   // the way out and the hold are both a fight: a cleared field brings a new squad
     }
     // everyone still in the fight must stand in the zone (a downed teammate blocks the call until revived)
     int Needed() { int n = 0; foreach (var p in Controller.State.players) if (p.connected && (p.life == PlayerLife.Alive || p.life == PlayerLife.Downed)) n++; return n; }

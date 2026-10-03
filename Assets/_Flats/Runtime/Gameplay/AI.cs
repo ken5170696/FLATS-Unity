@@ -1223,7 +1223,7 @@ public class AI : MonoBehaviour
 				// Roguelike (A04): the destination was set once, on entry, so the enemy walked to where the target had been and waited
 				// there for the timeout. Follow the live target, once per pass (about a second). An enemy on a link is left alone: its
 				// crossing belongs to RogueEnemyLinkTraversal.
-				if (RoguelikeMode.Active && IsValidTarget(targets[0]) && agent.isActiveAndEnabled && agent.isOnNavMesh && !agent.isOnOffMeshLink)
+				if (RoguelikeMode.Active && !rogueVantage && IsValidTarget(targets[0]) && agent.isActiveAndEnabled && agent.isOnNavMesh && !agent.isOnOffMeshLink)
 				{
 					SetDestination(targets[0].position);
 				}
@@ -1314,6 +1314,15 @@ public class AI : MonoBehaviour
 
 	/// <summary>Roguelike role movement (RogueEnemyTactics): the target this enemy is engaging, or null while it patrols or searches.</summary>
 	public Transform RogueEngagedTarget { get { return !isPatrol && !searchRunning && targets.Count > 0 && IsValidTarget(targets[0]) ? targets[0] : null; } }
+
+	/// <summary>Roguelike: the target this enemy is after, engaged or still searching for it (RogueEnemyTactics uses it when the target
+	/// stands where no path leads, a rooftop).</summary>
+	public Transform RoguePursuedTarget { get { return !isPatrol && targets.Count > 0 && IsValidTarget(targets[0]) ? targets[0] : null; } }
+	/// <summary>Roguelike: how far this enemy's weapon reaches (the same range IsInRangeOf tests).</summary>
+	public float RogueFireRange { get { return attackRange * (RoguelikeMode.Active ? RogueHooks.EnemyRangeScale() : 1f); } }
+	/// <summary>Roguelike: RogueEnemyTactics is walking this enemy to a spot it can shoot an unreachable target from; the search does not
+	/// pull it back to the foot of the building meanwhile.</summary>
+	[System.NonSerialized] public bool rogueVantage;
 
 	[System.NonSerialized] int rogueAimViewId = -1;
 	[System.NonSerialized] Quaternion rogueAimError = Quaternion.identity;

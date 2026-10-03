@@ -212,8 +212,7 @@ namespace Flats.Core.Roguelike
                 case MeleeSpecial.Backstab: return new TextLine("Strikes from behind deal x{0} damage.", N(m.S1));
                 case MeleeSpecial.Knockback: return new TextLine("Knocks enemies back {0} m.", N(m.S1));
                 case MeleeSpecial.GroundSlam: return new TextLine("Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s (elites and bosses {3} s).", N(m.S1), N(MeleeRules.SlamKnockbackMeters), N(MeleeRules.SlamStunSeconds), N(MeleeRules.SlamEliteStunSeconds));
-                // the deflect window (S3) is as long as the katana's swing (windup + recovery), so it reads as "the whole swing"
-                case MeleeSpecial.Combo: return new TextLine("{0}-hit combo; the finisher deals x{1}. Deflects bullets for the whole swing ({2} s).", N(m.S1), N(m.S2), N(m.S3));
+                case MeleeSpecial.Combo: return new TextLine("{0}-hit combo; the finisher deals x{1}. Deflects bullets during the middle {3}% of each {2} s swing.", N(m.S1), N(m.S2), N(m.S3), P(MeleeRules.DeflectShare));
                 case MeleeSpecial.Throw: return new TextLine("Hold melee to throw it up to {0} m. Walk over it to pick it up.", N(m.S1));
                 case MeleeSpecial.Guard: return new TextLine("Hold melee to guard: frontal damage -{0}%, but you cannot shoot and move {2}% slower. Bash pushes {1} m.", P(m.S1), N(m.S2), P(1 - MeleeRules.GuardMoveMultiplier));
                 case MeleeSpecial.Shock: return new TextLine("Stuns for {0} s (elites and bosses {1}% of that).", N(m.S1), P(m.S2));

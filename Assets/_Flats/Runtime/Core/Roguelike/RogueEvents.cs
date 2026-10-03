@@ -123,8 +123,16 @@ namespace Flats.Core.Roguelike
         public GasPhase Phase { get { return (GasPhase)(int)Data.Number("gasphase"); } }
         public int ZonesLeaking { get { return (int)Data.Number("zones"); } }
         public bool Purified { get { return Phase == GasPhase.Contained; } }
-        /// <summary>Share of maximum health lost per second inside a leaking zone. 9%: about eleven seconds from full to down, so leaving the gas is urgent.</summary>
-        public const double GasDamageFraction = .09, GraceSeconds = 3;
+        /// <summary>Share of maximum health lost per second inside a leaking zone before any stack. Exposure stacks (see
+        /// <see cref="StackedFraction"/>): 5% at first, 19% at eight stacks, about ten seconds from full to down for someone who
+        /// never leaves, so a short crossing is cheap and staying is not.</summary>
+        public const double GasDamageFraction = .05, GraceSeconds = 3;
+        /// <summary>Exposure: one stack per <see cref="GasStackSeconds"/> spent inside (up to <see cref="GasMaxStacks"/>), one lost per
+        /// <see cref="GasStackFadeSeconds"/> outside; each stack adds <see cref="GasStackBonus"/> of the base rate.</summary>
+        public const int GasMaxStacks = 8;
+        public const double GasStackSeconds = 1.5, GasStackFadeSeconds = 1, GasStackBonus = .35;
+        public static double StackedFraction(double baseFraction, int stacks)
+        { return baseFraction <= 0 ? 0 : baseFraction * (1 + GasStackBonus * Math.Max(0, Math.Min(GasMaxStacks, stacks))); }
         public double DamageFractionPerSecond { get { return Status != EventStatus.Cancelled && Phase == GasPhase.Leaking && Data.Number("leakage") >= GraceSeconds ? GasDamageFraction : 0; } }
         public void Warning(double countdownSeconds) { RogueStateBag.NonNegative(countdownSeconds); if (countdownSeconds < 30) throw new ArgumentOutOfRangeException("countdownSeconds"); if (Data.Number("started") != 0) throw new InvalidOperationException("預警只能設定一次"); Countdown = countdownSeconds; }
         public double SwitchProgress(int index) { ValidateIndex(index); return Data.Number("switch." + index); }

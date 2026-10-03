@@ -390,17 +390,25 @@ public sealed class GasLeakRunner : RogueEventRunner
         bool inside = local != null && shownZones > 0 && Vector3.Distance(local.transform.position, origin) <= radius;
         var hud = Controller.Hud; if (hud != null) hud.SetGasOverlay(inside ? 1f : 0f);
         RogueAudio.Loop("gas_loop", inside, 0.55f);
+        // exposure stacks: they build while the gas hurts this player and fade outside it (GasLeakEvent.StackedFraction)
+        bool exposed = inside && fraction > 0;
+        if (exposed) { gasExposure += dt; while (gasExposure >= (float)GasLeakEvent.GasStackSeconds && gasStacks < GasLeakEvent.GasMaxStacks) { gasExposure -= (float)GasLeakEvent.GasStackSeconds; gasStacks++; } }
+        else if (gasStacks > 0) { gasExposure -= dt; while (gasExposure <= -(float)GasLeakEvent.GasStackFadeSeconds && gasStacks > 0) { gasExposure += (float)GasLeakEvent.GasStackFadeSeconds; gasStacks--; } }
+        else gasExposure = 0;
+        if (hud != null) hud.SetGasStacks(exposed || gasStacks > 0 ? gasStacks : -1);
         damageTick += dt;
         if (damageTick < 0.5f) return;
         float slice = damageTick; damageTick = 0;
-        if (fraction <= 0 || !inside) return;
+        if (!exposed) return;
         var dr = local.GetComponent<DamageReceiver>();
         if (dr != null)
         {
-            dr.ApplyDamage(RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * fraction * slice, -1, local.transform);
+            float rate = (float)GasLeakEvent.StackedFraction(fraction, gasStacks);
+            dr.ApplyDamage(RogueHooks.PlayerMaxHealth(dr, 1000f * (1f + Menu.myCharacter.defense * 0.1f)) * rate * slice, -1, local.transform);
             RogueMetaFeedback.Pulse(RogueMetaRuntime.Of(local.transform), "env.gas");   // QA-51: "In Gas" debuff chip while the gas hurts
         }
     }
+    int gasStacks; float gasExposure;
     public override void OnClientEvent(RogueEventMessage e)
     {
         if (e.kind == "gas") { shownZones = e.index; clientFraction = shownZones > 0 ? Mathf.Max(0f, (float)e.value) : 0f; ShowZones(shownZones); }

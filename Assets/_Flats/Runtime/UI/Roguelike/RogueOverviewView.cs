@@ -97,6 +97,8 @@ public class RogueOverviewView : MonoBehaviour
             return false;
         }
     }
+    /// <summary>Another run screen (the shop) closed on this Esc press: the same guard, so the press does not also open the pause menu.</summary>
+    public static void HoldEscapeUntilReleased() { escapeHeldAfterClose = Input.GetKey(KeyCode.Escape) || Input.GetKeyDown(KeyCode.Escape); }
     int guardedFrame = -1;
     /// <summary>The pause menu closed over the overview: the B or click that closed it neither closes the overview nor activates a tile.</summary>
     public void GuardInput() { guardedFrame = Time.frameCount; activateAfter = Time.unscaledTime + activationDelay; }

@@ -41,7 +41,7 @@ A teammate going down (solo: you below {2}% health) gives +{0}% damage and speed
 Skill effects	技能效果
 No conditional skill triggered this run; passive bonuses applied all run	本局沒有觸發條件型技能；被動加成全程生效
 Every time you aim: your aim settles faster.	每次開鏡後：準星更快收束至穩定。
-{0}-hit combo; the finisher deals x{1}. Deflects bullets for the whole swing ({2} s).	{0} 段連擊，終結技傷害 ×{1}。揮擊全程（{2} 秒）都能彈開子彈。
+{0}-hit combo; the finisher deals x{1}. Deflects bullets during the middle {3}% of each {2} s swing.	{0} 段連擊，終結技傷害 ×{1}。每次揮擊（{2} 秒）中段的 {3}% 能彈開子彈。
 Hold melee to guard: frontal damage -{0}%, but you cannot shoot and move {2}% slower. Bash pushes {1} m.	按住近戰格擋：正面傷害 -{0}%，但無法開槍，且移速 -{2}%。盾擊擊退 {1} m。
 Squad catch-up: +{0}% experience. Enemies scale with average squad power.	小隊追趕：經驗 +{0}%。敵人依隊伍平均強度調整。
 {0}x magnification. Aim settle time x{1}. Spread while moving and aiming x{2}.	{0} 倍放大。開鏡後準星穩定時間 ×{1}。移動瞄準散布 ×{2}。
@@ -181,10 +181,10 @@ Buying unlocks an item permanently. Equip it to a loadout before starting a run.
 Merits unlock equipment between runs. Gold coins are spent during a run. Each loadout keeps its own weapons and skills.	功勳用於局外解鎖裝備，金幣則在局內消費。每組配置各自保存武器與技能。
 Multipliers are relative to the base value. Conditional parameters apply only when their trigger is met.	倍率以基礎數值為準。條件參數僅在符合觸發條件時生效。
 Enemies scale with average squad power, so friends at different levels can play together.	敵人依隊伍平均局外強度調整，不同等級的朋友也能一起遊玩。
-Three-strike combo with a finishing cut. Every swing deflects bullets.	三段連擊含終結斬，每次揮擊全程都能彈開子彈。
+Three-strike combo with a finishing cut. Every swing deflects bullets.	三段連擊含終結斬，每次揮擊的中段能彈開子彈。
 When a teammate goes down (solo: when you are nearly dead): a surge of damage and speed.	隊友倒地時（單人：自身瀕死）：傷害與移速激增。
 A melee kill refills the magazine of the weapon in your hands from your reserve.	近戰擊殺會從備彈補滿手持武器的彈匣。
-Hold melee to raise it: most frontal damage is blocked, but you cannot shoot and you move slower.	按住近戰舉盾：阻擋大部分正面傷害，但無法開槍，移動也會變慢。
+Hold melee to raise it: everything from the front is blocked, but you cannot shoot and you move very slowly.	按住近戰舉盾：正面的攻擊全部擋下，但無法開槍，移動會變得很慢。
 Slams the ground and hits everything around. Heavy to carry, slow to swing.	震擊地面波及周圍敵人。攜帶沉重，揮擊緩慢。
 Once per stage a killing blow leaves you standing, briefly invulnerable.	每關一次：承受致命傷仍能站立，並短暫無敵。
 Right after a full reload: the first round always counts as a headshot.	完成換彈後：首發子彈必定視為爆頭。
@@ -1799,7 +1799,7 @@ Passive: press Jump again in the air for a second jump. Resets on landing.	被�
 Dash	衝刺
 Active: dash 20 m forward at 50 m/s. Charges recharge one at a time in 8 s. Stops at walls and edges.	主動：以每秒 50 m 向前衝刺 20 m。充能一次回復一格，每格 8 秒。遇牆與邊緣停止。
 Shield	護盾
-Active: absorb 400 damage for 6 s. 12 s cooldown. Re-activating replaces the shield, it does not stack.	主動：6 秒內吸收 400 傷害。冷卻 12 秒。重複啟用會取代護盾，不疊加。
+Active: absorb 900 damage for 10 s. 10 s cooldown. Re-activating replaces the shield, it does not stack.	主動：10 秒內吸收 900 傷害。冷卻 10 秒。重複啟用會取代護盾，不疊加。
 Infinite Fire	無限火力
 12 s of unlimited ammunition with no reloads. Fire rate unchanged.	12 秒無限彈藥、不需換彈。射速不變。
 Lethal Shot	致命射擊
@@ -1807,7 +1807,7 @@ Lethal Shot	致命射擊
 Invincible	無敵
 7 s of immunity to combat and gas damage. Only you.	7 秒免疫戰鬥與毒霧傷害。僅限自己。
 Emergency Revive	緊急復甦
-Once per run, at full charge: instantly revive downed or dead teammates with their build. Solo: at full charge a lethal hit is survived automatically at 50% health.	每局一次，需充能全滿：立即復活倒地或死亡的隊友並保留其 Build。單人：充能全滿時，受到致命傷害會自動存活並回到 50% 生命。
+At full charge: instantly revive downed or dead teammates with their build. Solo: at full charge a lethal hit is survived automatically at 50% health. It recharges and works again.	需充能全滿：立即復活倒地或死亡的隊友並保留其 Build。單人：充能全滿時，受到致命傷害會自動存活並回到 50% 生命。用過後重新充滿可以再用。
 Enemy Sight	敵人透視
 12 s: outlines of every spawned enemy within 200 m.	12 秒內顯示 200 m 內所有已生成敵人的輪廓。
 Chain Bullets	閃電連鎖子彈
@@ -2432,6 +2432,7 @@ Ambush Hit	伏擊重擊
 Sniped	遭狙擊
 Enraged Hit	狂暴重擊
 In Gas	身處毒霧
+Gas x{0}	毒霧 ×{0}
 Ultimate Jammed	絕招充能受阻
 ROGUELIKE	ROGUELIKE
 SURVIVAL	生存

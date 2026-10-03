@@ -18,7 +18,7 @@ namespace Flats.Core.Roguelike
         public double overshieldFraction;   // carried between stages, replenished only by a purchase
         public PlayerBuild build = new PlayerBuild();
         public int ultimateCharge;           // 0..100
-        public bool reviveUsed;              // once-per-run flag, survives swaps and reconnects
+        public bool reviveUsed;              // an Emergency Revive was spent this run (a statistic; it recharges and works again)
         public PlayerLife life = PlayerLife.Alive;
         public bool ready, connected = true, afk;
         public int shopVersion;
@@ -383,7 +383,6 @@ namespace Flats.Core.Roguelike
             if (p == null || p.ultimateCharge < 100 || string.IsNullOrEmpty(p.build.ultimate)) return false;
             if (p.build.ultimate == "ult.emergency_revive")
             {
-                if (p.reviveUsed) return false;
                 p.reviveUsed = true;
             }
             p.ultimateCharge = 0;
@@ -496,7 +495,7 @@ namespace Flats.Core.Roguelike
         {
             foreach (var p in State.players) if (p.connected && p.life == PlayerLife.Alive) return false;
             // a downed player with nobody alive to help is a wipe unless an unspent emergency revive exists on a downed player
-            foreach (var p in State.players) if (p.connected && p.life == PlayerLife.Downed && p.build.ultimate == "ult.emergency_revive" && !p.reviveUsed && p.ultimateCharge >= 100) return false;
+            foreach (var p in State.players) if (p.connected && p.life == PlayerLife.Downed && p.build.ultimate == "ult.emergency_revive" && p.ultimateCharge >= 100) return false;
             return true;
         }
 

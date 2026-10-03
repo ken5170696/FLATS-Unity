@@ -71,12 +71,12 @@ a personal shop, builds, events and chapter routes.
 | Stat upgrades | 4 × 7 tiers | Vitality +12%, Firepower +8%, Magazine +15% (≥ +1 round), Agility +6% per tier (`RogueCatalog.StatTiers`; the envelopes in `BuildStats` are 7 steps) |
 | Build cores | 8, max 2 equipped | Precision, Assault, Suppression, Reload Burst, Ricochet, Demolition, Marker, Mobility |
 | Mods | 26, max 8 equipped | see `RogueCatalog.Mods` |
-| Tactical | 3, one slot | Double Jump (passive), Dash (8 m, 6 s), Shield (400 for 6 s, 12 s cooldown; `TacticalRuntime`) |
-| Ultimates | 7, one slot, 0–100 charge | Infinite Fire, Enemy Sight, Chain Bullets, Homing Bullets (12 s), Lethal Shot, Invincible (7 s), Emergency Revive (once per run); one table, `UltimateRuntime.DurationFor` |
+| Tactical | 3, one slot | Double Jump (passive), Dash (8 m, 6 s), Shield (900 for 10 s, 10 s cooldown; `TacticalRuntime`) |
+| Ultimates | 7, one slot, 0–100 charge | Infinite Fire, Enemy Sight, Chain Bullets, Homing Bullets (12 s), Lethal Shot, Invincible (7 s), Emergency Revive (works again after every recharge); one table, `UltimateRuntime.DurationFor` |
 | Enemy roles | 6 | Rifleman, Rusher, Marksman, Shield Bearer, Flanker, Jammer (each with a silhouette marker) |
-| Objectives | 5 | Clear Out, Hold the Zone, Deliver the Crate, Protect the Repair, Break Out |
+| Objectives | 5 | Clear Out, Hold the Zone, Deliver the Crate, Protect the Repair, Break Out (Hold the Zone and Break Out bring a new squad whenever the field stays empty: `RogueObjectiveRunner.KeepPressure`) |
 | Events | 8 | Moving Supply, Alarm Cache, Low Gravity, Power Reroute, Repair Device, Risk Contract, Elite Hunt, Lure Crate |
-| Emergencies | 4 | Gas Leak (zones of 22/36/50 units of drifting fog, 9% of maximum health per second inside after a 3 s grace, on every client), Power Outage, Mobile Bomb, Reinforcement Signal |
+| Emergencies | 4 | Gas Leak (zones of 22/36/50 units of drifting fog, after a 3 s grace 5% of maximum health per second inside, plus 35% of that for each exposure stack: one stack per 1.5 s inside up to 8, one lost per second outside; on every client), Power Outage, Mobile Bomb, Reinforcement Signal |
 | Finales | 3 | Commander, Vault, Convoy |
 | Routes | 4 | Quiet, Hot, Strange, Rich |
 

@@ -102,7 +102,7 @@ namespace Flats.Core.Roguelike
         public const double ChainRange = 12, ExplosionRadius = 6, HomingRange = 60, HomingAngleDegrees = 15, EnemySightRange = 200;
         public const int ChainMaxTargets = 3;
         public const double ChainDurationSeconds = 12, UltimateDurationSeconds = 12, ShortUltimateDurationSeconds = 7;
-        public const double ShieldCooldownSeconds = 12;
+        public const double ShieldCooldownSeconds = 10;
         public static double UltimateSeconds(string id)
         {
             switch (id) { case "ult.emergency_revive": return 0; case "ult.lethal_shot": case "ult.invincible": return ShortUltimateDurationSeconds;
@@ -227,7 +227,7 @@ namespace Flats.Core.Roguelike
             new ItemDef("ult.infinite_fire", ItemKind.Ultimate, "Infinite Fire", UltimateDurationSeconds + " s of unlimited ammunition with no reloads. Fire rate unchanged.", 80, 1, 2, TagSuppression, TagReload),
             new ItemDef("ult.lethal_shot", ItemKind.Ultimate, "Lethal Shot", ShortUltimateDurationSeconds + " s: any damage you deal kills non-boss enemies outright (elites included). Finale targets take +200% instead.", 80, 1, 2, TagPrecision),
             new ItemDef("ult.invincible", ItemKind.Ultimate, "Invincible", ShortUltimateDurationSeconds + " s of immunity to combat and gas damage. Only you.", 80, 1, 2, TagAssault),
-            new ItemDef("ult.emergency_revive", ItemKind.Ultimate, "Emergency Revive", "Once per run, at full charge: instantly revive downed or dead teammates with their build. Solo: at full charge a lethal hit is survived automatically at 50% health.", 80, 1, 2, TagMarker, TagMobility),
+            new ItemDef("ult.emergency_revive", ItemKind.Ultimate, "Emergency Revive", "At full charge: instantly revive downed or dead teammates with their build. Solo: at full charge a lethal hit is survived automatically at 50% health. It recharges and works again.", 80, 1, 2, TagMarker, TagMobility),
             new ItemDef("ult.enemy_sight", ItemKind.Ultimate, "Enemy Sight", UltimateDurationSeconds + " s: outlines of every spawned enemy within " + EnemySightRange + " m.", 80, 1, 2, TagMarker),
             new ItemDef("ult.chain_bullets", ItemKind.Ultimate, "Chain Bullets", ChainDurationSeconds + " s: hits arc to up to " + ChainMaxTargets + " enemies within " + ChainRange + " m at " + (EffectChainRules.ChainDamageFraction * 100) + "% damage. Chains do not count as headshots.", 80, 1, 2, TagRicochet, TagDemolition),
             new ItemDef("ult.homing_bullets", ItemKind.Ultimate, "Homing Bullets", UltimateDurationSeconds + " s: bullets steer toward the most aligned visible enemy within " + HomingRange + " m and " + HomingAngleDegrees + " degrees.", 80, 1, 2, TagPrecision, TagMobility),

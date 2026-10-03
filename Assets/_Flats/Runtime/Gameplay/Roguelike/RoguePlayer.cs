@@ -212,6 +212,7 @@ public class RoguePlayer : MonoBehaviour
     {
         if (Downed) return 0f;
         if (Invincible) return 0f;
+        if (Time.time < reviveGraceUntil) return 0f;
         if (!(damage > 0f)) return 0f;   // a blast's far edge (or NaN) is no hit: it must never heal nor recharge the tactical shield
         if (Time.time < assaultBuffUntil) damage *= 1f - (float)Stats.AssaultKillReduction;
         damage *= (float)Stats.DamageTakenMul;
@@ -230,6 +231,10 @@ public class RoguePlayer : MonoBehaviour
         return damage;
     }
 
+    /// <summary>Seconds without damage after a solo Emergency Revive saved the player (enough to move out of the fire that was lethal).</summary>
+    public const float SelfReviveGraceSeconds = 1.5f;
+    float reviveGraceUntil = -1f;
+
     /// <summary>Lethal hit on the owner: solo dies at once (unless a self-revive is armed); co-op goes down and can be revived.</summary>
     public bool TryDown()
     {
@@ -238,13 +243,14 @@ public class RoguePlayer : MonoBehaviour
         var ctrl = RoguelikeController.Instance;
         if (ctrl == null || ctrl.State == null) return false;
         var me = ctrl.LocalPlayer;
-        bool selfRevive = me != null && me.build.ultimate == "ult.emergency_revive" && !me.reviveUsed && me.ultimateCharge >= 100;
+        bool selfRevive = me != null && me.build.ultimate == "ult.emergency_revive" && me.ultimateCharge >= 100;
         if (authorityLife == PlayerLife.Dead || authorityLife == PlayerLife.Spectating) return false;   // the authority already ruled this player dead
         if (Menu.network == 0 && !selfRevive) return false;   // solo: death (the controller ends the run)
         if (Menu.network == 0 && selfRevive)
         {
             ctrl.Command(new RogueCommandMessage { kind = "ult" });
             receiver.hitPoints = MaxHealth() * 0.5f;
+            reviveGraceUntil = Time.time + SelfReviveGraceSeconds;   // the burst that was lethal does not also take the half that was given back
             ctrl.Banner(RoguelikeController.T("Emergency revive!"), 2f);
             RogueAudio.Play("revive");
             return true;
