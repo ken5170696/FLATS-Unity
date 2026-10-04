@@ -17,6 +17,8 @@ public sealed class RogueMissionPressure
 
     bool ambushed;
     float sustainTimer;
+    /// <summary>Ambushes called this stage on the authority: the lead role alternates with it (RogueMissionRules.AmbushLeadRole).</summary>
+    static int ambushCount, ambushStage = -1;
 
     /// <summary>The ambush of this target has been called (whether or not the field had room for it).</summary>
     public bool Ambushed { get { return ambushed; } }
@@ -29,7 +31,8 @@ public sealed class RogueMissionPressure
         sustainTimer = (float)RogueMissionRules.SustainSeconds;
         var enc = c.State.encounter;
         int size = RogueMissionRules.AmbushSize(c.State.ConnectedPlayers, enc.depth);
-        int spawned = Spawn(c, focus, size, RogueMissionRules.EliteCount(size, enc.depth, enc.difficulty));
+        if (ambushStage != c.State.encounterCounter) { ambushStage = c.State.encounterCounter; ambushCount = 0; }
+        int spawned = Spawn(c, focus, size, RogueMissionRules.EliteCount(size, enc.depth, enc.difficulty), ambushCount++);
         if (spawned > 0) c.Notify(new RogueEventMessage { kind = "banner", text = AmbushBanner, value = 2 });
         return spawned > 0;
     }
@@ -44,11 +47,25 @@ public sealed class RogueMissionPressure
         Spawn(c, focus, RogueMissionRules.SustainSize(c.State.ConnectedPlayers), 0);
     }
 
+    static readonly System.Collections.Generic.List<float> bearings = new System.Collections.Generic.List<float>();
+    static float Bearing(Vector3 focus, Vector3 at) { return Mathf.Atan2(at.x - focus.x, at.z - focus.z) * Mathf.Rad2Deg; }
+    /// <summary>Degrees between the bearing of <paramref name="at"/> and the nearest bearing already used by this squad (180 for the first).</summary>
+    static float Apart(Vector3 focus, Vector3 at)
+    {
+        float best = 180f, bearing = Bearing(focus, at);
+        for (int i = 0; i < bearings.Count; i++) best = Mathf.Min(best, Mathf.Abs(Mathf.DeltaAngle(bearing, bearings[i])));
+        return best;
+    }
+
     /// <summary>
     /// Authority: up to <paramref name="wanted"/> extras (the first <paramref name="elites"/> of them elite) on the arrival ring
     /// around <paramref name="focus"/>, never past the concurrent cap. Returns how many arrived.
     /// </summary>
-    public static int Spawn(RoguelikeController c, Vector3 focus, int wanted, int elites)
+    public static int Spawn(RoguelikeController c, Vector3 focus, int wanted, int elites) { return Spawn(c, focus, wanted, elites, -1); }
+
+    /// <summary>As above; with <paramref name="ambushIndex"/> at 0 or more the squad is an ambush: its first member is the lead role
+    /// (a Bruiser or a Flanker once unlocked) and never an elite, so the squad's elite count stays what the rules give.</summary>
+    public static int Spawn(RoguelikeController c, Vector3 focus, int wanted, int elites, int ambushIndex)
     {
         if (c == null || !c.IsAuthority || c.State == null || !c.CombatLive || wanted <= 0) return 0;
         var enc = c.State.encounter;
@@ -58,11 +75,29 @@ public sealed class RogueMissionPressure
         // anchor, if any, is put back afterwards
         Vector3? previous = c.SpawnAnchor;
         int spawned = 0;
+        bearings.Clear();
         c.SpawnAnchor = focus;
         try
         {
             for (int i = 0; i < wanted; i++)
-                if (c.SpawnExtraEnemy(RogueMissionRules.PressureRole(i, enc.depth), i < elites, c.PickSpawnPosition(), true) != null) spawned++;
+            {
+                string role = ambushIndex >= 0 ? RogueMissionRules.AmbushRole(i, enc.depth, ambushIndex) : RogueMissionRules.PressureRole(i, enc.depth);
+                bool elite = ambushIndex >= 0 ? i >= 1 && i <= elites : i < elites;
+                Vector3 at = c.PickSpawnPosition();
+                if (ambushIndex >= 0)
+                {
+                    // an ambush comes from more than one side: a placement too close in bearing to the earlier ones is drawn again
+                    float apart = Apart(focus, at);
+                    for (int draw = 0; draw < RogueMissionRules.AmbushSpreadDraws && apart < (float)RogueMissionRules.AmbushSpreadDegrees; draw++)
+                    {
+                        Vector3 other = c.PickSpawnPosition();
+                        float otherApart = Apart(focus, other);
+                        if (otherApart > apart) { apart = otherApart; at = other; }
+                    }
+                    bearings.Add(Bearing(focus, at));
+                }
+                if (c.SpawnExtraEnemy(role, elite, at, true) != null) spawned++;
+            }
         }
         finally { c.SpawnAnchor = previous; }
         return spawned;

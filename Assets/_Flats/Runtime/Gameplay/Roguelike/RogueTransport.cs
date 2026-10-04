@@ -39,6 +39,7 @@ public sealed class PhotonRogueTransport : IRogueTransport
         // A string RPC parameter is limited to 32767 UTF-8 bytes (Protocol16.SerializeString); the run state
         // passes that once a stage has spawned about 290 enemies (ledger.slots). Bytes have no such limit.
         byte[] data = System.Text.Encoding.UTF8.GetBytes(json);
+        if (Debug.isDebugBuild) Debug.Log("FLATS_ROGUE_SNAPSHOT bytes=" + data.Length + " target=" + targetId);   // development builds only: the size of each state broadcast
         if (targetId >= 0)
         {
             var player = PhotonPlayer.Find(targetId);

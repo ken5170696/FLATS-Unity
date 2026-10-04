@@ -21,6 +21,13 @@ public static partial class RogueHooks
         return m == null ? 0f : m.PreFireDelay();
     }
 
+    /// <summary>Follow-up (Sniper Rifle 1): 1, or once the factor that shortens the cycle now running after a headshot.</summary>
+    public static float MetaConsumeFollowUp(FPSController player)
+    {
+        var m = Meta(player);
+        return m == null ? 1f : m.ConsumeFollowUp();
+    }
+
     /// <summary>The gap the legacy coroutine is about to wait, so sustained-fire rules track the real cadence.</summary>
     public static void MetaNoteInterval(FPSController player, float seconds)
     {
@@ -51,7 +58,7 @@ public static partial class RogueHooks
     /// catalog model when the loadout has no row for it (a shotgun taken from the ground).</summary>
     static float ShotgunRangeMul(RogueMetaRuntime m, int model, float distance)
     {
-        var def = m != null && m.Stats != null ? m.Stats.WeaponForModel(model) : null;
+        var def = m != null ? m.WeaponDefForModel(model) : null;   // the row applied to that gun: the loadout's, or the model's original for a gun from the ground
         return (float)WeaponRules.ShotgunRangeMul(distance, def, model);
     }
 
@@ -119,6 +126,30 @@ public static partial class RogueHooks
         primary = pw.BaseModel; secondary = sw.BaseModel;
         var ps = RogueArmory.Sight(loadout.primarySight); var ss = RogueArmory.Sight(loadout.secondarySight);
         primarySight = ps != null ? ps.Index : 0; secondarySight = ss != null ? ss.Index : 0;
+        // A run that is already under way (continued from a save, a new chapter's map, a new character after a death) keeps the
+        // guns of its build: a gun bought in the shop replaced the loadout's model there, and a character that spawns with the
+        // loadout again would lose it. A gun the loadout has no row for carries no sight, as when it was bought.
+        var build = RunBuildAtSpawn();
+        if (build == null) return;
+        int count = Flats.Core.WeaponCatalog.Count;
+        int runPrimary = build.primaryWeapon, runSecondary = build.secondaryWeapon;
+        if (runPrimary < 0 || runPrimary >= count || runSecondary < 0 || runSecondary >= count || runPrimary == runSecondary) return;
+        if (runPrimary != primary) { primary = runPrimary; primarySight = 0; }
+        if (runSecondary != secondary) { secondary = runSecondary; secondarySight = 0; }
+    }
+
+    /// <summary>The local player's build in the run this character spawns into: the live state when it exists (a respawn), else
+    /// the state travelling into this scene (a continued save or the next chapter). Null for a new run and in the shooting range,
+    /// whose weapons follow its own commands.</summary>
+    static PlayerBuild RunBuildAtSpawn()
+    {
+        if (RoguelikeMode.Range) return null;
+        var c = RoguelikeController.Instance;
+        if (c != null && c.State != null) { var me = c.LocalPlayer; return me != null ? me.build : null; }
+        var pending = RoguelikeMode.PendingResume;
+        if (pending == null || pending.run == null) return null;
+        var saved = pending.run.Player(RoguelikeMode.LocalPlayerKey);
+        return saved != null ? saved.build : null;
     }
 
     /// <summary>The run's heat (0 outside a run), read from the replicated run state.</summary>
@@ -127,6 +158,17 @@ public static partial class RogueHooks
         var c = RoguelikeController.Instance;
         return RoguelikeMode.Active && c != null && c.State != null ? c.State.heat : 0;
     }
+    /// <summary>The armory row of a gun model the player carries right now (in hand or holstered) although the loadout has no row
+    /// for it: a gun taken from the ground fires as its model's original (RogueMetaRuntime.ApplyGuns). Null for a model that is
+    /// not carried, so the shop still shows the variant a purchase would give.</summary>
+    public static RangedWeaponDef CarriedDef(RoguePlayer rp, int model)
+    {
+        var fps = rp != null ? rp.GetComponent<FPSController>() : null;
+        if (fps == null || (fps.primaryWeaponIndex != model && fps.secondaryWeaponIndex != model)) return null;
+        var meta = RogueMetaRuntime.Of(rp);
+        return meta != null ? meta.WeaponDefForModel(model) : null;
+    }
+
     /// <summary>Display only: the local player's armory variant of a legacy model (name and resolved numbers),
     /// so the HUD, the TAB weapon rows and the shop show the weapon that actually fires. Falls back to the model.</summary>
     public static Flats.Core.WeaponDefinition MetaWeaponDisplay(int model, Flats.Core.WeaponDefinition fallback)
@@ -134,6 +176,7 @@ public static partial class RogueHooks
         if (!RoguelikeMode.Active || fallback == null) return fallback;
         var rp = Local;
         var v = rp != null && rp.Stats != null ? rp.Stats.WeaponForModel(model) : null;
+        if (v == null) v = CarriedDef(rp, model);   // a gun from the ground in the player's hands: the row it really fires with
         if (v == null && rp != null && rp.Build != null && rp.Build.meta != null && !rp.Build.meta.Empty) v = MetaRun.ShopVariant(rp.Build, model);   // shop: the variant a purchase would give
         if (v == null) return fallback;
         var r = RogueArmory.Resolve(v);
@@ -148,6 +191,7 @@ public static partial class RogueHooks
         if (!RoguelikeMode.Active || model < 0 || model >= Flats.Core.WeaponCatalog.Count) return "";
         var rp = Local;
         var v = rp != null && rp.Stats != null ? rp.Stats.WeaponForModel(model) : null;
+        if (v == null) v = CarriedDef(rp, model);
         if (v == null && rp != null && rp.Build != null && rp.Build.meta != null && !rp.Build.meta.Empty) v = MetaRun.ShopVariant(rp.Build, model);
         var line = v != null ? MetaText.RangeSummary(v) : MetaText.RangeSummary(model);
         return string.IsNullOrEmpty(line.Template) ? "" : RogueMetaUI.L(line).Replace("\n", separator ?? "\n");

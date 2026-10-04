@@ -26,6 +26,40 @@ namespace Vectrosity
 
 		private CanvasRenderer m_canvasRenderer;
 
+		// FLATS: CanvasRenderer.SetVertices(UIVertex[], int) builds a new Mesh and nine new lists on every call (about 35 KB for
+		// one bullet trail, on every frame of every live trail). The same data goes through one shared mesh and shared lists; the
+		// renderer copies the mesh, exactly as it does inside that call, so what is drawn does not change.
+		public static bool legacyVertexUpload;
+		private static Mesh s_uploadMesh;
+		private static readonly List<Vector3> s_uploadPositions = new List<Vector3>(512), s_uploadNormals = new List<Vector3>(512);
+		private static readonly List<Color32> s_uploadColors = new List<Color32>(512);
+		private static readonly List<Vector4> s_uploadUv0 = new List<Vector4>(512), s_uploadUv1 = new List<Vector4>(512), s_uploadUv2 = new List<Vector4>(512), s_uploadUv3 = new List<Vector4>(512), s_uploadTangents = new List<Vector4>(512);
+		private static readonly List<int> s_uploadIndices = new List<int>(768);
+
+		private static void UploadVertices(CanvasRenderer renderer, UIVertex[] vertices, int size)
+		{
+			if (legacyVertexUpload) { renderer.SetVertices(vertices, size); return; }
+			if (s_uploadMesh == null) { s_uploadMesh = new Mesh(); s_uploadMesh.name = "Vectrosity upload"; s_uploadMesh.hideFlags = HideFlags.HideAndDontSave; s_uploadMesh.MarkDynamic(); }
+			s_uploadPositions.Clear(); s_uploadNormals.Clear(); s_uploadColors.Clear(); s_uploadUv0.Clear(); s_uploadUv1.Clear(); s_uploadUv2.Clear(); s_uploadUv3.Clear(); s_uploadTangents.Clear(); s_uploadIndices.Clear();
+			for (int i = 0; i < size; i += 4)
+			{
+				for (int j = 0; j < 4; j++)
+				{
+					UIVertex v = vertices[i + j];
+					s_uploadPositions.Add(v.position); s_uploadColors.Add(v.color); s_uploadNormals.Add(v.normal); s_uploadTangents.Add(v.tangent);
+					s_uploadUv0.Add(v.uv0); s_uploadUv1.Add(v.uv1); s_uploadUv2.Add(v.uv2); s_uploadUv3.Add(v.uv3);
+				}
+				s_uploadIndices.Add(i); s_uploadIndices.Add(i + 1); s_uploadIndices.Add(i + 2);
+				s_uploadIndices.Add(i + 2); s_uploadIndices.Add(i + 3); s_uploadIndices.Add(i);
+			}
+			Mesh mesh = s_uploadMesh;
+			mesh.Clear();
+			mesh.SetVertices(s_uploadPositions); mesh.SetColors(s_uploadColors); mesh.SetNormals(s_uploadNormals); mesh.SetTangents(s_uploadTangents);
+			mesh.SetUVs(0, s_uploadUv0); mesh.SetUVs(1, s_uploadUv1); mesh.SetUVs(2, s_uploadUv2); mesh.SetUVs(3, s_uploadUv3);
+			mesh.SetTriangles(s_uploadIndices, 0);
+			renderer.SetMesh(mesh);
+		}
+
 		private CanvasRenderer m_capRenderer;
 
 		private CanvasRenderer m_fillRenderer;
@@ -308,15 +342,15 @@ namespace Vectrosity
 				m_active = value;
 				if (m_canvasRenderer != null)
 				{
-					m_canvasRenderer.SetVertices(m_UIVertices, m_active ? GetVertexCount() : 0);
+					UploadVertices(m_canvasRenderer, m_UIVertices, m_active ? GetVertexCount() : 0);
 				}
 				if (m_capRenderer != null)
 				{
-					m_capRenderer.SetVertices(m_capVertices, m_active ? 8 : 0);
+					UploadVertices(m_capRenderer, m_capVertices, m_active ? 8 : 0);
 				}
 				if (m_fillRenderer != null)
 				{
-					m_fillRenderer.SetVertices(m_fillVertices, m_active ? m_fillVertexCount : 0);
+					UploadVertices(m_fillRenderer, m_fillVertices, m_active ? m_fillVertexCount : 0);
 				}
 			}
 		}
@@ -396,11 +430,11 @@ namespace Vectrosity
 				}
 				if (m_joins != Joins.Fill && m_fillObjectSet)
 				{
-					m_fillRenderer.SetVertices(m_fillVertices, 0);
+					UploadVertices(m_fillRenderer, m_fillVertices, 0);
 				}
 				if (m_joins == Joins.Fill && m_fillObjectSet)
 				{
-					m_fillRenderer.SetVertices(m_fillVertices, m_fillVertexCount);
+					UploadVertices(m_fillRenderer, m_fillVertices, m_fillVertexCount);
 				}
 			}
 		}
@@ -1820,7 +1854,7 @@ namespace Vectrosity
 					m_capVertices[j].color = m_UIVertices[5 + num3].color;
 				}
 			}
-			m_capRenderer.SetVertices(m_capVertices, m_active ? 8 : 0);
+			UploadVertices(m_capRenderer, m_capVertices, m_active ? 8 : 0);
 		}
 
 		public void SetColor(Color32 color)
@@ -1872,7 +1906,7 @@ namespace Vectrosity
 			{
 				SetEndCapColors();
 			}
-			m_canvasRenderer.SetVertices(m_UIVertices, m_active ? GetVertexCount() : 0);
+			UploadVertices(m_canvasRenderer, m_UIVertices, m_active ? GetVertexCount() : 0);
 			if (m_joins == Joins.Fill)
 			{
 				SetFillColors();
@@ -1950,7 +1984,7 @@ namespace Vectrosity
 			{
 				SetEndCapColors();
 			}
-			m_canvasRenderer.SetVertices(m_UIVertices, m_active ? GetVertexCount() : 0);
+			UploadVertices(m_canvasRenderer, m_UIVertices, m_active ? GetVertexCount() : 0);
 			if (m_joins == Joins.Fill)
 			{
 				SetFillColors();
@@ -2007,7 +2041,7 @@ namespace Vectrosity
 					m_fillVertices[num + 3].color = m_UIVertices[start].color;
 				}
 				m_fillVertexCount = m_vertexCount - adjustEnd * 4 - ((!flag) ? 4 : 0);
-				m_fillRenderer.SetVertices(m_fillVertices, m_active ? m_fillVertexCount : 0);
+				UploadVertices(m_fillRenderer, m_fillVertices, m_active ? m_fillVertexCount : 0);
 			}
 		}
 
@@ -2335,7 +2369,7 @@ namespace Vectrosity
 				}
 			}
 			m_fillVertexCount = m_vertexCount - adjustEnd * 4 - ((!flag) ? 4 : 0);
-			m_fillRenderer.SetVertices(m_fillVertices, m_active ? m_fillVertexCount : 0);
+			UploadVertices(m_fillRenderer, m_fillVertices, m_active ? m_fillVertexCount : 0);
 		}
 
 		private void DrawEndCap(bool draw3D)
@@ -2494,14 +2528,14 @@ namespace Vectrosity
 		{
 			if (pointsCount < (m_isPoints ? 1 : 2))
 			{
-				m_canvasRenderer.SetVertices(m_UIVertices, 0);
+				UploadVertices(m_canvasRenderer, m_UIVertices, 0);
 				if (m_capType != EndCap.None)
 				{
-					m_capRenderer.SetVertices(m_capVertices, 0);
+					UploadVertices(m_capRenderer, m_capVertices, 0);
 				}
 				if (m_joins == Joins.Fill)
 				{
-					m_fillRenderer.SetVertices(m_fillVertices, 0);
+					UploadVertices(m_fillRenderer, m_fillVertices, 0);
 				}
 				m_pointsCount = pointsCount;
 				return false;
@@ -2639,7 +2673,7 @@ namespace Vectrosity
 				{
 					SetTextureScale(false);
 				}
-				m_canvasRenderer.SetVertices(m_UIVertices, m_active ? GetVertexCount() : 0);
+				UploadVertices(m_canvasRenderer, m_UIVertices, m_active ? GetVertexCount() : 0);
 				if (m_collider)
 				{
 					SetCollider(true);
@@ -2989,7 +3023,7 @@ namespace Vectrosity
 					{
 						SetTextureScale(false);
 					}
-					m_canvasRenderer.SetVertices(m_UIVertices, m_active ? GetVertexCount() : 0);
+					UploadVertices(m_canvasRenderer, m_UIVertices, m_active ? GetVertexCount() : 0);
 					if (m_collider)
 					{
 						SetCollider(false);
@@ -3075,7 +3109,7 @@ namespace Vectrosity
 				}
 			}
 			CheckNormals();
-			m_canvasRenderer.SetVertices(m_UIVertices, m_active ? GetVertexCount() : 0);
+			UploadVertices(m_canvasRenderer, m_UIVertices, m_active ? GetVertexCount() : 0);
 		}
 
 		private void DrawPoints3D()
@@ -3114,7 +3148,7 @@ namespace Vectrosity
 				widthIdx += widthIdxAdd;
 			}
 			CheckNormals();
-			m_canvasRenderer.SetVertices(m_UIVertices, m_active ? GetVertexCount() : 0);
+			UploadVertices(m_canvasRenderer, m_UIVertices, m_active ? GetVertexCount() : 0);
 		}
 
 		private void SkipQuad(ref int idx, ref int widthIdx, ref int widthIdxAdd)
@@ -3397,7 +3431,7 @@ namespace Vectrosity
 			}
 			if (updateUIVertices)
 			{
-				m_canvasRenderer.SetVertices(m_UIVertices, m_active ? GetVertexCount() : 0);
+				UploadVertices(m_canvasRenderer, m_UIVertices, m_active ? GetVertexCount() : 0);
 			}
 		}
 

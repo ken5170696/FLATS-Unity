@@ -99,6 +99,9 @@ public partial class Menu
     IEnumerator ReturnRoguePause(){fliping=true;anim.SetBool("Fade",true);yield return StartCoroutine(CoroutineUtil.WaitForRealSeconds(fade.length));BackToMainMenu();ShowRoguePause();yield return StartCoroutine(ReleaseMenuInput(null));}
     void ConfirmRogueLeave(bool abandon)
     {
+        // the shooting range is not a run: nothing is abandoned, rewarded or cleared (Menu.RogueRange)
+        var range = RoguelikeController.Instance;
+        if (range != null && range.RangeActive) { ConfirmRangeLeave(!abandon); return; }
         string consequence;
         if(RoguelikeMode.Coop)consequence=PhotonNetwork.isMasterClient?"You leave with a reduced reward. The squad continues with a new host.":"You leave with a reduced reward. The squad continues without you.";
         else if(abandon)consequence="This run ends as a defeat and shows results. Its checkpoint is cleared.";

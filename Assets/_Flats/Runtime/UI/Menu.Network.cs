@@ -174,13 +174,17 @@ public partial class Menu
 		preCheckToStayRoom = true;
 	}
 
+	/// <summary>The Photon game version: players only meet players on the same string. It carries the Roguelike rules version, so a
+	/// build with different guns, objectives or tactics rules never shares a room (and a run state) with an older one.</summary>
+	public static string OnlineVersion { get { return version.Substring(0, 3) + "-r" + Flats.Core.Roguelike.RogueCatalog.RulesVersion; } }
+
 	private void Connect()
     {
         PhotonNetwork.automaticallySyncScene = false;
         PhotonNetwork.BackgroundTimeout = 60f;
         if (!FlatsPhotonConfiguration.Apply(out multiplayerFailure)) return;
         PhotonNetwork.offlineMode = false;
-        if (!PhotonNetwork.ConnectUsingSettings(version.Substring(0, 3)))
+        if (!PhotonNetwork.ConnectUsingSettings(OnlineVersion))
             multiplayerFailure = "Photon rejected the connection request: " + PhotonNetwork.connectionStateDetailed;
     }
 

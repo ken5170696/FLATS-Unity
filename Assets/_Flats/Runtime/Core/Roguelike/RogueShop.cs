@@ -143,6 +143,18 @@ namespace Flats.Core.Roguelike
         }
 
         /// <summary>
+        /// An item that stays in the catalog so old checkpoints holding it still load, but that no shop visit or reward ever offers,
+        /// whatever the build. The one place that says so: <see cref="MissingPrerequisite"/> (sampling) and <see cref="Obtainable"/>
+        /// (the codex) both read it.
+        /// Team Radio: marks are simulated on the shooter's client and not replicated, so "a teammate hits your mark" cannot be
+        /// observed yet.
+        /// </summary>
+        public static bool Retired(string itemId) { return itemId == "mod.team_radio"; }
+
+        /// <summary>True when a new run can still hand the item out (a catalog item that is not <see cref="Retired"/>).</summary>
+        public static bool Obtainable(string itemId) { return RogueCatalog.Item(itemId) != null && !Retired(itemId); }
+
+        /// <summary>
         /// An item whose effect needs something the build does not have yet (a core, a tactical, a weapon family) and would do nothing
         /// on its own. Such items are not sampled, so a paid slot is never spent on a dead effect; owning the prerequisite brings them back.
         /// Only sampling uses this: RejectReason and old checkpoints are unchanged.
@@ -150,6 +162,7 @@ namespace Flats.Core.Roguelike
         public static bool MissingPrerequisite(ItemDef def, PlayerBuild build)
         {
             if (def == null || build == null) return false;
+            if (Retired(def.Id)) return true;
             bool ricochet = build.HasCore("core.ricochet") || build.HasMod("mod.double_bounce");
             bool chain = build.ultimate == "ult.chain_bullets";
             // marks come from the Marker core, Angle Finder ricochets, the Enemy Sight ultimate (the whole map) and Static Mark chains
@@ -168,9 +181,6 @@ namespace Flats.Core.Roguelike
                 case "mod.angle_finder": return !ricochet;
                 case "mod.spotter":
                 case "mod.bounty_hunter": return !marks;
-                // marks are simulated on the shooter's client and not replicated, so "a teammate hits your mark" cannot be observed yet;
-                // the mod is kept for old checkpoints but no longer offered
-                case "mod.team_radio": return true;
                 // Bigger Boom and Explosive Payload act on every explosion (hand grenades included), so they need no core;
                 // Shockwave still belongs to the Demolition kill explosion
                 case "mod.shockwave": return !build.HasCore("core.demolition");

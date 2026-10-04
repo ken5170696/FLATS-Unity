@@ -87,6 +87,15 @@ public class Gun : MonoBehaviour
 		oneShot = GunInfo.oneShot[id];
 		handgun = GunInfo.handgun[id];
 		grenade = GunInfo.grenade[id];
+		// Roguelike: the lines above wrote the catalogue numbers over the armory ones this gun got while it was still inactive
+		// (RoguePlayer.ApplyBuild runs on every gun model, a component's Start only when the gun is first taken out). The build's
+		// weapon numbers go on again, on every copy of the player (owner and remote), so a first draw, a bought or picked-up gun
+		// and a new character after a death fire with the same numbers as everywhere else.
+		if (RoguelikeMode.Active && mtRoot.CompareTag("Player"))
+		{
+			var roguePlayer = mtRoot.GetComponent<RoguePlayer>();
+			if (roguePlayer != null) roguePlayer.ReapplyWeapons();
+		}
 		if (mtRoot.tag == "Player")
 		{
 			if (Multiplayer.end && Menu.gameState != "Singleplayer")

@@ -29,6 +29,7 @@ namespace Flats.Core.Roguelike
         public int deaths, kills, headshots, rescues;
         public string[] processedTx = new string[0];
         public bool joinedAtSafeNode;        // one-time catch-up grant already given
+        public int rangeFlags;               // shooting range only: the player's own switches (RogueRange.GodFlag, InfiniteAmmoFlag)
     }
 
     /// <summary>
@@ -71,6 +72,9 @@ namespace Flats.Core.Roguelike
         public double stageSeconds;                     // authority clock within the stage
         public int riskContract;                        // 0 none, 1 accepted this stage
         public double stageBountyMul = 1;
+        public bool range;                              // the shooting range (RogueRange): free builds and spawns, never saved, rewarded or lost
+        public int rangeFlags;                          // shooting range only: world switches (RogueRange.FrozenFlag)
+        public int[] rangePassiveIds = new int[0];      // shooting range only: instance ids of the passive (never attacking) targets, so a new host keeps holding them
         public int heat;                                // meta Heat level of the run (0..RogueHeat.MaxHeat), chosen at creation               // locked by the authority before kills are paid (risk contract, outage penalty)
 
         public RunPlayer Player(string key) { foreach (var p in players) if (p.key == key) return p; return null; }
@@ -92,7 +96,7 @@ namespace Flats.Core.Roguelike
     /// only decides *when*; tests drive it with a fake clock and RNG. Methods return false
     /// (and change nothing) when a transition is illegal.
     /// </summary>
-    public sealed class RunMachine
+    public sealed partial class RunMachine
     {
         public readonly RunState State;
         private readonly RogueRng rng;
@@ -150,6 +154,22 @@ namespace Flats.Core.Roguelike
             State.players = list.ToArray();
             if (State.phase == RunPhase.Prep) SampleShop(p, false);
             return p;
+        }
+
+        /// <summary>The first shop is drawn when the run is created (or the player is added), before that player's loadout is known:
+        /// it could offer the model already in the secondary slot (bought, both slots held the same gun) or a model the player owns
+        /// no armory variant of. Once the loadout is in the build the shop is drawn again for it. Only at a shop that nothing was
+        /// bought from; the version moves on so a purchase sent against the old offers is refused as stale.</summary>
+        public bool ResampleShopForLoadout(string key)
+        {
+            var p = State.Player(key);
+            if (p == null || State.range || State.phase != RunPhase.Prep) return false;
+            foreach (var o in p.offers) if (o.sold) return false;
+            bool ready = p.ready;
+            p.shopVersion++;
+            SampleShop(p, false);
+            p.ready = ready;
+            return true;
         }
 
         public void SetConnected(string key, bool connected)
@@ -467,7 +487,7 @@ namespace Flats.Core.Roguelike
         public bool PlayerDowned(string key)
         {
             var p = State.Player(key);
-            if (p == null || p.life != PlayerLife.Alive) return false;
+            if (p == null || p.life != PlayerLife.Alive || State.range) return false;   // nobody goes down in the shooting range
             p.life = PlayerLife.Downed;
             p.overshieldFraction = 0;
             return true;
@@ -476,7 +496,7 @@ namespace Flats.Core.Roguelike
         public bool PlayerDied(string key)
         {
             var p = State.Player(key);
-            if (p == null || p.life == PlayerLife.Dead || p.life == PlayerLife.Spectating) return false;
+            if (p == null || p.life == PlayerLife.Dead || p.life == PlayerLife.Spectating || State.range) return false;   // nor dies there
             p.life = PlayerLife.Dead; p.deaths++;
             p.overshieldFraction = 0;
             return true;
@@ -493,6 +513,7 @@ namespace Flats.Core.Roguelike
 
         public bool TeamWiped()
         {
+            if (State.range) return false;   // the shooting range cannot be lost
             foreach (var p in State.players) if (p.connected && p.life == PlayerLife.Alive) return false;
             // a downed player with nobody alive to help is a wipe unless an unspent emergency revive exists on a downed player
             foreach (var p in State.players) if (p.connected && p.life == PlayerLife.Downed && p.build.ultimate == "ult.emergency_revive" && p.ultimateCharge >= 100) return false;
@@ -640,7 +661,7 @@ namespace Flats.Core.Roguelike
 
         public bool Wipe()
         {
-            if (State.phase == RunPhase.Ended) return false;
+            if (State.phase == RunPhase.Ended || State.range) return false;
             State.end = RunEnd.Wiped; State.phase = RunPhase.Ended;
             return true;
         }
@@ -659,7 +680,7 @@ namespace Flats.Core.Roguelike
         }
 
         /// <summary>A checkpoint may be written only at a consistent boundary.</summary>
-        public bool AtCheckpointBoundary() { return State.phase == RunPhase.Prep || State.phase == RunPhase.ChapterEnd; }
+        public bool AtCheckpointBoundary() { return !State.range && (State.phase == RunPhase.Prep || State.phase == RunPhase.ChapterEnd); }   // the shooting range is never saved
 
         public void MarkCheckpoint() { State.checkpointDepth = State.depth; Persist(); }
     }

@@ -28,7 +28,7 @@ public class RogueMetaResultLayout : MonoBehaviour
         bool tall=Screen.height>Screen.width;
         var result=GetComponent<RogueResultView>();if(result!=null&&result.outcome!=null)result.outcome.fontSize=tall?portraitTitleSize:landscapeTitleSize;
         if(result!=null&&result.level!=null)result.level.fontSize=tall||(float)Screen.width/Screen.height<1.45f?smallLevelSize:wideLevelSize;
-        if(result!=null&&result.summaryTiles!=null&&result.summaryTiles.Length>0){var number=result.summaryTiles[0].number;bool compact=!tall&&(float)Screen.width/Screen.height<1.45f;number.fontSize=tall?portraitHeroSize:compact?compactHeroSize:landscapeHeroSize;float inset=compact?compactHeroNumberInset:heroNumberInset;var r=number.rectTransform;r.offsetMin=new Vector2(inset,r.offsetMin.y);r.offsetMax=new Vector2(-inset,r.offsetMax.y);}
+        if(result!=null&&result.summaryTiles!=null&&result.summaryTiles.Length>0){var number=result.summaryTiles[0].number;bool compact=!tall&&(float)Screen.width/Screen.height<1.45f;float inset=compact?compactHeroNumberInset:heroNumberInset;var r=number.rectTransform;r.offsetMin=new Vector2(inset,r.offsetMin.y);r.offsetMax=new Vector2(-inset,r.offsetMax.y);result.summaryTiles[0].SetNumberSize(tall?portraitHeroSize:compact?compactHeroSize:landscapeHeroSize);}
         var canvas=GetComponent<Canvas>();var scaler=GetComponent<CanvasScaler>();
         if(scaler!=null){scaler.uiScaleMode=CanvasScaler.ScaleMode.ConstantPixelSize;scaler.scaleFactor=tall?Screen.width/portraitReferenceWidth:Screen.height/1080f;canvas.scaleFactor=scaler.scaleFactor;}
         var area=Screen.safeArea;

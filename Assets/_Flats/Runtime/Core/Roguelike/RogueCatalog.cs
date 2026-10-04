@@ -102,7 +102,7 @@ namespace Flats.Core.Roguelike
     /// </summary>
     public static class RogueCatalog
     {
-        public const string RulesVersion = "2";
+        public const string RulesVersion = "3";
         public const int MaxCores = 2, MaxMods = 8;
         /// <summary>Top tier of each stat (owner request 2026-10-04): every stat has its own, held in its ItemDef.MaxStacks (MaxTier reads it).</summary>
         public const int HealthStatTiers = 100, DamageStatTiers = 100, MagazineStatTiers = 20, SpeedStatTiers = 20, RegenStatTiers = 20;
@@ -285,7 +285,7 @@ namespace Flats.Core.Roguelike
             new EnemyRoleDef("role.marksman", "Marksman", "Sight", 130, 0.8, 0.9, 1.4, 0.0, 90, 2, "Hits hard and accurately from far away. Break line of sight, then flank it.", 0.03, 0.15, 0.4, 10, 11),
             new EnemyRoleDef("role.shieldbearer", "Shield Bearer", "Shield", 160, 1.6, 0.75, 0.8, 0.6, 20, 3, "Its shield blocks most damage from the front. Get to its side or back.", 0.06, 0.4, 0.85, 0, 1, 2, 3),
             new EnemyRoleDef("role.flanker", "Flanker", "Dash", 120, 0.9, 1.25, 1.0, 0.0, 25, 2, "Runs around your flank. Watch your sides and cover each other.", 0.06, 0.4, 0.85, 0, 1, 2, 3),
-            new EnemyRoleDef("role.jammer", "Jammer", "Settings5", 150, 1.1, 0.9, 0.7, 0.0, 30, 4, "Stops ultimate charge within 30 m. Take it out first or leave its range.", 0.08, 0.45, 0.9, 12, 13),
+            new EnemyRoleDef("role.jammer", "Jammer", "Battery", 150, 1.1, 0.9, 0.7, 0.0, 30, 4, "Stops ultimate charge within 30 m. Take it out first or leave its range.", 0.08, 0.45, 0.9, 12, 13),
             // the brawler never fires: weapon 12 is the holstered sidearm the legacy AI needs; its melee weapon comes from EnemyKits
             // shown as "Bruiser": "Brawler" already is a skill's name (sk.brawler) and the translation table is keyed by the English text
             new EnemyRoleDef("role.brawler", "Bruiser", "Skull", 130, 1.25, 1.3, 1.0, 0.0, 4, 3, "Charges in with a random melee weapon. Watch its wind-up, then dash, jump or back away before the hit lands.", 0.1, 0.6, 1.0, 12).AsMelee(),

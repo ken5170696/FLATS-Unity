@@ -30,7 +30,9 @@ public sealed class FlatsPauseView : MonoBehaviour
         resume.Bind("Resume","","Return to this run","",FlatsHqView.Icon("Dash"),FlatsUiTheme.Token.BrandPrimary,()=>Activate(resumeAction));
         settings.Bind("Settings","","Sound, display and controls","",FlatsHqView.Icon("Mod"),FlatsUiTheme.Token.Ink,()=>Activate(settingsAction));
         help.Bind("Controls and how to play","","Controls follow your bindings","",FlatsHqView.Icon("Objective"),FlatsUiTheme.Token.Mod,()=>Activate(helpAction));
-        abandon.Bind("Abandon run","","Confirm before leaving","",FlatsHqView.Icon("Skull"),FlatsUiTheme.Token.Ink,()=>Activate(abandonAction));
+        var rangeController=RoguelikeController.Instance;bool range=rangeController!=null&&rangeController.RangeActive;
+        // in the shooting range the second tile leaves the range (headquarters, or the squad's room); nothing is abandoned there
+        abandon.Bind(range?"Leave the range":"Abandon run","",range?"Nothing here is saved":"Confirm before leaving","",FlatsHqView.Icon(range?"Target":"Skull"),FlatsUiTheme.Token.Ink,()=>Activate(abandonAction));
         menu.Bind("Back to main menu","","Confirm before leaving","",FlatsHqView.Icon("Reload"),FlatsUiTheme.Token.Ink,()=>Activate(menuAction));
         RogueMetaUI.Put(primary.GetComponentInChildren<Text>(),"Resume");
         RogueMetaUI.Put(notice,RoguelikeMode.Coop?"Multiplayer does not pause":"");
@@ -43,6 +45,7 @@ public sealed class FlatsPauseView : MonoBehaviour
         var c=RoguelikeController.Instance;var s=c!=null?c.State:null;if(s==null)return;
         string id=s.encounter==null?"":s.encounter.IsFinale?s.encounter.finaleId:s.encounter.objectiveId;
         if(depth==s.depth&&heat==s.heat&&objective==id)return;depth=s.depth;heat=s.heat;objective=id;
+        if(s.range){status.text=FlatsLocalization.Translate("Shooting range")+" · "+string.Format(FlatsLocalization.Translate("Stage {0}-{1}"),RogueDepth.ChapterOf(depth),RogueDepth.StageInChapter(depth));return;}
         var def=RogueCatalog.Objectives.FirstOrDefault(x=>x.Id==id);
         status.text=string.Format(FlatsLocalization.Translate("Stage {0}-{1} \u00b7 {2} \u00b7 Heat {3}"),RogueDepth.ChapterOf(depth),RogueDepth.StageInChapter(depth),FlatsLocalization.Translate(def!=null?def.Name:"Preparation"),heat);
     }

@@ -40,6 +40,8 @@ public static class RogueSaveStore
     public static bool WriteCheckpoint(RunState run, string localPlayerKey)
     {
         LastError = null;
+        // the shooting range is never a saved run: writing it would replace the player's real checkpoint
+        if (RogueRange.Is(run)) { LastError = "The shooting range is not saved."; return false; }
         try
         {
             var doc = new RunSaveDocument { run = run, localPlayerKey = localPlayerKey ?? "", savedAtUtc = DateTime.UtcNow.ToString("o"), gameVersion = Application.version };

@@ -138,6 +138,185 @@ public partial class FPSController
 			}
 		}
 		if (MyView(base.gameObject) && !zombie && !grabbing) SetBodyRenderLayer(13);
+		// SyncTeam is buffered: a player who joins or comes back later runs it with the weapons this character spawned with,
+		// while weapon swaps, pickups and purchases since then were sent once and are not in the buffer. That copy showed the
+		// spawn weapons for the rest of the life (another gun in the hands than every other screen). So each copy asks the
+		// owner once for what it carries now.
+		if (Menu.network == 2 && !MyView(base.gameObject) && !zombie)
+		{
+			PhotonView view = base.gameObject.GetPhotonView();
+			if (view != null && view.owner != null)
+			{
+				view.RPC("WeaponStateRequest", view.owner);
+			}
+		}
+	}
+
+	/// <summary>A copy of this character asks what it carries now; only the owner answers, and only to the player who asked.</summary>
+	[PunRPC]
+	private void WeaponStateRequest(PhotonMessageInfo info)
+	{
+		PhotonView view = base.gameObject.GetPhotonView();
+		if (info.sender == null || view == null || !view.isMine || view.owner == null || zombie)
+		{
+			return;
+		}
+		StartCoroutine(SendWeaponState(view, info.sender));
+	}
+
+	private IEnumerator SendWeaponState(PhotonView view, PhotonPlayer to)
+	{
+		// to everyone (to == null): the owner's own change of what it carries; the rounds follow one frame later, once they are set
+		if (to == null)
+		{
+			yield return null;
+		}
+		// a swap or an exchange in progress finishes first: its RPC reaches the asker too, and the state sent is the one after it
+		float until = Time.time + 4f;
+		while (anim != null && anim.GetBool("Change") && Time.time < until)
+		{
+			yield return null;
+		}
+		if (view == null || primaryWeapons == null || primaryWeapon == null || secondaryWeaponIndex < 0 || secondaryWeaponIndex >= primaryWeapons.childCount)
+		{
+			yield break;
+		}
+		Gun hand = primaryWeapon.GetComponent<Gun>();
+		Gun back = primaryWeapons.GetChild(secondaryWeaponIndex).GetComponent<Gun>();
+		int[] data = new int[8]
+		{
+			primaryWeaponIndex, secondaryWeaponIndex, primarySightIndex, secondarySightIndex,
+			hand != null ? hand.currentAmmo : 0, hand != null ? hand.maxAmmo : 0, back != null ? back.currentAmmo : 0, back != null ? back.maxAmmo : 0
+		};
+		if (to == null)
+		{
+			view.RPC("WeaponState", PhotonTargets.Others, data);
+		}
+		else
+		{
+			view.RPC("WeaponState", to, data);
+		}
+	}
+
+	/// <summary>The owner's answer: the weapon in the hands and the one on the back, their sights and rounds, set on this copy.</summary>
+	[PunRPC]
+	private IEnumerator WeaponState(int[] data, PhotonMessageInfo info)
+	{
+		PhotonView view = base.gameObject.GetPhotonView();
+		if (data == null || data.Length < 8 || info.sender == null || view == null || view.owner != info.sender || view.isMine || zombie)
+		{
+			yield break;
+		}
+		// this copy's own swap or exchange animation (the same RPC the owner just finished) ends first
+		float until = Time.time + 4f;
+		while (anim != null && anim.GetBool("Change") && Time.time < until)
+		{
+			yield return null;
+		}
+		if (primaryWeapons == null || secondaryWeapons == null || primaryWeapon == null || secondaryWeapon == null)
+		{
+			yield break;
+		}
+		SetCarriedWeapons(data[0], data[1], data[2], data[3]);
+		if (primaryWeaponIndex != data[0] || secondaryWeaponIndex != data[1])
+		{
+			yield break;
+		}
+		Gun hand = primaryWeapon.GetComponent<Gun>();
+		Gun back = primaryWeapons.GetChild(secondaryWeaponIndex).GetComponent<Gun>();
+		if (hand != null)
+		{
+			hand.currentAmmo = Mathf.Max(0, data[4]);
+			hand.maxAmmo = Mathf.Max(0, data[5]);
+		}
+		if (back != null)
+		{
+			back.currentAmmo = Mathf.Max(0, data[6]);
+			back.maxAmmo = Mathf.Max(0, data[7]);
+		}
+	}
+
+	/// <summary>Puts the given models and sights in the hands and on the back at once (no animation). False when nothing changed
+	/// or the models are not valid.</summary>
+	private bool SetCarriedWeapons(int pw, int sw, int pws, int sws)
+	{
+		if (primaryWeapons == null || secondaryWeapons == null || primaryWeapon == null || secondaryWeapon == null)
+		{
+			return false;
+		}
+		if (pw < 0 || pw >= primaryWeapons.childCount || sw < 0 || sw >= secondaryWeapons.childCount || sw >= primaryWeapons.childCount)
+		{
+			return false;
+		}
+		if (pw == primaryWeaponIndex && sw == secondaryWeaponIndex && pws == primarySightIndex && sws == secondarySightIndex)
+		{
+			return false;
+		}
+		// a weapon hidden for another reason (carrying) stays hidden
+		bool handShown = primaryWeapon.gameObject.activeSelf;
+		bool backShown = secondaryWeapon.gameObject.activeSelf;
+		primaryWeapon.gameObject.SetActive(false);
+		secondaryWeapon.gameObject.SetActive(false);
+		if (primaryWeapon.GetChild(2).childCount > 0)
+		{
+			UnityEngine.Object.Destroy(primaryWeapon.GetChild(2).GetChild(0).gameObject);
+		}
+		if (secondaryWeapon.GetChild(2).childCount > 0)
+		{
+			UnityEngine.Object.Destroy(secondaryWeapon.GetChild(2).GetChild(0).gameObject);
+		}
+		primaryWeaponIndex = pw;
+		secondaryWeaponIndex = sw;
+		primarySightIndex = pws;
+		secondarySightIndex = sws;
+		primaryWeapon = primaryWeapons.GetChild(primaryWeaponIndex);
+		secondaryWeapon = secondaryWeapons.GetChild(secondaryWeaponIndex);
+		if (primarySightIndex != 0 && Menu.sightDictionary.ContainsKey(primarySightIndex))
+		{
+			GameObject gameObject = FlatsSightTarget.Create("Sights/" + Menu.sightDictionary[primarySightIndex]);
+			gameObject.transform.SetParent(primaryWeapon.GetChild(2));
+			gameObject.transform.localPosition = Vector3.zero;
+			gameObject.transform.localEulerAngles = new Vector3(-90f, 0f, 0f);
+			if (MyView(base.gameObject))
+			{
+				gameObject.transform.GetChild(0).GetChild(1).gameObject.SetActive(true);
+			}
+		}
+		if (secondarySightIndex != 0 && Menu.sightDictionary.ContainsKey(secondarySightIndex))
+		{
+			GameObject gameObject2 = FlatsSightTarget.Create("Sights/" + Menu.sightDictionary[secondarySightIndex]);
+			gameObject2.transform.SetParent(secondaryWeapon.GetChild(2));
+			gameObject2.transform.localPosition = Vector3.zero;
+			gameObject2.transform.localEulerAngles = new Vector3(-90f, 0f, 0f);
+		}
+		primaryWeapon.gameObject.SetActive(handShown);
+		secondaryWeapon.gameObject.SetActive(backShown);
+		currentGun = primaryWeapon.GetComponent<Gun>();
+		return true;
+	}
+
+	/// <summary>Roguelike, owner, at spawn: the character was created with other weapons than the run's build names (it spawned
+	/// before the run state was known: a new chapter's map, a rejoin). The build's weapons go into the hands and on the back, and
+	/// every other copy is told (WeaponState).</summary>
+	public bool RogueCarryBuildWeapons(int primaryModel, int secondaryModel)
+	{
+		if (zombie || !MyView(base.gameObject) || primaryModel == secondaryModel)
+		{
+			return false;
+		}
+		// a sight belongs to the weapon it was on: kept when that model stays in its slot, none otherwise
+		int pws = primaryModel == primaryWeaponIndex ? primarySightIndex : primaryModel == secondaryWeaponIndex ? secondarySightIndex : 0;
+		int sws = secondaryModel == secondaryWeaponIndex ? secondarySightIndex : secondaryModel == primaryWeaponIndex ? primarySightIndex : 0;
+		if (!SetCarriedWeapons(primaryModel, secondaryModel, pws, sws))
+		{
+			return false;
+		}
+		PhotonView view = Menu.network == 2 ? base.gameObject.GetPhotonView() : null;
+		if (view != null && view.isMine)
+		{
+			StartCoroutine(SendWeaponState(view, null));
+		}
+		return true;
 	}
 
 	[PunRPC]

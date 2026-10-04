@@ -36,6 +36,9 @@ public sealed class RogueEnemyOperative : MonoBehaviour
     public static float SearchPause = 1.5f, SearchRadius = 15f;
     /// <summary>The second operative on the same target circles this far off the first one's line (degrees).</summary>
     public static float FlankAngle = 80f;
+    /// <summary>Once a player has come inside its melee range it keeps the blade out for this long (s), while the player stays within
+    /// MeleeLatchRangeMul of that range: a single close pass used to end before the swing could start.</summary>
+    public static float MeleeLatchSeconds = 2.5f, MeleeLatchRangeMul = 2f;
     public static float ShieldBubbleDiameter = 7.5f, IconSize = 0.6f, IconSpacing = 1.1f, IconRaise = 2.8f, IconRange = 45f;
 
     public EnemyKit Kit { get; private set; }
@@ -61,6 +64,7 @@ public sealed class RogueEnemyOperative : MonoBehaviour
     int burstsLeft, strafeSign = 1;
     Vector3 lastKnown, goal, coverSpot, lastTargetPosition, pushPoint;
     Transform aimTarget, watched; RoguePlayer watchedPlayer;
+    float intelAt = -100f, meleeLatchUntil = -100f;
     double errX, errY, velX, velY;
 
     public static RogueEnemyOperative Attach(GameObject enemy)
@@ -429,6 +433,14 @@ public sealed class RogueEnemyOperative : MonoBehaviour
         {
             if (!wasVisible) Acquire(target);
             lastKnown = target.position; lastSeenAt = Time.time;
+            RogueSquad.ReportSeen(target);
+        }
+        else
+        {
+            // what the squad knows that is newer than what it saw itself (a call-out, the player's gunfire, a rough report): it
+            // hunts there. It arrives alert, so before its first sighting this is all it has.
+            Vector3 believed; float believedAt;
+            if (RogueSquad.Known(target, out believed, out believedAt) && believedAt > lastSeenAt + 0.5f && believedAt > intelAt) { lastKnown = believed; intelAt = believedAt; searchAt = 0f; }
         }
         wasVisible = visible;
         Aim(target, visible);
@@ -444,7 +456,13 @@ public sealed class RogueEnemyOperative : MonoBehaviour
         if (agent.isOnOffMeshLink || (links != null && links.Traversing)) return;
 
         float distance = Flat(target.position - transform.position).magnitude;
-        if (melee != null) melee.Engage = visible && distance <= (float)EnemyOperativeRules.MeleeSwitchRange(Kit.Ranged);
+        if (melee != null)
+        {
+            float switchRange = (float)EnemyOperativeRules.MeleeSwitchRange(Kit.Ranged);
+            bool close = visible && distance <= switchRange;
+            if (close && Time.time >= meleeLatchUntil) meleeLatchUntil = Time.time + MeleeLatchSeconds;
+            melee.Engage = close || (visible && Time.time < meleeLatchUntil && distance <= switchRange * MeleeLatchRangeMul);
+        }
         if (meleeBusy) { owning = false; hasGoal = false; return; }   // RogueEnemyMelee steers and owns the flags meanwhile
         if (tactics != null && tactics.HoldingVantage) { owning = false; hasGoal = false; ai.rogueOwnsMovement = false; return; }   // an unreachable target: the shared vantage rule walks it
         OwnMovement();

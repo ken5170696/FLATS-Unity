@@ -1,8 +1,9 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-public class DroppedGun : MonoBehaviour
+public class DroppedGun : MonoBehaviour, IPunObservable
 {
 	public int weaponIndex;
 
@@ -67,7 +68,23 @@ public class DroppedGun : MonoBehaviour
 	{
 		int network = Menu.network;
 		mt = base.transform;
-		base.GetComponent<Rigidbody>().linearVelocity = base.transform.forward * UnityEngine.Random.Range(1, 50);
+		// The toss is a random speed: only the copy that simulates this weapon throws it (online: the master's). Every copy used
+		// to draw its own speed and run its own physics, so one weapon came to rest in a different place on every screen.
+		simulating = Simulates();
+		if (simulating)
+		{
+			body.linearVelocity = base.transform.forward * UnityEngine.Random.Range(1, 50);
+		}
+		else
+		{
+			body.isKinematic = true;
+			if (!hasPose)
+			{
+				netPosition = mt.position;
+				netRotation = mt.rotation;
+			}
+			askPoseAt = Time.time + PoseRequestDelay;
+		}
 		message = GameObject.Find("Message").transform;
 		currentGunImage = message.GetChild(1).GetChild(0).GetComponent<Image>();
 		thisGunImage = message.GetChild(1).GetChild(1).GetComponent<Image>();
@@ -95,6 +112,197 @@ public class DroppedGun : MonoBehaviour
 	private void OnDestroy()
 	{
 		HideOffer();
+	}
+
+	// ---- One place for everyone (online play). A ground weapon is a physics object owned by the scene (the master client).
+	// The master alone simulates it and sends where it is while it moves (the PhotonView's own stream, unreliable); when it
+	// comes to rest the final pose goes out once, reliably, and nothing more is sent until it moves again. Every other copy is
+	// kinematic and glides to the pose it was told. A copy that never heard a pose (a player who joined or came back after the
+	// weapon settled: the buffered spawn carries only the spawn point) asks the master once. A new master takes the simulation
+	// over from where the weapon is drawn. Offline and LAN sessions simulate locally as before.
+	private const float PoseRequestDelay = 1f;
+
+	private const float RestSeconds = 0.5f;
+
+	private const float SnapDistance = 30f;
+
+	private Rigidbody body;
+
+	private PhotonView netView;
+
+	private bool simulating = true;
+
+	private bool resting;
+
+	private float stillFor;
+
+	private Vector3 restPosition;
+
+	private Quaternion restRotation = Quaternion.identity;
+
+	private bool hasPose;
+
+	private bool netResting;
+
+	private Vector3 netPosition;
+
+	private Quaternion netRotation;
+
+	private double restStamp = double.MinValue;
+
+	private float askPoseAt = -1f;
+
+	private void Awake()
+	{
+		body = base.GetComponent<Rigidbody>();
+		netView = base.GetComponent<PhotonView>();
+		if (netView != null)
+		{
+			// the same change on every copy, before the first serialization, so the stream layout matches on both ends
+			if (netView.ObservedComponents == null)
+			{
+				netView.ObservedComponents = new List<Component>();
+			}
+			netView.ObservedComponents.RemoveAll((Component c) => c == null);
+			if (!netView.ObservedComponents.Contains(this))
+			{
+				netView.ObservedComponents.Add(this);
+			}
+			netView.synchronization = ViewSynchronization.Unreliable;
+		}
+	}
+
+	private bool Simulates()
+	{
+		return Menu.network != 2 || netView == null || netView.isMine;
+	}
+
+	public void OnPhotonSerializeView(PhotonStream stream, PhotonMessageInfo info)
+	{
+		if (stream.isWriting)
+		{
+			if (resting || !simulating)
+			{
+				return;   // nothing written, nothing sent: a weapon lying still costs no traffic
+			}
+			stream.SendNext(mt != null ? mt.position : base.transform.position);
+			stream.SendNext(mt != null ? mt.rotation : base.transform.rotation);
+		}
+		else
+		{
+			Vector3 position = (Vector3)stream.ReceiveNext();
+			Quaternion rotation = (Quaternion)stream.ReceiveNext();
+			if (info.timestamp <= restStamp)
+			{
+				return;   // an unreliable sample from before the reliable resting pose arrived late
+			}
+			netPosition = position;
+			netRotation = rotation;
+			netResting = false;
+			hasPose = true;
+		}
+	}
+
+	/// <summary>The master's resting pose (reliable): sent to everyone when the weapon settles and to a copy that asked.</summary>
+	[PunRPC]
+	private void DropPose(Vector3 position, Quaternion rotation, PhotonMessageInfo info)
+	{
+		if (info.sender == null || !info.sender.IsMasterClient || Simulates())
+		{
+			return;
+		}
+		netPosition = position;
+		netRotation = rotation;
+		netResting = true;
+		hasPose = true;
+		restStamp = info.timestamp;
+	}
+
+	/// <summary>A copy that has no pose yet asks; only the master answers, and only to the player who asked.</summary>
+	[PunRPC]
+	private void DropPoseRequest(PhotonMessageInfo info)
+	{
+		if (info.sender == null || !PhotonNetwork.isMasterClient || netView == null)
+		{
+			return;
+		}
+		netView.RPC("DropPose", info.sender, base.transform.position, base.transform.rotation);
+	}
+
+	private void SyncPose()
+	{
+		if (body == null || mt == null)
+		{
+			return;
+		}
+		bool now = Simulates();
+		if (now != simulating)
+		{
+			// the master changed: the new one simulates from where the weapon is drawn, the old one (if still here) follows
+			simulating = now;
+			body.isKinematic = !now;
+			resting = false;
+			stillFor = 0f;
+			if (!now)
+			{
+				netPosition = mt.position;
+				netRotation = mt.rotation;
+			}
+		}
+		if (simulating)
+		{
+			if (Menu.network != 2 || netView == null)
+			{
+				return;
+			}
+			if (mt.position.y < -500f && !body.isKinematic)
+			{
+				// fell out of the map: it stops here instead of being sent forever
+				body.linearVelocity = Vector3.zero;
+				body.angularVelocity = Vector3.zero;
+				body.isKinematic = true;
+			}
+			bool still = body.isKinematic || body.IsSleeping() || (body.linearVelocity.sqrMagnitude < 0.01f && body.angularVelocity.sqrMagnitude < 0.01f);
+			if (resting)
+			{
+				// pushed again, or still creeping (a weapon rocking or rolling slowly in place passes for still): whenever the
+				// pose leaves the one that was sent, the stream resumes and a new resting pose follows
+				if ((mt.position - restPosition).sqrMagnitude > 0.0004f || Quaternion.Angle(mt.rotation, restRotation) > 1f)
+				{
+					resting = false;
+					stillFor = 0f;
+				}
+				return;
+			}
+			stillFor = still ? stillFor + Time.deltaTime : 0f;
+			if (stillFor >= RestSeconds)
+			{
+				resting = true;
+				restPosition = mt.position;
+				restRotation = mt.rotation;
+				netView.RPC("DropPose", PhotonTargets.Others, mt.position, mt.rotation);
+			}
+			return;
+		}
+		if (!hasPose)
+		{
+			if (askPoseAt >= 0f && Time.time >= askPoseAt && netView != null && netView.viewID != 0 && PhotonNetwork.inRoom)
+			{
+				askPoseAt = -1f;
+				netView.RPC("DropPoseRequest", PhotonTargets.MasterClient);
+			}
+			return;
+		}
+		float gap = (netPosition - mt.position).magnitude;
+		if (gap > SnapDistance || (netResting && gap < 0.02f))
+		{
+			mt.SetPositionAndRotation(netPosition, netRotation);
+		}
+		else
+		{
+			float k = 1f - Mathf.Exp(-14f * Time.deltaTime);
+			mt.SetPositionAndRotation(Vector3.Lerp(mt.position, netPosition, k), Quaternion.Slerp(mt.rotation, netRotation, k));
+		}
 	}
 
 	private void OnDisable()
@@ -325,6 +533,7 @@ public class DroppedGun : MonoBehaviour
 
 	private void Update()
 	{
+		SyncPose();
 		if (inside)
 		{
 			if (fc == null)

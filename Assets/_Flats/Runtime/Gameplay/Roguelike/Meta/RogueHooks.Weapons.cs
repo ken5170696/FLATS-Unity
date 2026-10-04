@@ -26,7 +26,15 @@ public static partial class RogueHooks
     /// <summary>Seconds the Shoot coroutine waits right after a round (the recoil step) for a Roguelike player's gun.</summary>
     public static float RoundStep(FPSController player, Gun gun, float intervalMul)
     {
-        return (float)WeaponRules.RoundStep(SemiAuto(player, gun), intervalMul);
+        // bounded by the gun's own round interval: the 0.1 s step no longer holds a fast automatic weapon at 600 rpm
+        return (float)WeaponRules.RoundStep(SemiAuto(player, gun), gun != null ? gun.rpm : 60f, intervalMul);
+    }
+
+    /// <summary>The game time the next round of a Roguelike player's gun is due, given when the round firing now was due
+    /// (WeaponRules.NextRoundDue): a round up to RoundPaybackSeconds late keeps its place on the clock.</summary>
+    public static float NextRoundDue(float due, float interval)
+    {
+        return (float)WeaponRules.NextRoundDue(Time.time, due, interval);
     }
 
     /// <summary>Seconds from one round to the next for a Roguelike player's gun (a handgun: the semi-automatic minimum).</summary>

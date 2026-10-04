@@ -77,16 +77,17 @@ namespace Flats.Core.Roguelike
         { return RogueStateBag.NonNegative(perEnemy) * Math.Max(0, Math.Min(MaxDrainingEnemies, enemiesNear)); }
 
         // ---------------------------------------------------------------- pressure squads
-        /// <summary>Seconds between squads while an interaction goes on, and how long a contested place may stay thin.</summary>
-        public const double SustainSeconds = 9, ReinforceDelaySeconds = 2;
+        /// <summary>Seconds between squads while an interaction goes on (was 9: owner feedback 2026-10-04 asked for a little more
+        /// pressure), and how long a contested place may stay thin.</summary>
+        public const double SustainSeconds = 7, ReinforceDelaySeconds = 2;
 
         static int ChapterBonus(int depth) { return Math.Min(2, RogueDepth.ChapterOf(depth) - 1); }
         static int Clamp(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
-        /// <summary>Enemies (alive plus planned) a contested place keeps on the field: 4 solo in chapter 1, up to 9. Was 3 to 6.</summary>
-        public static int PressureFloor(int players, int depth) { return Clamp(3 + Players(players) + ChapterBonus(depth), 4, 9); }
-        /// <summary>The squad that answers the start of an interaction: 3 solo in chapter 1, up to 8.</summary>
-        public static int AmbushSize(int players, int depth) { return Clamp(2 + Players(players) + ChapterBonus(depth), 3, 8); }
+        /// <summary>Enemies (alive plus planned) a contested place keeps on the field: 5 solo in chapter 1, up to 10. Was 4 to 9.</summary>
+        public static int PressureFloor(int players, int depth) { return Clamp(4 + Players(players) + ChapterBonus(depth), 5, 10); }
+        /// <summary>The squad that answers the start of an interaction: 4 solo in chapter 1, up to 9. Was 3 to 8.</summary>
+        public static int AmbushSize(int players, int depth) { return Clamp(3 + Players(players) + ChapterBonus(depth), 4, 9); }
         /// <summary>The squad that arrives every <see cref="SustainSeconds"/> while the interaction goes on: 2 to 5.</summary>
         public static int SustainSize(int players) { return 1 + Players(players); }
         /// <summary>One wave of the reinforcement signal (was a single rifleman): 2 to 5.</summary>
@@ -108,6 +109,30 @@ namespace Flats.Core.Roguelike
         }
 
         static readonly string[] SquadPattern = { "role.rusher", "role.rifleman", "role.flanker", "role.rifleman", "role.rusher", "role.marksman" };
+
+        /// <summary>The role that leads an ambush squad (its first member): somebody who closes in on the player who is busy with the
+        /// interaction. A Bruiser or a Flanker by turns once the depth has unlocked them (RogueCatalog MinDepth: the Flanker from
+        /// stage 2, the Bruiser from stage 3); on the very first stage, where neither exists yet, a Rusher.</summary>
+        public static string AmbushLeadRole(int depth, int ambushIndex)
+        {
+            int d = RogueDepth.Clamp(depth);
+            var brawler = RogueCatalog.Role("role.brawler");
+            var flanker = RogueCatalog.Role("role.flanker");
+            bool hasBrawler = brawler != null && brawler.MinDepth <= d, hasFlanker = flanker != null && flanker.MinDepth <= d;
+            if (hasBrawler && hasFlanker) return (ambushIndex < 0 ? 0 : ambushIndex) % 2 == 0 ? "role.brawler" : "role.flanker";
+            if (hasBrawler) return "role.brawler";
+            if (hasFlanker) return "role.flanker";
+            return "role.rusher";
+        }
+
+        /// <summary>An ambush closes in from several sides: each member after the first arrives at least this many degrees (seen from
+        /// the place under attack) from the members already placed, when one of AmbushSpreadDraws extra placements allows it.</summary>
+        public const double AmbushSpreadDegrees = 60;
+        public const int AmbushSpreadDraws = 3;
+
+        /// <summary>Role of the ambush squad member at <paramref name="index"/>: the lead first, then the usual pattern.</summary>
+        public static string AmbushRole(int index, int depth, int ambushIndex)
+        { return index <= 0 ? AmbushLeadRole(depth, ambushIndex) : PressureRole(index - 1, depth); }
 
         /// <summary>Role of the squad member at <paramref name="index"/>: a fixed close/steady/flank mix of the original roles the
         /// depth has unlocked (RogueCatalog MinDepth); a locked or unknown role falls back to a rifleman.</summary>

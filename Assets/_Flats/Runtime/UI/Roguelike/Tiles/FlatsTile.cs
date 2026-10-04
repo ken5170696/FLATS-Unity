@@ -49,8 +49,42 @@ public class FlatsTile : Button
         if(focusEdges!=null) for(int k=0;k<focusEdges.Length;k++) {var edge=focusEdges[k];if(edge!=null) { edge.enabled=focus; edge.color=Theme.onBrand; var r=edge.rectTransform;r.sizeDelta=k<2?new Vector2(0,borderWidth):new Vector2(borderWidth,0); } }
         if(check!=null) { check.enabled=selected; check.color=Theme.onBrand; }
     }
+    // A number without a space is one token ("191", "$1836.4"): wider than its tile, it gets smaller instead of breaking in the
+    // middle onto a second line. Measured for the final value of a count-up, so the size does not change while it counts.
+    int numberAuthoredSize; string numberFitText; float numberFitWidth = -1;
+    /// <summary>A layout that chooses the number's size (the result screen's hero tile, per aspect) sets it here, so the fit
+    /// starts from that size instead of being overwritten by it.</summary>
+    public void SetNumberSize(int size)
+    {
+        if (numberAuthoredSize != size) { numberAuthoredSize = size; numberFitWidth = -1; }
+        FitNumber();
+    }
+    void FitNumber()
+    {
+        if (number == null || number.resizeTextForBestFit) return;
+        string text = counting != null && countFinal != null ? countFinal : number.text;
+        float width = number.rectTransform.rect.width;
+        if (width == numberFitWidth && text == numberFitText) return;
+        numberFitText = text; numberFitWidth = width;
+        if (numberAuthoredSize == 0) numberAuthoredSize = number.fontSize;
+        int size = numberAuthoredSize;
+        if (width > 1 && !string.IsNullOrEmpty(text) && text.IndexOf(' ') < 0 && text.IndexOf('\n') < 0)
+        {
+            var settings = number.GetGenerationSettings(Vector2.zero);
+            settings.horizontalOverflow = HorizontalWrapMode.Overflow; settings.resizeTextForBestFit = false;
+            for (int pass = 0; pass < 4 && size > 10; pass++)
+            {
+                settings.fontSize = size;
+                float preferred = number.cachedTextGeneratorForLayout.GetPreferredWidth(text, settings) / Mathf.Max(0.0001f, number.pixelsPerUnit);
+                if (preferred <= width) break;
+                size = Mathf.Max(10, Mathf.Min(size - 1, Mathf.FloorToInt(size * width / preferred)));
+            }
+        }
+        if (number.fontSize != size) number.fontSize = size;
+    }
     void Update()
     {
+        FitNumber();
         Paint();
         float target=pressed?pressScale:(pointer||keyboard?focusScale:1);
         scale=reduceMotion?1:Mathf.MoveTowards(scale,target,Time.unscaledDeltaTime*Mathf.Abs(1-pressScale+focusScale-1)/Mathf.Max(.001f,pressed?pressSeconds:focusSeconds));

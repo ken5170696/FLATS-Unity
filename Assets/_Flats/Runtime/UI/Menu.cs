@@ -339,7 +339,9 @@ public partial class Menu : MonoBehaviour
         if (themedGraphics == null) return;
         foreach (var graphic in themedGraphics)
         {
-            if (graphic == null) continue;
+            // Every frame, in every scene: only a graphic that is drawn can have had its material swapped by a button clip, and one
+            // that is shown again is checked on that same frame (about 1200 graphics, nearly all hidden while playing).
+            if (graphic == null || !graphic.isActiveAndEnabled) continue;
             var material = ResolveThemeMaterial(graphic.material);
             if (graphic.material != material) graphic.material = material;
         }

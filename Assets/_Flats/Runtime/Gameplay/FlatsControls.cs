@@ -30,7 +30,14 @@ public static class FlatsControls
     public static event Action Changed;
     public static bool Capturing { get; set; }
     public static bool UsingGamepad { get; set; }
-    static string Key(string action, bool pad) => "controls.v1." + (pad ? "pad." : "key.") + action;
+    // The preference names are built once per action: bindings are read many times a frame.
+    static readonly System.Collections.Generic.Dictionary<string, string> keyNames = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal), padNames = new System.Collections.Generic.Dictionary<string, string>(StringComparer.Ordinal);
+    static string Key(string action, bool pad)
+    {
+        var names = pad ? padNames : keyNames;
+        if (!names.TryGetValue(action, out string name)) { name = "controls.v1." + (pad ? "pad." : "key.") + action; names[action] = name; }
+        return name;
+    }
     public const string AimModeKey = "controls.v1.aimMode";
     // Keyboard and mouse aim: "toggle" (default, the original behaviour) or "hold".
     public static bool HoldToAim
@@ -123,9 +130,12 @@ public static class FlatsControls
     {
         int index = Array.IndexOf(KeyboardActions, action);
         if (index < 0) throw new ArgumentException(action);
-        if (Enum.TryParse(FlatsPreferences.GetString(Key(action, false)), out KeyCode value) && ValidKey(value)) return value;
+        // One read of the stored binding per action and frame (every Held/Down and every prompt asks; each read used to build the
+        // preference name, fetch the string and parse it). A change through this class forgets it at once (ForgetLateDefaults).
+        if (keyFrame[index] == Time.frameCount) return keyCache[index];
+        if (Enum.TryParse(FlatsPreferences.GetString(Key(action, false)), out KeyCode value) && ValidKey(value)) { keyFrame[index] = Time.frameCount; keyCache[index] = value; return value; }
         int late = Array.IndexOf(lateActions, action);
-        if (late < 0) return defaults[index];
+        if (late < 0) { keyFrame[index] = Time.frameCount; keyCache[index] = defaults[index]; return defaults[index]; }
         // resolved once per frame: every Down("Shop") would otherwise read all the other bindings again
         if (lateKeyFrame[late] != Time.frameCount) { lateKeyFrame[late] = Time.frameCount; lateKey[late] = FreeDefault(lateKeys[late], action, late); }
         return lateKey[late];
@@ -133,7 +143,16 @@ public static class FlatsControls
     static readonly int[] lateKeyFrame = { -1, -1, -1 }, lateButtonFrame = { -1, -1, -1 };
     static readonly KeyCode[] lateKey = new KeyCode[lateActions.Length];
     static readonly InputControlType[] lateButton = new InputControlType[lateActions.Length];
-    static void ForgetLateDefaults() { for (int i = 0; i < lateActions.Length; i++) lateKeyFrame[i] = lateButtonFrame[i] = -1; }
+    static readonly int[] keyFrame = NewFrames(KeyboardActions.Length), padFrame = NewFrames(PadActions.Length);
+    static readonly KeyCode[] keyCache = new KeyCode[KeyboardActions.Length];
+    static readonly InputControlType[] padCache = new InputControlType[PadActions.Length];
+    static int[] NewFrames(int count) { var frames = new int[count]; for (int i = 0; i < count; i++) frames[i] = -1; return frames; }
+    static void ForgetLateDefaults()
+    {
+        for (int i = 0; i < lateActions.Length; i++) lateKeyFrame[i] = lateButtonFrame[i] = -1;
+        for (int i = 0; i < keyFrame.Length; i++) keyFrame[i] = -1;
+        for (int i = 0; i < padFrame.Length; i++) padFrame[i] = -1;
+    }
     // Only a late action's own free default reads the other bindings, and it skips a later late action that has no saved binding
     // (that one resolves against this one instead), so this cannot recurse: Shop never waits for Melee's default.
     static bool SkipsOther(string other, int late, bool pad)
@@ -189,7 +208,8 @@ public static class FlatsControls
     {
         int index = Array.IndexOf(PadActions, action);
         if (index < 0) throw new ArgumentException(action);
-        if (Enum.TryParse(FlatsPreferences.GetString(Key(action, true)), out InputControlType value) && Array.IndexOf(PadButtons, value) >= 0) return value;
+        if (padFrame[index] == Time.frameCount) return padCache[index];
+        if (Enum.TryParse(FlatsPreferences.GetString(Key(action, true)), out InputControlType value) && Array.IndexOf(PadButtons, value) >= 0) { padFrame[index] = Time.frameCount; padCache[index] = value; return value; }
         int late = Array.IndexOf(lateActions, action);
         if (late < 0) return FlatsGamepad.DefaultButton(index);
         if (lateButtonFrame[late] != Time.frameCount) { lateButtonFrame[late] = Time.frameCount; lateButton[late] = FreeDefault(lateButtons[late], action, late); }
@@ -267,7 +287,7 @@ public static class FlatsControls
             // saving that action's primary button explicitly.
             else if (pad && !FlatsPreferences.HasKey(Key(other, true)) &&
                 ((other == "Fire" && value == "RightBumper") || (other == "Aim" && value == "LeftBumper") || (other == "Scope" && value == "DPadUp")))
-                FlatsPreferences.SetString(Key(other, true), Pad(other).ToString());
+            { FlatsPreferences.SetString(Key(other, true), Pad(other).ToString()); ForgetLateDefaults(); }
         }
         if (swapped != null && previous != value) FlatsPreferences.SetString(Key(swapped, pad), previous);
         FlatsPreferences.SetString(Key(action, pad), value);

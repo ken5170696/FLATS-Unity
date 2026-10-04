@@ -109,8 +109,9 @@ public sealed class RogueMelee : MonoBehaviour
         if (fc == null || player == null || player.Stats == null) return;
         var primaryGun = fc.primaryWeapon != null ? fc.primaryWeapon.GetComponent<Gun>() : null;
         var secondaryGun = fc.secondaryWeapon != null ? fc.secondaryWeapon.GetComponent<Gun>() : null;
-        var p = RoguelikeMode.Active && primaryGun != null ? player.Stats.WeaponForModel(primaryGun.id) : null;
-        var s = RoguelikeMode.Active && secondaryGun != null ? player.Stats.WeaponForModel(secondaryGun.id) : null;
+        var applied = RoguelikeMode.Active ? RogueMetaRuntime.Of(player) : null;   // the row each gun really fires with (a gun from the ground: its model's original)
+        var p = applied != null && primaryGun != null ? applied.WeaponDefForModel(primaryGun.id) : null;
+        var s = applied != null && secondaryGun != null ? applied.WeaponDefForModel(secondaryGun.id) : null;
         if (skinnedPrimary != fc.primaryWeapon || primaryDef != p)
         {
             RogueWeaponSkin.Clear(skinnedPrimary); skinnedPrimary = fc.primaryWeapon; primaryDef = p; RogueWeaponSkin.Apply(skinnedPrimary,p);

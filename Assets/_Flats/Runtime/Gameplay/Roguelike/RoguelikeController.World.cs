@@ -228,7 +228,7 @@ public partial class RoguelikeController
         // moment (Update builds it when the replicated intro ends). A late joiner mid-stage has no running intro and builds at once.
         if (SpawnsHeld) { clientWorldPending = true; return; }
         var enc = state.encounter;
-        if (objectiveRunner == null && state.phase == RunPhase.Combat) objectiveRunner = RogueObjectiveRunner.Create(this, enc);
+        if (objectiveRunner == null && state.phase == RunPhase.Combat && !state.range) objectiveRunner = RogueObjectiveRunner.Create(this, enc);
         if (eventRunner == null && !string.IsNullOrEmpty(enc.eventId) && !ClientEventOver(enc.eventId)) { eventRunner = RogueEventRunner.Create(this, enc.eventId, 3); if (eventRunner != null) eventRunner.Begin(); }
         if (emergencyRunner == null && !string.IsNullOrEmpty(enc.emergencyId) && !ClientEventOver(enc.emergencyId)) { emergencyRunner = RogueEventRunner.Create(this, enc.emergencyId, 6); if (emergencyRunner != null) emergencyRunner.Begin(); }
     }
@@ -326,7 +326,11 @@ public partial class RoguelikeController
         if (go == null || Menu.network == 0) return;
         var gun = PhotonNetwork.InstantiateSceneObject("Weapons/Weapon" + index, go.transform.position + Vector3.up * 2f + go.transform.forward, Quaternion.identity, 0, null);
         if (gun == null) return;
-        gun.GetPhotonView().RPC("DropData", PhotonTargets.All, GunInfo.limitAmmo[index], GunInfo.limitMaxAmmo[index], 0);
+        // the buyer's own capacities for the armory weapon this purchase gives (RogueHooks.BoughtGunAmmo), not the Classic catalogue's
+        var buyer = state.Player(playerKey);
+        int magazine, reserve;
+        RogueHooks.BoughtGunAmmo(buyer != null ? buyer.build : null, index, out magazine, out reserve);
+        gun.GetPhotonView().RPC("DropData", PhotonTargets.All, magazine, reserve, 0);
         Notify(new RogueEventMessage { kind = "equip", playerKey = playerKey, index = gun.GetPhotonView().viewID, text = index.ToString() });
     }
 
@@ -337,7 +341,11 @@ public partial class RoguelikeController
         var fps = FindLocalPlayer() != null ? FindLocalPlayer().GetComponent<FPSController>() : null;
         if (fps == null) return;
         int index = int.Parse(e.text);
-        fps.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.AllViaServer, new int[5] { index, GunInfo.limitAmmo[index], GunInfo.limitMaxAmmo[index], 0, e.index });
+        // entries 1 and 2 are not read in co-op (the exchange takes the scene gun's own rounds, set by OnEquipRequest); they carry
+        // the same capacities for a reader of the message
+        int magazine, reserve;
+        RogueHooks.BoughtGunAmmo(LocalPlayer != null ? LocalPlayer.build : null, index, out magazine, out reserve);
+        fps.gameObject.GetPhotonView().RPC("ExchangeWeapons", PhotonTargets.AllViaServer, new int[5] { index, magazine, reserve, 0, e.index });
     }
 
     /// <summary>Authority: a world hit reported by a client for a RogueDamageable (name-addressed).</summary>

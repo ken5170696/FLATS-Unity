@@ -135,6 +135,7 @@ public partial class RoguelikeController
                 break;
             case RunPhase.Combat:
                 {
+                    if (state.range) { RangeHud(); break; }   // no objective: what the range is and how to open its menu
                     string id = enc.IsFinale ? enc.finaleId : enc.objectiveId;
                     var def = RogueCatalog.Encounter(id);
                     string progress = ObjectivePart(0);
@@ -493,7 +494,9 @@ public partial class RoguelikeController
         // so the ready count (who we are waiting for) is always visible
         bool affordable = false; foreach (var o in me.offers) if (!o.sold && o.priceMinor <= me.walletMinor) affordable = true;
         hint = countdown > 0 ? T("Everyone is ready. The stage starts in {0} s. Cancel Ready to wait.", countdown) : ReadyText();
-        if (!affordable && me.walletMinor < RogueMoney.Coins(10)) hint += "\n" + T("No money yet: kills pay bounty.");
+        // its own line on a portrait screen; a landscape shop shows this note on one row beside the subtitle (a second line is cut
+        // there, and in Chinese it was exactly this sentence that disappeared), so it follows on the same row
+        if (!affordable && me.walletMinor < RogueMoney.Coins(10)) hint += (Screen.height > Screen.width ? "\n" : "   ") + T("No money yet: kills pay bounty.");
         // the button says what pressing it does, short enough for one line beside its icon; the note under it carries the countdown
         // sentence ("Starting in 2 (tap to cancel)" wrapped onto the check icon in Chinese)
         label = !ready ? T("Ready") : countdown > 0 ? T("Cancel Ready ({0})", countdown) : T("Cancel Ready");
@@ -738,7 +741,10 @@ public partial class RoguelikeController
     static string SlotSummary(PlayerBuild b)
     {
         // the tactical and the ultimate are named once the player has one; an empty slot adds nothing to read here
-        return T("Cores {0}/{1}", b.cores.Length, RogueCatalog.MaxCores) + " · " + T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods)
+        // the shooting range has no slot limit (RunMachine.RangeSetItem): only the counts, never "5/2"
+        bool unlimited = Instance != null && Instance.RangeActive;
+        return (unlimited ? T("Cores") + " " + b.cores.Length + " · " + T("Mods") + " " + b.mods.Length
+                          : T("Cores {0}/{1}", b.cores.Length, RogueCatalog.MaxCores) + " · " + T("Mods {0}/{1}", b.mods.Length, RogueCatalog.MaxMods))
             + (string.IsNullOrEmpty(b.tactical) ? "" : " · " + T("Tactical") + " " + ItemName(b.tactical))
             + (string.IsNullOrEmpty(b.ultimate) ? "" : " · " + T("Ultimate") + " " + ItemName(b.ultimate));
     }

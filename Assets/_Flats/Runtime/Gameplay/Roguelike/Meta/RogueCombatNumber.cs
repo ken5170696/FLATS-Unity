@@ -32,6 +32,7 @@ public sealed class RogueCombatNumber : MonoBehaviour
         if (target == null || damage <= 0 || target.userIsPlayer) return;
         var role = target.GetComponent<RogueEnemyRole>(); if (role != null) role.lastHitDamage = damage;
         if (float.IsNaN(damage) || float.IsInfinity(damage)) return;
+        RogueRangeMeter.Report(target, damage, headshot, source);   // shooting range statistics (nothing outside the range)
         var mode = FlatsControls.DamageNumberStyle;
         if (mode == DamageNumberMode.Off) return;
         var numbers = View();

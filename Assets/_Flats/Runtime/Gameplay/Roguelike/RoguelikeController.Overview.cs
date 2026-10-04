@@ -19,6 +19,8 @@ public partial class RoguelikeController
         if (!runStarted || state == null) return;
         bool toggle = RogueInput.OverviewToggle;   // the Overview binding (keyboard or pad, RogueInput.KeyText("Overview")) or the HUD touch button
         bool allowed = Menu.current == "Playing" || Menu.current == "RogueScreen";
+        // the shooting range's menu is a full screen of its own with the same keys: the overview never opens over it
+        if (RogueRangeRuntime.Instance != null && RogueRangeRuntime.Instance.MenuOpen) allowed = false;
         if (toggle && allowed && !ConfirmDialogOpen()) { if (overview != null) CloseOverview(); else OpenOverview(); }
         if (overview == null) return;
         overviewRefresh -= Time.unscaledDeltaTime;
@@ -132,7 +134,7 @@ public partial class RoguelikeController
     {
         var b = me.build; var stats = BuildStats.Compute(b); var theme = FlatsUiTheme.Rogue;
         overviewStats = stats;
-        for (int i = 0; i < RogueCatalog.MaxCores; i++)
+        for (int i = 0; i < Mathf.Max(RogueCatalog.MaxCores, b.cores.Length); i++)   // the shooting range has no core limit: every held core shows
         {
             if (i < b.cores.Length) OverviewItem(me, b.cores[i], true);
             else overview.AddTile("empty-core-" + i, "Core", T("Core"), "", T("Empty core slot"), "", theme.supply, T("The shop opens between stages."), T("Cores {0}/{1}", b.cores.Length, RogueCatalog.MaxCores), "", true).Empty(theme.core);

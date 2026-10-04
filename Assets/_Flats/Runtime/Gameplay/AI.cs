@@ -274,6 +274,7 @@ public class AI : MonoBehaviour
 				if (targets.Count > 0)
 				{
 					SelectRogueTarget();
+					RogueAlert();
 				}
 			}
 			else if (Menu.isMaster() && targets.Count > 0)
@@ -1022,8 +1023,67 @@ public class AI : MonoBehaviour
 		return mt != null && IsValidTarget(target) && CanSeeTarget(target) && IsInRangeOf(target);
 	}
 
+	/// <summary>Roguelike squad brain (RogueEnemyTactics): this enemy has a line of sight to the target, whatever the range.</summary>
+	public bool RogueHasSight(Transform target)
+	{
+		return mt != null && IsValidTarget(target) && CanSeeTarget(target);
+	}
+
+	/// <summary>Roguelike: the magazine is empty or the reload is playing (the squad covers it, and it goes behind cover).</summary>
+	public bool RogueReloading { get { return currentGun != null && (currentGun.currentAmmo <= 0 || (anim != null && anim.GetBool("Reload"))); } }
+
+	/// <summary>Roguelike sight lines ignore every character's body. The legacy mask leaves this enemy's own team in, so a squad mate
+	/// standing in the line counted as a wall: enemies behind the first rank stopped firing and went searching for a player in plain
+	/// view (owner feedback 2026-10-04, "sometimes they do not shoot at me"). Enemy bullets pass through squad mates anyway.</summary>
+	public int RogueSightMask { get { return RoguelikeMode.Active ? mask.value & ~((1 << 8) | (1 << 9)) : mask.value; } }
+
+	/// <summary>
+	/// Roguelike, authority only: leave patrol at once. An enemy on patrol attacked only what it saw in its front arc while it walked
+	/// its waypoints, so one that arrived out of sight strolled around the map (or straight past the squad) without firing. The
+	/// Roguelike is a survival mode: an enemy is alert from the moment it arrives and RogueEnemyTactics leads it to the squad.
+	/// The same transition the patrol's own sighting makes, so every copy enters attack mode through the same RPC.
+	/// </summary>
+	public void RogueAlert()
+	{
+		if (!RoguelikeMode.Active || !isPatrol || zombie || currentGun == null || agent == null || targets.Count == 0 || !Menu.isMaster()) return;
+		if (agent.isOnOffMeshLink && !RogueEnemyLinkTraversal.Manages(this))
+		{
+			agent.Stop();
+		}
+		if (Menu.network == 0)
+		{
+			BeginAttack();
+		}
+		else if (Menu.network != 1 && PhotonNetwork.isMasterClient && base.gameObject.activeSelf)
+		{
+			base.gameObject.GetPhotonView().RPC("Attack", PhotonTargets.All);
+		}
+	}
+
+	// Roguelike: one tag search per frame for all enemies together (28 enemies rescanning once a second each did two searches and
+	// two array allocations per rescan). Enemies never fight each other there, so the "Enemy" search is skipped altogether.
+	private static readonly List<Transform> roguePlayerCache = new List<Transform>();
+	private static int roguePlayerCacheFrame = -1;
+
 	private void CreateList()
 	{
+		if (RoguelikeMode.Active)
+		{
+			if (roguePlayerCacheFrame != Time.frameCount)
+			{
+				roguePlayerCacheFrame = Time.frameCount;
+				roguePlayerCache.Clear();
+				foreach (GameObject player in GameObject.FindGameObjectsWithTag("Player")) roguePlayerCache.Add(player.transform);
+			}
+			// a new list as before: callers may be walking the old one
+			targets = new List<Transform>(roguePlayerCache.Count + 1);
+			for (int i = 0; i < roguePlayerCache.Count; i++)
+			{
+				Transform player = roguePlayerCache[i];
+				if (player != null && (player.gameObject.layer != base.gameObject.layer || FlatsOfflineScores.FreeForAll) && IsValidTarget(player)) targets.Add(player);
+			}
+			return;
+		}
 		targets = new List<Transform>();
 		GameObject[] array = GameObject.FindGameObjectsWithTag("Player");
 		if (array != null)
@@ -1253,7 +1313,12 @@ public class AI : MonoBehaviour
 				else
 				{
 					agent.speed = defaultSpeed * 1.5f;
-					tt -= 1f;
+					// Roguelike: a search does not time out into a patrol (the enemy then walked its waypoints away from the squad);
+					// it keeps after the target until it finds it. Classic modes return to the route as before.
+					if (!RoguelikeMode.Active)
+					{
+						tt -= 1f;
+					}
 				}
 				Vector3 dir = mt.forward - mt.up * 0.2f;
 				Quaternion camRot = Quaternion.LookRotation(dir);
@@ -1336,6 +1401,16 @@ public class AI : MonoBehaviour
 			if (role != null) spread *= role.RelativeAimSpread(aimed != null ? Vector3.Distance(mt.position, aimed.position) : 60f);
 		}
 		return UnityEngine.Random.Range(0f - spread, spread);
+	}
+
+	/// <summary>Roguelike co-op: this enemy's SyncTeam data as it stands on this copy. The master's buffered SyncTeam leaves the room
+	/// cache with that master, so a new master sends this to a player who joins afterwards (RoguelikeController.RangeSyncInheritedEnemies).
+	/// The weapons are read from what the enemy holds: Start can overwrite the index fields on a copy that is not the master.</summary>
+	public int[] RogueSyncData(int roleIndex, int instanceId, bool elite)
+	{
+		int primary = primaryWeapon != null ? primaryWeapon.GetSiblingIndex() : primaryWeaponIndex;
+		int secondary = secondaryWeapon != null ? secondaryWeapon.GetSiblingIndex() : secondaryWeaponIndex;
+		return new int[10] { team, primary, secondary, 0, 0, stats_Attack, stats_Defense, roleIndex, instanceId, elite ? 1 : 0 };
 	}
 
 	/// <summary>Roguelike role movement (RogueEnemyTactics): the target this enemy is engaging, or null while it patrols or searches.</summary>
@@ -1776,6 +1851,18 @@ public class AI : MonoBehaviour
 	private bool CanSeeTarget(Transform target)
 	{
 		if (target == null) return false;
+		if (RoguelikeMode.Active)
+		{
+			// Two lines, neither through a character's body (RogueSightMask): chest to the top of the target as before, and eye to
+			// eye. An enemy behind a low wall or a railing had its chest line blocked while the player looked straight at its head and
+			// took no fire from it; its bullets leave from eye height and clear that wall.
+			int sight = RogueSightMask;
+			if (!Physics.Linecast(mt.position + new Vector3(0f, 3f, 0f), target.position + new Vector3(0f, 6f, 0f), sight, QueryTriggerInteraction.Ignore))
+			{
+				return true;
+			}
+			return !Physics.Linecast(mt.position + new Vector3(0f, 4.8f, 0f), target.position + new Vector3(0f, 4.8f, 0f), sight, QueryTriggerInteraction.Ignore);
+		}
 		if (!Physics.Linecast(mt.position + new Vector3(0f, 3f, 0f), target.position + new Vector3(0f, 6f, 0f), mask.value))
 		{
 			return true;

@@ -344,14 +344,31 @@ namespace Flats.Rendering
                 // a transient graph texture can discard base-camera color on overlays.
                 if (!source.Equals(original)) Draw(graph, resources, source, state.Get(owner.shader, 9), 9, "FLATS effects resolve", output: original);
             }
+            static void HashCurve(ref int hash, AnimationCurve curve)
+            {
+                int count = curve.length;
+                hash = unchecked(hash * 31 + count);
+                for (int i = 0; i < count; i++)
+                {
+                    var key = curve[i];
+                    hash = unchecked(hash * 31 + key.time.GetHashCode()); hash = unchecked(hash * 31 + key.value.GetHashCode());
+                    hash = unchecked(hash * 31 + key.inTangent.GetHashCode()); hash = unchecked(hash * 31 + key.outTangent.GetHashCode());
+                    hash = unchecked(hash * 31 + key.inWeight.GetHashCode()); hash = unchecked(hash * 31 + key.outWeight.GetHashCode());
+                    hash = unchecked(hash * 31 + (int)key.weightedMode);
+                }
+            }
             static void UpdateCurves(CameraState state, ColorCorrectionCurves effect)
             {
-                var curves = new[] { effect.redChannel, effect.greenChannel, effect.blueChannel,
-                    effect.depthRedChannel, effect.depthGreenChannel, effect.depthBlueChannel, effect.zCurve };
+                // Runs for every camera every frame: the unchanged case reads the keys in place (AnimationCurve.keys copies the
+                // array and Keyframe.GetHashCode boxes), and the curve list is only built when the texture is.
                 int hash = 17;
-                foreach (var curve in curves) foreach (var key in curve.keys) hash = unchecked(hash * 31 + key.GetHashCode());
+                HashCurve(ref hash, effect.redChannel); HashCurve(ref hash, effect.greenChannel); HashCurve(ref hash, effect.blueChannel);
+                HashCurve(ref hash, effect.depthRedChannel); HashCurve(ref hash, effect.depthGreenChannel); HashCurve(ref hash, effect.depthBlueChannel);
+                HashCurve(ref hash, effect.zCurve);
                 if (state.curves != null && state.curveHash == hash) return;
                 state.curveHash = hash;
+                var curves = new[] { effect.redChannel, effect.greenChannel, effect.blueChannel,
+                    effect.depthRedChannel, effect.depthGreenChannel, effect.depthBlueChannel, effect.zCurve };
                 if (state.curves == null) state.curves = new Texture2D(256, 7, TextureFormat.RGBA32, false, true)
                     { name = "FLATS color curves", hideFlags = HideFlags.HideAndDontSave, wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
                 var colors = new Color[256 * 7];

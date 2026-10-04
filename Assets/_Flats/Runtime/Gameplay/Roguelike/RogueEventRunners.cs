@@ -238,6 +238,7 @@ public sealed class PowerRerouteRunner : RogueEventRunner
 public sealed class RepairDeviceRunner : RogueEventRunner
 {
     RepairDeviceEvent machine; GameObject device; RogueInteractable it; readonly Dictionary<string, float> repairing = new Dictionary<string, float>(); float accum;
+    readonly List<string> repairKeys = new List<string>();
     public override void Begin()
     {
         device = RogueWorld.Cube("SideDevice", Point(0), new Vector3(1.6f, 2f, 1.6f), RogueWorld.White, true);
@@ -249,16 +250,19 @@ public sealed class RepairDeviceRunner : RogueEventRunner
     public override void Tick(float dt)
     {
         if (machine == null) return;
-        int players = 0; foreach (var kv in new List<KeyValuePair<string, float>>(repairing)) { if (kv.Value > 0) players++; repairing[kv.Key] = Mathf.Max(0, kv.Value - dt); }
+        int players = 0;
+        repairKeys.Clear(); foreach (var kv in repairing) repairKeys.Add(kv.Key);   // the same list every frame: no copy of the table
+        for (int k = 0; k < repairKeys.Count; k++) { float left = repairing[repairKeys[k]]; if (left > 0) players++; repairing[repairKeys[k]] = Mathf.Max(0, left - dt); }
         machine.OnRepair(players, dt);
         Pressure.Sustain(Controller, device.transform.position, players > 0, dt);   // squads keep coming while somebody repairs
-        int near = RogueWorld.EnemiesWithin(device.transform.position, 12f);
+        int near = RogueWorld.EnemiesWithin(device.transform.position, ProtectRunner.DrainRadius);
         if (near > 0) { accum += (float)RogueMissionRules.DeviceDrain(RogueMissionRules.RepairDrainPerEnemy, near) * dt; if (accum >= 5f) { machine.OnDeviceDamaged(accum); accum = 0; } }
         // the device's own health is on the line too: it could be lost without the squad ever seeing it wear down
         StatusText = N("Optional repair {0}%  Device {1}%", Mathf.RoundToInt((float)machine.Progress * 100), Mathf.CeilToInt((float)(machine.DeviceHp / RogueMissionRules.DeviceHealth(RogueMissionRules.RepairDeviceBaseHealth, Stage.players)) * 100f));
         it.SetProgress((float)machine.Progress, machine.Status == EventStatus.Succeeded);
         if (machine.Status == EventStatus.Failed) it.SetUnavailable();
         Settle(machine.Status);
+        if (Finished) RogueSquad.ClearObjective(this);
     }
     public override void OnCommand(RogueCommandMessage cmd)
     {
@@ -267,8 +271,10 @@ public sealed class RepairDeviceRunner : RogueEventRunner
         if (!RogueInteraction.AuthorityCanAct(p) || !RogueInteraction.AuthorityInReach(p, device.GetComponent<Collider>(), 5f)) return;
         repairing[cmd.playerKey] = Mathf.Clamp((float)cmd.value, 0f, 0.6f);
         Pressure.Ambush(Controller, device.transform.position);   // the first repair calls an ambush on the device
+        // part of the squad goes for the device itself from now on (ProtectRunner does the same)
+        if (!Finished) RogueSquad.SetObjective(this, device.transform.position, ProtectRunner.DrainRadius, RogueTacticsRules.DeviceAttackers(Controller.State.ConnectedPlayers, Stage.depth));
     }
-    public override void Dispose() { RogueWorld.Destroy(device); }
+    public override void Dispose() { RogueSquad.ClearObjective(this); RogueWorld.Destroy(device); }
 }
 
 public sealed class RiskContractRunner : RogueEventRunner

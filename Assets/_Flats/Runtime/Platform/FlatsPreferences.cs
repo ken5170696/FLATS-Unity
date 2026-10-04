@@ -15,14 +15,29 @@ public static class FlatsPreferences
     {
         get
         {
+            // Asked on every preference read (dozens a frame): the command line never changes, so it is read once; in the Editor
+            // the test variable can change between runs, so its text is compared and only a new value is made a full path again.
 #if UNITY_EDITOR
             var test=Environment.GetEnvironmentVariable("FLATS_MOD_TEST_ROOT");
-            if(!string.IsNullOrEmpty(test))return Path.GetFullPath(test);
+            if(!string.IsNullOrEmpty(test))
+            {
+                if(test!=lastTestRoot){lastTestRoot=test;lastTestRootFull=Path.GetFullPath(test);}
+                return lastTestRootFull;
+            }
 #endif
-            var args=Environment.GetCommandLineArgs();int i=Array.IndexOf(args,"-flats-module-settings-dir");
-            return Array.IndexOf(args,"-flats-verify")>=0&&i>=0&&i+1<args.Length?Path.GetFullPath(args[i+1]):null;
+            if(!argumentRootRead)
+            {
+                var args=Environment.GetCommandLineArgs();int i=Array.IndexOf(args,"-flats-module-settings-dir");
+                argumentRoot=Array.IndexOf(args,"-flats-verify")>=0&&i>=0&&i+1<args.Length?Path.GetFullPath(args[i+1]):null;
+                argumentRootRead=true;
+            }
+            return argumentRoot;
         }
     }
+    static bool argumentRootRead; static string argumentRoot;
+#if UNITY_EDITOR
+    static string lastTestRoot,lastTestRootFull;
+#endif
     static string FilePath { get { return Path.Combine(IsolatedRoot,"verification-prefs.json"); } }
     static Dictionary<string,string> Values
     {

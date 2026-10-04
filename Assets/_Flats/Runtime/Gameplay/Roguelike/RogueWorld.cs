@@ -387,8 +387,16 @@ public static class RogueWorld
 
     public static int EnemiesWithin(Vector3 center, float radius)
     {
-        int n = 0;
-        foreach (var go in GameObject.FindGameObjectsWithTag("Enemy")) if (go.GetComponent<AI>() != null && Vector3.Distance(go.transform.position, center) <= radius) n++;
+        // the role registry, not a tag search: this runs every frame for a device or a zone, and a body stays tagged for the
+        // seconds before it is removed (a dead enemy next to a device kept wearing it down)
+        int n = 0; float r2 = radius * radius;
+        var all = RogueEnemyRole.All;
+        for (int i = 0; i < all.Count; i++)
+        {
+            var role = all[i];
+            if (role == null || role.Dead || !role.gameObject.activeInHierarchy) continue;
+            if ((role.transform.position - center).sqrMagnitude <= r2) n++;
+        }
         return n;
     }
 }

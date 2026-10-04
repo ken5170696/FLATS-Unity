@@ -319,18 +319,97 @@ public static partial class RogueHooks
         for (int i = 0; i < fps.primaryWeapons.childCount; i++) { var gun = fps.primaryWeapons.GetChild(i).GetComponent<Gun>(); if (gun != null) gun.maxAmmo = gun.limitMaxAmmo; }
     }
 
-    /// <summary>Weapon purchase: swap the primary through the existing ExchangeWeapons contract (solo direct, co-op via a scene gun the authority spawns).</summary>
+    /// <summary>Magazine and reserve a bought gun arrives with: this player's own capacities for the armory weapon the purchase
+    /// gives (the owned variant of the model, MetaRun.ShopVariant), with the build's magazine and reserve bonuses. The catalogue
+    /// numbers of the model (GunInfo) are the Classic gun's: several armory magazines are larger, and the gun arrived part empty.</summary>
+    public static void BoughtGunAmmo(PlayerBuild build, int index, out int magazine, out int reserve)
+    {
+        magazine = GunInfo.limitAmmo[index]; reserve = GunInfo.limitMaxAmmo[index];
+        if (build == null) return;
+        var variant = MetaRun.ShopVariant(build, index) ?? RogueArmory.OriginalOf(index);
+        if (variant == null) return;
+        var resolved = RogueArmory.Resolve(variant);
+        var stats = BuildStats.Compute(build);
+        magazine = stats.Magazine(resolved.Magazine, build.magazineTier);
+        reserve = stats.Reserve(resolved.Reserve);
+    }
+
+    /// <summary>The gun model in the build's secondary slot (-1 when the build names none: the character's default sidearm).</summary>
+    static int SecondarySlotModel(PlayerBuild build)
+    {
+        if (build == null) return -1;
+        var def = build.meta != null ? RogueArmory.Weapon(build.meta.secondary) : null;
+        return def != null ? def.BaseModel : build.secondaryWeapon;
+    }
+
+    static int pendingEquip = -1; static bool equipRunning;
+
+    /// <summary>Weapon purchase (owner): the bought gun replaces the gun of the primary slot through the existing ExchangeWeapons
+    /// contract (solo direct, co-op via a scene gun the authority spawns), arrives full to this player's capacities, and the gun in
+    /// the hands stays in the hands. ExchangeWeapons replaces whatever is held: with the secondary in hand the purchase used to
+    /// replace the secondary and leave the old primary on the back, while the build already named the new gun as the primary. So
+    /// the primary is brought to the hands first, exchanged, and put back (the flow of the shooting range, RogueRangeRuntime).</summary>
     public static System.Collections.IEnumerator EquipWeapon(RoguelikeController controller, FPSController fps, int index)
     {
         if (fps == null || index < 0 || index >= Flats.Core.WeaponCatalog.Count) yield break;
-        if (Menu.network == 0)
+        pendingEquip = index;                       // a second purchase while the first waits replaces it: only the last gun arrives
+        if (equipRunning) yield break;
+        equipRunning = true;
+        while (pendingEquip >= 0 && fps != null && controller != null)
         {
-            fps.StartCoroutine("ExchangeWeapons", new int[5] { index, GunInfo.limitAmmo[index], GunInfo.limitMaxAmmo[index], 0, 0 });
-            yield break;
+            int model = pendingEquip; pendingEquip = -1;
+            float until = Time.time + 5f;
+            while (fps != null && !fps.enableFire && Time.time < until) yield return null;   // a reload or a swap in progress ends first
+            if (fps == null) break;
+            var me = controller.LocalPlayer;
+            int secondary = SecondarySlotModel(me != null ? me.build : null);
+            bool holstered = secondary >= 0 && secondary != model && fps.primaryWeaponIndex == secondary && fps.secondaryWeaponIndex != secondary;
+            if (holstered)
+            {
+                // a weapon change is refused while a screen is open (RogueActionGate): the shop closes first. The purchase is
+                // already paid and in the build; if the stage ends meanwhile the gun in hand is replaced as before
+                float limit = Time.unscaledTime + 600f;
+                while (fps != null && !FlatsCursor.GameplayInput && Time.unscaledTime < limit && pendingEquip < 0) yield return null;
+                if (fps == null) break;
+                if (pendingEquip >= 0) continue;   // another gun was bought meanwhile: that one is the primary now
+                if (!FlatsCursor.GameplayInput) holstered = false;
+                else { RogueRangeRuntime.Swap(fps); yield return controller.StartCoroutine(RogueRangeRuntime.WaitBusyThenReady(fps)); }
+                if (fps == null) break;
+            }
+            int magazine, reserve;
+            BoughtGunAmmo(me != null ? me.build : null, model, out magazine, out reserve);
+            if (Menu.network == 0) fps.StartCoroutine("ExchangeWeapons", new int[5] { model, magazine, reserve, 0, 0 });
+            // co-op: ask the authority for a scene gun; it answers with an "equip" event carrying the view id
+            else controller.Command(new RogueCommandMessage { kind = "objective", text = "equip:" + model });
+            // the exchange (co-op: after the round trip) switches fire off and on again; then the new gun is in the hands
+            until = Time.time + 6f;
+            while (fps != null && fps.primaryWeaponIndex != model && Time.time < until) yield return null;
+            if (fps == null) break;
+            until = Time.time + 5f;
+            while (fps != null && !fps.enableFire && Time.time < until) yield return null;
+            if (fps == null) break;
+            yield return null;
+            if (fps.primaryWeaponIndex == model)
+            {
+                // a gun taken out for the first time starts with its catalogue numbers (Gun.Start): the build's numbers go on
+                // again, then the bought gun is full to this player's capacities
+                var rp = fps.GetComponent<RoguePlayer>();
+                if (rp != null) rp.ReapplyWeapons();
+                var gun = fps.primaryWeapons.GetChild(model).GetComponent<Gun>();
+                if (gun != null) { gun.currentAmmo = gun.limitAmmo; gun.maxAmmo = gun.limitMaxAmmo; }
+            }
+            if (holstered)
+            {
+                float limit = Time.unscaledTime + 30f;
+                while (fps != null && !FlatsCursor.GameplayInput && Time.unscaledTime < limit) yield return null;
+                if (fps != null && FlatsCursor.GameplayInput) { RogueRangeRuntime.Swap(fps); yield return controller.StartCoroutine(RogueRangeRuntime.WaitBusyThenReady(fps)); }
+            }
         }
-        // co-op: ask the authority for a scene gun; it answers with an "equip" event carrying the view id
-        controller.Command(new RogueCommandMessage { kind = "objective", text = "equip:" + index });
+        equipRunning = false;
     }
+
+    /// <summary>A new scene or run: no purchase of the old one is still waiting.</summary>
+    public static void ResetEquipQueue() { pendingEquip = -1; equipRunning = false; }
 
     /// <summary>Bullets that hit a world object with RogueDamageable (device, carrier, drone) route their damage to it.</summary>
     public static bool OnBulletHitWorld(Bullet bullet, Collision col)

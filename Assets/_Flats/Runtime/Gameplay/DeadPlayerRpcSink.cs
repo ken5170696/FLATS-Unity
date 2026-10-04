@@ -18,6 +18,8 @@ public sealed class DeadPlayerRpcSink : MonoBehaviour
     [PunRPC] IEnumerator ChangeWeapons() { yield break; }
     [PunRPC] IEnumerator ThrowGrenade() { yield break; }
     [PunRPC] void StartZombie() { }
+    [PunRPC] void WeaponStateRequest(PhotonMessageInfo info) { }
+    [PunRPC] IEnumerator WeaponState(int[] data, PhotonMessageInfo info) { yield break; }
 }
 
 // Installs the sink at the start of the frame after the controller is gone (same reasoning as DeadAIRpcSinkInstaller:

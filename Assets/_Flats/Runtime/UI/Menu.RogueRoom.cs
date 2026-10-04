@@ -296,6 +296,7 @@ public partial class Menu
     void TickRogueRoom()
     {
         RefreshRogueRoomPresentation();
+        TickRangeRoom();   // the mode tile: an ordinary run or the shooting range (Menu.RogueRange)
         if (!PhotonNetwork.isMasterClient || current != "Matching" || gameState == "Multiplayer" || readyStarted || roomStartSent || !RogueRoomActive)
         { roomAllReadySince = -1f; return; }
         int total, ready = RoomReadyCount(out total);
@@ -577,7 +578,8 @@ public partial class Menu
         backButton.SetActive(false);
         startNowPlayer = 0; startNowPressed = false;
         // A slow client may still be in the Game Over delay: the scene loads from the result page (see BackgroundColor FadeIn).
-        float until = Time.realtimeSinceStartup + 8f;
+        // a shooting range has no result page: it ends here and the squad returns at once
+        float until = Time.realtimeSinceStartup + (EndRangeForRoomReturn() ? 0f : 8f);
         while (current != "Result" && Time.realtimeSinceStartup < until) yield return null;
         CloseRoomHub();
         if (confirm.activeSelf) OnClickedConfirm();
@@ -626,6 +628,8 @@ public partial class Menu
         PhotonNetwork.networkingPeer.OpRemoveCompleteCache();
         foreach (var p in PhotonNetwork.playerList) PhotonNetwork.RemoveRPCs(p);
         SetRunMapProperty(0);
+        // the shooting range was one start: the room's next start is an ordinary run unless the host chooses the range again
+        if (RoguelikeMode.RoomRange) PhotonNetwork.room.SetCustomProperties(new ExitGames.Client.Photon.Hashtable { { RoguelikeMode.RangeRoomKey, false } });
         PhotonNetwork.room.IsOpen = true;
         PhotonNetwork.room.IsVisible = PhotonNetwork.room.Name != null && PhotonNetwork.room.Name.StartsWith("pub-");   // Open Match rooms only
     }

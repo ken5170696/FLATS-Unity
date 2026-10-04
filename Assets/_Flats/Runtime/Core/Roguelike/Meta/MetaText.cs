@@ -86,9 +86,18 @@ namespace Flats.Core.Roguelike
         public static TextLine Trait(RangedWeaponDef w)
         {
             if (w != null && w.Class == WeaponClass.Handgun) return OwnLineFirst(TraitOnly(w), HandgunClass(w));   // the trait keeps the first line and the first numbers
+            if (w != null && w.Class == WeaponClass.Launcher) return OwnLineFirst(TraitOnly(w), LauncherClass());
+            if (w != null && w.Class == WeaponClass.SMG) return OwnLineFirst(TraitOnly(w), SmgClass());
             var p = WeaponRules.Profile(w);
-            return p == null ? TraitOnly(w) : ClassLineFirst(TraitOnly(w), RangeClose(p));
+            return WeaponRules.HasCloseBonus(p) ? ClassLineFirst(TraitOnly(w), RangeClose(p)) : TraitOnly(w);   // SMGs and handguns have a falloff only: it is on the drawback side
         }
+
+        /// <summary>Launcher class: a round that strikes an enemy deals its damage on impact and the blast then hits it again
+        /// (Bullet.OnCollisionEnter applies the round, then Explode), so a direct hit is worth about two blasts.</summary>
+        /// <summary>SMG class: the mobile class (WeaponRules.SmgMoveBonus).</summary>
+        public static TextLine SmgClass() { return new TextLine("Light: movement speed +{0}% while in hand.", P(WeaponRules.SmgMoveBonus)); }
+
+        public static TextLine LauncherClass() { return new TextLine("A direct hit deals its damage on impact, then again in the blast."); }
 
         /// <summary>Handgun class: semi-automatic fire with its cap (WeaponRules.HandgunShotsPerSecond) and the near-instant swap.</summary>
         public static TextLine HandgunClass(RangedWeaponDef w)
@@ -116,7 +125,7 @@ namespace Flats.Core.Roguelike
         public static TextLine RangeSummary(RangedWeaponDef w)
         {
             var p = WeaponRules.Profile(w);
-            return p == null ? new TextLine("") : ClassLineFirst(RangeFar(p), RangeClose(p));
+            return p == null ? new TextLine("") : WeaponRules.HasCloseBonus(p) ? ClassLineFirst(RangeFar(p), RangeClose(p)) : RangeFar(p);
         }
 
         /// <summary>A legacy model without an armory row (a pellet shotgun taken from the ground).</summary>
@@ -154,11 +163,11 @@ namespace Flats.Core.Roguelike
             switch (w.Trait)
             {
                 case TraitKind.KillFrenzy: return new TextLine("After a kill: fire rate +{0}% for the rest of the magazine.", P(w.T1));
-                case TraitKind.SustainedAccuracy: return new TextLine("Every round of sustained fire tightens spread by {0}%, up to {1}%.", P(w.T1), P(w.T2));
+                case TraitKind.SustainedAccuracy: return new TextLine("Every round of sustained fire tightens spread and kick by {0}%, up to {1}%.", P(w.T1), P(w.T2));
                 case TraitKind.HeadshotRefund: return new TextLine(w.T1 < 1.5 ? "A headshot puts {0} round back into the magazine." : "A headshot puts {0} rounds back into the magazine.", N(w.T1));
                 case TraitKind.RunAndGun: return new TextLine("Movement speed +{0}% while in hand.", P(w.T1));
                 case TraitKind.SlowOnHit: return new TextLine("Hits slow enemies by {0}% for {1} s.", P(w.T1), N(w.T2));
-                case TraitKind.AmmoOnKill: return new TextLine(w.T1 < 1.5 ? "A kill puts {0} round back into the magazine." : "A kill puts {0} rounds back into the magazine.", N(w.T1));   // never "1 rounds"
+                case TraitKind.AmmoOnKill: return new TextLine(w.T1 < 1.5 ? "A kill puts {0} round back into the magazine, up to one extra magazine before a reload." : "A kill puts {0} rounds back into the magazine, up to one extra magazine before a reload.", N(w.T1));   // never "1 rounds"; the bound is WeaponTraitState.OnKill's
                 case TraitKind.LongRangeBonus: return new TextLine("+{0}% damage beyond {1} m.", P(w.T1), N(w.T2));
                 case TraitKind.CloseRangeBonus: return new TextLine("+{0}% damage within {1} m.", P(w.T1), N(w.T2));
                 case TraitKind.DoubleTap: return new TextLine("Every {0} trigger pulls: the first round costs no ammunition.", N(w.T1));
@@ -167,7 +176,8 @@ namespace Flats.Core.Roguelike
                 case TraitKind.SnapAim: return new TextLine("Aim steadies in {0}% less time after raising the sight.", P(w.T1));   // a time reduction, not a speed increase
                 case TraitKind.StaggerOnHeadshot: return new TextLine("Headshots stagger the enemy for {0} s.", N(w.T1));
                 case TraitKind.PatientShot: return new TextLine("Every {1} s aimed without firing: next shot +{0}% damage, up to {2} steps.", P(w.T1), N(w.T2), WeaponTraitState.MaxPatientSteps.ToString());
-                case TraitKind.EmptyReloadFast: return new TextLine("Reloading an empty magazine takes {0}% less time.", P(w.T1));
+                // the share of the whole reload it saves (the fixed part of a reload is not shortened), not the multiplier on the scaled part
+                case TraitKind.EmptyReloadFast: return new TextLine("Reloading an empty magazine takes {0}% less time.", P(1 - RogueArmory.ReloadSeconds(w, true) / RogueArmory.ReloadSeconds(w, false)));
                 case TraitKind.CloseKnockback: return new TextLine("Hits within {1} m knock enemies back {0} m.", N(w.T1), N(w.T2));
                 case TraitKind.StaggerOnHit: return new TextLine("Hits within {1} m stagger the enemy for {0} s.", N(w.T1), N(w.T2));
                 case TraitKind.FollowUp: return new TextLine("After a headshot the next shot cycles {0}% faster.", P(w.T1));
@@ -191,7 +201,7 @@ namespace Flats.Core.Roguelike
                 case DrawbackKind.HeavyRecoil: return new TextLine("Every round of sustained fire widens spread and kick by {0}%, up to {1}%.", P(d1), P(d2));
                 case DrawbackKind.SlowSwap: return new TextLine("Weapon swap time +{0}%.", P(d1));
                 case DrawbackKind.MoveSlow: return new TextLine("Movement speed -{0}% while in hand.", P(d1));   // a gun slows only while drawn; melee has its own line (MeleeDrawback)
-                case DrawbackKind.NoHipFire: return new TextLine("Hip-fire spread x{0}: aim to hit anything.", N(d1));
+                case DrawbackKind.NoHipFire: return new TextLine("Hip-fire spread x{0}: aim to hit anything beyond a few metres.", N(d1));
                 case DrawbackKind.NoAds: return new TextLine("Cannot aim down sights.");
                 case DrawbackKind.WeakHeadshot: return new TextLine("Headshot bonus -{0}%.", P(d1));
                 case DrawbackKind.LongSpinup: return new TextLine("{0} s delay before the first round of a burst.", N(d1));

@@ -53,10 +53,14 @@ namespace Flats.Core.Roguelike
         }
    // seconds after a cycle within which the next round counts as sustained fire
 
+        /// <summary>Submachine guns are the mobile class: movement speed bonus while one is in hand (on top of Run and Gun).</summary>
+        public const double SmgMoveBonus = 0.06;
+
         public static double MoveSpeedMul(RangedWeaponDef d)
         {
             if (d == null) return 1;
             double m = 1;
+            if (d.Class == WeaponClass.SMG) m *= 1 + SmgMoveBonus;
             if (d.Trait == TraitKind.RunAndGun) m *= 1 + d.T1;
             if (d.Drawback == DrawbackKind.MoveSlow) m *= 1 - d.D1;
             return m;
@@ -102,6 +106,30 @@ namespace Flats.Core.Roguelike
         public static double RoundStep(bool handgun, double intervalMul)
         {
             return handgun ? HandgunMinInterval : 0.1 * Math.Min(1, Math.Max(0, intervalMul));
+        }
+
+        /// <summary>As <see cref="RoundStep(bool, double)"/>, bounded by the weapon's own round interval: the 0.1 s step used to hold
+        /// every automatic weapon at 600 rounds a minute, so the 680 to 900 rpm SMGs all fired alike and their rpm was only a
+        /// number on the card. With this the step is never longer than the interval and the rpm is the rate.</summary>
+        public static double RoundStep(bool handgun, double rpm, double intervalMul)
+        {
+            return handgun ? HandgunMinInterval : Math.Min(RoundStep(false, intervalMul), RoundInterval(false, rpm, intervalMul));
+        }
+
+        /// <summary>The longest lateness of a round (a wait that ended a frame late, the frame between two trigger cycles) that the
+        /// next round pays back, so the rate over a magazine is the rule's rate whatever the frame time. A longer pause is a pause.</summary>
+        public const double RoundPaybackSeconds = 0.05;
+
+        /// <summary>The clock a weapon's rounds are scheduled on: given when the round that fires <paramref name="now"/> was due
+        /// (<paramref name="due"/>) and the interval to the next, the time the next round is due. A round that fires up to
+        /// <see cref="RoundPaybackSeconds"/> late keeps its place on the clock; later than that (or a round fired before the clock
+        /// said, which only another weapon's stale clock can cause) the clock restarts from now. A round that waits for its due
+        /// time therefore never follows the previous one by less than the interval on average.</summary>
+        public static double NextRoundDue(double now, double due, double interval)
+        {
+            double late = now - due;
+            double start = late >= 0 && late <= RoundPaybackSeconds ? due : now;
+            return start + Math.Max(0, interval);
         }
 
         public static double SwapTimeMul(RangedWeaponDef d)
@@ -246,12 +274,28 @@ namespace Flats.Core.Roguelike
         /// <summary>Enemy shotguns (rushers): the same long-range falloff, never a close bonus.</summary>
         public static readonly RangeProfile EnemyPelletProfile = new RangeProfile(1, PelletCloseEnd, PelletNeutralFrom, PelletFalloffFrom, PelletFarFrom, PelletFarMul);
 
-        /// <summary>The range profile of an armory weapon: pellet shotguns and the slug gun; null for every other class.</summary>
+        /// <summary>Submachine guns (2026-10-04, second round): full damage to 15 m, falling to x0.4 at 40 m and beyond. The class
+        /// rules its own distance and gives the middle and the far to the rifles.</summary>
+        public const double SmgFalloffFrom = 15, SmgFarFrom = 40, SmgFarMul = 0.4;
+        /// <summary>Handguns: a sidearm. Full damage to 15 m, falling to x0.4 at 40 m and beyond.</summary>
+        public const double HandgunFalloffFrom = 15, HandgunFarFrom = 40, HandgunFarMul = 0.4;
+        public static readonly RangeProfile SmgProfile = new RangeProfile(1, 0, SmgFalloffFrom, SmgFalloffFrom, SmgFarFrom, SmgFarMul);
+        public static readonly RangeProfile HandgunProfile = new RangeProfile(1, 0, HandgunFalloffFrom, HandgunFalloffFrom, HandgunFarFrom, HandgunFarMul);
+
+        /// <summary>The range profile of an armory weapon: pellet shotguns and the slug gun (close bonus and falloff), submachine guns
+        /// and handguns (falloff only); null for every other class. The method name of the multiplier (ShotgunRangeMul) is older
+        /// than the SMG and handgun profiles; it applies whatever profile the weapon has.</summary>
         public static RangeProfile Profile(RangedWeaponDef d)
         {
-            if (d == null || d.Class != WeaponClass.Shotgun) return null;
+            if (d == null) return null;
+            if (d.Class == WeaponClass.SMG) return SmgProfile;
+            if (d.Class == WeaponClass.Handgun) return HandgunProfile;
+            if (d.Class != WeaponClass.Shotgun) return null;
             return RogueArmory.Resolve(d).Pellets > 1 ? PelletProfile : SlugProfile;
         }
+
+        /// <summary>Whether the profile raises damage up close (shotguns): the weapon card shows a "Close range" line only then.</summary>
+        public static bool HasCloseBonus(RangeProfile p) { return p != null && p.CloseMul > 1; }
 
         /// <summary>A legacy gun model with no armory row (a shotgun taken from the ground that the loadout has no variant of).</summary>
         public static RangeProfile ProfileForModel(int baseModel) { return IsPelletModel(baseModel) ? PelletProfile : null; }
@@ -296,6 +340,7 @@ namespace Flats.Core.Roguelike
         double lastRoundAt = -100, lastInterval = 0.1;
         bool frenzy, followUp;
         int triggerPulls;
+        int capacity, refunded;   // Ammo on Kill: rounds returned since the last reload, and the magazine they went into
 
         public const int MaxPatientSteps = 3;
 
@@ -304,13 +349,14 @@ namespace Flats.Core.Roguelike
         public bool FrenzyActive { get { return frenzy; } }
         public int Consecutive { get { return consecutive; } }
 
-        public void Reset() { consecutive = 0; lastRoundAt = -100; frenzy = false; followUp = false; triggerPulls = 0; }
+        public void Reset() { consecutive = 0; lastRoundAt = -100; frenzy = false; followUp = false; triggerPulls = 0; refunded = 0; }
 
         /// <summary>Called once per round, before it is spent. Returns what the adapter multiplies in.</summary>
         public ShotModifiers NextRound(ShotContext c)
         {
             var m = ShotModifiers.Neutral;
             if (Def == null) return m;
+            if (c.MagazineCapacity > 0) capacity = c.MagazineCapacity;
             if (!c.SameShell && c.Now - lastRoundAt > lastInterval + WeaponRules.ConsecutiveWindow) consecutive = 0;
             // sustained-fire effects count rounds, not pellets: every pellet of a shell reads the streak its first pellet read
             int streak = c.SameShell ? Math.Max(0, consecutive - 1) : consecutive;
@@ -324,7 +370,8 @@ namespace Flats.Core.Roguelike
             {
                 case TraitKind.KillFrenzy: if (frenzy) { m.IntervalMul /= 1 + Def.T1; m.DamageSource = Def.Id; } break;
                 case TraitKind.FollowUp: if (followUp && c.NewTriggerPull) { m.IntervalMul /= 1 + Def.T1; followUp = false; m.DamageSource = Def.Id; } break;
-                case TraitKind.SustainedAccuracy: m.SpreadMul *= 1 - Math.Min(Def.T2, Def.T1 * streak); break;
+                // spread and view kick settle together: the spread alone is too small to notice on a 2 m wide target, the kick is what the player feels
+                case TraitKind.SustainedAccuracy: { double settle = 1 - Math.Min(Def.T2, Def.T1 * streak); m.SpreadMul *= settle; m.RecoilMul *= settle; } break;
                 case TraitKind.SpinUpDamage: { double bonus = Math.Min(Def.T2, Def.T1 * streak); if (bonus > 0) { m.DamageMul *= 1 + bonus; m.DamageSource = Def.Id; } } break;
                 case TraitKind.LastRoundDouble: if (c.RoundsInMagazine == 1 && c.MagazineCapacity > 1) { m.DamageMul *= Def.T1; m.DamageSource = Def.Id; } break;
                 case TraitKind.PatientShot:
@@ -348,17 +395,39 @@ namespace Flats.Core.Roguelike
         /// <summary>The legacy gap after a round, so "consecutive" matches the real cadence.</summary>
         public void NoteInterval(double seconds) { lastInterval = Math.Max(0.05, seconds); }
 
-        /// <summary>A kill by this weapon. Returns rounds to put back into the magazine.</summary>
-        public int OnKill()
+        /// <summary>A kill by this weapon. Returns rounds to put back into the magazine. Ammo on Kill returns at most one magazine's
+        /// worth between two reloads: once a build kills with fewer rounds than a kill returns (the Auto Shotgun did at depth 1,
+        /// one shell a kill and one shell back), the magazine would otherwise never run dry.</summary>
+        public int OnKill() { return OnKill(int.MaxValue); }
+
+        /// <summary>As <see cref="OnKill()"/>, with the rounds the magazine can still take (<paramref name="roomInMagazine"/>): only
+        /// rounds that really go back count toward the one-magazine allowance, so kills with a full magazine do not use it up.</summary>
+        public int OnKill(int roomInMagazine)
         {
             if (Def == null) return 0;
             if (Def.Trait == TraitKind.KillFrenzy) frenzy = true;
-            return Def.Trait == TraitKind.AmmoOnKill ? (int)Def.T1 : 0;
+            if (Def.Trait != TraitKind.AmmoOnKill) return 0;
+            int back = (int)Def.T1;
+            if (capacity > 0) back = Math.Max(0, Math.Min(back, capacity - refunded));
+            back = Math.Max(0, Math.Min(back, roomInMagazine));
+            refunded += back;
+            return back;
         }
 
         public void OnHeadshot() { if (Def != null && Def.Trait == TraitKind.FollowUp) followUp = true; }
 
+        /// <summary>Follow-up, asked while the cycle after a round is running: when a headshot has armed it (the round that was just
+        /// fired landed on a head), it is spent now and the factor for THIS cycle comes back (1 / (1 + T1)); otherwise 1. Without
+        /// this the bonus was only read by the next trigger pull, i.e. it shortened the wait after the next shot: one shot late.
+        /// A headshot that lands after the cycle is over is still read by <see cref="NextRound"/> as before.</summary>
+        public double ConsumeFollowUp()
+        {
+            if (Def == null || Def.Trait != TraitKind.FollowUp || !followUp) return 1;
+            followUp = false;
+            return 1 / (1 + Def.T1);
+        }
+
         /// <summary>A new magazine: frenzy ends with the magazine it was earned in.</summary>
-        public void OnReloadCompleted() { frenzy = false; consecutive = 0; }
+        public void OnReloadCompleted() { frenzy = false; consecutive = 0; refunded = 0; }
     }
 }

@@ -181,6 +181,24 @@ public sealed class FlatsTileOffer : Button
     public void Reflow() { Reflow(true); }
     /// <summary>Lays the tile out. Unforced calls (every frame from LateUpdate) return at once unless the tile's size, the screen, a
     /// text or a mode changed since the last layout; two more passes follow a change so text measured on a fresh font atlas settles.</summary>
+    /// <summary>A price never loses a digit: wider than its box ("$108" on a small tile drew as "$10"), the number gets smaller.
+    /// Only a money price (Bind gives it the tile number size); captions keep their size.</summary>
+    void FitPrice(float room)
+    {
+        if (price == null || string.IsNullOrEmpty(price.text) || room <= 1 || price.text.IndexOf("$</size>", StringComparison.Ordinal) < 0) return;
+        int size = FlatsUiTheme.Rogue.tileNumber.size;
+        var settings = price.GetGenerationSettings(Vector2.zero);
+        settings.horizontalOverflow = HorizontalWrapMode.Overflow; settings.resizeTextForBestFit = false;
+        for (int pass = 0; pass < 4 && size > 24; pass++)
+        {
+            settings.fontSize = size;
+            float preferred = price.cachedTextGeneratorForLayout.GetPreferredWidth(price.text, settings) / Mathf.Max(0.0001f, price.pixelsPerUnit);
+            if (preferred <= room) break;
+            size = Mathf.Max(24, Mathf.Min(size - 1, Mathf.FloorToInt(size * room / preferred)));
+        }
+        if (price.fontSize != size) price.fontSize = size;
+    }
+
     public void Reflow(bool force)
     {
         if (visual == null || pitch == null) return;
@@ -210,6 +228,7 @@ public sealed class FlatsTileOffer : Button
         Box(pitch.rectTransform, left, h - bottom - pitchHeight, textWidth, pitchHeight); bottom += pitchHeight + gap;
         float nameY = h - bottom - nameHeight;
         Box(itemName.rectTransform, left, nameY, textWidth, nameHeight);
+        FitPrice(w * .6f - edge);
         float tagWidth = Mathf.Max(1, w - 2 * edge - (string.IsNullOrEmpty(price.text) ? 0 : Mathf.Min(w * .52f, price.preferredWidth + gap)));
         Box(kindLabel.rectTransform, edge, edge, tagWidth, Measure(kindLabel, tagWidth));
         Box(price.rectTransform, w * .4f, edge - 8, w * .6f - edge, FlatsUiTheme.Rogue.tileNumber.size + 16);

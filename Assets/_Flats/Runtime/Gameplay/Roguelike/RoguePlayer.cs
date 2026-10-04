@@ -14,7 +14,7 @@ public class RoguePlayer : MonoBehaviour
     public PlayerBuild Build { get; private set; }
     public BuildStats Stats { get; private set; }
     public bool Downed { get; private set; }
-    public bool InfiniteAmmo { get { return ultimateActive == "ult.infinite_fire"; } }
+    public bool InfiniteAmmo { get { return ultimateActive == "ult.infinite_fire" || RangeFlag(RogueRange.InfiniteAmmoFlag); } }
     public bool Invincible { get { return ultimateActive == "ult.invincible"; } }
     public string ActiveUltimate { get { return ultimateActive; } }
     public bool IsMine { get { return isMine; } }
@@ -79,7 +79,43 @@ public class RoguePlayer : MonoBehaviour
         if (run != null)
         {
             var me = run.Player(KeyOfSelf());
-            if (me != null) ApplyBuild(me.build);
+            if (me != null)
+            {
+                ApplyBuild(me.build);
+                if (isMine) { CarryBuildWeapons(me.build); FillCarriedGuns(); }
+            }
+        }
+    }
+
+    /// <summary>Owner, once, at spawn: the character is created with the profile's loadout (FPSController, before the run state
+    /// is known to this client: a new chapter's map on a guest, a rejoin), while the run's build may name another primary (a gun
+    /// bought in the shop). The build's weapons are what this player carries: they replace the spawn weapons on every copy.
+    /// A character that already holds exactly the build's two models (in either hand) is left alone. Not in the shooting range,
+    /// which sets its own weapons.</summary>
+    void CarryBuildWeapons(PlayerBuild build)
+    {
+        if (controller == null || build == null || build.primaryWeapon < 0 || build.secondaryWeapon < 0 || build.primaryWeapon == build.secondaryWeapon) return;
+        var c = RoguelikeController.Instance;
+        if (c == null || c.RangeActive) return;
+        int hand = controller.primaryWeaponIndex, back = controller.secondaryWeaponIndex;
+        if ((hand == build.primaryWeapon && back == build.secondaryWeapon) || (hand == build.secondaryWeapon && back == build.primaryWeapon)) return;
+        if (controller.RogueCarryBuildWeapons(build.primaryWeapon, build.secondaryWeapon))
+            Debug.Log("FLATS_ROGUE_CARRY_BUILD " + Key + " spawned with " + hand + "/" + back + ", the run's build carries " + build.primaryWeapon + "/" + build.secondaryWeapon);
+    }
+
+    /// <summary>Owner, once, when this character first takes its build: the two carried guns start full to the build's capacities.
+    /// The spawn loads the catalogue magazine (FPSController), which is smaller than some armory magazines (the Burst Pistol
+    /// started with 12 of its 21 rounds). A new character only: capacity changes later in a run never create ammunition.</summary>
+    void FillCarriedGuns()
+    {
+        if (controller == null || controller.primaryWeapons == null) return;
+        foreach (int model in new[] { controller.primaryWeaponIndex, controller.secondaryWeaponIndex })
+        {
+            if (model < 0 || model >= controller.primaryWeapons.childCount) continue;
+            var gun = controller.primaryWeapons.GetChild(model).GetComponent<Gun>();
+            if (gun == null) continue;
+            if (gun.currentAmmo < gun.limitAmmo) gun.currentAmmo = gun.limitAmmo;
+            if (gun.maxAmmo < gun.limitMaxAmmo) gun.maxAmmo = gun.limitMaxAmmo;
         }
     }
 
@@ -164,6 +200,7 @@ public class RoguePlayer : MonoBehaviour
     public void ApplyBuild(PlayerBuild build)
     {
         if (build == null) return;
+        float healthBefore = Stats != null ? MaxHealth() : 0f;
         Build = build.Clone();
         Stats = BuildStats.Compute(Build);
         Chain = new Flats.Core.Roguelike.EffectChainRules(Stats);
@@ -178,6 +215,28 @@ public class RoguePlayer : MonoBehaviour
         // current health never stays above a lower maximum (a skill that used to add health, a respec, a loaded run); the maximum
         // itself is always computed from these Stats (MaxHealth), never cached (QA-32)
         if (isMine && receiver != null && !Downed && receiver.hitPoints > MaxHealth()) receiver.hitPoints = MaxHealth();
+        // shooting range: a higher health stat is tried out at once (in a run the purchase itself heals the added amount)
+        if (isMine && receiver != null && !Downed && !receiver.Dead && healthBefore > 0f && MaxHealth() > healthBefore + 0.5f && RoguelikeController.Instance != null && RoguelikeController.Instance.RangeActive) receiver.hitPoints = MaxHealth();
+        appliedBuildJson = JsonUtility.ToJson(Build);
+    }
+
+    string appliedBuildJson;
+    /// <summary>True when <paramref name="build"/> is, field for field, the build this character last applied to its guns and stats
+    /// (RoguelikeController.OnStateChanged skips the re-application then). False until the first full ApplyBuild.</summary>
+    public bool HasApplied(PlayerBuild build)
+    {
+        if (build == null || appliedBuildJson == null) return false;
+        return JsonUtility.ToJson(build.Clone()) == appliedBuildJson;
+    }
+
+    /// <summary>Gun.Start (a gun model taken out for the first time resets itself to the catalogue): the current build's weapon
+    /// numbers go on every gun again. Only the weapon part of ApplyBuild, so it is safe at any moment and on every copy: the same
+    /// Stats, no new dash runtime, no health clamp, and the trait state of a gun that keeps its armory row is kept.</summary>
+    public void ReapplyWeapons()
+    {
+        if (controller == null || Stats == null) return;
+        RogueMetaRuntime.Ensure(gameObject).Bind(Stats);
+        ApplyToGuns();
     }
 
     void ApplyToGuns()
@@ -212,6 +271,9 @@ public class RoguePlayer : MonoBehaviour
     {
         if (Downed) return 0f;
         if (Invincible) return 0f;
+        if (RangeFlag(RogueRange.GodFlag)) return 0f;   // shooting range: this player's "no damage" switch
+        // shooting range: the menu covers the whole screen while the field keeps running (time is never stopped for it)
+        if (isMine && RogueRangeRuntime.Instance != null && RogueRangeRuntime.Instance.MenuOpen) return 0f;
         if (Time.time < reviveGraceUntil) return 0f;
         if (!(damage > 0f)) return 0f;   // a blast's far edge (or NaN) is no hit: it must never heal nor recharge the tactical shield
         if (Time.time < assaultBuffUntil) damage *= 1f - (float)Stats.AssaultKillReduction;
@@ -239,6 +301,7 @@ public class RoguePlayer : MonoBehaviour
     public bool TryDown()
     {
         if (!isMine || Downed) return false;
+        if (RangeRespawn()) return true;   // shooting range: nobody goes down or dies
         { var meta = RogueMetaRuntime.Of(this); if (meta != null && meta.TryGuardian()) return true; }   // Guardian Angel
         var ctrl = RoguelikeController.Instance;
         if (ctrl == null || ctrl.State == null) return false;
@@ -270,6 +333,42 @@ public class RoguePlayer : MonoBehaviour
         RogueAudio.Play("downed");
         StartCoroutine(DownedRoutine());
         return true;
+    }
+
+    // ---------------------------------------------------------------- shooting range (RoguelikeController.Range)
+    /// <summary>Seconds without damage after a lethal hit in the shooting range.</summary>
+    public const float RangeRespawnGraceSeconds = 2f;
+    /// <summary>Lethal hits this player took in the shooting range (local; the range statistics show it).</summary>
+    public int RangeDeaths { get; private set; }
+
+    /// <summary>One of this player's range switches in the replicated state (false outside the shooting range).</summary>
+    bool RangeFlag(int flag)
+    {
+        var ctrl = RoguelikeController.Instance;
+        return ctrl != null && ctrl.RangeActive && RogueRange.HasFlag(ctrl.State.Player(KeyOfSelf()), flag);
+    }
+
+    /// <summary>Shooting range: a lethal hit puts the owner back on its feet where it stands, at full health, protected for
+    /// RangeRespawnGraceSeconds. False outside the range (the ordinary down and death rules apply).</summary>
+    bool RangeRespawn()
+    {
+        var ctrl = RoguelikeController.Instance;
+        if (ctrl == null || !ctrl.RangeActive || receiver == null) return false;
+        receiver.hitPoints = MaxHealth();
+        reviveGraceUntil = Time.time + RangeRespawnGraceSeconds;
+        RangeDeaths++;
+        ctrl.Banner(RoguelikeController.T("Knocked out: back on your feet."), 1.5f);
+        RogueAudio.Play("revive");
+        return true;
+    }
+
+    /// <summary>Shooting range, owner: the tactical is ready again now (dash charges full, shield cooldown over).</summary>
+    public void RangeResetCooldowns()
+    {
+        var ctrl = RoguelikeController.Instance;
+        if (!isMine || ctrl == null || !ctrl.RangeActive) return;
+        shieldCooldownUntil = 0f;
+        dashRuntime = null; SyncDashRuntime();
     }
 
     IEnumerator DownedRoutine()

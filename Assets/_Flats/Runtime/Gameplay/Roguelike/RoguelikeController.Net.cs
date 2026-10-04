@@ -51,7 +51,7 @@ public partial class RoguelikeController
             if (existing.life != PlayerLife.Alive) existing.life = PlayerLife.Alive;
             Notify(new RogueEventMessage { kind = "log", text = "{0} rejoined.|" + existing.name });
         }
-        else if (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd) { var p = machine.AddPlayer(key, other.NickName, -1, -1); if (p != null) Notify(new RogueEventMessage { kind = "log", text = "{0} joined the squad.|" + p.name }); }
+        else if (state.phase == RunPhase.Prep || state.phase == RunPhase.ChapterEnd || state.range /* the shooting range takes newcomers at any time */) { var p = machine.AddPlayer(key, other.NickName, -1, -1); if (p != null) Notify(new RogueEventMessage { kind = "log", text = "{0} joined the squad.|" + p.name }); }
         else
         {
             // the room stays joinable during the run for returning squad members only; a stranger mid-stage is turned away (they can
@@ -63,6 +63,7 @@ public partial class RoguelikeController
         StartCoroutine(SendSnapshotWhenReady(other.ID));
         Broadcast();
         ResendInvulnerable();
+        RangeSyncInheritedEnemies(other);   // the shooting range after a host change: enemies of the earlier host
     }
 
     /// <summary>Authority: forgets every revive record of one player key, as victim and as rescuer (hold seconds, last reports,
@@ -98,6 +99,7 @@ public partial class RoguelikeController
         state.authorityEpoch++;
         machine = new RunMachine(state);
         foreach (var p in state.players) p.connected = PhotonPlayerByKey(p.key) != null;
+        if (state.range) { RangeHostChanged(); return; }   // the shooting range goes on as it is: no safe node, no checkpoint
         if (state.phase == RunPhase.Combat || state.phase == RunPhase.Cleared || state.phase == RunPhase.Reward)
         {
             foreach (var role in new List<RogueEnemyRole>(liveEnemies.Values)) if (role != null) { machine.EnemyCancelled(role.InstanceId); DespawnEnemyEverywhere(role); }

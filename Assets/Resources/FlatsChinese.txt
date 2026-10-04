@@ -1,5 +1,5 @@
 Elites appear more often (+{0}% of enemies on average).	菁英出現比例提高（平均增加 {0}% 的敵人）。
-Elites carry {0} affixes; bosses {1}.	菁英帶 {0} 個詞綴；首領 {1} 個。
+Elites carry {0} affixes; bosses {1}.	菁英帶 {0} 個詞綴；章末首領 {1} 個。
 When an ally dies within {2} m: +{0}% speed and +{1}% damage for {3} s.	{2} m 內有同伴陣亡時：移速 +{0}%、傷害 +{1}%，持續 {3} 秒。
 Its hits slow you by {0}% for {1} s.	命中你時使你減速 {0}%，持續 {1} 秒。
 +{0}% damage against a player at full health.	對滿血玩家傷害 +{0}%。
@@ -47,7 +47,7 @@ Squad catch-up: +{0}% experience. Enemies scale with average squad power.	小隊
 {0}x magnification. Aim settle time x{1}. Spread while moving and aiming x{2}.	{0} 倍放大。開鏡後準星穩定時間 ×{1}。移動瞄準散布 ×{2}。
 Reloading with at least half the magazine left takes {0}% of the time.	彈匣剩餘至少一半時，換彈只需原時間的 {0}%。
 {0}x magnification. Aim-in time x{1}. Spread while moving and aiming x{2}.	倍率 {0} 倍。開鏡時間 ×{1}。移動瞄準散布 ×{2}。
-Every round of sustained fire tightens spread by {0}%, up to {1}%.	連續射擊每發縮小 {0}% 散布，最多 {1}%。
+Every round of sustained fire tightens spread and kick by {0}%, up to {1}%.	連續射擊每發縮小 {0}% 散布與後座力，最多 {1}%。
 Hold melee to throw it up to {0} m. Walk over it to pick it up.	按住近戰可投擲至 {0} m；走過武器即可撿回。
 Reviving gives you and the teammate a {0}-point shield for {1} s.	救援後，你與隊友獲得 {0} 點護盾，持續 {1} 秒。
 Every round of sustained fire widens spread and kick by {0}%, up to {1}%.	連續射擊每發擴大 {0}% 散布與後座力，最多 {1}%。
@@ -66,10 +66,10 @@ After a headshot the next shot cycles {0}% faster.	爆頭後，下次射擊的�
 A headshot puts {0} round back into the magazine.	爆頭會補回 {0} 發子彈至彈匣。
 Aim steadies in {0}% less time after raising the sight.	開鏡後準星穩定所需時間減少 {0}%。
 The last round in the magazine deals x{0} damage.	彈匣末發子彈造成 ×{0} 傷害。
-Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s (elites and bosses {3} s).	震擊地面：命中 {0} m 內所有敵人，將其擊退 {1} m 並震懾 {2} 秒（菁英與首領 {3} 秒）。
+Slams the ground: hits every enemy within {0} m, throws them back {1} m and staggers them for {2} s (elites and bosses {3} s).	震擊地面：命中 {0} m 內所有敵人，將其擊退 {1} m 並震懾 {2} 秒（菁英與章末首領 {3} 秒）。
 Triggered {0} times · extra damage {1} · absorbed {2}	觸發 {0} 次・額外傷害 {1}・吸收傷害 {2}
-A kill puts {0} rounds back into the magazine.	擊殺會補回 {0} 發子彈至彈匣。
-Stuns for {0} s (elites and bosses {1}% of that).	癱瘓 {0} 秒（菁英與首領僅持續該時間的 {1}%）。
+A kill puts {0} rounds back into the magazine, up to one extra magazine before a reload.	擊殺會補回 {0} 發子彈至彈匣；兩次換彈之間最多多補一個彈匣的量。
+Stuns for {0} s (elites and bosses {1}% of that).	癱瘓 {0} 秒（菁英與章末首領僅持續該時間的 {1}%）。
 {0} s delay before the first round of a burst.	連發首發前延遲 {0} 秒。
 Elites appear more often (+{0}% of the wave).	菁英出現比例增加波次的 {0}%。
 After {1} s without moving: damage taken -{0}%.	站定 {1} 秒後，受到的傷害 -{0}%。
@@ -77,7 +77,7 @@ Aiming without moving for {1} s: spread -{0}%.	站定瞄準 {1} 秒後，散布 
 Hits within {1} m stagger the enemy for {0} s.	在 {1} m 內命中，使敵人踉蹌 {0} 秒。
 Reloading an empty magazine takes {0}% less time.	空彈匣換彈時間減少 {0}%。
 Start every run with {0} random common mod.	每局開場自帶 {0} 個隨機普通改件。
-Hip-fire spread x{0}: aim to hit anything.	腰射散布 ×{0}；請開鏡確保命中。
+Hip-fire spread x{0}: aim to hit anything beyond a few metres.	腰射散布 ×{0}；距離稍遠就要開鏡才打得中。
 You get up from a revive with {0}% health.	被救起時恢復 {0}% 生命。
 Every {0} kills refill {1}% of your reserve.	每 {0} 次擊殺補充 {1}% 備彈。
 Hits within {1} m knock enemies back {0} m.	在 {1} m 內命中，將敵人擊退 {0} m。
@@ -108,7 +108,7 @@ Kill {0} enemies with shotguns	以霰彈槍擊殺 {0} 名敵人
 Enemies deal +{0}% damage.	敵人傷害 +{0}%。
 Enemies have +{0}% health.	敵人生命 +{0}%。
 Kill {0} enemies with SMGs	以衝鋒槍擊殺 {0} 名敵人
-Knocks enemies back {0} m (elites and bosses less).	將敵人擊退 {0} m（菁英與首領較不受擊退）。
+Knocks enemies back {0} m (elites and bosses less).	將敵人擊退 {0} m（菁英與章末首領較不受擊退）。
 Level {0} · +{1} skill points	等級 {0}・獲得 {1} 技能點
 Revive teammates {0} times	救起隊友 {0} 次
 Clear {0} chapter finales	完成 {0} 場章節終戰
@@ -189,51 +189,51 @@ Slams the ground and hits everything around. Heavy to carry, slow to swing.	震�
 Once per stage a killing blow leaves you standing, briefly invulnerable.	每關一次：承受致命傷仍能站立，並短暫無敵。
 Right after a full reload: the first round always counts as a headshot.	完成換彈後：首發子彈必定視為爆頭。
 A headshot kill in a group: the enemies around it light up as marked.	在人群中爆頭擊殺：附近敵人會亮起標記。
-A fast belt that slows whatever it hits. Needs a moment to spin up.	快速射擊的彈鏈，命中使敵人減速。開火需要預熱。
-Every hit drags the target down. Carries little spare ammunition.	命中就使目標減速，但備彈較少。
+Suppression: a fast belt that slows whatever it hits. Needs a moment to spin up.	壓制用：射速快的彈鏈，打到誰誰就變慢。開火前要先轉一下。
+Crowd control: every hit slows the target. Carries little spare ammunition.	控場用：每次命中都讓目標變慢。備彈很少。
 Keep the trigger down: after two seconds every round hits harder.	持續扣住扳機：兩秒後每發威力提升。
-Six heavy rounds; the last one hits twice as hard. Brutal recoil.	六發重彈，末發威力加倍，但後座力強烈。
+A finisher: six heavy rounds, the last one twice as hard, then a long reload. Brutal recoil.	收尾用：六發重彈，最後一發傷害加倍，打完要換很久。後座力非常大。
 The first round after a full reload always counts as a headshot.	完成換彈後，首發子彈必定視為爆頭。
-A steady all-rounder that snowballs once the first enemy drops.	穩定的全能武器，首次擊殺後火力逐步提升。
+Room clearer: every kill speeds it up for the rest of the magazine. Loses its bite beyond 15 m.	室內清場用：每次擊殺都讓這個彈匣剩下的子彈射得更快。超過 15 m 威力明顯下降。
 Could not save. Your previous loadout and wallet are unchanged.	無法儲存。已保留原本的配置與功勳。
-Reloads from empty in a flash. Carries little spare ammunition.	空彈匣換彈極快，但備彈較少。
+Empty it and go again: an empty magazine is replaced in a flash. Carries little spare ammunition.	打光就換、換完再打：空彈匣換彈特別快。備彈很少。
 Plant your feet: hits hurt less after a second standing still.	站穩腳步：站定一秒後，受到的傷害降低。
-Snaps to the sight almost instantly. Weak beyond medium range.	開鏡後準星迅速穩定，中距離以外威力較弱。
+The quick-handling rifle: on target almost at once and fast to reload. Weak beyond 25 m.	最順手的步槍：舉槍幾乎立刻就穩，換彈也快。超過 25 m 威力下降。
 Every run: you start with a random common mod already fitted.	每局開場：自帶隨機普通改件。
 First hit on a fresh enemy: a visibly larger chunk of health.	對滿血敵人的首擊：明顯削去更多生命。
 Hold still while aiming: the spread collapses after a moment.	站定瞄準：片刻後散布大幅縮小。
-A light rifle that aims in a blink. Headshots hit less hard.	迅速開鏡的輕型步槍，但爆頭威力較弱。
-Accurate and punishing at long range; takes a moment to aim.	遠距離精準且致命，但開鏡需要時間。
+The sniper for moving fights: aims in a blink and cycles fast. Headshots hit less hard.	適合邊移動邊打的狙擊槍：舉槍快、射速快。爆頭的加成比較低。
+The mid-range rifle: accurate, and stronger beyond 20 m. Takes a moment to aim.	中距離步槍：準，而且 20 m 以外傷害更高。舉槍瞄準要多等一下。
 Below half health: hits hurt much less, but you move slower.	生命低於一半時：承受傷害明顯降低，但移動較慢。
-Hold your aim to charge the next shot. Useless from the hip.	持續瞄準為下一發蓄力，腰射則難以命中。
+Between rifle and sniper: hold your aim to charge the opening shot. Useless from the hip.	介於步槍與狙擊槍之間：瞄準不開槍可以替第一發蓄力。腰射幾乎打不中。
 Kill streaks: each kill stacks more damage until you reload.	連續擊殺：每次疊加傷害，換彈後清除。
-One heavy slug that passes through two enemies. Slow to aim.	重型獨頭彈可穿透兩名敵人，但開鏡緩慢。
-A drum magazine that feeds itself on kills. Slow to reload.	擊殺會補充彈鼓，但換彈緩慢。
+The middle-distance shotgun: one heavy slug that passes through two enemies. Slow to aim.	打中距離的霰彈槍：一顆重型獨頭彈，可以穿過兩個敵人。舉槍瞄準較慢。
+A 45-round drum that feeds itself on kills: the SMG that never stops. Slower trigger, long reload.	45 發彈鼓，擊殺會補彈：打不停的衝鋒槍。射速較慢，換彈很久。
 After raising the sight, the reticle becomes stable sooner.	舉起瞄具後：準星更快收束至穩定。
 Every sixth kill: a chunk of reserve ammunition comes back.	每累積六次擊殺：補充一部分備彈。
-Fast pellets that refund a shell on every kill. Kicks hard.	快速連發，每次擊殺補回霰彈，但後座力強烈。
-Every third trigger pull fires its first round for free. It kicks.	每第三次扣下扳機，第一發不消耗彈藥，但後座力較大。
-Point blank hits knock enemies back. Falls apart at range.	貼身命中能擊退敵人，遠距離威力大幅下降。
+A stream of light shells that hands one back on every kill. Kicks harder with every shot.	連續噴出輕量霰彈，每次擊殺補回一發。越打後座力越大。
+The brawler of the rifles: the fastest of its class and stronger within 15 m. The kick throws it off targets further out.	步槍裡的近戰派：同類射速最快，15 m 內傷害更高。後座力大，打遠處的目標很容易飄掉。
+The quick pump: point-blank hits throw enemies back. Slow to aim.	射得快的泵動霰彈槍：貼身命中會把敵人打退。舉槍瞄準較慢。
 When you are revived: you get up with most of your health.	被救起時：恢復大部分生命。
 Hold melee to throw it; walk over it to pick it up again.	按住近戰投擲，走過武器即可撿回。
 Every revive: you and your teammate get a shield bubble.	每次救援：你與獲救隊友都得到護盾。
-Every trigger pull fires a three-round burst while you keep moving. Weak at range.	每扣一次扳機就三連發，移動不受影響，但遠距離威力較低。
-Wild at first, laser-straight once you hold the trigger.	起初散亂，持續扣住扳機後彈道筆直。
-Ignores shields and hits elites harder. Slows you down.	無視護盾且對菁英傷害更高，但會減慢移速。
+A three-round burst on every pull, and you move faster with it out. Slow to reload.	扣一次扳機三連發，拿在手上時移動更快。換彈慢。
+The fastest trigger in the armory: spread and kick settle the longer you hold it. Burns through its reserve.	軍械庫射速最快：扣住扳機越久，散布與後座力越小。備彈消耗得很快。
+The elite hunter: ignores shields and hits elites and bosses harder. Heavy in the hands.	菁英獵手：無視護盾，對菁英與章末首領傷害更高。拿著會走得比較慢。
 Select a node to inspect its effects and prerequisites.	選取節點查看效果與前置條件。
-Single heavy rounds; headshots stagger. Small magazine.	重型單發，爆頭使敵人踉蹌，但彈匣較小。
+Slow, heavy single rounds that reach as far as you can see; headshots stagger. Twenty rounds.	一發一發慢慢打的重彈，看得到就打得到；爆頭會讓敵人踉蹌。彈匣只有 20 發。
 When your health drops low: a burst of speed to escape.	生命降至低點時：突然加速，方便脫離危險。
 Every weapon swap: the other gun is ready much sooner.	每次切槍：另一把槍更快準備好。
 Source                         Experience       Merits	獎勵來源                         經驗值             功勳
-A headshot chambers the next round fast. No hip fire.	爆頭後快速上膛。不適合腰射。
+The headhunter: a headshot chambers the next round fast. Hip fire goes anywhere.	專打頭：爆頭之後下一發上膛更快。腰射完全沒準頭。
 A melee kill: your gun is fully reloaded on the spot.	近戰擊殺：手持槍械當場補滿彈匣。
 Every kill: a quarter of the magazine slides back in.	每次擊殺：補回四分之一彈匣。
 Chain headshots: each one hits harder than the last.	連續爆頭：每一擊的威力都會提升。
-Explosions stun everything they catch. Slow to swap.	爆炸會震暈範圍內敵人，但切換緩慢。
-Rounds punch through the first enemy. Heavy to swap.	子彈穿透首名敵人，但切槍緩慢。
+Area damage: every blast stuns the group it catches. Six rounds, a long reload, slow to swap.	範圍傷害：每次爆炸都讓被炸到的一群敵人暈住。只有六發，換彈久，切槍慢。
+Line them up: every round passes through the first enemy. Slow to swap.	排成一線就賺到：每發子彈都會穿過第一個敵人。切槍慢。
 Topping up a half-full magazine takes half the time.	彈匣尚有一半時，補彈只需一半時間。
 A headshot on a wounded enemy drops it instantly.	對重傷敵人爆頭：立即將其擊倒。
-Grows deadlier the longer it fires. Slow to aim.	連射越久威力越強，但開鏡較慢。
+Staying power: a hundred rounds that hit harder the longer you fire. Slows you down.	持久火力：一百發子彈，連續射擊越久傷害越高。拿著走得慢。
 Quick and quiet. Strikes from behind are lethal.	迅速而安靜，背後攻擊十分致命。
 Reviving a teammate: the ring fills much faster.	救起隊友時：進度環明顯更快完成。
 Firing without aiming: shots land much tighter.	不開鏡射擊：落點明顯更集中。
@@ -241,16 +241,16 @@ Every magazine: more rounds before you reload.	每個彈匣：換彈前能多射
 Every time you aim: the sight comes up faster.	每次開鏡後：準星更快收束至穩定。
 Every hit: the enemy slows down for a moment.	每次命中：敵人會短暫減速。
 Always: you cross the map noticeably faster.	持續生效：移動穿越地圖的速度明顯更快。
-Light enough to sprint through a firefight.	輕巧靈活，能在交火中迅速移動。
+Run and gun: you move faster with it in hand. The magazine is gone in a second.	邊跑邊打：拿在手上時移動更快。彈匣一秒左右就打完。
 The ultimate meter fills noticeably faster.	絕招量表明顯更快充滿。
 Each loadout keeps its own skill choices.	每組配置各自保存技能選擇。
 Stuns on hit. Elites shake it off faster.	命中使敵人癱瘓，菁英恢復較快。
 Both slots would use the same gun model	兩個欄位不能使用同款槍身
 Q / E: tabs   Enter: select   Esc: back	Q／E 切頁・Enter 確認・Esc 返回
-Rounds pass through one enemy. Heavy.	子彈穿透一名敵人，但武器沉重。
+A heavy round that passes through the first enemy: two in a line, one shot. Slows you down.	重彈會穿過第一個敵人：兩個排成一線，一槍解決。拿著走得慢。
 Tap a card to inspect · swipe to scroll	點選卡片檢視・滑動捲動
-Breaks shields and elites. Very heavy.	專門對付護盾與菁英，但十分沉重。
-Devastating inside a room. Cannot aim.	室內近戰威力驚人，但無法開鏡。
+The biggest single shot in the armory: breaks shields, elites and bosses. Very slow, very heavy.	軍械庫單發最痛的一槍：專破護盾、菁英與章末首領。射速很慢，而且非常重。
+A room is its whole world: devastating within 8 m, a wide pattern, and it cannot aim.	只為房間內而生：8 m 內威力驚人，但散布很寬，而且不能開鏡。
 Every headshot: bigger damage numbers.	每次爆頭：傷害數字更大。
 Longer fights: you run dry much later.	持久交戰：更晚才會耗盡彈藥。
 Spend more points in this branch first	請先在此分支投入更多技能點
@@ -258,11 +258,11 @@ Two more enemies on the field at once.	場上同時多出兩名敵人。
 Clear two chapter finales in one run	單局完成兩場章節終戰
 LB / RB: tabs   A: select   B: back	LB／RB 切頁・A 確認・B 返回
 Revive teammates 5 times in one run	單局救起隊友 5 次
-Rewards clean aim with free rounds.	精準瞄準可獲得免費子彈。
-A headshot hands the round back. Weak at range.	爆頭會把那發子彈退回彈匣，但遠距離威力較低。
+The hardest-hitting SMG: headshots hand the round back. Slowest of its class to reload.	單發最痛的衝鋒槍：爆頭會把那發子彈補回彈匣。換彈是同類最慢。
+The reliable sidearm: a headshot hands the round back. Weak beyond 12 m.	可靠的副武器：爆頭會把那發子彈補回彈匣。超過 12 m 威力下降。
 Dash and shield come back sooner.	衝刺與護盾的冷卻更快結束。
 Every hit in a row swings faster.	連續命中時，出手越來越快。
-Headshots stagger. Recoil climbs.	爆頭使敵人踉蹌，連射時後座力上升。
+The stopper: headshots stagger. Recoil climbs with every quick shot.	用來擋人：爆頭會讓敵人踉蹌。連續快射時後座力越來越大。
 One fewer shop reroll per visit.	每次商店造訪減少一次重抽。
 Evacuate with a squad of four	四人小隊一起撤離
 Aim settling time multiplier	開鏡後準星穩定時間倍率
@@ -279,7 +279,7 @@ Clear a finale at Heat 6	在 Heat 6 完成終戰
 Current → after learning	目前 → 學習後
 Cannot aim down sights.	無法開鏡瞄準。
 Clear a finale on Chaos	在混沌難度完成終戰
-Close hits stun. Heavy.	近距離命中會震暈敵人，但槍身沉重。
+One huge blast: the hardest single shell, and close hits stun. Slow to cycle and heavy.	一發重擊：單發威力最大，近距離命中還會讓敵人暈住。射速慢，拿著走得慢。
 Fresh Magazine Headshot	換彈首發爆頭
 Not enough skill points	技能點不足
 Spend your skill points	分配技能點
@@ -380,6 +380,311 @@ Already owned	已擁有
 Assault rifle	突擊步槍
 Confirm reset	確認重置
 Deepest stage	最深關卡
+The measure for the other enemies: their numbers are compared with this one.	它是比較的基準：其他敵人的數值都是拿來跟它比。
+Its melee weapon works as described in the Bruiser entry.	它的近戰武器怎麼打人，和「近戰兵」條目裡寫的一樣。
+Reward: up to {0}% of the stage bounty for each player.	獎勵：每位玩家最多拿到這一關賞金的 {0}%。
+{0} entries	共 {0} 項
+The safest pick when you keep getting knocked down.	一直被打倒的時候，選它最穩。
+Regeneration and Adrenaline heal a share of your maximum health, so more health makes both of them heal more.	「生命回復」和「腎上腺素」都是照最大生命的比例回血，所以生命上限越高，這兩樣回得越多。
+Buying a tier also heals you by the amount it adds.	每買一階，也會順便補上這一階多出來的血量。
+Every bullet you fire hits harder, at any range and against any enemy.	你射出的每一發子彈都更痛，不分距離、不分敵人。
+It multiplies with the bonuses of cores and mods, so it is never wasted.	它會和核心、改件的加成相乘，所以怎麼買都不會浪費。
+More rounds before each reload.	每次換彈之前可以多打幾發。
+Best on weapons with a small magazine, and with the Suppression core, which rewards long bursts.	最適合彈匣小的武器，也很適合「壓制」核心，因為壓制要連續射擊才有好處。
+Every tier adds at least one round.	每一階至少多一發子彈。
+You run faster all the time: easier to reach cover, get away from melee enemies and reach a downed teammate.	隨時都跑得更快：更容易躲到掩體後面、甩開近戰敵人，也更快趕到倒地的隊友身邊。
+It does not change how fast you aim or reload.	它不會讓你瞄準或換彈變快。
+Heals you a little every second, in and out of a fight, but not while you are downed.	不管有沒有在交戰，每秒都會回一點血；倒地的時候不會回。
+Strong in long stages and together with Vitality. It will not save you from one big burst of damage.	關卡打得越久越有用，搭配「體力」更好。但如果是一瞬間被打掉大量血，它救不了你。
+For players who aim at heads: headshots hit much harder, and each bullet goes on through the enemies behind the first one.	給習慣瞄頭的玩家：爆頭傷害大幅提高，而且子彈打中第一個敵人後，還會繼續穿過後面的敵人。
+At low tiers body shots are a little weaker, so it suits accurate rifles and sniper rifles better than spray weapons.	階級低的時候，打身體的傷害會稍微變低，所以它比較適合打得準的步槍和狙擊槍，不適合亂掃的武器。
+Goes well with Long Barrel, Piercing Rounds and Calm Hands.	適合搭配「長槍管」、「穿甲彈」和「穩定雙手」。
+For fighting up close: you deal more damage inside the close range and a little less far away.	給喜歡貼近打的玩家：在近距離範圍內傷害更高，離得很遠時傷害會稍微變低。
+Each kill at close range makes you tougher and faster for a few seconds, so keep moving from one kill to the next.	每次在近距離擊殺敵人，接下來幾秒你會更耐打、跑得更快，所以要一個接一個殺下去，不要停。
+Goes well with shotguns and SMGs, Close Quarters and Adrenaline.	適合搭配霰彈槍、衝鋒槍，以及「近身」和「腎上腺素」。
+For weapons that hold the trigger down: every hit adds a little damage, up to a cap.	給可以按住扳機一直打的武器：每命中一發，傷害就多一點，一直加到上限為止。
+Stop hitting for a moment and the bonus drains away step by step. A reload keeps half of it.	只要一陣子沒打中，加成就會一層一層掉。換彈時會保留一半。
+It also gives a bigger magazine, and at low tiers a slower reload.	它還會讓彈匣變大；階級低的時候換彈會比較慢。
+Goes well with Extended Magazine, Sustained Fire and the Infinite Fire ultimate.	適合搭配「加長彈匣」、「持續射擊」和絕招「無限火力」。
+Fire most of the magazine, reload, and for the next few seconds you deal bonus damage.	把彈匣打掉大半再換彈，接下來幾秒你的傷害會提高。
+Reloading too early, before enough of the magazine is fired, gives nothing.	如果打得不夠多就提早換彈，什麼加成都沒有。
+Best with small magazines and quick reloads. Goes well with Fast Hands and Burst Extender.	最適合彈匣小、換彈快的武器。適合搭配「快手」和「爆發延長」。
+Bullets that hit a wall bounce on and can still hit an enemy, and a bounced hit deals bonus damage.	子彈打到牆壁會彈開繼續飛，還是可以打中敵人，而且彈過牆的子彈打中時傷害更高。
+Strong indoors and in corridors. Weak on open ground, where there is nothing to bounce off.	在室內和走廊很強。在空曠的地方沒有牆可以彈，就很弱。
+Rubber Rounds, Double Bounce and Angle Finder build on it.	「橡膠彈」、「二次反彈」和「角度儀」都是替它加強的改件。
+Every enemy you kill blows up and hurts the enemies around it.	你殺掉的每個敵人都會爆炸，炸傷它旁邊的敵人。
+The blast is a share of the damage of the killing hit, so a big hit makes a big blast. A blast never sets off another blast.	爆炸的傷害是「最後那一擊傷害」的一部分，所以那一擊越痛，炸得越痛。爆炸不會再引發另一次爆炸。
+Best against tight groups. Bigger Boom, Explosive Payload and Shockwave build on it.	敵人擠在一起時最好用。「更大爆炸」、「爆炸強化」和「震波」都是替它加強的改件。
+Enemies you hit are marked for a few seconds. A marked enemy takes more damage from the whole squad, not only from you.	被你打中的敵人會被標記幾秒。被標記的敵人不只被你打會更痛，全隊打它都更痛。
+Whenever anyone kills a marked enemy, your ultimate charges.	不管是誰殺掉被標記的敵人，你的絕招都會充能。
+A team core: tag many enemies and let teammates finish them. Spotter and Bounty Hunter build on it.	這是團隊型的核心：盡量多標記幾個敵人，讓隊友去收掉。「觀測手」和「賞金獵人」都是替它加強的改件。
+You move and revive faster, carry mission objects without slowing down, and your dash comes back sooner.	你跑得更快、救人更快，搬任務物品不會變慢，衝刺也更快恢復。
+The first shot right after a dash or after landing from a jump hits harder: jump or dash first, then shoot.	衝刺之後，或跳起來落地之後的第一槍會更痛，所以先跳或先衝刺，再開槍。
+Goes well with the Dash and Double Jump tacticals and with weapons that hit hard with one shot.	適合搭配戰術「衝刺」和「二段跳」，以及一槍就很痛的武器。
+A plain boost to headshots. Take it if you aim for heads anyway.	單純讓爆頭更痛。本來就習慣瞄頭的話就拿。
+It multiplies with the Precision core. It does nothing for body shots.	它會和「精準」核心相乘。打身體沒有任何加成。
+Each bullet passes through one more enemy. Useful when enemies line up in corridors and doorways.	每發子彈可以多穿過一個敵人。敵人在走廊或門口排成一排時很好用。
+There is a limit to how many enemies one bullet can pierce. The shop stops offering this once you are at the limit.	一發子彈能穿過的敵人數量有上限。到了上限，商店就不會再賣它。
+Your shots spread less, but only while you aim down the sight.	子彈散得比較小，但只有開鏡瞄準的時候才有效。
+Good for automatic weapons at medium and long range. No use if you fire from the hip.	適合在中、遠距離用連發武器。如果你都不開鏡直接打，它完全沒用。
+More damage inside the close range. It is the same range the Assault core uses, and the two multiply.	在近距離範圍內傷害更高。這個範圍和「突擊」核心用的是同一個，兩者會相乘。
+For shotguns, SMGs and anyone who fights inside rooms.	適合霰彈槍、衝鋒槍，以及喜歡在房間裡打的人。
+Every kill gives back a share of your maximum health, a few times per second at most.	每次擊殺都會回復一部分最大生命，一秒內最多回幾次。
+It keeps you alive in the middle of a crowd. Against one tough enemy it does nothing until that enemy dies.	被一群敵人包圍時能讓你撐住。只面對一個很硬的敵人時，在它死掉之前都沒有作用。
+Adds pellets to every shell of a pellet shotgun without using more ammunition, so each shot simply hits harder.	讓霰彈槍每一發多噴出幾顆彈丸，而且不會多耗彈藥，等於每一槍都更痛。
+It does nothing for other guns or for the Slug Gun. The shop only offers it while you carry a pellet shotgun.	對其他槍和「獨頭彈霰彈槍」完全沒用。只有你帶著會噴彈丸的霰彈槍時，商店才會賣它。
+Your guns fire faster: more damage per second, and more ammunition used.	你的槍射得更快：每秒傷害更高，子彈也用得更快。
+Handguns gain nothing. They already fire as fast as you can pull the trigger.	手槍沒有任何好處，因為手槍本來就是你按多快就射多快。
+Melee hits and thrown melee weapons deal more damage. Take it if you finish enemies with melee.	近戰揮擊和丟出去的近戰武器都更痛。習慣用近戰收掉敵人的話就拿。
+Needs a melee weapon from the armory in your loadout. The shop does not offer it otherwise.	需要你的配置裡有軍械庫的近戰武器。沒有的話，商店不會賣它。
+The wind-up before a melee hit and the pause after it both get shorter. Heavy weapons such as the Sledgehammer gain the most.	近戰出手前的準備動作和打完後的停頓都會變短。「大錘」這類笨重的武器受益最大。
+A bigger magazine: longer bursts and fewer reloads. It multiplies with the Magazine stat.	彈匣變大：可以連續打更久，換彈次數更少。它會和「彈匣」屬性相乘。
+Careful with the Reload Burst core: a bigger magazine takes longer to fire off.	搭配「換彈爆發」核心要小心：彈匣越大，要打掉夠多子彈就越花時間。
+Every bullet hits harder, and you pay with a little movement speed.	每發子彈都更痛，代價是跑得稍微慢一點。
+Fine if you hold a position. Think twice if you depend on running.	如果你習慣守在定點就沒差。如果你很依賴跑位，要想清楚再拿。
+Raises how far the Suppression bonus can grow.	讓「壓制」的傷害加成可以疊得更高。
+Needs the Suppression core. Without that core it does nothing, so the shop only offers it once you have the core.	需要「壓制」核心。沒有這個核心它完全沒用，所以要先有核心，商店才會賣它。
+Shorter reloads for every gun.	所有槍的換彈時間都變短。
+Good with any slow-reloading weapon, and with the Reload Burst core, where every reload starts a damage window.	適合換彈慢的武器，也適合「換彈爆發」核心，因為每次換彈都會開始一段傷害加成時間。
+Each reload puts a few rounds back into your reserve, so you run out of ammunition later.	每次換彈都會把幾發子彈補回備彈，所以比較不容易把子彈打光。
+Best with small magazines that reload often.	最適合彈匣小、常常要換彈的武器。
+The damage window of Reload Burst lasts longer.	「換彈爆發」的傷害加成時間變長。
+Needs the Reload Burst core. Without that core it does nothing, so the shop only offers it once you have the core.	需要「換彈爆發」核心。沒有這個核心它完全沒用，所以要先有核心，商店才會賣它。
+A bounced bullet normally loses part of its damage. With this it keeps all of it.	子彈彈過牆之後，傷害本來會少一些。有了它就完全不會少。
+Needs bullets that bounce: the Ricochet core or Double Bounce.	需要子彈會彈牆：也就是要有「彈射」核心或「二次反彈」。
+One more wall bounce for every bullet. On its own it gives your bullets one bounce, even without the Ricochet core.	每發子彈可以多彈一次牆。就算沒有「彈射」核心，光靠它子彈也能彈一次。
+There is a limit to how many times a bullet can bounce. The shop stops offering this once you are at the limit.	子彈能彈牆的次數有上限。到了上限，商店就不會再賣它。
+An enemy hit by a bounced bullet is marked for a few seconds, and a marked enemy takes more damage from everyone.	被彈牆子彈打中的敵人會被標記幾秒，被標記的敵人不管被誰打都更痛。
+If you already have the Marker core, your hits mark anyway and this adds nothing.	如果你已經有「標記」核心，你打中的敵人本來就會被標記，再拿它沒有額外好處。
+Every explosion you cause reaches further: hand grenades, grenade-launcher rounds and the kill explosions of the Demolition core.	你造成的每一種爆炸範圍都更大：手榴彈、榴彈發射器的榴彈，還有「爆破」核心的擊殺爆炸。
+It works without any core, as long as you use grenades.	不需要任何核心，只要你會用手榴彈或榴彈就有用。
+Every explosion you cause hurts more: hand grenades, grenade-launcher rounds and the kill explosions of the Demolition core.	你造成的每一種爆炸都更痛：手榴彈、榴彈發射器的榴彈，還有「爆破」核心的擊殺爆炸。
+Take it together with Bigger Boom for large, strong blasts.	和「更大爆炸」一起拿，爆炸就又大又痛。
+The kill explosions of the Demolition core also slow the enemies they hit. Grenades do not slow.	「爆破」核心的擊殺爆炸還會讓被炸到的敵人變慢。手榴彈不會讓敵人變慢。
+Needs the Demolition core. Without that core it does nothing, so the shop only offers it once you have the core.	需要「爆破」核心。沒有這個核心它完全沒用，所以要先有核心，商店才會賣它。
+Your marks last longer, so teammates have more time to use the bonus.	你的標記持續更久，隊友就有更多時間趁標記多打傷害。
+Needs a way to mark enemies: the Marker core, Angle Finder, the Enemy Sight ultimate or Static Mark.	需要有辦法標記敵人：「標記」核心、「角度儀」、絕招「敵人透視」或「靜電標記」，有其中一樣就行。
+Killing a marked enemy pays extra coins to the whole squad, up to a limit in each stage.	殺掉被標記的敵人，全隊都會多拿一些金幣；每一關能多拿的金額有上限。
+A money mod: it does not make you stronger by itself.	這是賺錢用的改件，本身不會讓你變強。
+It is not offered in runs at the moment, so you cannot find it in a new run.	目前遊戲裡不會出現這個改件，所以新開的一局拿不到它。
+A run saved before that change may still hold it.	只有在這之前存下來的進度裡，才可能還帶著它。
+The Dash tactical holds more charges, so you can dash several times in a row. Charges come back one at a time.	戰術「衝刺」可以存更多次，所以能連續衝刺好幾次。用掉的次數是一次一次慢慢補回來。
+Needs the Dash tactical. Without it this does nothing, and the shop does not offer it.	需要戰術「衝刺」。沒有的話它完全沒用，商店也不會賣它。
+One more jump in the air, on top of the one Double Jump gives.	在「二段跳」給的那一次之外，在空中還可以再多跳一次。
+Needs the Double Jump tactical. Without it this does nothing, and the shop does not offer it.	需要戰術「二段跳」。沒有的話它完全沒用，商店也不會賣它。
+The Shield tactical absorbs more damage and stays up longer.	戰術「護盾」可以擋下更多傷害，也維持更久。
+Needs the Shield tactical. Without it this does nothing, and the shop does not offer it.	需要戰術「護盾」。沒有的話它完全沒用，商店也不會賣它。
+Your ultimate fills faster.	你的絕招充能更快。
+Needs an ultimate. All charge-speed bonuses together stop at a fixed limit, which the effect line shows.	需要先有一個絕招。所有「充能加快」的效果加起來有固定上限，上限寫在效果說明裡。
+While Chain Bullets is active, each hit arcs to more enemies and the chain jumps further.	「閃電連鎖子彈」發動期間，每次命中會電到更多敵人，閃電也會跳得更遠。
+Needs the Chain Bullets ultimate. With any other ultimate it does nothing, and the shop does not offer it.	需要絕招「閃電連鎖子彈」。帶別的絕招時它完全沒用，商店也不會賣它。
+While Chain Bullets is active, every enemy a chain touches is marked and takes more damage from the whole squad.	「閃電連鎖子彈」發動期間，被閃電電到的敵人都會被標記，全隊打它都更痛。
+Higher jumps: reach ledges and rooftops, and jump over melee enemies.	跳得更高：可以跳上平台和屋頂，也可以從近戰敵人頭上跳過去。
+Jump height has a fixed limit, and the top tier already reaches it.	跳躍高度有固定上限，最高階剛好達到這個上限。
+You get a downed teammate back up faster.	你救起倒地隊友的速度更快。
+Only useful in co-op. In a solo run there is nobody to revive.	只有多人合作時有用。單人遊玩沒有隊友可以救。
+A larger ammunition reserve for both weapons.	兩把武器的備彈都變多。
+Take it when you keep running dry before the stage ends.	如果你常常還沒打完一關就沒子彈，就拿它。
+Everything that hurts you hurts a little less.	不管被什麼打到，受到的傷害都少一點。
+Simple and always useful. It multiplies with other damage reduction.	簡單，而且什麼時候都有用。它會和其他減傷效果相乘。
+Always on: press Jump again in the air to change direction, reach high ground or get over a melee swing.	不用另外按鍵，隨時有效：在空中再按一次跳躍，可以改變方向、跳上高處，或跳過近戰敵人的攻擊。
+Triple Jump adds one more jump in the air.	「三段跳」可以讓你在空中再多跳一次。
+You carry one tactical. Taking another one replaces it.	戰術只能帶一個。拿了新的，舊的就會被換掉。
+Press the tactical button to dash forward: leave a bad spot, close in with a shotgun or reach a teammate.	按下戰術鍵往前衝刺：可以用來脫離危險、拿霰彈槍貼近敵人，或趕去救隊友。
+It stops at walls and ledges. Charges refill one at a time.	撞到牆或衝到邊緣就會停下來。用掉的次數是一次一次慢慢補回來。
+Dash Charges gives you more charges, and the Mobility core refills them sooner.	「衝刺充能」讓你可以存更多次，「機動」核心讓次數補得更快。
+Press the tactical button to raise a shield that soaks up damage for a short time. Then it has a cooldown.	按下戰術鍵開啟護盾，在短時間內替你擋下傷害。之後要等冷卻才能再用。
+Use it before you cross open ground or revive someone. Pressing again replaces the shield; shields never add up.	要穿過空曠地帶或要救人之前先開。再按一次只會換成新的護盾，護盾不會疊加。
+Shield Boost makes it bigger and longer.	「護盾提升」會讓它擋得更多、維持更久。
+For a short time you never run dry and never reload. Hold the trigger and keep it on target.	一小段時間內子彈打不完，也不用換彈。按住扳機、對準目標一直打就對了。
+Best with fast-firing weapons and the Suppression core, whose bonus needs unbroken fire. It does not make the gun fire faster.	最適合射速快的武器和「壓制」核心，因為壓制的加成要不間斷地打才疊得起來。它不會讓槍射得更快。
+Kills by the squad charge the ultimate. You carry one; taking another replaces it.	全隊每殺一個敵人，絕招就會充能。絕招只能帶一個，拿了新的，舊的就會被換掉。
+For a few seconds anything you hit dies, elites included. Finale targets do not die at once, but take far more damage.	幾秒內，被你打中的敵人都會直接死掉，菁英也一樣。章末首領不會直接死，但會受到高出很多的傷害。
+Save it for a wave of elites, or for the moment a finale target is exposed. A fast-firing gun kills the most in that time.	留到一波菁英出現時，或章末首領露出弱點的那一刻再用。射速快的槍在這段時間能殺最多敵人。
+For a few seconds bullets, melee hits and gas cannot hurt you. It covers only you, not your teammates.	幾秒內，子彈、近戰攻擊和毒氣都傷不了你。只保護你自己，不保護隊友。
+Use it to revive someone under fire, to carry an objective through an ambush or to survive a bad position.	可以用來在槍林彈雨中救人、頂著埋伏搬運任務物品，或在被包圍時撐過去。
+In co-op: with a full charge, use it to bring downed or dead teammates back at once, with their whole build.	多人合作：充滿之後使用，可以立刻把倒地或陣亡的隊友救回來，而且他們身上的東西都還在。
+Solo: you do not press anything. With a full charge, a hit that would kill you leaves you alive instead, and the charge is spent.	單人：不用按任何鍵。只要是充滿的狀態，本來會打死你的那一擊會改成讓你活下來，然後充能歸零。
+It recharges and works again. Kills by the squad charge the ultimate. You carry one; taking another replaces it.	它可以重新充能再用。全隊每殺一個敵人，絕招就會充能。絕招只能帶一個，拿了新的，舊的就會被換掉。
+Every enemy on the map is marked and shown through walls for a while, including the ones that arrive during it.	一段時間內，地圖上所有敵人都會被標記，隔著牆也看得到，連這段時間才出現的敵人也算。
+Marked enemies take more damage from the whole squad, and your mark mods (Spotter, Bounty Hunter) work on them.	被標記的敵人，全隊打它都更痛；你的標記改件（「觀測手」、「賞金獵人」）對它們也有效。
+Use it at the start of a big wave, or to find the last hidden enemies. Kills by the squad charge the ultimate. You carry one; taking another replaces it.	適合在一大波敵人剛出現時用，或用來找出最後幾個躲起來的敵人。全隊每殺一個敵人，絕招就會充能。絕招只能帶一個，拿了新的，舊的就會被換掉。
+While it lasts, each hit jumps as lightning to nearby enemies, and from them to more enemies.	發動期間，每次命中都會放出閃電跳到附近的敵人身上，再從它們跳到更多敵人身上。
+Strongest against a tight crowd; against a single enemy it adds nothing. Chain damage never counts as a headshot.	敵人擠成一團時最強；只有一個敵人時沒有任何額外效果。閃電的傷害不算爆頭。
+Superconductor and Static Mark build on it. Kills by the squad charge the ultimate. You carry one; taking another replaces it.	「超導」和「靜電標記」都是替它加強的改件。全隊每殺一個敵人，絕招就會充能。絕招只能帶一個，拿了新的，舊的就會被換掉。
+While it lasts, your bullets bend toward the enemy closest to where you aim, if you can see it.	發動期間，子彈會自己轉向最接近你準心的敵人，前提是你看得到它。
+Good with fast or inaccurate weapons and against fast enemies. You still have to aim roughly at the target.	適合射速快或不太準的武器，也適合對付跑得快的敵人。你還是要大致瞄向目標才行。
+Headshot damage	爆頭傷害
+Enemies pierced	可穿透敵人數
+Body shots	打身體的傷害
+Close-range damage	近距離傷害
+Damage reduction after a kill	擊殺後減傷
+Lasts	持續
+Damage cap	傷害加成上限
+Magazine to fire first	要先打掉的彈匣比例
+Bonus damage	傷害加成
+Bounces	可彈牆次數
+Bounced hits	彈牆後命中
+Blast damage	爆炸傷害
+Radius	爆炸半徑
+{0} m	{0} m
+Mark lasts	標記持續
+Marked enemies take	被標記的敵人多受
+Movement speed	移動速度
+Revive speed	救援速度
+Dash cooldown	衝刺冷卻時間
+First shot	第一槍
+Spread while aiming	瞄準時的散布
+Health per kill	每次擊殺回復生命
+Swing time	揮擊時間
+Rounds returned	補回的子彈數
+Slow lasts	緩速持續
+Bounty	賞金
+Dash charges	衝刺次數
+Shield absorbs	護盾可擋傷害
+Charge speed	充能速度
+More enemies per hit	每次命中多電到
+More jumps	閃電多跳
+Reserve ammunition	備彈
+With all {1} tiers: +{0}% maximum health.	{1} 階全部買滿：最大生命 +{0}%。
+With all {1} tiers: +{0}% weapon damage.	{1} 階全部買滿：武器傷害 +{0}%。
+With all {1} tiers: +{0}% magazine capacity.	{1} 階全部買滿：彈匣容量 +{0}%。
+With all {1} tiers: +{0}% movement speed.	{1} 階全部買滿：移動速度 +{0}%。
+With all {1} tiers: {0}% of maximum health every second.	{1} 階全部買滿：每秒回復最大生命的 {0}%。
+The shop sells one stat upgrade on every visit, and one of the three free picks after each stage is a stat.	每次進商店都會賣一個屬性升級；每打完一關的三選一免費獎勵裡，也一定有一個是屬性。
+Stats take no slot. Each tier costs a little more than the one before.	屬性不占欄位。每一階都比前一階貴一點。
+The shop offers a core on most visits, and always while you have none. It can also be one of the three free picks after a stage.	商店大多數時候會賣一個核心；你還沒有核心時一定會賣。打完一關的三選一免費獎勵裡也可能出現。
+You can hold {0} cores at once. Taking a core you already own raises its tier.	一次最多帶 {0} 個核心。再拿到已經有的核心，就會讓它升一階。
+The shop sells two mods on every visit, and at least one of the three free picks after each stage is a mod.	每次進商店都會賣兩個改件；每打完一關的三選一免費獎勵裡，至少有一個是改件。
+You can hold {0} mods at once. Taking a mod you already own raises its tier.	一次最多帶 {0} 個改件。再拿到已經有的改件，就會讓它升一階。
+Not offered in runs at the moment.	目前遊戲裡不會出現。
+The shop sells it while you have no tactical, and now and then after that. It can also be one of the three free picks after a stage.	你還沒有戰術時，商店會賣；之後偶爾也會出現。打完一關的三選一免費獎勵裡也可能出現。
+The shop sells an ultimate from the second stage on while you have none, and now and then after that.	從第二關開始，只要你還沒有絕招，商店就會賣一個；之後偶爾也會出現。
+Own it once in a run and its full entry opens here.	只要在一局裡拿到過一次，這裡就會顯示完整說明。
+Meet it once in a run and its full entry opens here.	只要在一局裡遇過一次，這裡就會顯示完整說明。
+The standard soldier, and the measure for every other enemy.	最普通的士兵，其他敵人的強弱都是拿它來比。
+Keeps its distance and shoots steadily.	會保持距離，穩定地對你開槍。
+Little health, but very fast.	血很少，但跑得非常快。
+Comes in fast along a side lane and shoots from right in front of you.	會從側邊的路線快速逼近，衝到你面前貼著你開槍。
+Stays far away and hits very hard with a long-range rifle.	躲在很遠的地方，用遠距離步槍打你，打中非常痛。
+Fragile once you get close to it.	只要靠近它，它其實很脆弱。
+Slow and tough, behind a riot shield.	走得慢、很耐打，身前舉著一面防暴盾。
+The shield stops most of what hits it from the front.	從正面打它，大部分傷害都會被盾擋掉。
+Quicker than a rifleman.	跑得比步槍手快。
+It does not come straight at you: it circles round to hit you from the side or from behind.	它不會從正面過來，而是繞一圈，從你的側面或背後打你。
+Carries a jamming device. While you stand inside its ring, your ultimate does not charge.	身上背著干擾器。你站在它的圓圈範圍裡時，絕招不會充能。
+Weak in a firefight.	它本身對槍戰不太行。
+Never shoots.	完全不開槍。
+Runs at you with one of the armory's melee weapons, picked at random, and uses that weapon's own move.	會拿著軍械庫裡隨機一把近戰武器朝你衝過來，而且會用那把武器特有的招式。
+An enemy built like a player: it has cores, a gun from the armory, a melee weapon, stat upgrades and a tactical.	一個像玩家一樣配裝的敵人：它有核心、軍械庫的槍、近戰武器、屬性升級，還有戰術。
+It is the most dangerous regular enemy, and pays the most.	它是一般敵人裡最危險的，殺掉它拿到的賞金也最多。
+Health x{0}, speed x{1}, damage x{2} of a Rifleman.	和步槍手相比：生命 x{0}、速度 x{1}、傷害 x{2}。
+Likes to fight from about {0} m.	喜歡在大約 {0} m 的距離作戰。
+First appears at stage {0}-{1}.	最早在第 {0}-{1} 關出現。
+Bounty x{0} of a Rifleman.	賞金是步槍手的 x{0}。
+Takes {0}% less damage from the front.	從正面打它，傷害會減少 {0}%。
+{0}% of a player's base health per hit, {1} s wind-up.	每一擊打掉玩家基礎生命的 {0}%，出手前有 {1} 秒的準備動作。
+From behind it hits x{0} as hard.	從你背後打中時，傷害變成 x{0}。
+Knocks you back {0} m.	會把你擊退 {0} m。
+Slams the ground: hits everyone within {0} m and slows them by {1}% for {2} s.	重擊地面：{0} m 內的人都會被打到，並且緩速 {1}%，持續 {2} 秒。
+{0} hits in a row. During each wind-up it takes {1}% less damage from the front.	連續攻擊 {0} 下。每次出手前的準備動作期間，從正面打它的傷害會減少 {1}%。
+Throws it at you from up to {0} m away.	最遠會從 {0} m 外把武器丟向你。
+Its shield takes {0}% off damage from the front.	它的盾會讓從正面打它的傷害減少 {0}%。
+A hit slows you by {0}% for {1} s.	被打中會緩速 {0}%，持續 {1} 秒。
+Each hit in a row comes faster, up to {0} times.	連續攻擊時一下比一下快，最多加快 {0} 次。
+Cores: {0}, and {1} from chapter {2}. The icons over its head show which.	核心：{0} 個，從第 {2} 章起變成 {1} 個。它頭上的圖示會顯示是哪幾個。
+Gun: one of {0} armory guns, picked at random, with that gun's trait.	槍：從軍械庫的 {0} 把槍裡隨機拿一把，也帶有那把槍的特性。
+Melee: one of the {0} armory melee weapons. It draws it when you get close.	近戰：軍械庫 {0} 把近戰武器的其中一把。你靠近時它會換成近戰武器。
+Stat upgrades: {0} when it first appears, one more each chapter, up to {1}. Each one adds health, damage or speed.	屬性升級：剛出現時有 {0} 個，每過一章多一個，最多 {1} 個。每一個會加生命、傷害或速度。
+Tactical: a dash to get out of your aim, or a shield that absorbs {0} damage for {1} s.	戰術：用衝刺閃開你的準心，或開一面可以擋 {0} 點傷害、持續 {1} 秒的護盾。
+One round of its gun never takes more than {0}% of a player's base health.	它的槍每一發最多只會打掉玩家基礎生命的 {0}%。
+When an enemy near it dies, it gets angry: faster and stronger for a few seconds.	它附近有敵人死掉時，它會暴怒：幾秒內跑得更快、打得更痛。
+Kill it first, or leave it for last and finish it from a distance.	先把它殺掉；不然就留到最後，從遠處解決它。
+Every hit it lands slows you down for a moment.	它每打中你一下，你就會慢下來一小段時間。
+Fight it from cover. Do not try to run across open ground while it is shooting at you.	躲在掩體後面跟它打。它正在打你的時候，不要想跑過空曠的地方。
+Its hits hurt more while you are at full health.	你滿血的時候，被它打中會更痛。
+The first hit is the dangerous one. Do not step out carelessly just because your health is full.	最危險的是它打中你的第一下。不要因為自己滿血就大意地走出去。
+The other enemies near it take less damage. It does not protect itself.	它附近的其他敵人受到的傷害會變少。它保護不了自己。
+Kill it first, or pull the fight away from it.	先把它殺掉，或把戰場拉到離它遠一點的地方。
+Its hits hurt more from far away.	它離你越遠，打中你越痛。
+Close the distance, or break its line of sight.	靠近它，或躲到它看不到的地方。
+The first hit that should kill it does not: it cannot be hurt for a moment.	本來能殺死它的那一擊殺不死它：接下來一小段時間它完全不會受傷。
+Stop shooting, wait for it to end, then finish it.	先停火，等這段時間過去，再把它收掉。
+Elites can carry it from Heat {0}.	從 Heat {0} 開始，菁英可能帶著這個詞綴。
+From Heat {0}	Heat {0} 起
+An elite is a stronger copy of a normal enemy with much more health. Killing one pays x{0} bounty.	菁英是一般敵人的加強版，血多很多。殺掉一個菁英可以拿到 x{0} 的賞金。
+From Heat {0}, every elite carries one affix: a skill borrowed from the players' skill tree.	從 Heat {0} 開始，每個菁英都帶一個詞綴，也就是一個從玩家技能樹借來的技能。
+From Heat {0}, every elite carries two affixes.	從 Heat {0} 開始，每個菁英都帶兩個詞綴。
+From Heat {0}, finale targets carry affixes too.	從 Heat {0} 開始，章末首領也會帶詞綴。
+The icons over an elite's head show its affixes.	菁英頭上的圖示會顯示它帶了哪些詞綴。
+Stage objectives	關卡目標
+Every stage has one objective. Finish it to clear the stage and take the reward.	每一關都有一個目標。完成它就算過關，並拿到獎勵。
+The first four stages of a chapter each draw one of these.	每一章的前四關，各會抽到下面其中一種。
+Reward: {0}% of the stage bounty for each player.	獎勵：每位玩家拿到這一關賞金的 {0}%。
+Can appear from stage {0}-{1}.	最早從第 {0}-{1} 關開始出現。
+Events	事件
+Side tasks that show up in some stages. They pay extra bounty.	有些關卡會多出現的支線任務，完成可以多拿賞金。
+You may ignore an event. The stage is still cleared by its objective.	事件可以不理它，只要完成關卡目標一樣能過關。
+Emergencies	緊急狀況
+Problems on a timer that show up in some stages.	有些關卡會出現的、有時間限制的突發狀況。
+Deal with one in time for a bounty. Ignore it and something bad happens to the squad.	在時間內處理好可以拿賞金。放著不管，全隊就會遇到壞事。
+Finales	終戰
+The last stage of every chapter is a finale, with a target that has far more health than any enemy.	每一章的最後一關是終戰，要對付一個血量比任何敵人都多很多的目標。
+After a finale you choose: evacuate with what you earned, or go on to the next chapter.	打完終戰後由你選：帶著這一局賺到的東西撤離，或繼續打下一章。
+Every run you started. It counts the moment the run begins, whether or not you finish it.	你開始過的每一局。一開局就算一次，不管後來有沒有打完。
+Continuing a saved run does not count again.	接著打上次存下來的進度，不會再多算一次。
+Runs you ended by your own choice: after clearing a chapter's finale you chose to evacuate and left with your rewards.	你自己決定收手的局數：打完一章的終戰後選擇撤離，帶著獎勵離開。
+Runs that ended because the whole squad was down.	因為全隊都倒下而結束的局數。
+In a solo run, "Abandon run" in the pause menu ends the run as a defeat, so it counts here too.	單人遊玩時，在暫停選單選「放棄這一局」會把這一局當成戰敗結束，所以也會算在這裡。
+Leaving a co-op squad early, or starting a new run over a saved one, is neither a wipe nor an evacuation.	多人合作時中途離開小隊，或開新的一局蓋掉舊進度，既不算全滅，也不算撤離。
+The furthest stage you reached in any run, counted in stages from the start of the run.	所有局裡你到過最遠的關卡，從這一局的第一關開始一關一關往上數。
+A chapter has {0} stages, so stage {1} is the first stage of chapter 2.	一章有 {0} 關，所以數到第 {1} 關就是第 2 章的第一關。
+Enemies you killed yourself in all runs. Kills by teammates are not included.	所有局裡你親手殺掉的敵人數量。隊友殺的不算。
+Added when a run ends.	在一局結束時才會加進來。
+How many of your kills were made with a shot to the head.	你的擊殺當中，有多少是打頭殺掉的。
+How many of your kills were made with a melee weapon, swung or thrown.	你的擊殺當中，有多少是用近戰武器殺掉的，揮擊和丟出去都算。
+How many times you got a downed teammate back up.	你把倒地的隊友救起來的次數。
+Time spent inside runs, in hours, minutes and seconds. Headquarters and menus do not count.	實際在局內遊玩的時間，以「時：分：秒」表示。待在總部和選單的時間不算。
+Lifetime records	累積紀錄
+Your totals over every run on this profile. Select a number to see exactly how it is counted.	這份存檔所有局數加起來的總計。選一個數字，就能看到它是怎麼算出來的。
+Stat upgrades	屬性升級
+Simple upgrades with many tiers. Each tier adds the same amount. Each stat has its own top tier.	可以買很多階的簡單升級。每一階加的量都一樣。每種屬性各有最高階，買滿就不能再買。
+Cores	核心
+A core decides how your build fights. It is the biggest choice of a run.	核心決定你這一局用什麼方式戰鬥，是一局裡最重要的選擇。
+A core has {0} tiers.	核心一共有 {0} 階。
+Small upgrades that sharpen a build. Many of them need a certain core, tactical or ultimate to do anything.	讓配裝更完整的小升級。其中很多要搭配特定的核心、戰術或絕招才有作用。
+Tacticals	戰術
+A movement or defence skill you can use again and again during a fight.	移動或防禦用的技能，戰鬥中可以一直重複使用。
+Ultimates	絕招
+A strong skill that needs a full charge. Kills by the squad charge it.	威力很強、要充滿才能用的技能。全隊每殺一個敵人，它就會充能。
+You carry one ultimate. Taking another one replaces it.	絕招只能帶一個。拿了新的，舊的就會被換掉。
+Every kind of enemy, with its numbers compared to a Rifleman and how to deal with it.	每一種敵人的介紹：它和步槍手相比的數值，以及怎麼對付它。
+The icon on each card is the marker the enemy wears over its head in a run.	每張卡片上的圖示，就是這種敵人在局內頭上顯示的標記。
+Elites and affixes	菁英與詞綴
+Elites	菁英
+Missions and events	任務與事件
+Missions	任務
+What each stage can ask of you: how to finish it, and what goes wrong if you do not.	每一關可能要你做的事：怎麼完成，以及沒做好會有什麼後果。
+Where to get it	怎麼取得
+What it does (tier 1)	效果（第 1 階）
+What it does	效果
+Tier {0}:	{0} 階：
+Every tier	每一階的數值
+It has one tier: it is either on or off.	它只有一階：有拿就有效果，沒拿就沒有。
+How to use it	怎麼用
+How to deal with it	怎麼對付
+Its numbers	數值
+Its weapons	它用的武器
+What it carries	它帶了什麼
+Melee weapons in an enemy's hands	敵人拿近戰武器時
+When it appears	什麼時候出現
+Optional: the squad may ignore it.	可選：小隊可以不理它。
+What it is	這是什麼
+What to do	怎麼完成
+Finishing early also pays for the enemies that no longer come.	提早完成的話，原本還沒出現的敵人，賞金也會一併給你。
+How it is counted	怎麼計算
+Next section	下一區
+Elite affix	菁英詞綴
 Execute Below	處決生命門檻
 Heavy weapons	重武器
 Hold the Line	堅守陣線
@@ -1623,7 +1928,7 @@ Evacuate after any chapter to bank your record, or continue and your progress is
 The checkpoint could not be read:	存檔點無法讀取：
 There is no saved run yet.	目前沒有已儲存的局。
 Starting a new run discards the saved checkpoint. Continue?	開始新局會刪除已儲存的存檔點。要繼續嗎？
-Waiting for the host...	等待主機…
+Waiting for the host...	等待房主…
 Everyone is ready. Starting...	全員就緒，即將開始…
 Start cancelled.	出發已取消。
 Stage {0}-{1}: {2}	第 {0}-{1} 關：{2}
@@ -1633,8 +1938,8 @@ Shop is open. Ready up when done.	商店已開啟。準備好後按就緒。
 Chapter {0} complete! Choose your route.	第 {0} 章完成！選擇你的路線。
 Chapter {0} complete	第 {0} 章完成
 Choose the next chapter's route.	選擇下一章的路線。
-The host chooses the route.	由主機選擇路線。
-Host decides	主機決定
+The host chooses the route.	由房主選擇路線。
+Host decides	房主決定
 Reinforcements!	增援來了！
 Objective complete!	目標完成！
 +{0} each	每人 +{0}
@@ -1662,7 +1967,7 @@ Revived!	已復活！
 Reviving... {0}	救援中… {0}
 Hold {0} to revive	按住 {0} 救援
 Emergency revive!	緊急復甦！
-Checkpoint failed: {0}	存檔點寫入失敗：{0}
+The checkpoint could not be saved. The run goes on; progress since the last save may be lost.	存檔點沒有寫入成功。這一局可以繼續玩，但上次存檔之後的進度可能不會保留。
 Prep: shop open, ready when done	整備：商店開啟，完成後按就緒
 Enemies {0}	敵人 {0}
 Ult {0}%	絕招 {0}%
@@ -1712,6 +2017,147 @@ Bought {0} for ${1}	以 ${1} 購買 {0}
 Bought {0}	已購買 {0}
 Rerolled	已重抽
 Evacuated	已撤離
+Spawn chapter target x{0}	生成章末首領 x{0}
+Variant "Chapter target": every enemy tile spawns the chapter's target, whichever enemy it shows.	類型選「章末首領」時，不管點哪一種敵人的方塊，生成的都是章末首領。
+Damage {0}  ·  Semi-automatic, up to {1} shots a second  ·  Magazine {2}  ·  Reload {3} s	傷害 {0}  ·  半自動，每秒最多 {1} 發  ·  彈匣 {2}  ·  換彈 {3} 秒
+Only the host can reset the range.	只有房主可以重置靶場。
+Shooting range	靶場
+SHOOTING RANGE	靶場
+Nothing here is saved.	這裡的一切都不會存檔。
+Nothing here is saved	這裡不會存檔
+Shooting range\nNothing here is saved.	靶場\n這裡的一切都不會存檔。
+Shooting range: {0} opens the menu	靶場：按 {0} 開啟選單
+Shooting range: the Range menu button opens the menu	靶場：點「靶場選單」按鈕開啟選單
+Try every enemy, weapon and skill for free	免費試用所有敵人、武器與技能
+Skills	技能
+Scene	場景
+Field	場上
+Variant	類型
+Count	數量
+Depth	深度
+Where	位置
+Behaviour	行為
+Fights	正常作戰
+Stands still	靜止標靶
+Elite	菁英
+Chapter target	章末首領
+Elites only	僅限菁英
+At the crosshair	準星指向處
+In front of me	我的正前方
+Random spawn point	隨機出生點
+Enemies {0} / {1}	敵人 {0} / {1}
+Enemies frozen	敵人已凍結
+No damage	無敵
+Infinite ammo	無限彈藥
+Free: nothing here is saved or counted.	一切免費：這裡不存檔，也不計入任何紀錄。
+Clear all enemies	清除所有敵人
+Removes every enemy on the field and everything waiting to spawn. No kill is counted.	移除場上所有敵人，以及還在等待生成的敵人；不計入擊殺。
+Clear now	立即清除
+Unfreeze enemies	解凍敵人
+Freeze enemies	凍結敵人
+Freeze	凍結
+Unfreeze	解凍
+Frozen enemies stand where they are and do not attack (the stun icon shows over them). They still take damage. After unfreezing, a running stun lasts up to {0} s more.	凍結的敵人會停在原地、不會攻擊（頭上顯示暈眩圖示），但仍會受到傷害。解凍後，已生效的暈眩最多還會持續 {0} 秒。
+Health x{0}  ·  Speed x{1}  ·  Damage x{2}	生命 x{0}  ·  速度 x{1}  ·  傷害 x{2}
+In a run from stage {0}.	正式出擊時從第 {0} 關開始出現。
+Depth sets health when the enemy spawns. Enemy damage always follows the depth chosen last.	深度決定敵人生成時的生命；敵人的傷害則一律依照最後一次選擇的深度。
+The field is full ({0} enemies).	場上已滿（{0} 個敵人）。
+Only {0} spawned: the field holds {1} enemies.	只生成了 {0} 個：場上最多 {1} 個敵人。
+Spawn x{0}	生成 x{0}
+Fills the magazine and the reserve of both weapons.	補滿兩把武器的彈匣與備彈。
+Refill now	立即補滿
+Firing uses no ammunition and never needs a reload, like the Infinite Fire ultimate without a time limit.	開火不消耗彈藥、也不需要換彈，等同沒有時間限制的「無限火力」絕招。
+Turn off	關閉
+Turn on	開啟
+Weapon	武器
+Weapon sight	瞄具
+On both weapons	兩把武器都已裝上
+On the primary	裝在主武器
+On the secondary	裝在副武器
+The weapon is taken out again with the new sight: the menu closes while the character does it.	角色會重新取出裝上新瞄具的武器，期間選單會關閉。
+Mount on the primary	裝到主武器
+Mount on the secondary	裝到副武器
+Mounted	已裝上
+Does not fit	無法安裝
+Damage {0}  ·  Reach {1} m	傷害 {0}  ·  攻擊距離 {1} m
+Damage {0}  ·  {1} RPM  ·  Magazine {2}  ·  Reload {3} s	傷害 {0}  ·  射速 {1} RPM  ·  彈匣 {2}  ·  換彈 {3} 秒
+Equipping fills its ammunition. The menu closes while the character takes the weapon.	換上後彈藥全滿。角色取槍期間選單會關閉。
+Equip as primary	裝為主武器
+Equip as secondary	裝為副武器
+In the other slot	已在另一個欄位
+Clear everything	全部清空
+Removes every stat tier, core, mod, the tactical, the ultimate and every learned skill. Weapons stay.	移除所有屬性階級、核心、改件、戰術、絕招與已學會的技能；武器保留。
+Use my headquarters loadout	套用我的總部配置
+Takes the weapons, sights, melee weapon and learned skills of your active headquarters loadout. Cores, mods and stat tiers stay as they are.	換成總部目前配置的武器、瞄具、近戰武器與已學會的技能；核心、改件與屬性階級維持不變。
+Apply	套用
+Fill ultimate charge	絕招充能填滿
+Sets the charge of {0} to 100%. Kills in the range charge it as well.	把「{0}」的充能設為 100%。在靶場擊殺敵人也會充能。
+Equip an ultimate first.	請先裝備一個絕招。
+Fill now	立即填滿
+Reset tactical cooldown	戰術冷卻歸零
+{0} is ready again at once: every dash charge is back and the shield's cooldown is over.	「{0}」立即可用：衝刺次數全滿、護盾冷卻結束。
+Equip a tactical first.	請先裝備一個戰術。
+Reset now	立即歸零
+You take no damage at all. Without it a lethal hit puts you back on your feet at full health, protected for {0} s.	你完全不會受傷。沒開啟時，受到致命傷會原地滿血站起，並有 {0} 秒保護。
+Knocked out: back on your feet.	被擊倒：已原地站起。
+Set to the top tier	設為最高階
+Back to zero	歸零
+Not owned	未擁有
+The range has no core limit: hold as many as you like.	靶場不限核心數量，想裝幾個都可以。
+The range has no mod limit: hold as many as you like.	靶場不限改件數量，想裝幾個都可以。
+Add	加入
+Tier up	升一階
+Tier down	降一階
+Top tier	已達最高階
+Take off	卸下
+The range needs no skill points and no earlier row.	靶場不需要技能點，也不需要先學會前面的技能。
+Reset the range	重置靶場
+Removes every enemy and running event, sets the depth back to stage 1-1, unfreezes the field and clears the statistics and ultimate charge of everyone. Builds and weapons stay.	移除所有敵人與進行中的事件，深度回到第 1-1 關，解除凍結，並清空所有人的統計與絕招充能；配置與武器保留。
+Reset the range now	立即重置
+Time scale	時間刻度
+How fast the game runs while you play. It goes back to x1 when you leave the range.	遊玩時遊戲進行的速度。離開靶場後會回到 x1。
+Solo only: a squad shares one clock.	僅限單人：小隊共用同一個時間。
+Next speed	下一個速度
+Back to x1	回到 x1
+The same setting as in Controls: off, one floating number per hit, or one stacked number per target. It stays as you leave it.	與「操作」裡的設定相同：關閉、每次命中一個浮動數字，或每個目標一個疊加數字。離開後會保留。
+Next style	下一種樣式
+Range statistics	靶場統計
+A panel on the HUD: your damage per second over the last {0} s, total damage, kills, hits and headshots, and your best single hit.	畫面上的面板：最近 {0} 秒的每秒傷害、總傷害、擊殺、命中與爆頭，以及單次最高傷害。
+Total damage {0}  ·  Kills {1}  ·  Hits {2}	總傷害 {0}  ·  擊殺 {1}  ·  命中 {2}
+Hide the panel	隱藏面板
+Show the panel	顯示面板
+Clear my statistics	清空我的統計
+Running	進行中
+It runs as in a stage, at the range's depth, with its markers and the enemies it calls. It pays nothing here.	與正式關卡相同的方式進行，使用靶場目前的深度，包含標記與它召來的敵人；在這裡不發獎金。
+Leave the range	離開靶場
+Back to headquarters. Nothing from the range is kept; your saved run is untouched.	回到總部。靶場的一切都不會保留；你存檔裡的那一局不受影響。
+Takes the whole squad back to the room. Nothing from the range is kept.	帶整個小隊回到房間。靶場的一切都不會保留。
+You leave the squad and go back to the main menu. Only the host can take the squad back to the room.	你會離開小隊並回到主選單。只有房主能帶小隊回房間。
+You leave the squad and go back to the main menu. Nothing from the range is kept.	你會離開小隊並回到主選單。靶場的一切都不會保留。
+You leave the squad and go back to the main menu. The squad goes on with a new host.	你會離開小隊並回到主選單。小隊會由新的房主繼續。
+Back to the main menu. Nothing from the range is kept; your saved run is untouched.	回到主選單。靶場的一切都不會保留；你存檔裡的那一局不受影響。
+Back to headquarters	回到總部
+Squad back to the room	小隊回房間
+Leave the squad	離開小隊
+Tap a tile, then one of its actions.	點選色塊，再點它的操作。
+{0} choose   {1} back   {2} / {3} tabs	{0} 選擇   {1} 返回   {2} / {3} 切換分頁
+Click a tile, then one of its actions.   {0} / {1} tabs	點選色塊，再點它的操作。   {0} / {1} 切換分頁
+Damage per second ({0} s)	每秒傷害（{0} 秒）
+Total damage	總傷害
+Hits · headshots	命中 · 爆頭
+Best hit	單次最高
+Enemies on the field	場上敵人
+Range menu	靶場選單
+{0}: range menu	{0}：靶場選單
+Next start	下一次出發
+Roguelike run	正式出擊
+Free practice: nothing is saved or counted	自由練習：不存檔、不計入紀錄
+Press to switch to the shooting range	按下切換為靶場
+The host can switch to the shooting range	房主可以切換為靶場
+That gun model is already in your other slot.	另一個欄位已經是同一把槍。
+This weapon cannot mount that sight.	這把武器無法安裝這個瞄具。
+Another one is still running. Finish it or reset the range.	還有一個正在進行。請先完成，或重置靶場。
+Damage numbers	傷害數字
 Squad wiped	小隊全滅
 Run ended	本局結束
 Chapter {0}  Stage {1}  Depth {2}	第 {0} 章　第 {1} 關　深度 {2}
@@ -1818,7 +2264,7 @@ Active: absorb 900 damage for 10 s. 10 s cooldown. Re-activating replaces the sh
 Infinite Fire	無限火力
 12 s of unlimited ammunition with no reloads. Fire rate unchanged.	12 秒無限彈藥、不需換彈。射速不變。
 Lethal Shot	致命射擊
-7 s: any damage you deal kills non-boss enemies outright (elites included). Finale targets take +200% instead.	7 秒內你造成的任何傷害都會直接擊殺非首領敵人（包含菁英）。章末目標改為受到 +200% 傷害。
+7 s: any damage you deal kills non-boss enemies outright (elites included). Finale targets take +200% instead.	7 秒內你造成的任何傷害都會直接擊殺非章末首領敵人（包含菁英）。章末首領改為受到 +200% 傷害。
 Invincible	無敵
 7 s of immunity to combat and gas damage. Only you.	7 秒免疫戰鬥與毒霧傷害。僅限自己。
 Emergency Revive	緊急復甦
@@ -1830,6 +2276,8 @@ Chain Bullets	閃電連鎖子彈
 Homing Bullets	子彈追蹤
 12 s: bullets steer toward the most aligned visible enemy within 60 m and 15 degrees.	12 秒內子彈會朝 60 m、15 度內最對準的可見敵人轉向。
 Replace your primary weapon. Ammunition is refilled.	更換主武器，並補滿彈藥。
+Light: movement speed +{0}% while in hand.	輕巧：拿在手上時移動速度 +{0}%。
+A direct hit deals its damage on impact, then again in the blast.	直接命中時，撞擊先造成一次傷害，爆炸再造成一次。
 Rifleman	步槍手
 Rusher	突進者
 Marksman	神射手
@@ -1979,9 +2427,9 @@ A signal device is calling reinforcements. Destroy it!	訊號裝置正在召喚�
 Signal device: waves {0}/4	訊號裝置：增援波 {0}/4
 {0} complete!	{0} 完成！
 {0} failed.	{0} 失敗。
-Host changed: waiting for the new host...	主機更換：等待新主機…
-The host left. Back to the safe node; the stage restarts.	主機離開。回到安全點，本關重新開始。
-You are the host now.	你現在是主機。
+Host changed: waiting for the new host...	房主更換：等待新房主…
+The host left. Back to the safe node; the stage restarts.	房主離開。回到安全點，本關重新開始。
+You are the host now.	你現在是房主。
 {0} left the squad.	{0} 離開了小隊。
 {0} rejoined.	{0} 重新加入。
 {0} joined the squad.	{0} 加入了小隊。
@@ -2147,14 +2595,14 @@ the Ultimate slot	絕招欄
 the Tactical slot	戰術欄
 Charge {0}%	充能 {0}%
 Saved by an earlier version: prices and descriptions follow this version.	此存檔來自較早的版本：價格與說明依目前版本為準。
-Waiting for the host ({0}) to continue or evacuate.	等待主機（{0}）決定繼續或撤離。
+Waiting for the host ({0}) to continue or evacuate.	等待房主（{0}）決定繼續或撤離。
 Travelling...	正在出發…
 Ready (tap to cancel)	已就緒（再按取消）
 No money yet: kills pay bounty.	還沒有錢：擊殺可賺賞金。
 Waiting for: {0}	等待：{0}
 you	你
-Only the host can continue or evacuate.	只有主機可以決定繼續或撤離。
-Syncing with the host...	正在與主機同步…
+Only the host can continue or evacuate.	只有房主可以決定繼續或撤離。
+Syncing with the host...	正在與房主同步…
 Overshield broken	超量護盾已擊破
 Removed {0} (refund ${1})	已移除 {0}（退款 ${1}）
 No refund	不退款
@@ -2193,10 +2641,10 @@ Everyone is ready ({0}/{1}) · starting...	全員已就緒（{0}/{1}）· 即將
 Ready {0}/{1} · you can start at any time	就緒 {0}/{1} · 你可以隨時開始
 Ready {0}/{1} · the run starts when everyone is ready	就緒 {0}/{1} · 全員就緒後開始
 Start now ({0}/{1} ready)	立即開始（{0}/{1} 就緒）
-You are the host: start now, or wait until everyone is ready.	你是主機：可以立即開始，或等全員就緒。
-The host can start before everyone is ready.	主機可以在全員就緒前開始。
+You are the host: start now, or wait until everyone is ready.	你是房主：可以立即開始，或等全員就緒。
+The host can start before everyone is ready.	房主可以在全員就緒前開始。
 Not ready yet	尚未就緒
-Host	主機
+Host	房主
 Start the run	開始這一局
 {0} of {1} players are ready. Start the run now without waiting?	{1} 名玩家中有 {0} 名已就緒。不再等待，立即開始嗎？
 Start now	立即開始
@@ -2205,14 +2653,14 @@ Ready for the run?	準備好開始了嗎？
 The run uses your Roguelike loadout.	這一局會使用你的 Roguelike 配置。
 Change it in Loadout & Armory before you ready up.	就緒前可以在「局外總部」修改。
 Take the squad back to the room for another run, or leave the room.	帶小隊回到房間再玩一局，或離開房間。
-Waiting for the host to take the squad back to the room...	等待主機帶小隊回到房間…
+Waiting for the host to take the squad back to the room...	等待房主帶小隊回到房間…
 Back to room	回到房間
 Leave room	離開房間
 Leave room...	離開房間…
 Run over	本局結束
 Take the squad back to the room for another run?	要帶小隊回到房間再玩一局嗎？
-Waiting for the host	等待主機
-The host decides when the squad returns to the room.	由主機決定何時帶小隊回到房間。
+Waiting for the host	等待房主
+The host decides when the squad returns to the room.	由房主決定何時帶小隊回到房間。
 Leave the room now?	現在要離開房間嗎？
 Leave the room and return to the main menu?	要離開房間並回到主選單嗎？
 Waiting for the next stage...	等待下一關…
@@ -2223,7 +2671,7 @@ Downed · needs a revive	倒地 · 需要救援
 Health {0}/{1}	生命 {0}/{1}
 Health {0}/{1} · Shield {2}%	生命 {0}/{1} · 護盾 {2}%
 Back: return the squad to the room, or leave.	返回：帶小隊回到房間，或離開。
-Waiting for the host · Back: leave the room.	等待主機 · 返回：離開房間。
+Waiting for the host · Back: leave the room.	等待房主 · 返回：離開房間。
 {0}: {1}	{0}：{1}
 Reach the extraction point {0}/{1}	抵達撤離點 {0}/{1}
 Hold the extraction {0}s ({1}%)	守住撤離點 {0} 秒（{1}%）
@@ -2290,7 +2738,7 @@ Mouse Wheel Switch	滑鼠滾輪切槍
 Mouse wheel also switches	滑鼠滾輪也可切換
 Event	事件
 Emergency	緊急狀況
-Finale	終局
+Finale	終戰
 Optional	可選
 Details	詳情
 Tap for details	點一下看詳情
@@ -2437,7 +2885,7 @@ Play again	再玩一局
 Ready for the next run	準備好下一局
 Takes the squad back to the room. Start the next run there.	帶小隊回到房間，再從那裡開始下一局。
 You will be ready as soon as the squad is back in the room.	小隊回到房間後，你會直接是就緒狀態。
-The host takes the squad back to the room.	由主機帶小隊回到房間。
+The host takes the squad back to the room.	由房主帶小隊回到房間。
 Continue to headquarters	前往局外總部
 This run's reward was already saved.	這一局的獎勵先前已經儲存。
 Could not save this run's rewards. Your previous progress is unchanged.	無法儲存這一局的獎勵，你原本的進度維持不變。
@@ -2494,7 +2942,7 @@ Run merit safety limit	單局功績安全上限
 After a full reload: the next fired round converts its first direct hit. A miss consumes it; swapping preserves it on that weapon.	完整換彈後：下一發子彈的第一次直接命中會算成爆頭。沒打中就會消耗掉；切換武器時會保留在該武器上。
 Movement speed -{0}% while in hand.	手持時移速 -{0}%。
 A headshot puts {0} rounds back into the magazine.	爆頭會補回 {0} 發子彈至彈匣。
-A kill puts {0} round back into the magazine.	擊殺會補回 {0} 發子彈至彈匣。
+A kill puts {0} round back into the magazine, up to one extra magazine before a reload.	擊殺會補回 {0} 發子彈至彈匣；兩次換彈之間最多多補一個彈匣的量。
 Tier {0}/{1} (max)	第 {0}/{1} 階（已滿）
 Tier {0}/{1}: {2}	階級 {0}/{1}：{2}
 already at the cap	已達加成上限，再買沒有效果
@@ -2575,7 +3023,7 @@ Jump again in mid-air	空中再跳一次
 Dash forward	向前衝刺
 Raise a shield	張開護盾
 Unlimited ammo, no reloads	無限子彈，不用換彈
-Hits kill non-boss enemies	命中即殺（首領除外）
+Hits kill non-boss enemies	命中即殺（章末首領除外）
 Take no damage	暫時無敵
 A second chance for the squad	全隊多一次機會
 Mark every enemy on the map	標記全地圖的敵人

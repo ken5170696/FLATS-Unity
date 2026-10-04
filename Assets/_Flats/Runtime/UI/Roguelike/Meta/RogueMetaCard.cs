@@ -27,6 +27,14 @@ public class RogueMetaCard : MonoBehaviour
     public bool IsSection { get { return Id!=null&&Id.StartsWith("section."); } }
     public bool HasAction { get { return command != null; } }
     Action command;
+    Func<string> detail;
+    /// <summary>The inspector's text for this card, built when the card is selected (a codex entry is long and translated line by
+    /// line, so it is not composed for every card on every refresh). Null: the inspector shows the card's own lines.</summary>
+    public string Detail { get { return detail != null ? detail() : null; } }
+    public void SetDetail(Func<string> text) { detail = text; }
+    /// <summary>A statistic or a section header has no picture of its own: the inspector leaves its icon out.</summary>
+    public bool HideDetailIcon { get { return IsSection || mode == 2 && detail != null && !codexEntry; } }
+    bool codexEntry;
     FlatsHqView hq;
     public float padding=16, portraitIconWidth=112;
     [Tooltip("Below this width a Heat tile uses the small reward and unlock text (4:3 fits six tiles in a row).")]
@@ -74,7 +82,7 @@ public class RogueMetaCard : MonoBehaviour
         if(progressRoot!=null)Place((RectTransform)progressRoot.transform,p,h-10,w-p*2,8);
     }
     static void Place(RectTransform r,float x,float y,float w,float h){r.anchorMin=r.anchorMax=r.pivot=new Vector2(0,1);r.anchoredPosition=new Vector2(x,-y);r.sizeDelta=new Vector2(Mathf.Max(1,w),Mathf.Max(1,h));}
-    public void SetCodex(bool seen,FlatsUiTheme.Token token){GetComponent<Image>().color=seen?FlatsUiTheme.Rogue.Get(token):FlatsUiTheme.Rogue.supply;if(!seen){amount.text="?";mode=2;}stateStripe.color=Color.clear;lastSize=Vector2.zero;}
+    public void SetCodex(bool seen,FlatsUiTheme.Token token){codexEntry=true;GetComponent<Image>().color=seen?FlatsUiTheme.Rogue.Get(token):FlatsUiTheme.Rogue.supply;if(!seen){amount.text="?";mode=2;}stateStripe.color=Color.clear;lastSize=Vector2.zero;}
     public void SetHeat(int heat,bool unlocked,bool current){mode=1;if(summaryLabel!=null)summaryLabel.text="Heat";amount.text=heat.ToString();heading.text=RogueMetaUI.L(MetaText.HeatReward(heat));status.text=current?RogueMetaUI.T("In use"):unlocked?"":RogueMetaUI.L(MetaText.Value("Clear a finale at Heat {0}",Math.Max(0,heat-1)));GetComponent<Image>().color=!unlocked?FlatsUiTheme.Rogue.supply:heat<4?FlatsUiTheme.Rogue.ink:heat<8?FlatsUiTheme.Rogue.ultimate:FlatsUiTheme.Rogue.brandPrimary;lastSize=Vector2.zero;}
     string challengeReward, challengePeriod;
     public void SetChallenge(string reward,bool weekly){mode=3;challengeReward=reward;challengePeriod=RogueMetaUI.T(weekly?"Weekly":"Daily");if(summaryLabel!=null)summaryLabel.text=reward+"\n"+subtitle.text;bool completed=progress!=null&&progress.fillAmount>=1;if(badge!=null)badge.enabled=completed;status.text=RogueMetaUI.T(completed?"Completed":weekly?"Weekly":"Daily");stateStripe.color=completed?FlatsUiTheme.Rogue.brandPrimary:weekly?FlatsUiTheme.Rogue.core:FlatsUiTheme.Rogue.tactical;if(completed)GetComponent<Image>().color=FlatsUiTheme.Rogue.brandPrimary;lastSize=Vector2.zero;}
@@ -89,7 +97,7 @@ public class RogueMetaCard : MonoBehaviour
             BindAuthoredCard(id, title, sub, good, bad, state, price, sprite, click, stateIndex);
             return;
         }
-        Id = id;DisplayTitle=RogueMetaUI.T(title);
+        Id = id;DisplayTitle=RogueMetaUI.T(title);detail=null;codexEntry=false;
         GetComponent<Image>().color=stateIndex==0?FlatsUiTheme.Rogue.supply:stateIndex==2?FlatsUiTheme.Rogue.ink:FlatsUiTheme.Rogue.weapon;
         RogueMetaUI.Put(heading, title); RogueMetaUI.Put(subtitle, sub);
         RogueMetaUI.Put(positive, good); RogueMetaUI.Put(negative, bad);
@@ -116,7 +124,7 @@ public class RogueMetaCard : MonoBehaviour
     }
     void BindAuthoredCard(string id, string title, string sub, string good, string bad, string state, string price, Sprite sprite, Action click, int stateIndex)
     {
-        Id = id; DisplayTitle = RogueMetaUI.T(title);
+        Id = id; DisplayTitle = RogueMetaUI.T(title); detail = null; codexEntry = false;
         RogueMetaUI.Put(heading, title); RogueMetaUI.Put(subtitle, sub);
         RogueMetaUI.Put(positive, good); RogueMetaUI.Put(negative, bad);
         RogueMetaUI.Put(status, state); RogueMetaUI.Put(amount, price);

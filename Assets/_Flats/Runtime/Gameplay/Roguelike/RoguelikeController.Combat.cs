@@ -66,6 +66,7 @@ public partial class RoguelikeController
         elapsedTimer -= dt;
         if (elapsedTimer <= 0f) { elapsedTimer = 5f; RecordElapsed(); }
         RogueBodyShield.AuthorityTick(this, dt);   // QA-44: carriers who go down, leave or leave combat drop their body
+        if (state.range) { RangeTick(dt); return; }   // the shooting range has no stage flow (RoguelikeController.Range)
         switch (state.phase)
         {
             case RunPhase.Prep:
@@ -728,6 +729,7 @@ public partial class RoguelikeController
         liveEnemies.Remove(role.InstanceId);
         if (IsAuthority) ForgetCachedInstantiate(role.InstanceId, role.gameObject);
         if (!IsAuthority || machine == null || state.phase != RunPhase.Combat) return;
+        if (state.range) { RangeEnemyDied(role, killer, headshot); return; }   // no bounty and no objective in the shooting range
         string killerKey = KeyOfTransform(killer);
         if (role.RoleId == "role.finale") commanderDied = true;
         var payout = machine.EnemyKilled(role.InstanceId, killerKey, headshot, JammedKeys());
@@ -943,8 +945,16 @@ public partial class RoguelikeController
             // co-op travels through the existing map RPC so every client loads the same scene; a rejoin during the travel lands on the new map
             Menu.SetRunMapProperty(map.BuildIndex);
             ClearRoomCacheForTravel();   // this map's cached players, weapons and buffered RPCs must not reach a later (re)joiner
-            GetComponent<PhotonView>().RPC("RogueTravel", PhotonTargets.All, map.BuildIndex, RogueSaveStore.ToJson(state));
+            // bytes: a string RPC parameter is limited to 32767 UTF-8 bytes and the run state passes that late in a run (RogueSnapshotBytes)
+            GetComponent<PhotonView>().RPC("RogueTravelBytes", PhotonTargets.All, map.BuildIndex, System.Text.Encoding.UTF8.GetBytes(RogueSaveStore.ToJson(state)));
         }
+    }
+
+    [PunRPC]
+    void RogueTravelBytes(int buildIndex, byte[] data, PhotonMessageInfo info)
+    {
+        if (data == null || (info.sender != null && !info.sender.IsMasterClient)) return;
+        RogueTravel(buildIndex, System.Text.Encoding.UTF8.GetString(data), info);
     }
 
     [PunRPC]
@@ -969,7 +979,7 @@ public partial class RoguelikeController
 
     void CheckWipe()
     {
-        if (!IsAuthority || machine == null || state.phase == RunPhase.Ended) return;
+        if (!IsAuthority || machine == null || state.phase == RunPhase.Ended || state.range) return;   // the shooting range cannot be lost
         if (machine.TeamWiped()) StartCoroutine(WipeRoutine());
     }
 
@@ -983,6 +993,8 @@ public partial class RoguelikeController
 
     IEnumerator EndRun()
     {
+        // a shooting range has no result: no record, no reward, and the player's saved checkpoint is never cleared from here
+        if (RangeActive) { Debug.LogWarning("FLATS_ROGUE_RANGE EndRun ignored"); yield break; }
         leaving = true; endedHandled = true;
         CloseRiskContractOffer();   // an unanswered risk contract question does not stay over the result screen
         RogueBodyShield.ReleaseAllLocal();   // QA-44: nobody leaves the run holding a body

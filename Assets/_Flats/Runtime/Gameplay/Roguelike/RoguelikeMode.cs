@@ -31,6 +31,27 @@ public static class RoguelikeMode
     /// <summary>Set while the controller drives a run; cleared on every exit path.</summary>
     public static bool RunInProgress;
 
+    // ---------------------------------------------------------------- shooting range
+    /// <summary>Solo: set by the menu right before the range's scene loads. Like PendingResume it survives Reset (the game scene's
+    /// Singleplayer.Awake calls it before the run controller starts): the controller consumes it when it creates the state, and the
+    /// menu clears it on entering the Roguelike page and on every ordinary launch.</summary>
+    public static bool SoloRange;
+    /// <summary>Co-op: room property (bool) the host sets in the squad room; every client reads the same value.</summary>
+    public const string RangeRoomKey = "RG";
+    /// <summary>The room's next (or current) start is the shooting range.</summary>
+    public static bool RoomRange
+    {
+        get
+        {
+            object v;
+            return PhotonNetwork.room != null && PhotonNetwork.room.CustomProperties != null &&
+                   PhotonNetwork.room.CustomProperties.TryGetValue(RangeRoomKey, out v) && v is bool && (bool)v;
+        }
+    }
+    /// <summary>The scene that is starting is the shooting range. The run controller copies it into RunState.range when it creates
+    /// the state; from then on the replicated state is what every rule reads.</summary>
+    public static bool Range { get { return Solo ? SoloRange : Coop && RoomRange; } }
+
     public static readonly string[] DifficultyNames = { "", "Normal", "Hard", "Chaos" };
     public static readonly string[] DifficultyBriefs =
     {

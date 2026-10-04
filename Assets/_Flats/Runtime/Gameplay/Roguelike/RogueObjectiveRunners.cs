@@ -23,11 +23,14 @@ public sealed class CaptureRunner : RogueObjectiveRunner
         List<string> inside; int players = RogueWorld.PlayersWithin(center, Radius, out inside);
         machine.OnOccupancy(players, RogueWorld.EnemiesWithin(center, Radius), dt);
         if (players > 0) Pressure.Ambush(Controller, center);   // the first step into the zone is answered at once
+        // from then on part of the squad comes into the zone itself: enemies that fight from their own range never contested it
+        if (Pressure.Ambushed && !Succeeded) RogueSquad.SetObjective(this, center, Radius, RogueTacticsRules.ZoneContesters(Controller.State.ConnectedPlayers, Plan.depth));
         ProgressText = RoguelikeController.F("Hold {0}%", Mathf.RoundToInt((float)machine.Progress * 100)) + (players == 0 ? "  " + RoguelikeController.F("Go to the zone") : "");
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
+        if (Succeeded) RogueSquad.ClearObjective(this);
         KeepPressure(dt);   // the zone is contested until it is held: a cleared field brings a new squad
     }
-    public override void Dispose() { RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon); }
+    public override void Dispose() { RogueSquad.ClearObjective(this); RogueWorld.Destroy(ring); RogueWorld.Destroy(beacon); }
 }
 
 public sealed class CarryRunner : RogueObjectiveRunner
@@ -113,7 +116,10 @@ public sealed class CarryRunner : RogueObjectiveRunner
 public sealed class ProtectRunner : RogueObjectiveRunner
 {
     ProtectObjective machine; ClearObjective fallback; GameObject device, beacon; RogueInteractable interact; Vector3 center; float damageAccum;
+    /// <summary>Enemies within this distance (m) of the device wear it down; the squad's attackers stand inside it.</summary>
+    public const float DrainRadius = 12f;
     readonly Dictionary<string, float> repairing = new Dictionary<string, float>();
+    readonly List<string> repairKeys = new List<string>();
     readonly RogueHoldLedger ledger = new RogueHoldLedger();
     public override void Build(RoguelikeController c, EncounterPlan plan)
     {
@@ -131,11 +137,12 @@ public sealed class ProtectRunner : RogueObjectiveRunner
         if (fallback != null) { ProgressText = RoguelikeController.F("Device lost: clear the area"); Succeeded = Controller.AliveEnemies == 0 && Controller.WavesDone; return; }
         if (machine == null) return;
         int players = 0;
-        foreach (var kv in new List<KeyValuePair<string, float>>(repairing)) { if (kv.Value > 0) players++; repairing[kv.Key] = Mathf.Max(0, kv.Value - dt); }
+        repairKeys.Clear(); foreach (var kv in repairing) repairKeys.Add(kv.Key);   // the same list every frame: no copy of the table
+        for (int k = 0; k < repairKeys.Count; k++) { float left = repairing[repairKeys[k]]; if (left > 0) players++; repairing[repairKeys[k]] = Mathf.Max(0, left - dt); }
         machine.OnRepair(players, dt);
         Pressure.Sustain(Controller, center, players > 0, dt);   // while somebody repairs, squads keep coming for the device
         // enemies close to the device wear it down (readable: they must be pushed off it)
-        int near = RogueWorld.EnemiesWithin(center, 12f);
+        int near = RogueWorld.EnemiesWithin(center, DrainRadius);
         if (near > 0) { damageAccum += (float)RogueMissionRules.DeviceDrain(RogueMissionRules.ProtectDrainPerEnemy, near) * dt; if (damageAccum >= 5f) { machine.OnDeviceDamaged(damageAccum); damageAccum = 0; } }
         ProgressText = RoguelikeController.F("Repair {0}%  Device {1}%", Mathf.RoundToInt((float)machine.Progress * 100), Mathf.CeilToInt((float)(machine.DeviceHp / machine.DeviceMaxHp) * 100f));
         interact.SetProgress((float)machine.Progress, machine.Status == ObjectiveStatus.Succeeded);   // the HUD's progress ring on every client (QA-22)
@@ -144,8 +151,10 @@ public sealed class ProtectRunner : RogueObjectiveRunner
             fallback = machine.FallbackToClear();
             Controller.Notify(new RogueEventMessage { kind = "banner", text = "The device was destroyed. Clear the area instead.", value = 3 });
             RogueWorld.SetStateColor(device, new Color(0.3f, 0.3f, 0.3f)); interact.SetUnavailable();
+            RogueSquad.ClearObjective(this);
         }
         Succeeded = machine.Status == ObjectiveStatus.Succeeded;
+        if (Succeeded) RogueSquad.ClearObjective(this);
     }
     public override void OnCommand(RogueCommandMessage cmd)
     {
@@ -158,8 +167,11 @@ public sealed class ProtectRunner : RogueObjectiveRunner
         float left; repairing.TryGetValue(cmd.playerKey, out left);
         repairing[cmd.playerKey] = Mathf.Min(0.6f, left + granted);
         Pressure.Ambush(Controller, center);   // the first repair calls an ambush on the device
+        // and from then on part of the squad goes for the device itself (enemies that fight from their own range never came
+        // within DrainRadius of it, so a device nobody defended was never lost)
+        RogueSquad.SetObjective(this, center, DrainRadius, RogueTacticsRules.DeviceAttackers(Controller.State.ConnectedPlayers, Plan.depth));
     }
-    public override void Dispose() { RogueWorld.Destroy(device); RogueWorld.Destroy(beacon); }
+    public override void Dispose() { RogueSquad.ClearObjective(this); RogueWorld.Destroy(device); RogueWorld.Destroy(beacon); }
     // losing the device falls back to clearing the area for half the objective reward, like the convoy's escape
     public override double RewardFraction { get { return fallback != null ? 0.5 : 1.0; } }
 }

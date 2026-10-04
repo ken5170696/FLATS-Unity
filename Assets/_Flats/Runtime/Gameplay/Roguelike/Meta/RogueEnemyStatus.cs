@@ -34,7 +34,17 @@ public sealed class RogueEnemyStatus : MonoBehaviour
     public static bool Stunned(AI ai)
     {
         var s = ai != null ? ai.GetComponent<RogueEnemyStatus>() : null;
-        return s != null && s.StunRemaining > 0;
+        return s != null && (s.StunRemaining > 0 || s.RangeHeld());
+    }
+    RogueEnemyRole heldRole;
+    /// <summary>Shooting range: frozen enemies and passive targets count as stunned on every copy for as long as the replicated state
+    /// says so, also while no host is there to renew the stun (a crashed host is replaced after several seconds).</summary>
+    bool RangeHeld()
+    {
+        var c = RoguelikeController.Instance;
+        if (c == null || !c.RangeActive) return false;
+        if (heldRole == null) heldRole = GetComponent<RogueEnemyRole>();
+        return heldRole != null && c.RangeHolds(heldRole.InstanceId);
     }
     // 所有既有 role.Slow 呼叫共用這個到期與還原機制。
     public static bool MergeSlow(RogueEnemyRole role, float until, float scale)
@@ -87,7 +97,8 @@ public sealed class RogueEnemyStatus : MonoBehaviour
         else if (role != null && role.Elite) knockback *= EliteKnockbackScale;
         Vector3 delta = ClampKnockback(knockback);
         LastKnockback = delta;
-        push = delta; pushTime = Mathf.Clamp(delta.magnitude / PushSpeed, PushMinSeconds, PushMaxSeconds); pushLeft = delta.sqrMagnitude > 0 ? pushTime : 0;
+        // only a status that pushes replaces the push in progress: a stun or slow without one used to stop a bat's shove half way
+        if (delta.sqrMagnitude > 0f) { push = delta; pushTime = Mathf.Clamp(delta.magnitude / PushSpeed, PushMinSeconds, PushMaxSeconds); pushLeft = pushTime; }
         if (Menu.network == 0) BeginVisual(stun, slow, duration, delta);
         else GetComponent<PhotonView>().RPC("RogueStatusBegin", PhotonTargets.All, stun, slow, duration, delta);
         // QA-40: the Stun Baton's stun is electric; every copy plays the shock for the stun's own length (shorter on elites)

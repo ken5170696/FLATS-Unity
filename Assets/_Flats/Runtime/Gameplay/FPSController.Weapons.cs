@@ -208,6 +208,13 @@ public partial class FPSController
 		}
 		else
 		{
+			// Roguelike co-op: the owner's magazine is the only real one. A teammate's copy cannot follow it round for round (a round
+			// handed back by a trait, a magazine enlarged in the shop, the full first magazine of an armory variant), and an empty copy
+			// dropped the rest of its owner's fire: no sound, no flash, no tracer on the other screens. The copy plays every trigger
+			// pull its owner sent; its rounds are cosmetic (Bullet resolves damage on the owner only), and its magazine never ends a
+			// burst (two pulls can overlap on a copy and share what is left in it).
+			bool rogueCopy = RoguelikeMode.Coop && Menu.network == 2 && currentGun != null && !MyView(base.gameObject);
+			if (rogueCopy && currentGun.currentAmmo < Mathf.Max(1, currentGun.burstCount)) currentGun.currentAmmo = Mathf.Max(1, currentGun.burstCount);
 			if ((currentGun.maxAmmo <= 0 && currentGun.currentAmmo <= 0) || !SessionPlaying)
 			{
 				yield break;
@@ -293,10 +300,23 @@ public partial class FPSController
 				}
 				if (RoguelikeMode.Active) { RogueHooks.MetaNoteInterval(this, 60f / currentGun.rpm * rogueInterval); }
 				anim.SetInteger("Burst", 1);
+				float rogueFiredAt = Time.time;
 				// the 0.1 s step shrinks with a fire-rate bonus (Rapid Fire, Kill Frenzy), so the bonus is never swallowed by it
 				yield return new WaitForSeconds(0.1f * Mathf.Min(1f, rogueInterval));
 				anim.SetInteger("Burst", 0);
-				yield return new WaitForSeconds(Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)));
+				if (RoguelikeMode.Active)
+				{
+					// frame by frame: a headshot by the round just fired lands during this wait, and Follow-up (Sniper Rifle 1) then
+					// shortens this very cycle. Read at the next trigger pull it only shortened the cycle after the next shot
+					float rogueCycleEnd = rogueFiredAt + 60f / currentGun.rpm * rogueInterval;
+					while (Time.time < rogueCycleEnd)
+					{
+						float rogueFollow = RogueHooks.MetaConsumeFollowUp(this);
+						if (rogueFollow < 1f) rogueCycleEnd = Mathf.Min(rogueCycleEnd, rogueFiredAt + 60f / currentGun.rpm * rogueInterval * rogueFollow);
+						if (Time.time < rogueCycleEnd) yield return null;
+					}
+				}
+				else yield return new WaitForSeconds(Mathf.Max(0f, 60f / currentGun.rpm * rogueInterval - 0.1f * Mathf.Min(1f, rogueInterval)));
 				enableFire = true; firing = false;
 				if (currentGun.currentAmmo <= 0)
 				{
@@ -321,6 +341,10 @@ public partial class FPSController
 				rogueStep = RoguelikeMode.Active ? RogueHooks.RoundStep(this, currentGun, rogueInterval) : 0.1f;
 				rogueCycle = RoguelikeMode.Active ? RogueHooks.RoundInterval(this, currentGun, rogueInterval) : 60f / currentGun.rpm;
 				if (RoguelikeMode.Active) RogueHooks.MetaNoteInterval(this, rogueCycle);
+				// Roguelike: this round takes its place on the weapon's clock (WeaponRules.NextRoundDue), and the waits below run to the
+				// time the next round is due instead of a fixed length. A wait that ends a frame late is then paid back by the next one,
+				// so a 900 rpm SMG and a 15-a-second handgun fire at their rate whatever the frame time.
+				if (RoguelikeMode.Active) { rogueRoundDue = RogueHooks.NextRoundDue(rogueRoundDue, rogueCycle); rogueStep = Mathf.Min(rogueStep, Mathf.Max(0f, rogueRoundDue - Time.time)); }
 				GameObject mf2 = UnityEngine.Object.Instantiate(currentGun.muzzleFlash, GetBulletTrailOrigin(), mt.rotation) as GameObject;
 				mf2.GetComponent<ParticleSystem>().startColor = mt.GetChild(0).GetComponent<Renderer>().material.color;
 				if (RoguelikeMode.Active) FlatsFeel.Fire(this, base.GetComponent<AudioSource>(), currentGun, mf2); else base.GetComponent<AudioSource>().PlayOneShot(currentGun.fireSE);
@@ -353,20 +377,21 @@ public partial class FPSController
 				}
 				anim.SetInteger("Burst", currentBurstCount);
 				currentBurstCount--;
-				if (!(RoguelikeMode.Active && (RogueHooks.InfiniteAmmo(this) || rogueShot.FreeRound))) currentGun.currentAmmo--;
+				if (rogueCopy) { if (currentGun.currentAmmo > 0) currentGun.currentAmmo--; }
+				else if (!(RoguelikeMode.Active && (RogueHooks.InfiniteAmmo(this) || rogueShot.FreeRound))) currentGun.currentAmmo--;
 				yield return new WaitForSeconds(rogueStep);
-				if (currentBurstCount == 0 || currentGun.currentAmmo == 0 || (RoguelikeMode.Active && rogueShotAtStart != rogueShotToken))
+				if (currentBurstCount == 0 || (currentGun.currentAmmo == 0 && !rogueCopy) || (RoguelikeMode.Active && rogueShotAtStart != rogueShotToken))
 				{
 					break;
 				}
-				{ float rogueGap = Mathf.Max(0f, rogueCycle - rogueStep); if (rogueGap > 0f || !RoguelikeMode.Active) yield return new WaitForSeconds(rogueGap); }
+				{ float rogueGap = Mathf.Max(0f, RoguelikeMode.Active ? rogueRoundDue - Time.time : rogueCycle - rogueStep); if (rogueGap > 0f || !RoguelikeMode.Active) yield return new WaitForSeconds(rogueGap); }
 				if (!RoguelikeMode.Active) yield return new WaitForSeconds(0f);
 				if (RoguelikeMode.Active && rogueShotAtStart != rogueShotToken) break;
 			}
 			anim.SetInteger("Burst", 0);
 			// Roguelike: no empty wait when the step already covered the interval (a zero wait costs a whole frame, which would
 			// pull a semi-automatic handgun and every step-bound gun below its rate)
-			{ float rogueTail = Mathf.Max(0f, rogueCycle - rogueStep); if (rogueTail > 0f || !RoguelikeMode.Active) yield return new WaitForSeconds(rogueTail); }
+			{ float rogueTail = Mathf.Max(0f, RoguelikeMode.Active ? rogueRoundDue - Time.time : rogueCycle - rogueStep); if (rogueTail > 0f || !RoguelikeMode.Active) yield return new WaitForSeconds(rogueTail); }
 			enableFire = true; firing = false;
 			if (currentGun.currentAmmo <= 0)
 			{
@@ -630,6 +655,9 @@ public partial class FPSController
 	public bool RogueWeaponBusy => firing || Time.time < rogueReloadingUntil || (anim != null && (anim.GetBool("Change") || anim.GetBool("Grenade")));
 
 	private int rogueShotToken;
+	// Roguelike: when the round now leaving the barrel was due (game time), kept across trigger cycles so the frame between two
+	// bursts is paid back too. Read and advanced only by the automatic and handgun branch of Shoot (WeaponRules.NextRoundDue).
+	private float rogueRoundDue = -10f;
 
 	// ---- Roguelike handguns are semi-automatic (WeaponRules.HandgunShotsPerSecond). Every held-fire send site (mouse, pad trigger,
 	// touch Fire button) asks RogueTriggerPulled once per frame while Fire is held: for a handgun it is true only for a new press

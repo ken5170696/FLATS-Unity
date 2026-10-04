@@ -122,6 +122,12 @@ namespace Flats.Core.Roguelike
     public static class RogueArmory
     {
         public const double SniperHeadshotCap = 3.5;
+        /// <summary>Roguelike handguns: the catalog's x5 headshot (a Classic number) made a semi-automatic sidearm out-damage every
+        /// primary on headshots. The sniper rifles keep the highest headshot multiplier of the armory.</summary>
+        public const double HandgunHeadshotCap = 2.5;
+        /// <summary>The part of a reload that no weapon number changes (FPSController.Reload: start, magazine in, end), and the part
+        /// the reload multipliers scale together with the weapon's reload time. A whole reload is Fixed + (Scaled + reload time) x multipliers.</summary>
+        public const double ReloadFixedSeconds = 0.7, ReloadScaledSeconds = 0.5;
         /// <summary>Roguelike players only: a pellet shotgun fires this many pellets per round its shell spends (Shotgun 1: 3 rounds, 6
         /// pellets). The shell still costs its catalog burst count in rounds, so magazines and reserves hold as many shells as before.
         /// Enemies and Classic modes keep the catalog pellet count. A one-pellet shell (Slug Gun, sniper rifles) is never multiplied.</summary>
@@ -136,75 +142,80 @@ namespace Flats.Core.Roguelike
         public static bool IsPelletShell(bool oneShot, bool grenade, int burst) { return oneShot && !grenade && burst > 1; }
         // ------------------------------------------------------------------ ranged weapons (30)
 
+        // Balance pass of 2026-10-04 (second owner round): every class has a place (SMG close and mobile, assault rifle the
+        // middle distance, shotgun point blank, sniper far and slow, handgun the sidearm, LMG staying power, launcher groups) and
+        // every row one strength and one cost a player can name. The catalog numbers (WeaponCatalog) are Classic's and are never
+        // changed: a row scales them. The rails are in tools/unity-validation/roguelike-tests/Tests.Feedback1004b.cs.
         public static readonly RangedWeaponDef[] Ranged =
         {
-            // SMG
-            new RangedWeaponDef { Id = "rw.smg1", Name = "SMG 1", Class = WeaponClass.SMG, BaseModel = 0, Starter = true, Flavor = "A steady all-rounder that snowballs once the first enemy drops.",
-                Trait = TraitKind.KillFrenzy, T1 = 0.25, Drawback = DrawbackKind.DamageFalloff, D1 = 0.20, D2 = 25 },
-            new RangedWeaponDef { Id = "rw.smg2", Name = "SMG 2", Class = WeaponClass.SMG, BaseModel = 1, Price = 180, Flavor = "Wild at first, laser-straight once you hold the trigger.",
-                Trait = TraitKind.SustainedAccuracy, T1 = 0.06, T2 = 0.45, Drawback = DrawbackKind.LowReserve, D1 = 0.30, ReserveMul = 0.70 },
-            new RangedWeaponDef { Id = "rw.smg3", Name = "SMG 3", Class = WeaponClass.SMG, BaseModel = 2, Price = 220, Flavor = "Rewards clean aim with free rounds.",
-                Trait = TraitKind.HeadshotRefund, T1 = 1, Drawback = DrawbackKind.SlowReload, D1 = 0.30, ReloadMul = 1.30 },
-            new RangedWeaponDef { Id = "rw.smg4", Name = "SMG 4", Class = WeaponClass.SMG, BaseModel = 3, Price = 200, Flavor = "Light enough to sprint through a firefight.",
-                Trait = TraitKind.RunAndGun, T1 = 0.10, Drawback = DrawbackKind.SmallMagazine, D1 = 0.25, Magazine = 15 },
-            new RangedWeaponDef { Id = "rw.smg_viper", Name = "Viper", Class = WeaponClass.SMG, BaseModel = 3, Price = 320, Flavor = "Every hit drags the target down. Carries little spare ammunition.", Visual = "Armory/Viper",
-                Trait = TraitKind.SlowOnHit, T1 = 0.25, T2 = 1.2, Drawback = DrawbackKind.LowReserve, D1 = 0.35, ReserveMul = 0.65 },
-            new RangedWeaponDef { Id = "rw.smg_drum", Name = "Drum SMG", Class = WeaponClass.SMG, BaseModel = 1, Price = 380, Flavor = "A drum magazine that feeds itself on kills. Slow to reload.", Visual = "Armory/DrumMag",
-                Magazine = 45, Trait = TraitKind.AmmoOnKill, T1 = 3, Drawback = DrawbackKind.SlowReload, D1 = 0.60, ReloadMul = 1.60 },
-            // Assault rifles
-            new RangedWeaponDef { Id = "rw.ar1", Name = "Assault Rifle 1", Class = WeaponClass.AssaultRifle, BaseModel = 4, Starter = true, Flavor = "Accurate and punishing at long range; takes a moment to aim.",
-                Trait = TraitKind.LongRangeBonus, T1 = 0.20, T2 = 30, Drawback = DrawbackKind.SlowAds, D1 = 0.25 },
-            new RangedWeaponDef { Id = "rw.ar2", Name = "Assault Rifle 2", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 240, Flavor = "Every third trigger pull fires its first round for free. It kicks.",
-                Trait = TraitKind.DoubleTap, T1 = 3, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.08, D2 = 0.60 },
-            new RangedWeaponDef { Id = "rw.ar3", Name = "Assault Rifle 3", Class = WeaponClass.AssaultRifle, BaseModel = 6, Price = 300, Flavor = "Rounds punch through the first enemy. Heavy to swap.",
-                Trait = TraitKind.Pierce, T1 = 1, Drawback = DrawbackKind.SlowSwap, D1 = 0.60 },
-            new RangedWeaponDef { Id = "rw.ar4", Name = "Assault Rifle 4", Class = WeaponClass.AssaultRifle, BaseModel = 7, Price = 320, Flavor = "Ignores shields and hits elites harder. Slows you down.",
-                Trait = TraitKind.ArmorBreaker, T1 = 0.20, Drawback = DrawbackKind.MoveSlow, D1 = 0.08 },
-            new RangedWeaponDef { Id = "rw.ar_bullpup", Name = "Bullpup", Class = WeaponClass.AssaultRifle, BaseModel = 4, Price = 360, Flavor = "Snaps to the sight almost instantly. Weak beyond medium range.", Visual = "Armory/Bullpup",
-                Trait = TraitKind.SnapAim, T1 = 0.45, Drawback = DrawbackKind.DamageFalloff, D1 = 0.25, D2 = 25 },
-            new RangedWeaponDef { Id = "rw.ar_battle", Name = "Battle Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 7, Price = 420, Flavor = "Single heavy rounds; headshots stagger. Small magazine.", Visual = "Armory/LongBarrel",
-                Burst = 1, DamageMul = 1.9, RpmMul = 0.7, Magazine = 20, Trait = TraitKind.StaggerOnHeadshot, T1 = 0.6, Drawback = DrawbackKind.SmallMagazine, D1 = 0.5 },
-            new RangedWeaponDef { Id = "rw.ar_dmr", Name = "Marksman Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 6, Price = 460, Flavor = "Hold your aim to charge the next shot. Useless from the hip.", Visual = "Armory/ScopeRail",
-                Burst = 1, DamageMul = 1.55, RpmMul = 0.35, Magazine = 15, Accuracy = 100, Trait = TraitKind.PatientShot, T1 = 0.25, T2 = 0.4, Drawback = DrawbackKind.NoHipFire, D1 = 3.0 },
-            new RangedWeaponDef { Id = "rw.ar_carbine", Name = "Carbine", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 280, Flavor = "Reloads from empty in a flash. Carries little spare ammunition.", Visual = "Armory/ShortStock",
-                Trait = TraitKind.EmptyReloadFast, T1 = 0.45, Drawback = DrawbackKind.LowReserve, D1 = 0.40, ReserveMul = 0.60 },
-            // Shotguns. Every shotgun also carries the class range profile (WeaponRules.Profile, QA-49): stronger up close, very weak
-            // at range. Shotgun 1's old flat falloff (-40% beyond 15 m) would have doubled that falloff, so its cost is a shorter tube.
-            new RangedWeaponDef { Id = "rw.sg1", Name = "Shotgun 1", Class = WeaponClass.Shotgun, BaseModel = 8, Starter = true, Flavor = "Point blank hits knock enemies back. Falls apart at range.",
-                Trait = TraitKind.CloseKnockback, T1 = 3.0, T2 = 9, Drawback = DrawbackKind.SlowAds, D1 = 0.25 },   // QA-49: the class range curve replaced its falloff; a hip-fire gun keeps its full tube
-            new RangedWeaponDef { Id = "rw.sg2", Name = "Shotgun 2", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 260, Flavor = "Close hits stun. Heavy.",
-                Trait = TraitKind.StaggerOnHit, T1 = 0.5, T2 = 10, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
-            new RangedWeaponDef { Id = "rw.sg_auto", Name = "Auto Shotgun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 440, Flavor = "Fast pellets that refund a shell on every kill. Kicks hard.", Visual = "Armory/BoxMag",
-                RpmMul = 2.2, DamageMul = 0.75, Trait = TraitKind.AmmoOnKill, T1 = 3, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.10, D2 = 0.60 },
-            new RangedWeaponDef { Id = "rw.sg_breach", Name = "Breacher", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 340, Flavor = "Devastating inside a room. Cannot aim.", Visual = "Armory/Breacher",
-                Trait = TraitKind.CloseRangeBonus, T1 = 0.35, T2 = 8, Drawback = DrawbackKind.NoAds },
-            new RangedWeaponDef { Id = "rw.sg_slug", Name = "Slug Gun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 400, Flavor = "One heavy slug that passes through two enemies. Slow to aim.", Visual = "Armory/LongBarrel",
-                Burst = 1, DamageMul = 1.9, RpmMul = 1.6, Accuracy = 95, Trait = TraitKind.Pierce, T1 = 2, Drawback = DrawbackKind.SlowAds, D1 = 0.35 },
-            // Sniper rifles
-            new RangedWeaponDef { Id = "rw.sr1", Name = "Sniper Rifle 1", Class = WeaponClass.Sniper, BaseModel = 10, Price = 260, Flavor = "A headshot chambers the next round fast. No hip fire.",
-                Trait = TraitKind.FollowUp, T1 = 0.30, Drawback = DrawbackKind.NoHipFire, D1 = 4.0, ReserveMul = 0.75 },
-            new RangedWeaponDef { Id = "rw.sr2", Name = "Sniper Rifle 2", Class = WeaponClass.Sniper, BaseModel = 11, Price = 340, Flavor = "Rounds pass through one enemy. Heavy.",
-                Trait = TraitKind.Pierce, T1 = 1, Drawback = DrawbackKind.MoveSlow, D1 = 0.12, ReserveMul = 0.75 },
-            new RangedWeaponDef { Id = "rw.sr_anti", Name = "Anti-Materiel Rifle", Class = WeaponClass.Sniper, BaseModel = 11, Price = 560, Flavor = "Breaks shields and elites. Very heavy.", Visual = "Armory/MuzzleBrake",
-                DamageMul = 1.75, RpmMul = 0.65, ReserveMul = 0.75, Trait = TraitKind.ArmorBreaker, T1 = 0.30, Drawback = DrawbackKind.MoveSlow, D1 = 0.20 },
-            new RangedWeaponDef { Id = "rw.sr_scout", Name = "Scout Rifle", Class = WeaponClass.Sniper, BaseModel = 10, Price = 380, Flavor = "A light rifle that aims in a blink. Headshots hit less hard.", Visual = "Armory/ShortStock",
-                DamageMul = 0.8, RpmMul = 1.5, ReloadMul = 0.7, ReserveMul = 0.75, Trait = TraitKind.SnapAim, T1 = 0.40, Drawback = DrawbackKind.WeakHeadshot, D1 = 0.40 },
-            // Handguns
-            new RangedWeaponDef { Id = "rw.hg1", Name = "Handgun 1", Class = WeaponClass.Handgun, BaseModel = 12, Starter = true, Flavor = "A headshot hands the round back. Weak at range.",   // every handgun now swaps almost instantly (WeaponRules.HandgunSwapTimeMul), so Quick Draw would do nothing here
-                Trait = TraitKind.HeadshotRefund, T1 = 1, Drawback = DrawbackKind.DamageFalloff, D1 = 0.25, D2 = 20 },
-            new RangedWeaponDef { Id = "rw.hg2", Name = "Handgun 2", Class = WeaponClass.Handgun, BaseModel = 13, Price = 160, Flavor = "Headshots stagger. Recoil climbs.",
-                Trait = TraitKind.StaggerOnHeadshot, T1 = 0.4, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.10, D2 = 0.50 },
-            new RangedWeaponDef { Id = "rw.hg_magnum", Name = "Magnum", Class = WeaponClass.Handgun, BaseModel = 13, Price = 360, Flavor = "Six heavy rounds; the last one hits twice as hard. Brutal recoil.", Visual = "Armory/LongBarrel",
-                DamageMul = 2.0, Magazine = 6, Trait = TraitKind.LastRoundDouble, T1 = 2.0, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.18, D2 = 0.72 },
-            new RangedWeaponDef { Id = "rw.hg_machine", Name = "Burst Pistol", Class = WeaponClass.Handgun, BaseModel = 12, Price = 300, Flavor = "Every trigger pull fires a three-round burst while you keep moving. Weak at range.", Visual = "Armory/ExtendedMag",
-                Burst = 3, RpmMul = 4.0, Magazine = 21, DamageMul = 0.5, Trait = TraitKind.RunAndGun, T1 = 0.10, Drawback = DrawbackKind.DamageFalloff, D1 = 0.30, D2 = 20 },
+            // SMG: the highest damage rate inside 20 m, small magazines, and the class falloff beyond (WeaponRules.SmgProfile)
+            new RangedWeaponDef { Id = "rw.smg1", Name = "SMG 1", Class = WeaponClass.SMG, BaseModel = 0, Starter = true, Flavor = "Room clearer: every kill speeds it up for the rest of the magazine. Loses its bite beyond 15 m.",
+                Trait = TraitKind.KillFrenzy, T1 = 0.25, Drawback = DrawbackKind.DamageFalloff, D1 = 0.25, D2 = 15 },
+            new RangedWeaponDef { Id = "rw.smg2", Name = "SMG 2", Class = WeaponClass.SMG, BaseModel = 1, Price = 180, Flavor = "The fastest trigger in the armory: spread and kick settle the longer you hold it. Burns through its reserve.",
+                DamageMul = 0.95, Trait = TraitKind.SustainedAccuracy, T1 = 0.08, T2 = 0.64, Drawback = DrawbackKind.LowReserve, D1 = 0.30 },
+            new RangedWeaponDef { Id = "rw.smg3", Name = "SMG 3", Class = WeaponClass.SMG, BaseModel = 2, Price = 220, Flavor = "The hardest-hitting SMG: headshots hand the round back. Slowest of its class to reload.",
+                Trait = TraitKind.HeadshotRefund, T1 = 1, Drawback = DrawbackKind.SlowReload, D1 = 0.40 },
+            new RangedWeaponDef { Id = "rw.smg4", Name = "SMG 4", Class = WeaponClass.SMG, BaseModel = 3, Price = 200, Flavor = "Run and gun: you move faster with it in hand. The magazine is gone in a second.",
+                DamageMul = 1.1, Trait = TraitKind.RunAndGun, T1 = 0.12, Drawback = DrawbackKind.SmallMagazine, D1 = 0.25, Magazine = 15 },
+            new RangedWeaponDef { Id = "rw.smg_viper", Name = "Viper", Class = WeaponClass.SMG, BaseModel = 3, Price = 320, Flavor = "Crowd control: every hit slows the target. Carries little spare ammunition.", Visual = "Armory/Viper",
+                DamageMul = 1.05, Trait = TraitKind.SlowOnHit, T1 = 0.30, T2 = 1.2, Drawback = DrawbackKind.LowReserve, D1 = 0.35 },
+            new RangedWeaponDef { Id = "rw.smg_drum", Name = "Drum SMG", Class = WeaponClass.SMG, BaseModel = 1, Price = 380, Flavor = "A 45-round drum that feeds itself on kills: the SMG that never stops. Slower trigger, long reload.", Visual = "Armory/DrumMag",
+                Magazine = 45, RpmMul = 0.8, Trait = TraitKind.AmmoOnKill, T1 = 3, Drawback = DrawbackKind.SlowReload, D1 = 0.50 },
+            // Assault rifles: no falloff, steady at 25 m, never the best at any one distance
+            new RangedWeaponDef { Id = "rw.ar1", Name = "Assault Rifle 1", Class = WeaponClass.AssaultRifle, BaseModel = 4, Starter = true, Flavor = "The mid-range rifle: accurate, and stronger beyond 20 m. Takes a moment to aim.",
+                Trait = TraitKind.LongRangeBonus, T1 = 0.15, T2 = 20, Drawback = DrawbackKind.SlowAds, D1 = 0.25 },
+            new RangedWeaponDef { Id = "rw.ar2", Name = "Assault Rifle 2", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 240, Flavor = "The brawler of the rifles: the fastest of its class and stronger within 15 m. The kick throws it off targets further out.",
+                DamageMul = 0.75, Trait = TraitKind.CloseRangeBonus, T1 = 0.20, T2 = 15, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.08, D2 = 0.64 },
+            new RangedWeaponDef { Id = "rw.ar3", Name = "Assault Rifle 3", Class = WeaponClass.AssaultRifle, BaseModel = 6, Price = 300, Flavor = "Line them up: every round passes through the first enemy. Slow to swap.",
+                DamageMul = 0.9, Trait = TraitKind.Pierce, T1 = 1, Drawback = DrawbackKind.SlowSwap, D1 = 0.60 },
+            new RangedWeaponDef { Id = "rw.ar4", Name = "Assault Rifle 4", Class = WeaponClass.AssaultRifle, BaseModel = 7, Price = 320, Flavor = "The elite hunter: ignores shields and hits elites and bosses harder. Heavy in the hands.",
+                DamageMul = 0.9, Trait = TraitKind.ArmorBreaker, T1 = 0.25, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
+            new RangedWeaponDef { Id = "rw.ar_bullpup", Name = "Bullpup", Class = WeaponClass.AssaultRifle, BaseModel = 4, Price = 300, Flavor = "The quick-handling rifle: on target almost at once and fast to reload. Weak beyond 25 m.", Visual = "Armory/Bullpup",
+                DamageMul = 1.05, ReloadMul = 0.5, Trait = TraitKind.SnapAim, T1 = 0.45, Drawback = DrawbackKind.DamageFalloff, D1 = 0.30, D2 = 25 },
+            new RangedWeaponDef { Id = "rw.ar_battle", Name = "Battle Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 7, Price = 420, Flavor = "Slow, heavy single rounds that reach as far as you can see; headshots stagger. Twenty rounds.", Visual = "Armory/LongBarrel",
+                Burst = 1, DamageMul = 1.65, RpmMul = 0.5, Magazine = 20, Accuracy = 100, Trait = TraitKind.StaggerOnHeadshot, T1 = 0.6, Drawback = DrawbackKind.SmallMagazine, D1 = 0.5 },
+            new RangedWeaponDef { Id = "rw.ar_dmr", Name = "Marksman Rifle", Class = WeaponClass.AssaultRifle, BaseModel = 6, Price = 460, Flavor = "Between rifle and sniper: hold your aim to charge the opening shot. Useless from the hip.", Visual = "Armory/ScopeRail",
+                Burst = 1, DamageMul = 2.2, RpmMul = 0.35, Magazine = 15, Accuracy = 100, Trait = TraitKind.PatientShot, T1 = 0.25, T2 = 0.4, Drawback = DrawbackKind.NoHipFire, D1 = 12 },
+            new RangedWeaponDef { Id = "rw.ar_carbine", Name = "Carbine", Class = WeaponClass.AssaultRifle, BaseModel = 5, Price = 280, Flavor = "Empty it and go again: an empty magazine is replaced in a flash. Carries little spare ammunition.", Visual = "Armory/ShortStock",
+                DamageMul = 0.82, Trait = TraitKind.EmptyReloadFast, T1 = 0.60, Drawback = DrawbackKind.LowReserve, D1 = 0.40 },
+            // Shotguns: the class range profile (WeaponRules.PelletProfile / SlugProfile) is their strength and their cost. Pellets are
+            // doubled (ShotgunPelletMul, owner request), so each pellet carries about half of what the catalog gives it.
+            new RangedWeaponDef { Id = "rw.sg1", Name = "Shotgun 1", Class = WeaponClass.Shotgun, BaseModel = 8, Starter = true, Flavor = "The quick pump: point-blank hits throw enemies back. Slow to aim.",
+                DamageMul = 0.55, Trait = TraitKind.CloseKnockback, T1 = 3.0, T2 = 9, Drawback = DrawbackKind.SlowAds, D1 = 0.25 },
+            new RangedWeaponDef { Id = "rw.sg2", Name = "Shotgun 2", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 260, Flavor = "One huge blast: the hardest single shell, and close hits stun. Slow to cycle and heavy.",
+                DamageMul = 0.85, Trait = TraitKind.StaggerOnHit, T1 = 0.5, T2 = 10, Drawback = DrawbackKind.MoveSlow, D1 = 0.10 },
+            new RangedWeaponDef { Id = "rw.sg_auto", Name = "Auto Shotgun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 440, Flavor = "A stream of light shells that hands one back on every kill. Kicks harder with every shot.", Visual = "Armory/BoxMag",
+                RpmMul = 2.0, DamageMul = 0.28, Trait = TraitKind.AmmoOnKill, T1 = 3, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.12, D2 = 0.72 },
+            new RangedWeaponDef { Id = "rw.sg_breach", Name = "Breacher", Class = WeaponClass.Shotgun, BaseModel = 9, Price = 340, Flavor = "A room is its whole world: devastating within 8 m, a wide pattern, and it cannot aim.", Visual = "Armory/Breacher",
+                DamageMul = 0.66, Accuracy = 10, Trait = TraitKind.CloseRangeBonus, T1 = 0.35, T2 = 8, Drawback = DrawbackKind.NoAds },
+            new RangedWeaponDef { Id = "rw.sg_slug", Name = "Slug Gun", Class = WeaponClass.Shotgun, BaseModel = 8, Price = 400, Flavor = "The middle-distance shotgun: one heavy slug that passes through two enemies. Slow to aim.", Visual = "Armory/LongBarrel",
+                Burst = 1, DamageMul = 3.6, Magazine = 8, ReserveMul = 0.3, Accuracy = 95, Trait = TraitKind.Pierce, T1 = 2, Drawback = DrawbackKind.SlowAds, D1 = 0.35 },
+            // Sniper rifles: the only class that kills at 60 m as fast as the others do up close; slow to cycle, small magazines
+            new RangedWeaponDef { Id = "rw.sr1", Name = "Sniper Rifle 1", Class = WeaponClass.Sniper, BaseModel = 10, Price = 260, Flavor = "The headhunter: a headshot chambers the next round fast. Hip fire goes anywhere.",
+                DamageMul = 2.1, Magazine = 8, ReserveMul = 0.4, Trait = TraitKind.FollowUp, T1 = 0.40, Drawback = DrawbackKind.NoHipFire, D1 = 12 },
+            new RangedWeaponDef { Id = "rw.sr2", Name = "Sniper Rifle 2", Class = WeaponClass.Sniper, BaseModel = 11, Price = 340, Flavor = "A heavy round that passes through the first enemy: two in a line, one shot. Slows you down.",
+                DamageMul = 2.5, Magazine = 6, ReserveMul = 0.3, Trait = TraitKind.Pierce, T1 = 1, Drawback = DrawbackKind.MoveSlow, D1 = 0.12 },
+            new RangedWeaponDef { Id = "rw.sr_anti", Name = "Anti-Materiel Rifle", Class = WeaponClass.Sniper, BaseModel = 11, Price = 560, Flavor = "The biggest single shot in the armory: breaks shields, elites and bosses. Very slow, very heavy.", Visual = "Armory/MuzzleBrake",
+                DamageMul = 4.2, RpmMul = 0.6, ReloadMul = 1.4, Magazine = 4, ReserveMul = 0.2, Trait = TraitKind.ArmorBreaker, T1 = 0.30, Drawback = DrawbackKind.MoveSlow, D1 = 0.20 },
+            new RangedWeaponDef { Id = "rw.sr_scout", Name = "Scout Rifle", Class = WeaponClass.Sniper, BaseModel = 10, Price = 380, Flavor = "The sniper for moving fights: aims in a blink and cycles fast. Headshots hit less hard.", Visual = "Armory/ShortStock",
+                DamageMul = 1.9, RpmMul = 1.5, ReloadMul = 0.7, Magazine = 10, ReserveMul = 0.5, Trait = TraitKind.SnapAim, T1 = 0.40, Drawback = DrawbackKind.WeakHeadshot, D1 = 0.40 },
+            // Handguns: the sidearm. Semi-automatic (WeaponRules.HandgunShotsPerSecond), near-instant swap, the class falloff
+            // (WeaponRules.HandgunProfile) and a headshot multiplier capped at HandgunHeadshotCap keep it below a primary.
+            new RangedWeaponDef { Id = "rw.hg1", Name = "Handgun 1", Class = WeaponClass.Handgun, BaseModel = 12, Starter = true, Flavor = "The reliable sidearm: a headshot hands the round back. Weak beyond 12 m.",   // every handgun swaps almost instantly (WeaponRules.HandgunSwapTimeMul), so Quick Draw would do nothing here
+                Trait = TraitKind.HeadshotRefund, T1 = 1, Drawback = DrawbackKind.DamageFalloff, D1 = 0.25, D2 = 12 },
+            new RangedWeaponDef { Id = "rw.hg2", Name = "Handgun 2", Class = WeaponClass.Handgun, BaseModel = 13, Price = 160, Flavor = "The stopper: headshots stagger. Recoil climbs with every quick shot.",
+                DamageMul = 0.85, Trait = TraitKind.StaggerOnHeadshot, T1 = 0.5, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.12, D2 = 0.60 },
+            new RangedWeaponDef { Id = "rw.hg_magnum", Name = "Magnum", Class = WeaponClass.Handgun, BaseModel = 13, Price = 360, Flavor = "A finisher: six heavy rounds, the last one twice as hard, then a long reload. Brutal recoil.", Visual = "Armory/LongBarrel",
+                DamageMul = 1.05, Magazine = 6, ReloadMul = 6.0, ReserveMul = 0.2, Trait = TraitKind.LastRoundDouble, T1 = 2.0, Drawback = DrawbackKind.HeavyRecoil, D1 = 0.18, D2 = 0.72 },
+            new RangedWeaponDef { Id = "rw.hg_machine", Name = "Burst Pistol", Class = WeaponClass.Handgun, BaseModel = 12, Price = 300, Flavor = "A three-round burst on every pull, and you move faster with it out. Slow to reload.", Visual = "Armory/ExtendedMag",
+                Burst = 3, RpmMul = 4.0, Magazine = 21, DamageMul = 0.62, Trait = TraitKind.RunAndGun, T1 = 0.10, Drawback = DrawbackKind.SlowReload, D1 = 0.50 },
             // Heavy
-            new RangedWeaponDef { Id = "rw.lmg", Name = "Light Machine Gun", Class = WeaponClass.LMG, BaseModel = 14, Price = 300, Flavor = "Grows deadlier the longer it fires. Slow to aim.",
-                Trait = TraitKind.SpinUpDamage, T1 = 0.02, T2 = 0.30, Drawback = DrawbackKind.SlowAds, D1 = 0.40 },
-            new RangedWeaponDef { Id = "rw.lmg_saw", Name = "Saw", Class = WeaponClass.LMG, BaseModel = 14, Price = 480, Flavor = "A fast belt that slows whatever it hits. Needs a moment to spin up.", Visual = "Armory/DrumMag",
-                RpmMul = 1.35, DamageMul = 0.8, Trait = TraitKind.SlowOnHit, T1 = 0.20, T2 = 1.0, Drawback = DrawbackKind.LongSpinup, D1 = 0.35 },
-            new RangedWeaponDef { Id = "rw.gl", Name = "Grenade Launcher", Class = WeaponClass.Launcher, BaseModel = 15, Price = 420, Flavor = "Explosions stun everything they catch. Slow to swap.",
-                Trait = TraitKind.Concussion, T1 = 0.8, Drawback = DrawbackKind.SlowSwap, D1 = 0.60 },
+            new RangedWeaponDef { Id = "rw.lmg", Name = "Light Machine Gun", Class = WeaponClass.LMG, BaseModel = 14, Price = 300, Flavor = "Staying power: a hundred rounds that hit harder the longer you fire. Slows you down.",
+                DamageMul = 1.2, Trait = TraitKind.SpinUpDamage, T1 = 0.02, T2 = 0.30, Drawback = DrawbackKind.MoveSlow, D1 = 0.12 },
+            new RangedWeaponDef { Id = "rw.lmg_saw", Name = "Saw", Class = WeaponClass.LMG, BaseModel = 14, Price = 480, Flavor = "Suppression: a fast belt that slows whatever it hits. Needs a moment to spin up.", Visual = "Armory/DrumMag",
+                RpmMul = 1.35, DamageMul = 1.1, Trait = TraitKind.SlowOnHit, T1 = 0.20, T2 = 1.0, Drawback = DrawbackKind.LongSpinup, D1 = 0.5 },
+            new RangedWeaponDef { Id = "rw.gl", Name = "Grenade Launcher", Class = WeaponClass.Launcher, BaseModel = 15, Price = 420, Flavor = "Area damage: every blast stuns the group it catches. Six rounds, a long reload, slow to swap.",
+                DamageMul = 1.6, Trait = TraitKind.Concussion, T1 = 0.6, Drawback = DrawbackKind.SlowSwap, D1 = 0.60 },
         };
 
         // ------------------------------------------------------------------ melee (8)
@@ -292,9 +303,10 @@ namespace Flats.Core.Roguelike
                 Rpm = b.rpm * def.RpmMul,
                 Accuracy = def.Accuracy >= 0 ? def.Accuracy : b.accuracy,
                 Reload = b.reloadTime * def.ReloadMul,
-                HeadshotBonus = def.Class == WeaponClass.Sniper ? Math.Min(b.headshotBonus, SniperHeadshotCap) : b.headshotBonus,
+                HeadshotBonus = def.Class == WeaponClass.Sniper ? Math.Min(b.headshotBonus, SniperHeadshotCap) : def.Class == WeaponClass.Handgun ? Math.Min(b.headshotBonus, HandgunHeadshotCap) : b.headshotBonus,
                 Magazine = def.Magazine > 0 ? def.Magazine : b.limitAmmo,
-                Reserve = (int)Math.Round(b.limitMaxAmmo * def.ReserveMul),
+                // Low Reserve is the drawback's own number: the row's ReserveMul is the weapon's reserve before it
+                Reserve = (int)Math.Round(b.limitMaxAmmo * def.ReserveMul * (def.Drawback == DrawbackKind.LowReserve ? 1 - def.D1 : 1)),
                 Burst = def.Burst > 0 ? def.Burst : b.burstCount,
                 MaxSightIndex = b.zoom,
                 OneShot = b.oneShot, Handgun = b.handgun, Grenade = b.grenade,
@@ -302,20 +314,29 @@ namespace Flats.Core.Roguelike
             // A shotgun shell costs its burst count in rounds and fires ShotgunPelletMul pellets per round; a slug gun fires one pellet.
             r.Pellets = ShellPellets(b.oneShot, b.grenade, r.Burst);
             if (def.Drawback == DrawbackKind.WeakHeadshot) r.HeadshotBonus = 1 + (r.HeadshotBonus - 1) * (1 - def.D1);
+            // Slow Reload lengthens the whole reload by D1 (the text says "Reload time +D1%"), not only the weapon's own share of it:
+            // most of a reload is the fixed animation, so scaling the share alone made "+60%" a real +15%.
+            if (def.Drawback == DrawbackKind.SlowReload) r.Reload = (ReloadFixedSeconds + ReloadScaledSeconds + r.Reload) * (1 + def.D1) - ReloadFixedSeconds - ReloadScaledSeconds;
             return r;
         }
 
-        /// <summary>Seconds of one trigger cycle as the legacy Shoot coroutine runs it (0.1 s per burst round plus the rpm gap).
-        /// The 0.1 s step shrinks with a fire-rate bonus (Shoot scales it by the interval multiplier), so Rapid Fire and Kill Frenzy
-        /// act in full on weapons that already sit on the step. A handgun is semi-automatic: its rounds are
+        /// <summary>Seconds of one whole reload of an armory weapon, before build multipliers (<paramref name="magazineEmpty"/>: Empty Reload Fast).</summary>
+        public static double ReloadSeconds(RangedWeaponDef def, bool magazineEmpty)
+        {
+            return ReloadFixedSeconds + (ReloadScaledSeconds + Resolve(def).Reload) * WeaponRules.ReloadTimeMul(def, magazineEmpty);
+        }
+
+        /// <summary>Seconds of one trigger cycle as the Shoot coroutine runs it for a Roguelike player. An automatic weapon's rounds
+        /// are its rpm interval apart: the legacy 0.1 s step no longer holds a fast gun at 600 rpm (WeaponRules.RoundStep never
+        /// exceeds the interval, and FPSController schedules rounds on a clock), so a 900 rpm SMG really fires fifteen rounds a
+        /// second. A shell or a bolt-action round keeps the 0.1 s step. A handgun is semi-automatic: its rounds are
         /// <see cref="WeaponRules.HandgunMinInterval"/> apart at the fastest, and this estimate uses the practical pull rate.</summary>
         public static double CycleSeconds(ResolvedWeapon r)
         {
             if (r.Handgun) return Math.Max(1, r.Burst) * WeaponRules.HandgunMinInterval + Math.Max(0, WeaponRules.HandgunPracticalInterval - WeaponRules.HandgunMinInterval);
-            double gap = Math.Max(0.1, 60.0 / Math.Max(1, r.Rpm));
-            if (r.OneShot) return gap;
-            // burst: each round waits 0.1 s, rounds are (gap-0.1) apart and the trigger waits (gap-0.1) after the last
-            return r.Burst * gap;
+            double interval = 60.0 / Math.Max(1, r.Rpm);
+            if (r.OneShot) return Math.Max(0.1, interval);
+            return r.Burst * interval;
         }
 
         /// <summary>Rounds per trigger cycle (a shotgun spends one round per pellet in the legacy code).</summary>
@@ -327,7 +348,7 @@ namespace Flats.Core.Roguelike
             var r = Resolve(def);
             double perCycle = r.Damage * (r.OneShot ? r.Pellets : r.Burst);
             int cyclesPerMag = Math.Max(1, (int)Math.Ceiling(r.Magazine / (double)Math.Max(1, RoundsPerCycle(r))));
-            double magTime = cyclesPerMag * CycleSeconds(r) + 0.5 + r.Reload + 0.75;   // legacy reload adds ~1.25 s around reloadTime
+            double magTime = cyclesPerMag * CycleSeconds(r) + ReloadFixedSeconds + ReloadScaledSeconds + r.Reload;
             return perCycle * cyclesPerMag / magTime;
         }
 
@@ -335,12 +356,12 @@ namespace Flats.Core.Roguelike
         public static double TimeToKill(RangedWeaponDef def, double hp)
         {
             var r = Resolve(def);
-            double gap = r.Handgun ? WeaponRules.HandgunPracticalInterval : Math.Max(0.1, 60.0 / Math.Max(1, r.Rpm));
+            double gap = r.Handgun ? WeaponRules.HandgunPracticalInterval : Math.Max(r.OneShot ? 0.1 : 0, 60.0 / Math.Max(1, r.Rpm));
             double perRound = r.Damage * (r.OneShot ? r.Pellets : 1);
             double t = 0, dealt = 0; int mag = r.Magazine;
             while (true)
             {
-                if (mag <= 0) { t += 1.25 + r.Reload; mag = r.Magazine; }
+                if (mag <= 0) { t += ReloadFixedSeconds + ReloadScaledSeconds + r.Reload; mag = r.Magazine; }
                 dealt += perRound; mag -= r.OneShot ? RoundsPerCycle(r) : 1;   // a shell costs its burst count in rounds, not its pellet count
                 if (dealt >= hp) return t;
                 t += r.OneShot ? gap : gap;   // a shotgun's pellets leave together; every other round is one gap apart
@@ -350,9 +371,17 @@ namespace Flats.Core.Roguelike
 
         // ------------------------------------------------------------------ stat bars (0..1), all derived from data
         public struct StatBars { public double Damage, FireRate, Accuracy, Handling, Mobility, Range; }
-        /// <summary>Full Damage bar: one trigger pull of a ranged weapon (all pellets; pellet shotguns fill it), one swing of a melee
-        /// weapon (the Axe's 1800 sits below the top, so the bar still tells the melee weapons apart).</summary>
-        public const double RangedDamageBarMax = 600, MeleeDamageBarMax = 2000;
+        /// <summary>Full Damage bar: one trigger pull of a ranged weapon (all pellets of a shell), one swing of a melee weapon (the
+        /// Axe's 1800 sits below the top, so the bar still tells the melee weapons apart). The ranged bar is the square root of the
+        /// share: a trigger pull runs from about 90 (a fast SMG) to 1260 (the Anti-Materiel Rifle), and a straight scale would
+        /// leave every automatic weapon in the first eighth of the bar and nothing to tell them apart.</summary>
+        public const double RangedDamageBarMax = 1300, MeleeDamageBarMax = 2000;
+        /// <summary>Full Fire rate bar: trigger pulls (rounds of an automatic weapon, shells, bolt-action rounds) per second, on a
+        /// square-root scale for the same reason: 0.5 a second (the Anti-Materiel Rifle) to 15 (SMG 2).</summary>
+        public const double FireRateBarMax = 16;
+
+        /// <summary>Rounds an automatic weapon fires per second, or shells, or bolt-action rounds; a handgun at the practical pull rate.</summary>
+        public static double ShotsPerSecond(ResolvedWeapon r) { return (r.OneShot ? 1 : Math.Max(1, r.Burst)) / CycleSeconds(r); }
 
         /// <summary>Engagement band the Range bar averages over (m): typical Roguelike fights run from 8 to 60 m.</summary>
         public const double RangeBarSpan = 60;
@@ -382,12 +411,12 @@ namespace Flats.Core.Roguelike
             var r = Resolve(def);
             var bars = new StatBars();
             bars.Range = RangeReach(def);
-            bars.Damage = Clamp01(r.Damage * r.Pellets / RangedDamageBarMax);
-            bars.FireRate = Clamp01((RoundsPerCycle(r) / CycleSeconds(r)) / 12.0);
+            bars.Damage = Clamp01(Math.Sqrt(r.Damage * r.Pellets / RangedDamageBarMax));
+            bars.FireRate = Clamp01(Math.Sqrt(ShotsPerSecond(r) / FireRateBarMax));
             double acc = r.Accuracy / 100.0;
             if (def.Drawback == DrawbackKind.HeavyRecoil) acc *= 1 - def.D2 * 0.4;
             bars.Accuracy = Clamp01(acc);
-            double handling = 1.0 - Math.Min(1, r.Reload / 2.5) * 0.5;
+            double handling = 1.0 - Math.Min(1, r.Reload / 3.5) * 0.5;
             handling *= WeaponRules.AdsTimeMul(def, 1) > 1 ? 1 / WeaponRules.AdsTimeMul(def, 1) : 1;
             handling *= 1 / WeaponRules.SwapTimeMul(def);
             bars.Handling = Clamp01(handling);

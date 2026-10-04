@@ -102,16 +102,25 @@ public class RogueMetaRuntime : MonoBehaviour
 
     void OnDestroy() { Unbind(); if (effectRow != null) Destroy(effectRow.gameObject); }
 
+    /// <summary>The armory row a gun model fires with on this player: the loadout's weapon of that model, or, for a gun the loadout
+    /// has no row for (taken from the ground), the armory's original of the model. A Roguelike player never fires the Classic
+    /// catalogue numbers, which are stronger than any armory weapon (handgun headshots x5, undiminished damage).</summary>
+    RangedWeaponDef ArmoryDefFor(int modelIndex)
+    {
+        var owned = Stats != null ? Stats.WeaponForModel(modelIndex) : null;
+        return owned ?? RogueArmory.OriginalOf(modelIndex);
+    }
+
     /// <summary>Resolved base magazine for a model index (armory override or catalog). RoguePlayer applies build multipliers on top.</summary>
     public int BaseMagazine(int modelIndex)
     {
-        var def = Stats != null ? Stats.WeaponForModel(modelIndex) : null;
+        var def = ArmoryDefFor(modelIndex);
         return def != null ? RogueArmory.Resolve(def).Magazine : GunInfo.limitAmmo[modelIndex];
     }
 
     public int BaseReserve(int modelIndex)
     {
-        var def = Stats != null ? Stats.WeaponForModel(modelIndex) : null;
+        var def = ArmoryDefFor(modelIndex);
         return def != null ? RogueArmory.Resolve(def).Reserve : GunInfo.limitMaxAmmo[modelIndex];
     }
 
@@ -121,7 +130,8 @@ public class RogueMetaRuntime : MonoBehaviour
         int count = Mathf.Min(fps.primaryWeapons.childCount, Flats.Core.WeaponCatalog.Count);
         for (int i = 0; i < count; i++)
         {
-            var def = Stats.WeaponForModel(i);
+            var owned = Stats.WeaponForModel(i);
+            var def = owned ?? RogueArmory.OriginalOf(i);   // a gun the loadout has no row for fires as the armory's original of its model
             RangedWeaponDef old; appliedDefs.TryGetValue(i, out old);
             if (def == null) { if (old != null) RestoreGun(i); continue; }
             var gun = fps.primaryWeapons.GetChild(i).GetComponent<Gun>();
@@ -134,10 +144,12 @@ public class RogueMetaRuntime : MonoBehaviour
             gun.headshotBonus = (float)r.HeadshotBonus;
             gun.burstCount = r.Burst;
             var sight = Stats.SightForModel(i);
-            gun.zoom = sight != null ? (float)sight.Magnification : 1f;   // aimed look scale follows the chosen sight, not the weapon's legacy cap
+            // aimed look scale follows the chosen sight, not the weapon's legacy cap; a gun from the ground keeps the catalogue zoom
+            // (its sight is whatever was mounted on it, not a loadout choice)
+            if (owned != null) gun.zoom = sight != null ? (float)sight.Magnification : 1f;
+            else gun.zoom = GunInfo.zoom[i];
             appliedDefs[i] = def;
-            if (old != def) { traitStates[i] = new WeaponTraitState(def, sight); followUpArmed.Remove(i); }
-            ApplySkin(i, def);
+            if (old != def) { traitStates[i] = new WeaponTraitState(def, sight); followUpArmed.Remove(i); ApplySkin(i, def); }
         }
     }
 
@@ -211,6 +223,17 @@ public class RogueMetaRuntime : MonoBehaviour
     }
 
     public void NoteInterval(float seconds) { var s = HandState; if (s != null) s.NoteInterval(seconds); }
+
+    /// <summary>Follow-up: the factor (under 1, once) for the cycle that is running, when the round just fired was a headshot.
+    /// The HUD's Follow-up row stays lit until the next trigger pull (NextRound clears followUpArmed), which is the fast shot.</summary>
+    public float ConsumeFollowUp()
+    {
+        var s = HandState;
+        if (s == null) return 1f;
+        float mul = (float)s.ConsumeFollowUp();
+        if (mul < 1f && s.Def != null) Ledger.Trigger(s.Def.Id);
+        return mul;
+    }
 
     public float PreFireDelay() { var s = HandState; return s != null ? (float)s.PreFireDelay(Time.time) : 0f; }
 
@@ -532,10 +555,13 @@ public class RogueMetaRuntime : MonoBehaviour
         else
         {
             var def = HandDef;
-            Count(def != null ? def.Id : "");
+            // only a gun of the loadout counts toward its mastery: a gun taken from the ground fires as the armory's original of its
+            // model (ArmoryDefFor), and its kills used to build mastery on a weapon the player may not even have unlocked
+            Count(def != null && Stats != null && Stats.WeaponForModel(HandModel) != null ? def.Id : "");
             var s = HandState;
             // Kill Frenzy shows on the HUD effect row from the trait state itself while it lasts (ReportEffects, QA-51)
-            if (s != null) { int back = s.OnKill(); if (back > 0) Refund(back, def.Id, "wt.refund"); if (s.FrenzyActive) Ledger.Trigger(def.Id); }
+            var killGun = HandGun;   // only rounds the magazine can take count toward Ammo on Kill's allowance
+            if (s != null) { int back = s.OnKill(killGun != null ? Mathf.Max(0, killGun.limitAmmo - killGun.currentAmmo) : int.MaxValue); if (back > 0) Refund(back, def.Id, "wt.refund"); if (s.FrenzyActive) Ledger.Trigger(def.Id); }
         }
         if (Stats.KillReloadFraction > 0) RefillFromReserve(Stats.KillReloadFraction, "sk.kill_reload");
         if (Stats.BerserkerStep > 0)
@@ -553,11 +579,12 @@ public class RogueMetaRuntime : MonoBehaviour
         {
             var rp = player;
             int marked = 0;
-            foreach (var enemy in GameObject.FindGameObjectsWithTag("Enemy"))
+            var roles = RogueEnemyRole.All;   // the role registry: no tag search per kill
+            for (int i = 0; i < roles.Count; i++)
             {
-                if (enemy.transform == victim || Vector3.Distance(enemy.transform.position, victim.position) > Stats.HeadshotKillMarkRadius) continue;
-                var role = enemy.GetComponent<RogueEnemyRole>();
-                if (role != null && rp != null) { role.Mark(Time.time + (float)Stats.HeadshotKillMarkSeconds, rp); marked++; }
+                var role = roles[i];
+                if (role == null || role.Dead || role.transform == victim || Vector3.Distance(role.transform.position, victim.position) > Stats.HeadshotKillMarkRadius) continue;
+                if (rp != null) { role.Mark(Time.time + (float)Stats.HeadshotKillMarkSeconds, rp); marked++; }
             }
             if (marked > 0) { Ledger.Trigger("sk.spotter_eye", marked); RogueMetaFeedback.Pulse(this, "sk.spotter_eye"); }
         }

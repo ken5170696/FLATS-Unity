@@ -38,6 +38,16 @@ public class Bullet : MonoBehaviour
 	private VectorLine trail;
 	private readonly System.Collections.Generic.List<Vector3> trailPath = new System.Collections.Generic.List<Vector3>();
 	private Color32[] trailColors;
+	// The colours of the trail never change after the first frame (shooter colour, authored fade, segment count): they are
+	// written into the line once. Writing them every frame rebuilt the line's two canvas meshes a second time per bullet.
+	private bool trailColorsApplied;
+	// Roguelike, an enemy's straight round: the cheaper trail (see Start and LateUpdate). False for players, grenades and Classic.
+	private bool rogueLeanTrail;
+	private bool rogueTrailDrawn;
+	/// <summary>Roguelike, enemy rounds only: segments of the trail's fade (players and Classic use <see cref="trailSegments"/>),
+	/// and the distance from the camera beyond which the trail is not drawn at all.</summary>
+	public const int RogueEnemyTrailSegments = 4;
+	public const float RogueEnemyTrailMaxMeters = 250f;
 	private bool trailOriginPending;
 
 	public bool grenade;
@@ -93,7 +103,11 @@ public class Bullet : MonoBehaviour
 					Physics.IgnoreCollision(GetComponent<Collider>(),ownCollider);
 		}
 		shooterColor = shooter.GetChild(0).GetComponent<Renderer>().material.color;
-		trail = new VectorLine("Trail", new Vector3[0], trailMaterial, 2f, LineType.Continuous, Joins.Fill);
+		// Roguelike: an enemy's bullet flies straight, so its trail has no corners to fill. Joins.Fill gives every line a second
+		// canvas object whose mesh is rebuilt every frame; up to 28 enemies fire at once. Grenades (an arc), every player's
+		// rounds and all Classic modes keep the filled joins.
+		rogueLeanTrail = RoguelikeMode.Active && !grenade && !hand && !shooter.CompareTag("Player");
+		trail = new VectorLine("Trail", new Vector3[0], trailMaterial, 2f, LineType.Continuous, rogueLeanTrail ? Joins.None : Joins.Fill);
 		// a client that just (re)joined a squad has no camera yet (its own Flatman is still spawning) and Vectrosity cannot build
 		// its 3D canvas without one; LateUpdate draws the trail once a camera exists, so only the shared canvas layer waits
 		if (Camera.main != null) VectorLine.canvas3D.gameObject.layer = LayerMask.NameToLayer("Default");
@@ -409,24 +423,55 @@ public class Bullet : MonoBehaviour
 			{
 				trailPath.RemoveAt(trailPath.Count - 2);
 			}
+			if (rogueLeanTrail)
+			{
+				// Roguelike, an enemy's round (up to 28 enemies fire at once): nothing is drawn for a trail wholly behind the camera
+				// or farther than RogueEnemyTrailMaxMeters, and a visible one is rebuilt every other frame (half of the rounds on
+				// each frame). The path above is still recorded every frame, so a trail that comes into view is complete.
+				bool inView = RogueTrailInView(Camera.main.transform, trailPath[0], trailPath[trailPath.Count - 1]);
+				if (!inView)
+				{
+					if (trail.active) trail.active = false;
+					return;
+				}
+				if (!trail.active) { trail.active = true; rogueTrailDrawn = false; }
+				if (rogueTrailDrawn && ((Time.frameCount + GetInstanceID()) & 1) != 0) return;
+			}
 			if (Camera.main.cullingMask != 0)
 			{
 				VectorLine.SetCamera3D(Camera.main);
 			}
 			ResampleTrail();
 			trail.continuousTexture = true;
-			trail.drawDepth = 2;
+			if (!rogueLeanTrail || !rogueTrailDrawn) trail.drawDepth = 2;   // an enemy round takes its place once, not on every redraw
+			rogueTrailDrawn = true;
 			trail.smoothColor = true;
-			trail.SetColors(trailColors);
+			if (!trailColorsApplied)
+			{
+				trail.SetColors(trailColors);
+				trailColorsApplied = true;
+			}
 			trail.Draw3D();
 		}
+	}
+
+	/// <summary>False when the whole trail (tail to head) lies behind the camera, or its nearest point is farther than
+	/// <see cref="RogueEnemyTrailMaxMeters"/> from it.</summary>
+	private static bool RogueTrailInView(Transform camera, Vector3 tail, Vector3 head)
+	{
+		Vector3 eye = camera.position, forward = camera.forward;
+		if (Vector3.Dot(tail - eye, forward) < 0f && Vector3.Dot(head - eye, forward) < 0f) return false;
+		Vector3 along = head - tail;
+		float length = along.sqrMagnitude;
+		float t = length > 0.0001f ? Mathf.Clamp01(Vector3.Dot(eye - tail, along) / length) : 0f;
+		return (tail + along * t - eye).sqrMagnitude <= RogueEnemyTrailMaxMeters * RogueEnemyTrailMaxMeters;
 	}
 
 	// The recorded path has one long segment up to the bullet. Redistribute it
 	// evenly so the opacity ramp spans the whole visible trail.
 	private void ResampleTrail()
 	{
-		int segments = Mathf.Max(2, trailSegments);
+		int segments = Mathf.Max(2, rogueLeanTrail ? Mathf.Min(trailSegments, RogueEnemyTrailSegments) : trailSegments);
 		var points = trail.points3;
 		points.Clear();
 		float total = 0f;
@@ -453,13 +498,14 @@ public class Bullet : MonoBehaviour
 		if (trailColors == null || trailColors.Length != segments)
 		{
 			trailColors = new Color32[segments];
-		}
-		// With smoothColor, segment 0 is flat and segment i blends entry i-1 to i.
-		for (int i = 0; i < segments; i++)
-		{
-			Color c = shooterColor;
-			c.a *= Mathf.Clamp01(trailAlpha.Evaluate(i / (segments - 1f)));
-			trailColors[i] = c;
+			trailColorsApplied = false;
+			// With smoothColor, segment 0 is flat and segment i blends entry i-1 to i.
+			for (int i = 0; i < segments; i++)
+			{
+				Color c = shooterColor;
+				c.a *= Mathf.Clamp01(trailAlpha.Evaluate(i / (segments - 1f)));
+				trailColors[i] = c;
+			}
 		}
 	}
 

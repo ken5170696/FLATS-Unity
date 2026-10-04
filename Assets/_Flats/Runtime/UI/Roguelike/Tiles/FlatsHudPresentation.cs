@@ -93,6 +93,7 @@ public partial class RogueHudView
     Flats.Core.Roguelike.RangedWeaponDef ResolveWeapon(int model)
     {
         var definition = vitalsPlayer != null && vitalsPlayer.Stats != null ? vitalsPlayer.Stats.WeaponForModel(model) : null;
+        if (definition == null) definition = RogueHooks.CarriedDef(vitalsPlayer, model);   // a gun from the ground: its model's original
         if (definition == null && vitalsPlayer != null && vitalsPlayer.Build != null && vitalsPlayer.Build.meta != null && !vitalsPlayer.Build.meta.Empty)
             definition = Flats.Core.Roguelike.MetaRun.ShopVariant(vitalsPlayer.Build, model);
         return definition ?? Flats.Core.Roguelike.RogueArmory.OriginalOf(model);

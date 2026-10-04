@@ -39,6 +39,7 @@ public partial class RoguelikeController : MonoBehaviour
     void Awake()
     {
         ExtraEnemyDamageMul = 1f;
+        RogueHooks.ResetEquipQueue();   // a purchase that was still waiting when the last scene went is not this scene's
     }
 
     float hudRefresh;
@@ -236,7 +237,7 @@ public partial class RoguelikeController : MonoBehaviour
             string mapName = "";
             foreach (var m in RogueCatalog.Maps) if (m.BuildIndex == UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex) mapName = T(m.Name);
             string difficulty = T(RoguelikeMode.DifficultyNames[Mathf.Clamp(RoguelikeMode.Difficulty, 1, 3)]);
-            RogueRunTitleCard.Show(T("SQUAD RUN"), mapName == "" ? difficulty : mapName + "  ·  " + difficulty);
+            RogueRunTitleCard.Show(T(RoguelikeMode.Range ? "SHOOTING RANGE" : "SQUAD RUN"), mapName == "" ? difficulty : mapName + "  ·  " + difficulty);
         }
 
         // Scene objects: wait for the shared interface exactly like Singleplayer.Start does.
@@ -292,6 +293,7 @@ public partial class RoguelikeController : MonoBehaviour
                 yield return null;
             }
             metaRunStartedAt = Time.time; MetaSendLocalLoadout(); MetaNoteRunJoined(); // client
+            AdoptEnemiesSeenBeforeState();   // a join in the middle of a stage
         }
         runStarted = true;
         if (Menu.network != 0)
@@ -323,11 +325,16 @@ public partial class RoguelikeController : MonoBehaviour
             }
         }
 
+        // the shooting range: its own state, no checkpoint read or written, no statistics (RoguelikeController.Range)
+        if (RoguelikeMode.Range) { CreateRangeRun(keys, names, primaries, secondaries); return; }
         if (resume == null && Menu.network != 0) resume = CoopResumeCandidate(keys);
         if (resume != null && resume.run != null)
         {
             bool fromEarlierVersion = RogueSave.ContentChanged(resume);
             state = resume.run;
+            // a checkpoint is never a shooting range (the range writes none): an edited file cannot bring back free builds and spawns
+            state.range = false; state.rangeFlags = 0; state.rangePassiveIds = new int[0];
+            if (state.players != null) foreach (var saved in state.players) if (saved != null) saved.rangeFlags = 0;
             MetaRun.MigrateProgress(state);   // an older checkpoint: progress totals once, and an estimated play time only when none was saved (QA-18)
             state.authorityEpoch++;
             state.contentHash = RogueCatalog.ContentHash();   // an update that kept every id resumes; later checkpoints carry this build's hash
@@ -383,7 +390,11 @@ public partial class RoguelikeController : MonoBehaviour
     int overshieldStage = -1;
     /// <summary>Authority: a state change that can wait a moment (a kill's bounty). Kills in quick succession share one snapshot
     /// instead of sending the whole run state once per kill, which queued up behind the Die and hit messages (F07).</summary>
-    public void BroadcastSoon() { if (broadcastDue < 0f) broadcastDue = Time.time + 0.25f; }
+    public void BroadcastSoon() { if (broadcastDue < 0f) broadcastDue = Time.time + (Menu.network == 0 ? 0.25f : BroadcastSoonSeconds); }
+    /// <summary>Co-op: how long a deferred state change (a kill's bounty) waits for others to share its snapshot. The whole run state
+    /// goes out once per window at most; transitions (phase, shop, objective) still call Broadcast at once. Solo sends nothing and
+    /// keeps the short delay, so the wallet on the HUD follows a kill as before.</summary>
+    public const float BroadcastSoonSeconds = 0.75f;
 
     public void Notify(RogueEventMessage e)
     {
@@ -411,6 +422,21 @@ public partial class RoguelikeController : MonoBehaviour
         machine = null;       // clients never simulate
         lastAppliedSeq = Mathf.Max(lastAppliedSeq, state.eventSeq);
         OnStateChanged();
+    }
+
+    /// <summary>A player who joins in the middle of a stage gets the enemies from the room cache (instantiate, then SyncTeam) in the
+    /// first frame of the scene, before this controller is the Instance (Start) and before it has a run state: RogueHooks.OnEnemySynced
+    /// could not register them, so the enemy count on that player's HUD stayed too low for the rest of the stage, a finale target had
+    /// no waypoint and elites had no affixes. Start takes them in once the first state is here, like every enemy that spawns later.
+    /// (The range picks an elite's affix by the heat at its spawn, which a later state no longer carries: affixes are left alone there.)</summary>
+    void AdoptEnemiesSeenBeforeState()
+    {
+        foreach (var role in new List<RogueEnemyRole>(RogueEnemyRole.All))
+        {
+            if (role == null || role.Dead) continue;
+            if (!state.range && role.GetComponent<RogueEliteAffixes>() == null) RogueEliteAffixes.Attach(role.gameObject, role);
+            RegisterEnemy(role);
+        }
     }
 
     [PunRPC]
@@ -514,6 +540,7 @@ public partial class RoguelikeController : MonoBehaviour
                 OnObjectiveInput(cmd);
                 break;
             case "meta": MetaLoadoutCommand(cmd); break;
+            case "range": RangeCommand(cmd); break;   // free builds and spawns: refused unless the state is the shooting range
             case "overshield": machine.ReportOvershield(cmd.playerKey, cmd.value); break;   // only ever lowers the carried fraction
             case "resync": if (transport != null && senderId >= 0) transport.SendSnapshot(RogueSaveStore.ToJson(state), senderId); return;   // a (re)joining client wants the current state now
         }
@@ -540,6 +567,10 @@ public partial class RoguelikeController : MonoBehaviour
     void OnStateChanged()
     {
         if (state != null) OnPhaseSound(state.phase);
+        if (RangeActive && !leaving) { RogueRangeRuntime.Ensure(this); RangeApplyTeammateBuilds(); }   // the range's menu key and statistics; teammates' copies follow their free builds
+        // an ordinary co-op run: a teammate's copy took its build once, at spawn, and kept those numbers (magazine, fire rate, skills)
+        // through every purchase after that. The copies follow the replicated builds here too, whenever one changed.
+        else if (RoguelikeMode.Coop && !leaving) RangeApplyTeammateBuilds();
         if (state != null && sceneReady) SetupMusic();   // a new chapter or a finale changes the track
         if (state != null && state.phase == RunPhase.Combat) BuildClientWorld();
         else if (state != null && !IsAuthority && state.phase != RunPhase.Combat) DisposeEvents();
@@ -559,7 +590,9 @@ public partial class RoguelikeController : MonoBehaviour
             var rp = player.GetComponent<RoguePlayer>();
             if (rp != null)
             {
-                rp.ApplyBuild(me.build);
+                // only when the build really changed (or this character never took it): a broadcast arrives several times a second in a
+                // fight, and re-applying an unchanged build rewrote every gun model's numbers each time
+                if (!rp.HasApplied(me.build)) rp.ApplyBuild(me.build);
                 // a new stage (or a resumed run) rebuilds the shop shield from what the authority carried over
                 if (state.phase == RunPhase.Combat && overshieldStage != state.encounterCounter) { overshieldStage = state.encounterCounter; rp.RestoreOvershield(me.overshieldFraction); }
             }
@@ -622,6 +655,7 @@ public partial class RoguelikeController : MonoBehaviour
             case "dmghp": RogueDamageable.ApplyHealthEvent(e); break;
             case "evdone": ClientEventFinished(e.text); break;   // the authority settled an event or emergency: its props and prompts go on every client
             case "equip": OnEquipEvent(e); break;
+            case "range": RangeEvent(e); break;
             case "revprog":
                 if (e.playerKey == localKey && hudView != null) hudView.SetRevive((float)e.value, T("{0} is reviving you", e.text));
                 // every copy of the victim hears it (F17): the owner stops crawling and holds its bleed-out clock (QA-33); other copies mirror "being revived"
@@ -781,7 +815,18 @@ public partial class RoguelikeController : MonoBehaviour
         if (!IsAuthority || machine == null || !machine.AtCheckpointBoundary()) return;
         RecordElapsed();   // a resumed run continues from the play time saved here
         machine.MarkCheckpoint();
-        if (!RogueSaveStore.WriteCheckpoint(state, localKey)) Log(T("Checkpoint failed: {0}", RogueSaveStore.LastError));
+        if (RogueSaveStore.WriteCheckpoint(state, localKey)) return;
+        string error = RogueSaveStore.LastError;
+        // an unreadable checkpoint of an older version is in the way (a host change made this player the authority): the record
+        // layer never overwrites a file it cannot read, so it is set aside (kept on disk) and the write is tried once more
+        // (never from the shooting range: it writes nothing and touches no save file)
+        if (!RogueRange.Is(state) && RogueSaveStore.HasCheckpoint() && RogueSaveStore.ReadCheckpoint() == null && RogueSaveStore.RetireCheckpoint() && RogueSaveStore.WriteCheckpoint(state, localKey))
+        {
+            Debug.Log("FLATS_ROGUE_SAVE_RECOVERED old checkpoint set aside after: " + error);
+            return;
+        }
+        Debug.Log("FLATS_ROGUE_SAVE_FAILED_SHOWN " + error + " / " + RogueSaveStore.LastError);
+        Log(T("The checkpoint could not be saved. The run goes on; progress since the last save may be lost."));
     }
 
     /// <summary>Every exit path ends here: abilities, effects, timers and world objects are released.</summary>

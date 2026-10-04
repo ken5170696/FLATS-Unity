@@ -73,12 +73,15 @@ public partial class RoguelikeController
             foreach (var id in MetaRun.ApplyStarterMods(p, new RogueRng(seed)))
                 Notify(new RogueEventMessage { kind = "log", text = "Starter Kit: {0}|@" + RogueCatalog.Item(id).Name });
         }
+        // this player's shop was drawn before the loadout was known (run creation, or a player added at a safe node): drawn again
+        // for it, so it never offers the model in the secondary slot or a model the player owns no variant of
+        if (first && IsAuthority && machine != null && machine.ResampleShopForLoadout(p.key)) Debug.Log("FLATS_ROGUE_SHOP_RESAMPLED " + p.key + " for its loadout");
     }
 
     /// <summary>Every client at the run end: facts from the replicated state plus the owner's own tallies, rewarded once.</summary>
     void MetaRunEnded()
     {
-        if (metaRewarded || state == null || state.phase != RunPhase.Ended) return;
+        if (metaRewarded || state == null || state.phase != RunPhase.Ended || state.range) return;   // the shooting range rewards nothing
         metaRewarded = true;
         MetaNoteSeen();   // enemy roles met since the last state change
         var runtime = LocalRuntime();
@@ -181,7 +184,7 @@ public partial class RoguelikeController
     /// travel and a rejoin.</summary>
     void MetaNoteRunJoined()
     {
-        if (state == null || IsAuthority || string.IsNullOrEmpty(state.runId)) return;
+        if (state == null || IsAuthority || string.IsNullOrEmpty(state.runId) || state.range) return;   // a shooting range is not a run
         var profile = RogueMetaStore.Current;
         if (profile.pendingRunId == state.runId || MetaProfiles.AlreadyRewarded(profile, state.runId)) return;
         RogueMetaStore.NoteRunStarted(state.runId);
@@ -197,6 +200,8 @@ public partial class RoguelikeController
     /// enemy roles met since the last call go with them. The profile is saved only when an entry is new.</summary>
     void MetaNoteSeen(bool force = false)
     {
+        // the shooting range hands out everything for free: nothing met or held there enters the codex
+        if (RangeActive) { metaSeenItems.Clear(); metaSeenEnemies.Clear(); return; }
         var me = LocalPlayer;
         if (me != null && me.build != null)
         {
@@ -224,6 +229,7 @@ public partial class RoguelikeController
     /// <summary>Every client: an enemy of this role is on the field (RegisterEnemy). Written with the next state change or at the run's end.</summary>
     void MetaNoteEnemy(string roleId)
     {
+        if (RangeActive || RoguelikeMode.Range) return;   // spawned on demand in the shooting range: not a codex discovery
         if (!string.IsNullOrEmpty(roleId) && metaSeen.Add("enemy:" + roleId)) metaSeenEnemies.Add(roleId);
     }
 
@@ -231,7 +237,7 @@ public partial class RoguelikeController
     void MetaLeftEarly()
     {
         if (runStarted && state != null) MetaNoteSeen(true);   // solo and co-op: a quit run keeps its codex discoveries
-        if (metaRewarded || state == null || state.phase == RunPhase.Ended || travelling || Menu.network == 0) return;
+        if (metaRewarded || state == null || state.phase == RunPhase.Ended || travelling || Menu.network == 0 || state.range) return;   // leaving a shooting range pays nothing
         metaRewarded = true;
         var runtime = LocalRuntime();
         var copy = RogueSaveStore.FromJson<RunState>(RogueSaveStore.ToJson(state));

@@ -42,6 +42,9 @@ public sealed class RogueEnemyMelee : MonoBehaviour
     public static float ReachInterval = 1.2f, LurkInterval = 4f, ThrowInterval = 8f, DisarmedDistance = 14f;
     /// <summary>Follow-up swings of a combo start this long (s) after the previous hit, if the target is still within ComboChase reaches.</summary>
     public static float ComboGap = 0.2f, ComboChase = 1.5f;
+    /// <summary>A charging weapon (bat, shield, sledgehammer) stops this share of its reach short of the target, and never closer than
+    /// the squad's body separation: it used to run through the player, swing at the air behind and shove the player along.</summary>
+    public static float StandOffShare = 0.55f;
     /// <summary>Seconds without a hit after which flurry stacks are lost.</summary>
     public static float FlurryForgetSeconds = 2.5f;
     /// <summary>The arm lifts by RaiseDegrees during the wind-up and comes down to StrikeDegrees in SwingSeconds; the weapon swells by WindupSwell.</summary>
@@ -434,6 +437,16 @@ public sealed class RogueEnemyMelee : MonoBehaviour
         hasGoal = false;
     }
 
+    /// <summary>The point a charging weapon runs to: on the line to the target, StandOffShare of its reach short of it.</summary>
+    Vector3 StandOff(Vector3 self, Vector3 at)
+    {
+        Vector3 to = Flat(at - self);
+        float gap = to.magnitude;
+        float stop = Mathf.Max((float)RogueTacticsRules.BodySeparation + 0.3f, (float)EnemyMeleeRules.Reach(Def) * StandOffShare);
+        if (gap <= stop) return self;
+        return at - to / gap * stop;
+    }
+
     void Think()
     {
         if (ai == null || agent == null || !agent.enabled || !agent.isOnNavMesh) return;
@@ -544,6 +557,12 @@ public sealed class RogueEnemyMelee : MonoBehaviour
                 if (TryThrow(target, distance, visible)) break;
                 if (distance <= reach + EngageSlack && visible) { Enter(State.Circle); orbitFlipAt = Time.time + Random.Range(1.5f, 3f); break; }
                 Vector3 to = at;
+                if (!visible)
+                {
+                    // out of sight it runs to where the squad believes the target is (RogueSquad), and to the target itself once it is there
+                    Vector3 believed; float believedAt;
+                    if (RogueSquad.Known(target, out believed, out believedAt) && Flat(believed - self).sqrMagnitude > 36f) to = believed;
+                }
                 if (aimed && distance > ZigzagMinDistance)
                 {
                     if (Time.time >= zigzagAt) { zigzagAt = Time.time + ZigzagSeconds; zigzagSign = -zigzagSign; }
@@ -614,7 +633,8 @@ public sealed class RogueEnemyMelee : MonoBehaviour
                 Vector3 back = -Flat(target.forward); if (back.sqrMagnitude < 0.01f) back = fromTarget; back.Normalize();
                 float off = Vector3.SignedAngle(fromTarget, back, Vector3.up);
                 bool behind = Mathf.Abs(off) <= (float)MeleeRules.BackstabAngle;
-                if (inRange && ready && (behind || circling >= BackstabPatience)) { BeginSwing(target, false); return; }
+                // an operative draws its blade for one exchange: it strikes as soon as it can instead of working its way behind
+                if (inRange && ready && (behind || circling >= BackstabPatience || !Primary)) { BeginSwing(target, false); return; }
                 float step = Mathf.Clamp(off, -OrbitStepDegrees, OrbitStepDegrees);
                 Go(at + Quaternion.Euler(0f, step, 0f) * fromTarget * orbit, CircleSpeed * 1.15f);
                 return;
@@ -624,11 +644,11 @@ public sealed class RogueEnemyMelee : MonoBehaviour
             case MeleeSpecial.GroundSlam:
                 // straight at the target: the bat and the shield run it down, the sledgehammer walks in to slam range
                 if (inRange && ready) { BeginSwing(target, false); return; }
-                Go(at, Def.Special == MeleeSpecial.GroundSlam ? CircleSpeed : ApproachSpeed);
+                Go(StandOff(self, at), Def.Special == MeleeSpecial.GroundSlam ? CircleSpeed : ApproachSpeed);
                 return;
             default:
             {
-                float delay = Def.Special == MeleeSpecial.Flurry ? StickyDelay : CircleDelay;
+                float delay = !Primary ? 0f : Def.Special == MeleeSpecial.Flurry ? StickyDelay : CircleDelay;
                 if (inRange && ready && circling >= delay) { BeginSwing(target, false); return; }
                 // strafe around the target; a player's aim, a wall or a few seconds change the direction
                 if (aimed && Time.time - aimedFlipAt >= AimedFlipCooldown) { aimedFlipAt = Time.time; orbitSign = -orbitSign; }
@@ -680,7 +700,13 @@ public sealed class RogueEnemyMelee : MonoBehaviour
     {
         bool slam = EnemyMeleeRules.Slams(Def) && !throwing;
         // a bat or a shield keeps running at the target through its wind-up; every other weapon plants its feet
-        if (!throwing && (Def.Special == MeleeSpecial.Knockback || Def.Special == MeleeSpecial.Guard)) Go(target.position, LungeSpeed); else Stand();
+        if (!throwing && (Def.Special == MeleeSpecial.Knockback || Def.Special == MeleeSpecial.Guard))
+        {
+            Vector3 stop = StandOff(transform.position, target.position);
+            if (Flat(stop - transform.position).sqrMagnitude > 0.5f) Go(stop, LungeSpeed);
+            else { Stand(); if (agent != null && agent.enabled) agent.velocity = Vector3.zero; }   // in striking distance: plant the feet, the swing lands in front
+        }
+        else Stand();
         if (!lockTaken && Time.time >= strikeAt - (float)EnemyMeleeRules.LockLeadSeconds)
         {
             // the swing commits to a direction a moment before it lands: a dash or a sidestep after this gets out of it

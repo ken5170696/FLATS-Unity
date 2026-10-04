@@ -24,6 +24,7 @@ public static class FlatsLocalization
     {
         if (chineseEntries == null) throw new ArgumentNullException(nameof(chineseEntries));
         extra.Add(chineseEntries);
+        resolved.Clear();
         Changed?.Invoke();
         return new TranslationHandle(chineseEntries);
     }
@@ -34,7 +35,7 @@ public static class FlatsLocalization
         public void Dispose()
         {
             if (entries == null) return;
-            if (extra.Remove(entries)) Changed?.Invoke();
+            if (extra.Remove(entries)) { resolved.Clear(); Changed?.Invoke(); }
             entries = null;
         }
     }
@@ -101,6 +102,19 @@ public static class FlatsLocalization
         if (chinese.TryGetValue(source, out string translated)) return translated;
         foreach (var entries in extra)
             if (entries.TryGetValue(source, out translated) && !string.IsNullOrEmpty(translated)) return translated;
+        // Everything below is derived text: a line split, a label rule or a scan of every "{0}" template (several hundred regular
+        // expressions). Screens ask for the same formatted strings every frame, so the answer for a source is kept (bounded; the
+        // table and the templates never change after loading, and a module's entries clear it).
+        if (resolved.TryGetValue(source, out translated)) return translated;
+        translated = Resolve(source);
+        if (resolved.Count >= ResolvedLimit) resolved.Clear();
+        resolved[source] = translated;
+        return translated;
+    }
+    const int ResolvedLimit = 4096;
+    static readonly Dictionary<string, string> resolved = new Dictionary<string, string>(StringComparer.Ordinal);
+    static string Resolve(string source)
+    {
         if (source.IndexOf('\n') >= 0)
         {
             var lines = source.Split('\n');
@@ -126,5 +140,5 @@ public static class FlatsLocalization
         return source;
     }
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-    static void Reset() { language = null; chinese = null; templates.Clear(); extra.Clear(); chineseFont = null; Changed = null; }
+    static void Reset() { language = null; chinese = null; templates.Clear(); extra.Clear(); resolved.Clear(); chineseFont = null; Changed = null; }
 }

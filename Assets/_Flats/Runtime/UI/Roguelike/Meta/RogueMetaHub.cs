@@ -21,6 +21,9 @@ public class RogueMetaHub : MonoBehaviour
     public Image experience;
     public Button close, rename, reset;
     public Button[] presets, categories;
+    [Tooltip("Jump bar of the Records & codex page: one authored button per RogueCodex.Sections entry (labels are bound at run time).")]
+    public Button[] codexJumps;
+    [Min(0)] public float codexJumpMargin = 8;
     public InputField presetName;
     public RogueMetaCard cardTemplate;
     public RogueMetaCard infoTemplate;
@@ -479,28 +482,135 @@ public class RogueMetaHub : MonoBehaviour
         bool unlocked = heat <= Profile.heatUnlocked;
         ShowModal(RogueMetaUI.L(MetaText.Value("Heat {0}", heat)), string.Join("\n\n", lines.ToArray()) + "\n\n" + RogueMetaUI.L(MetaText.HeatReward(heat)), RogueIcons.Get("Warning"), "Select Heat", () => { if (Transact(p => MetaUiRules.SelectHeat(p, heat))) HideModal(); }, unlocked);
     }
+    /// <summary>Statistics and codex. Every list comes from the catalogue (RogueCatalog, EliteAffixes), so new items, enemy roles,
+    /// affixes and missions appear here by themselves; every card carries its explanation for the inspector (RogueMetaCodex).</summary>
+    /// <summary>Codex: an item no run offers any more is left out of the list and of the "Discovered n / m" total, so the page can
+    /// be completed; a profile that already discovered it (an older save) keeps its entry.
+    /// Local rule for now: only Team Radio is withdrawn (RogueShop never offers it). Replace with the rules core's
+    /// "can it be obtained" query once it exists.</summary>
+    static bool CodexListed(ItemDef def, string[] seenItems)
+    {
+        if (def == null) return false;
+        if (def.Id != "mod.team_radio") return true;
+        return seenItems != null && Array.IndexOf(seenItems, def.Id) >= 0;
+    }
+
     void RefreshRecords()
     {
         Begin(5); int i = 0;
-        string[] titles = { "Total runs", "Evacuations", "Squad wipes", "Deepest stage", "Total kills", "Headshots", "Melee kills", "Rescues" };
+        var seenItems = Profile.records.seenItems ?? new string[0]; var met = Profile.records.seenEnemies ?? new string[0]; var cleared = Profile.records.clearedFinales ?? new string[0];
+        var headers = new List<RogueMetaCard>();
+        Func<string, string, string, Func<string>, RogueMetaCard> header = (id, title, count, text) =>
+        {
+            var c = Card(5, i++); c.Bind("section." + id, title, "", "", "", "", count, null, null); c.SetDetail(text); headers.Add(c); return c;
+        };
+        string timeText = ((long)Profile.totalSeconds/3600).ToString("00")+":"+TimeSpan.FromSeconds(Profile.totalSeconds).ToString(@"mm\:ss");
         long[] values = { Profile.totalRuns, Profile.records.runsEvacuated, Profile.records.runsWiped, Profile.records.deepestDepth, Profile.totalKills, Profile.totalHeadshots, Profile.totalMeleeKills, Profile.totalRescues };
-        for (int j = 0; j < titles.Length; j++) Card(5, i++).Bind(titles[j], titles[j], "Lifetime record", "", "", "", RogueMetaUI.L(MetaText.Value("{0}", values[j])), RogueIcons.Get("List"), null);
-        Card(5, i++).Bind("time", "Play time", "Lifetime record", "", "", "", ((long)Profile.totalSeconds/3600).ToString("00")+":"+TimeSpan.FromSeconds(Profile.totalSeconds).ToString(@"mm\:ss"), RogueIcons.Get("Timer"), null);
-        // every list comes from the catalogue, so new cores, mods, tacticals, ultimates and enemy roles appear here by themselves
-        foreach(var kind in new[]{ItemKind.Core,ItemKind.Mod,ItemKind.Tactical,ItemKind.Ultimate}){
-            var entries=RogueCatalog.AllItems().Where(x=>x.Kind==kind).ToArray();int discovered=entries.Count(x=>Array.IndexOf(Profile.records.seenItems,x.Id)>=0);
-            Card(5,i++).Bind("section."+kind,kind==ItemKind.Mod?"Mods":kind.ToString(),"", "", "", "",RogueMetaUI.T("Discovered")+" "+discovered+" / "+entries.Length,null,null);
-            foreach(var def in entries){bool seen=Array.IndexOf(Profile.records.seenItems,def.Id)>=0;var c=Card(5,i++);c.Bind(def.Id,seen?def.Name:"Undiscovered",def.Kind.ToString(),"","",seen?"Discovered":"Not seen yet","",seen?RogueIcons.Get(RogueIcons.ForItem(def)):null,null,seen?3:0);c.SetCodex(seen,kind==ItemKind.Core?FlatsUiTheme.Token.Core:kind==ItemKind.Mod?FlatsUiTheme.Token.Mod:kind==ItemKind.Tactical?FlatsUiTheme.Token.Tactical:FlatsUiTheme.Token.Ultimate);}
+        header("records", RogueCodex.SectionTitle("records"), "", () => RogueMetaCodex.Section("records", ""));
+        for (int j = 0; j < RogueCodex.RecordIds.Length; j++)
+        {
+            string id = RogueCodex.RecordIds[j]; bool time = j >= values.Length;
+            string shown = time ? timeText : RogueMetaUI.L(MetaText.Value("{0}", values[j]));
+            var c = Card(5, i++); c.Bind(time ? "time" : id, id, "Lifetime record", "", "", "", shown, RogueIcons.Get(time ? "Timer" : "List"), null);
+            c.SetDetail(() => RogueMetaCodex.Record(id, shown, Profile));
+        }
+        foreach (var kind in RogueCodex.ItemKinds)
+        {
+            var itemKind = kind; bool tracked = kind != ItemKind.Stat;   // the profile records cores, mods, tacticals and ultimates; stat upgrades are always known
+            var entries = RogueCodex.Items(seenItems).Where(x => x.Kind == itemKind).ToArray(); int discovered = entries.Count(x => Array.IndexOf(seenItems, x.Id) >= 0);
+            string section = kind == ItemKind.Stat ? "stats" : kind == ItemKind.Core ? "cores" : kind == ItemKind.Mod ? "mods" : kind == ItemKind.Tactical ? "tacticals" : "ultimates";
+            string count = tracked ? RogueMetaUI.T("Discovered") + " " + discovered + " / " + entries.Length : entries.Length.ToString();
+            header(section, RogueCodex.SectionTitle(section), count, () => RogueMetaCodex.Section(section, count));
+            var token = kind == ItemKind.Stat ? FlatsUiTheme.Token.Stat : kind == ItemKind.Core ? FlatsUiTheme.Token.Core : kind == ItemKind.Mod ? FlatsUiTheme.Token.Mod : kind == ItemKind.Tactical ? FlatsUiTheme.Token.Tactical : FlatsUiTheme.Token.Ultimate;
+            foreach (var def in entries)
+            {
+                var item = def; bool seen = !tracked || Array.IndexOf(seenItems, def.Id) >= 0;
+                var c = Card(5, i++);
+                // an entry never seen keeps its name and kind (the player can look for it); its picture and its numbers stay hidden
+                c.Bind(def.Id, def.Name, RogueMetaCodex.KindText(def.Kind), "", "", !tracked ? RogueMetaCodex.KindText(def.Kind) : seen ? "Discovered" : "Not seen yet", "", seen ? RogueIcons.Get(RogueIcons.ForItem(def)) : null, null, seen ? 3 : 0);
+                c.SetCodex(seen, token); c.SetDetail(() => RogueMetaCodex.Item(item, seen));
+            }
         }
         {
-            // enemy roles met in a run (recorded when a role first appears on the field); the card's good line is how to fight it
-            var roles=RogueCatalog.EnemyRoles;var met=Profile.records.seenEnemies??new string[0];int known=roles.Count(x=>Array.IndexOf(met,x.Id)>=0);
-            Card(5,i++).Bind("section.enemies","Enemies","","","","",RogueMetaUI.T("Discovered")+" "+known+" / "+roles.Length,null,null);
-            foreach(var role in roles){bool seen=Array.IndexOf(met,role.Id)>=0;var c=Card(5,i++);c.Bind(role.Id,seen?role.Name:"Undiscovered","Enemy",seen?role.Brief:"","",seen?"Discovered":"Not seen yet","",seen?RogueIcons.Get(role.Marker):null,null,seen?3:0);c.SetCodex(seen,FlatsUiTheme.Token.Weapon);}
+            // enemy roles met in a run (recorded when a role first appears on the field); the card's icon is the marker the role wears in a run
+            var all = RogueCatalog.EnemyRoles; int known = all.Count(x => Array.IndexOf(met, x.Id) >= 0);
+            string count = RogueMetaUI.T("Discovered") + " " + known + " / " + all.Length;
+            header("enemies", RogueCodex.SectionTitle("enemies"), count, () => RogueMetaCodex.Section("enemies", count));
+            foreach (var def in all)
+            {
+                var role = def; bool seen = Array.IndexOf(met, def.Id) >= 0;
+                var c = Card(5, i++); c.Bind(def.Id, def.Name, "Enemy", seen ? def.Brief : "", "", seen ? "Discovered" : "Not seen yet", "", seen ? RogueIcons.Get(def.Marker) : null, null, seen ? 3 : 0);
+                c.SetCodex(seen, FlatsUiTheme.Token.Weapon); c.SetDetail(() => RogueMetaCodex.Role(role, seen));
+            }
         }
-        if (Profile.records.clearedFinales.Length > 0) Card(5, i++).Bind("section.finales", "Cleared finales", "", "", "", "", Profile.records.clearedFinales.Length.ToString(), null, null);
-        foreach (var id in Profile.records.clearedFinales) { var finale = RogueCatalog.Encounter(id); Card(5, i++).Bind(id, finale != null ? finale.Name : id, "Cleared finale", "", "", "Completed", "", RogueIcons.Get("Check"), null, 3); }
+        {
+            string count = EliteAffixes.All.Length.ToString();
+            header("elites", RogueCodex.SectionTitle("elites"), count, () => RogueMetaCodex.Section("elites", count));
+            foreach (var def in EliteAffixes.All)
+            {
+                var affix = def;
+                var c = Card(5, i++); c.Bind(def.Id, def.Name, "Elite affix", "", "", RogueMetaUI.L(RogueCodex.AffixHeat(def)), "", RogueIcons.Get(def.Icon), null, 3);
+                c.SetCodex(true, FlatsUiTheme.Token.Ink); c.SetDetail(() => RogueMetaCodex.Affix(affix));
+            }
+        }
+        foreach (var guideKind in RogueCodex.EncounterKinds)
+        {
+            var kind = guideKind; var all = RogueCodex.Encounters(kind); bool finale = kind == GuideKind.Finale;
+            string count = finale ? RogueMetaUI.T("Completed") + " " + all.Count(x => Array.IndexOf(cleared, x.Id) >= 0) + " / " + all.Length : all.Length.ToString();
+            header(RogueCodex.EncounterSectionId(kind), RogueCodex.EncounterSection(kind), count, () => RogueMetaCodex.EncounterKind(kind, count));
+            foreach (var def in all)
+            {
+                var encounter = def; bool done = finale && Array.IndexOf(cleared, def.Id) >= 0;
+                var guide = RogueEncounterGuide.For(def.Id);
+                var c = Card(5, i++); c.Bind(def.Id, def.Name, RogueEncounterGuide.KindKey(kind), "", "", !finale ? RogueEncounterGuide.KindKey(kind) : done ? "Completed" : "Not completed", "", RogueIcons.Get(guide != null ? guide.Icon : "Objective"), null, done || !finale ? 3 : 2);
+                c.SetCodex(true, finale ? FlatsUiTheme.Token.Ultimate : kind == GuideKind.Emergency ? FlatsUiTheme.Token.BrandPrimary : kind == GuideKind.Event ? FlatsUiTheme.Token.Tactical : FlatsUiTheme.Token.Ink);
+                c.SetDetail(() => RogueMetaCodex.Encounter(encounter));
+            }
+        }
+        // the action of a section header goes on to the next section, so a pad or a keyboard can cross the whole page in a dozen presses
+        for (int h = 0; h < headers.Count; h++) { var next = headers[(h + 1) % headers.Count]; headers[h].SetAction("Next section", () => JumpToCard(next, true)); }
+        if (codexJumps != null)
+            for (int j = 0; j < codexJumps.Length; j++)
+            {
+                if (codexJumps[j] == null) continue;
+                bool used = j < RogueCodex.Sections.Length; codexJumps[j].gameObject.SetActive(used);
+                if (!used) continue;
+                string section = RogueCodex.Sections[j];
+                RogueMetaUI.Bind(codexJumps[j], RogueMetaCodex.SectionChip(section), () => JumpToCodex(section));
+            }
         content[5].GetComponent<RogueMetaLayout>().Invalidate();
+    }
+    /// <summary>Jump bar of the codex: focus moves to the first entry of the section and the header of the section scrolls to the top.</summary>
+    public void JumpToCodex(string section)
+    {
+        List<RogueMetaCard> list;
+        if (CurrentPage != 5 || !pools.TryGetValue(5, out list)) return;
+        var header = list.FirstOrDefault(c => c.gameObject.activeSelf && c.Id == "section." + section);
+        if (header != null) JumpToCard(header, false);
+    }
+    /// <summary>onHeader: focus stays on the section header (its action walks on, section by section); otherwise on its first entry.</summary>
+    void JumpToCard(RogueMetaCard header, bool onHeader)
+    {
+        var list = pools[5]; int at = list.IndexOf(header);
+        var first = !onHeader && at >= 0 && at + 1 < list.Count && list[at + 1].gameObject.activeSelf && !list[at + 1].IsSection ? list[at + 1] : header;
+        Focus(first.action.gameObject);
+        if (hq != null && hq.SelectedCard != first) hq.SelectCard(first);   // without an event system selection (a tap), inspect it directly
+        if (jumpRoutine != null) StopCoroutine(jumpRoutine);
+        jumpRoutine = StartCoroutine(RevealHeader(header));
+    }
+    Coroutine jumpRoutine;
+    System.Collections.IEnumerator RevealHeader(RogueMetaCard header)
+    {
+        // the inspector opening narrows the page and the cards are laid out again in the next LateUpdate: scroll after that
+        yield return null; yield return null;
+        jumpRoutine = null;
+        if (header == null || CurrentPage != 5) yield break;
+        var scroll = content[5].GetComponentInParent<ScrollRect>();
+        if (scroll == null || scroll.viewport == null) yield break;
+        Canvas.ForceUpdateCanvases();
+        float top = -((RectTransform)header.transform).anchoredPosition.y, room = Mathf.Max(0, content[5].rect.height - scroll.viewport.rect.height);
+        scroll.StopMovement();
+        content[5].anchoredPosition = new Vector2(content[5].anchoredPosition.x, Mathf.Clamp(top - codexJumpMargin, 0, room));
     }
     static readonly string[] tutorialKeys = { "hub", "points", "unlock" };
     static readonly string[] tutorialTitles = { "Welcome to headquarters", "Spend your skill points", "Your new equipment" };

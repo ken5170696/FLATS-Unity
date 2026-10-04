@@ -111,6 +111,7 @@ public partial class Menu
     void LoadRoguelikeCheckpoint()
     {
         RoguelikeMode.PendingResume = null;
+        RoguelikeMode.SoloRange = false;   // like PendingResume: nothing of an earlier launch survives entering the page
         bool exists = RogueSaveStore.HasCheckpoint();
         roguelikeCheckpoint = exists ? RogueSaveStore.ReadCheckpoint() : null;
         roguelikeCheckpointError = exists && roguelikeCheckpoint == null ? RogueSaveStore.LastError : null;
@@ -188,6 +189,7 @@ public partial class Menu
             play = () => StartCoroutine(PlayFromHeadquarters()),
             closeLabel = "Back to menu",
         }, afterRun);
+        AttachRangeEntry(hub);   // the shooting range's entrance on the home page (Menu.RogueRange)
     }
 
     /// <summary>The launch's difficulty with the Heat the launch will use (the selected Heat, never above the unlocked one).</summary>
@@ -294,18 +296,14 @@ public partial class Menu
                T(RoguelikeMode.DifficultyNames[3]) + ": " + T(RoguelikeMode.DifficultyBriefs[3]);
     }
 
-    /// <summary>Why Continue is unavailable, in words a player can act on; the technical reason stays on the last line.</summary>
+    /// <summary>Why Continue is unavailable, in words a player can act on; the technical reason goes to the log.</summary>
     static string CheckpointProblemText(string error)
     {
         bool version = error.Contains("rules version") || error.Contains("newer") || error.Contains("schema");
-        // only the first clause of the technical reason: the record layer appends local file paths, which mean nothing to a player
-        string detail = error;
-        int cut = detail.IndexOfAny(new[] { ';', '\n' }); if (cut > 0) detail = detail.Substring(0, cut);
-        cut = detail.IndexOf(". "); if (cut > 0) detail = detail.Substring(0, cut);
-        if (detail.Contains(":\\") || detail.Contains(":/")) detail = "";
-        if (detail.Length > 90) detail = detail.Substring(0, 90) + "...";
+        // the technical reason is English and means nothing to a player: it goes to the log only
+        Debug.Log("FLATS_ROGUE_CHECKPOINT_UNUSABLE " + error);
         return FlatsLocalization.Translate(version ? "This run was saved by a different version of the game and cannot be continued." : "The saved run is damaged and cannot be continued.") + "\n" +
-               FlatsLocalization.Translate("Start Run sets it aside (the file is kept) and begins a new run.") + (detail != "" ? "\n\n(" + detail + ")" : "");
+               FlatsLocalization.Translate("Start Run sets it aside (the file is kept) and begins a new run.");
     }
 
     IEnumerator LaunchRoguelike(RunSaveDocument resume)
@@ -337,6 +335,7 @@ public partial class Menu
         network = 0;
         Singleplayer.ResetSharedMatchState();
         RoguelikeMode.PendingResume = resume;
+        RoguelikeMode.SoloRange = false;   // an ordinary run, never the shooting range
         RoguelikeMode.SoloMap = buildIndex - 2;
         gameState = "Singleplayer";
         Debug.Log("FLATS_ROGUE_LAUNCH difficulty=" + RoguelikeMode.Difficulty + " map=" + buildIndex + " resume=" + (resume != null));

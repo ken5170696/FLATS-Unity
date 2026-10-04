@@ -144,7 +144,11 @@ public class RogueScreenView : MonoBehaviour
     {
         if (buildRoot == null || buildContent == null || buildTemplate == null || build == null) return;
         buildHeading.text = RoguelikeController.T("Current equipment");
-        buildSlots.text = RoguelikeController.T("Cores {0}/{1}", build.cores.Length, Flats.Core.Roguelike.RogueCatalog.MaxCores) + " · " + RoguelikeController.T("Mods {0}/{1}", build.mods.Length, Flats.Core.Roguelike.RogueCatalog.MaxMods);
+        // the shooting range has no slot limit: only the counts
+        bool unlimited = RoguelikeController.Instance != null && RoguelikeController.Instance.RangeActive;
+        buildSlots.text = unlimited
+            ? RoguelikeController.T("Cores") + " " + build.cores.Length + " · " + RoguelikeController.T("Mods") + " " + build.mods.Length
+            : RoguelikeController.T("Cores {0}/{1}", build.cores.Length, Flats.Core.Roguelike.RogueCatalog.MaxCores) + " · " + RoguelikeController.T("Mods {0}/{1}", build.mods.Length, Flats.Core.Roguelike.RogueCatalog.MaxMods);
         for (int i = buildContent.childCount - 1; i >= 0; i--) { var child = buildContent.GetChild(i).gameObject; child.SetActive(false); Destroy(child); }
         var ids = new List<string>(build.cores); ids.AddRange(build.mods);
         if (!string.IsNullOrEmpty(build.tactical)) ids.Add(build.tactical);

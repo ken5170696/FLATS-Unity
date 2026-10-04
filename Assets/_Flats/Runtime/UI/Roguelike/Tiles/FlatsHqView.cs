@@ -39,6 +39,11 @@ public sealed class FlatsHqView : MonoBehaviour
     public float desktopSideMargin=80;
     [Tooltip("Widest the page's secondary action (reset skills, rename, equip as secondary) grows in the bottom bar.")]
     public float auxiliaryWidth=420;
+    [Tooltip("Records & codex: its entries are long texts, so the inspector is wider there (and takes at most this share of the frame).")]
+    public float codexInspectorWidth=600;
+    [Range(.2f,.6f)] public float codexInspectorShare=.42f;
+    [Tooltip("Portrait: height of the inline inspector under a selected codex card (its text scrolls inside).")]
+    public float portraitCodexDetailHeight=640;
     public float portraitWeaponDetailHeight=720;
     public float portraitHeaderHeight=176, portraitBarHeight=144, portraitDetailHeight=280;
     public int ReturnPage { get; private set; } = -1;
@@ -57,6 +62,39 @@ public sealed class FlatsHqView : MonoBehaviour
         inspectorScroll.verticalNormalizedPosition=Mathf.Clamp01(inspectorScroll.verticalNormalizedPosition+delta);
     }
     RogueMetaCard selectedCard;
+    string inspectedId;
+    /// <summary>A newly selected entry starts at its first line; a refresh of the same entry keeps the reader's place.</summary>
+    void ScrollInspectorToTop()
+    {
+        if(inspectorScroll==null)inspectorScroll=inspector.GetComponentInChildren<ScrollRect>(true);
+        if(inspectorScroll!=null){inspectorScroll.StopMovement();inspectorScroll.verticalNormalizedPosition=1;}
+    }
+    [Tooltip("Records & codex: the picture of an entry sits at the top right at this size and the text starts this far below the top edge, so a long entry has room. Other pages keep the authored inspector layout.")]
+    public float codexIconSize=72, codexBodyTop=136;
+    bool inspectorAuthored;
+    Vector2 iconMin,iconMax,iconPivot,iconPosition,iconSize;
+    float bodyTop,titleWidth,stateWidth;
+    /// <summary>The inspector's header: authored for a weapon silhouette over a short text; compact on the codex page.</summary>
+    void ArrangeInspector()
+    {
+        if(inspectorScroll==null)inspectorScroll=inspector.GetComponentInChildren<ScrollRect>(true);
+        if(inspectorScroll==null||detailIcon==null||detailTitle==null)return;
+        var icon=detailIcon.rectTransform;var text=(RectTransform)inspectorScroll.transform;var title=detailTitle.rectTransform;var state=detailState!=null?detailState.rectTransform:null;
+        if(!inspectorAuthored){inspectorAuthored=true;iconMin=icon.anchorMin;iconMax=icon.anchorMax;iconPivot=icon.pivot;iconPosition=icon.anchoredPosition;iconSize=icon.sizeDelta;bodyTop=text.offsetMax.y;titleWidth=title.sizeDelta.x;stateWidth=state!=null?state.sizeDelta.x:0;}
+        if(hub.CurrentPage==5)
+        {
+            float room=Mathf.Max(120,((RectTransform)inspector.transform).rect.width-title.anchoredPosition.x*2-codexIconSize-12);
+            icon.anchorMin=icon.anchorMax=icon.pivot=Vector2.one;icon.anchoredPosition=new Vector2(-title.anchoredPosition.x,title.anchoredPosition.y);icon.sizeDelta=new Vector2(codexIconSize,codexIconSize);
+            text.offsetMax=new Vector2(text.offsetMax.x,-codexBodyTop);
+            title.sizeDelta=new Vector2(room,title.sizeDelta.y);if(state!=null)state.sizeDelta=new Vector2(room,state.sizeDelta.y);
+        }
+        else
+        {
+            icon.anchorMin=iconMin;icon.anchorMax=iconMax;icon.pivot=iconPivot;icon.anchoredPosition=iconPosition;icon.sizeDelta=iconSize;
+            text.offsetMax=new Vector2(text.offsetMax.x,bodyTop);
+            title.sizeDelta=new Vector2(titleWidth,title.sizeDelta.y);if(state!=null)state.sizeDelta=new Vector2(stateWidth,state.sizeDelta.y);
+        }
+    }
     RogueMetaLayout inlineLayout;
     Action primaryAction;
     Vector2 lastSize;
@@ -160,7 +198,10 @@ public sealed class FlatsHqView : MonoBehaviour
         detailBody.text=string.Join("\n\n",new[]{card.subtitle.text,card.positive.text,card.negative.text}.Where(x=>!string.IsNullOrEmpty(x)).ToArray());
         if(detailState!=null)detailState.text=card.status.text;
         detailIcon.sprite=card.icon.sprite; detailIcon.enabled=detailIcon.sprite!=null;
-        if(hub.CurrentPage==5&&!card.IsSection&&!RogueCatalog.AllItems().Any(x=>x.Id==card.Id)&&RogueCatalog.Role(card.Id)==null){detailIcon.enabled=false;detailBody.text="<size=56>"+card.amount.text+"</size>\n\n"+RogueMetaUI.T("Deepest stage")+"  "+hub.Profile.records.deepestDepth+"\n"+RogueMetaUI.T("Total kills")+"  "+hub.Profile.totalKills+"\n"+RogueMetaUI.T("Evacuations")+"  "+hub.Profile.records.runsEvacuated+"\n\n"+card.subtitle.text;}
+        // a codex or statistics card brings its own explanation (RogueMetaCodex), built now that it is selected
+        string own=card.Detail;
+        bool entryChanged=inspectedId!=card.Id;inspectedId=card.Id;
+        if(own!=null){detailBody.text=own;if(card.icon.sprite==null||card.HideDetailIcon)detailIcon.enabled=false;if(entryChanged)ScrollInspectorToTop();}
         var weapon=RogueArmory.Weapon(card.Id);var melee=RogueArmory.MeleeWeapon(card.Id);
         weaponStats.SetActive(weapon!=null||melee!=null);
         if(weapon!=null||melee!=null)
@@ -234,12 +275,14 @@ public sealed class FlatsHqView : MonoBehaviour
         wr.anchorMin=new Vector2(0,1);wr.anchorMax=Vector2.one;wr.pivot=new Vector2(.5f,1);
         wr.anchoredPosition=Vector2.zero;wr.sizeDelta=new Vector2(0,portrait?(hub.Profile!=null&&hub.Profile.totalRuns==0?wall.portraitHero+wall.gap+wall.introHeight:wall.portraitHero+7*(wall.portraitRow+wall.gap)):available);
         bool inspect=inspector.activeSelf&&!Home&&hub.CurrentPage!=1;
-        float dw=inspect&&!portrait?Mathf.Min(inspectorWidth,w*.32f):0;
+        bool codex=hub.CurrentPage==5;
+        float dw=inspect&&!portrait?Mathf.Min(codex?codexInspectorWidth:inspectorWidth,w*(codex?codexInspectorShare:.32f)):0;
         foreach(var page in hub.pages) Place((RectTransform)page.transform,0,0,portrait||dw==0?w:w-dw-gap,available);
         var targetInline=portrait&&inspect&&selectedCard!=null?hub.content[hub.CurrentPage].GetComponent<RogueMetaLayout>():null;
         if(inlineLayout!=null&&inlineLayout!=targetInline){inlineLayout.SetInline(null,null,0);inlineLayout=null;detail.SetParent(body,false);}
-        if(targetInline!=null){inlineLayout=targetInline;detail.SetParent(inlineLayout.grid.transform,false);inlineLayout.SetInline(selectedCard,detail,weaponStats.activeSelf?portraitWeaponDetailHeight:Mathf.Max(480,portraitDetailHeight));RogueMetaFocus.Reveal(selectedCard.action.transform);}
+        if(targetInline!=null){inlineLayout=targetInline;detail.SetParent(inlineLayout.grid.transform,false);inlineLayout.SetInline(selectedCard,detail,weaponStats.activeSelf?portraitWeaponDetailHeight:codex&&!selectedCard.IsSection?portraitCodexDetailHeight:Mathf.Max(480,portraitDetailHeight));RogueMetaFocus.Reveal(selectedCard.action.transform);}
         else Place(detail,portrait?0:w-dw,portrait?available-portraitDetailHeight:0,portrait?w:dw,portrait?portraitDetailHeight:available);
+        ArrangeInspector();
         // The shared asset is unchanged; this instance has headquarters actions.
         actions.enabled=false;
         float primaryWidth=portrait?w:Mathf.Min(520,w*.38f),backWidth=portrait?w*.48f:Mathf.Min(340,w*.25f);

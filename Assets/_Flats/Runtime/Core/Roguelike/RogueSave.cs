@@ -96,6 +96,9 @@ namespace Flats.Core.Roguelike
             if (run.depth < 1 || run.depth > RogueDepth.MaxDepth) errors.Add("depth out of range");
             if (run.difficulty < 1 || run.difficulty > RogueDepth.MaxDifficulty) errors.Add("difficulty out of range");
             if (run.phase != RunPhase.Prep && run.phase != RunPhase.ChapterEnd) errors.Add("checkpoint is not at a safe boundary");
+            // the shooting range is never saved (RunMachine.AtCheckpointBoundary): a file that carries the flag is refused whatever
+            // its phase, or the resumed run could not be lost (PlayerDowned, TeamWiped and Wipe do nothing in a range)
+            if (run.range || run.rangeFlags != 0) errors.Add("the shooting range is not a checkpoint");
             if (run.players == null || run.players.Length == 0 || run.players.Length > 4) errors.Add("player count out of range");
             if (RogueCatalog.Map(run.mapId) == null) errors.Add("unknown map " + run.mapId);
             // collections the run machine dereferences without null checks: a checksum-valid but truncated file must be refused here,
